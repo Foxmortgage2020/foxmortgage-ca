@@ -1,13 +1,12 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-const isPortalRoute = createRouteMatcher(['/portal/(.*)'])
-
-export default clerkMiddleware(async (auth, req) => {
-  if (isPortalRoute(req)) {
-    await auth.protect()
-  }
-})
+export function middleware(request: NextRequest) {
+  // Portal auth middleware — currently passthrough
+  // TODO: Replace with Clerk auth when keys are configured
+  return NextResponse.next()
+}
 
 export const config = {
-  matcher: ['/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)', '/(api|trpc)(.*)'],
+  matcher: ['/portal/:path*'],
 }
