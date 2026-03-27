@@ -43,6 +43,9 @@ export default function Nav() {
             <Link href="/contact" className="font-body text-sm font-medium text-navy hover:text-lime transition-colors">
               Contact
             </Link>
+            <Link href="/private-lending" className="font-body text-sm font-medium text-navy hover:text-lime transition-colors">
+              Private Lending
+            </Link>
           </div>
 
           {/* CTA */}
@@ -77,6 +80,7 @@ export default function Nav() {
             { href: '/services', label: 'Services' },
             { href: '/smm', label: 'Monitoring' },
             { href: '/contact', label: 'Contact' },
+            { href: '/private-lending', label: 'Private Lending' },
           ].map(({ href, label }) => (
             <Link
               key={href}
