@@ -51,6 +51,12 @@ export default function Nav() {
           {/* CTA */}
           <div className="hidden md:flex items-center space-x-3">
             <Link
+              href="/portal/sign-in"
+              className="border border-navy text-navy font-heading font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-navy hover:text-white transition-colors"
+            >
+              Partner Portal
+            </Link>
+            <Link
               href="/smm"
               className="bg-lime text-navy font-heading font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-lime-dark transition-colors"
             >
@@ -81,6 +87,7 @@ export default function Nav() {
             { href: '/smm', label: 'Monitoring' },
             { href: '/contact', label: 'Contact' },
             { href: '/private-lending', label: 'Private Lending' },
+            { href: '/portal/sign-in', label: 'Partner Portal' },
           ].map(({ href, label }) => (
             <Link
               key={href}
