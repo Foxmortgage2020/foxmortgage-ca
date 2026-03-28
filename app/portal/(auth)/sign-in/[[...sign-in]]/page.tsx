@@ -110,6 +110,7 @@ export default function SignInPage() {
               socialButtonsBlockButton: 'border border-gray-200',
               formButtonPrimary: 'bg-lime hover:bg-lime-dark text-navy font-heading font-bold',
               footerActionLink: 'text-navy font-semibold',
+              footer: 'hidden',
             }
           }}
           redirectUrl="/portal/dashboard"

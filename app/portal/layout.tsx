@@ -45,6 +45,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const { signOut } = useClerk()
 
+  // Sign-in page renders without sidebar
+  if (pathname?.includes('/portal/sign-in')) {
+    return <>{children}</>
+  }
+
   const pageTitle = pageTitles[pathname] || (pathname.startsWith('/portal/clients/') ? 'Client File' : 'Portal')
   const roleBadge = MOCK_USER.role === 'financial-planner' ? 'Financial Planner' : 'Realtor Partner'
 
