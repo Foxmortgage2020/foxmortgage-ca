@@ -1,6 +1,6 @@
 'use client'
 
-import { useClerk } from '@clerk/nextjs'
+import { useClerk, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -19,17 +19,6 @@ import {
   FileText,
   User,
 } from 'lucide-react'
-
-// Mock user — will be replaced by Clerk useUser() hook later
-// Change roles to test different experiences:
-// ['admin'] = sees all portals
-// ['realtor'] = sees Partner Portal only
-// ['investor'] = sees Investor Portal only
-// ['realtor', 'investor'] = sees both with switcher
-const MOCK_USER_ROLES = ['admin']
-
-const MOCK_PARTNER = { name: 'John Smith', firm: 'Smith Financial Planning', role: 'financial-planner' as const }
-const MOCK_INVESTOR = { name: 'Michael Fox', initials: 'MF' }
 
 const partnerNavItems = [
   { label: 'Dashboard', href: '/portal/dashboard', icon: LayoutDashboard },
@@ -81,17 +70,22 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const router = useRouter()
   const { signOut } = useClerk()
+  const { user } = useUser()
 
   // Sign-in page and redirect hub render without sidebar
   if (pathname?.includes('/portal/sign-in') || pathname === '/portal') {
     return <>{children}</>
   }
 
+  // Derive roles from Clerk user metadata
+  const metadata = user?.publicMetadata as { roles?: string[]; role?: string } | undefined
+  const userRoles = metadata?.roles || (metadata?.role ? [metadata.role] : [])
+
   const isInvestorPortal = pathname?.startsWith('/portal/investor')
   const isAdminPortal = pathname?.startsWith('/portal/admin')
-  const isAdmin = MOCK_USER_ROLES.includes('admin')
+  const isAdmin = userRoles.includes('admin')
 
-  // Determine nav items based on current portal
+  // Determine nav items based on current portal route
   let navItems = partnerNavItems
   if (isAdminPortal) navItems = adminNavItems
   else if (isInvestorPortal) navItems = investorNavItems
@@ -109,17 +103,28 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     if (pathname.startsWith('/portal/clients/')) pageTitle = 'Client File'
   }
 
-  // User display
-  const userName = isInvestorPortal ? MOCK_INVESTOR.name : MOCK_PARTNER.name
-  const userInitials = isInvestorPortal ? MOCK_INVESTOR.initials : MOCK_PARTNER.name.split(' ').map(n => n[0]).join('')
-  const roleBadge = isAdminPortal ? 'Admin' : isInvestorPortal ? 'Private Investor' : (MOCK_PARTNER.role === 'financial-planner' ? 'Financial Planner' : 'Realtor Partner')
+  // User display — from Clerk user object
+  const userName = user?.fullName || user?.firstName || 'Partner User'
+  const userInitials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 
-  // Switcher visibility
-  const showSwitcher = MOCK_USER_ROLES.includes('admin') ||
-    (MOCK_USER_ROLES.includes('realtor') && MOCK_USER_ROLES.includes('investor')) ||
-    (MOCK_USER_ROLES.includes('financial-planner') && MOCK_USER_ROLES.includes('investor'))
+  // Role badge
+  const roleLabel = isAdminPortal
+    ? 'Admin'
+    : isInvestorPortal
+      ? 'Private Investor'
+      : userRoles.includes('financial-planner')
+        ? 'Financial Planner'
+        : userRoles.includes('investor') && !userRoles.includes('realtor')
+          ? 'Private Investor'
+          : 'Realtor Partner'
 
-  // Admin banner visibility
+  // Switcher visibility — admin or multi-role users
+  const showSwitcher =
+    isAdmin ||
+    (userRoles.includes('realtor') && userRoles.includes('investor')) ||
+    (userRoles.includes('financial-planner') && userRoles.includes('investor'))
+
+  // Admin banner when viewing sub-portals
   const showAdminBanner = isAdmin && !isAdminPortal
 
   return (
@@ -135,8 +140,12 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
-            const isBase = item.href === '/portal/dashboard' || item.href === '/portal/investor/dashboard' || item.href === '/portal/admin'
-            const active = pathname === item.href || (!isBase && pathname.startsWith(item.href + '/'))
+            const isBase =
+              item.href === '/portal/dashboard' ||
+              item.href === '/portal/investor/dashboard' ||
+              item.href === '/portal/admin'
+            const active =
+              pathname === item.href || (!isBase && pathname.startsWith(item.href + '/'))
             return (
               <Link
                 key={item.href}
@@ -154,7 +163,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {/* Admin portal switcher in sidebar */}
           {isAdminPortal && (
             <div className="border-t border-white/10 pt-3 mt-3">
-              <p className="text-gray-500 text-xs uppercase tracking-wider px-4 mb-2 font-body">Switch to Portal</p>
+              <p className="text-gray-500 text-xs uppercase tracking-wider px-4 mb-2 font-body">
+                Switch to Portal
+              </p>
               <button
                 onClick={() => router.push('/portal/dashboard')}
                 className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
@@ -193,7 +204,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-white truncate">{userName}</div>
-              <div className="text-[10px] bg-lime/20 text-lime px-2 py-0.5 rounded-full inline-block mt-0.5">{roleBadge}</div>
+              <div className="text-[10px] bg-lime/20 text-lime px-2 py-0.5 rounded-full inline-block mt-0.5">
+                {roleLabel}
+              </div>
             </div>
           </div>
           <button
@@ -228,7 +241,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <button
                 onClick={() => router.push('/portal/dashboard')}
                 className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
-                  !isInvestorPortal && !isAdminPortal ? 'bg-lime text-navy shadow-sm' : 'text-gray-500 hover:text-navy'
+                  !isInvestorPortal && !isAdminPortal
+                    ? 'bg-lime text-navy shadow-sm'
+                    : 'text-gray-500 hover:text-navy'
                 }`}
               >
                 Partner
@@ -273,9 +288,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         )}
 
         {/* Page content */}
-        <main className="flex-1 p-8">
-          {children}
-        </main>
+        <main className="flex-1 p-8">{children}</main>
       </div>
     </div>
   )

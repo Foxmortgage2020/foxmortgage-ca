@@ -16,22 +16,40 @@ export default function PortalRedirect() {
       return
     }
 
-    const roles = user.publicMetadata?.roles as string[] || []
-    const role = user.publicMetadata?.role as string
+    const metadata = user.publicMetadata as {
+      roles?: string[]
+      role?: string
+      zoho_partner_id?: string
+    }
 
-    // Admin always goes to admin dashboard first
-    if (role === 'admin' || roles.includes('admin')) {
+    const roles = metadata?.roles || []
+    const role = metadata?.role || ''
+
+    console.log('Portal redirect — roles:', roles, 'role:', role, 'metadata:', metadata)
+
+    // Admin always goes to admin dashboard
+    if (roles.includes('admin') || role === 'admin') {
       router.push('/portal/admin')
       return
     }
 
-    // Investor only
-    if (roles.length === 1 && roles.includes('investor')) {
+    // Investor only (not also a partner)
+    if (
+      roles.includes('investor') &&
+      !roles.includes('realtor') &&
+      !roles.includes('financial-planner')
+    ) {
       router.push('/portal/investor/dashboard')
       return
     }
 
-    // Default: realtor, financial planner, or multi-role
+    // Multi-role with investor — default to partner, switcher handles the rest
+    if (roles.includes('investor')) {
+      router.push('/portal/dashboard')
+      return
+    }
+
+    // Default: realtor, financial planner, or anything else
     router.push('/portal/dashboard')
   }, [isLoaded, user, router])
 
