@@ -53,7 +53,7 @@ export default function SignInPage() {
       <div className="w-full md:w-[60%] bg-white flex flex-col justify-center p-12">
         <h2 className="font-heading text-navy text-2xl font-bold mb-2">Sign In</h2>
         <p className="text-gray-500 font-body text-sm mb-8">
-          Access your Fox Mortgage partner dashboard
+          Enter your credentials to access your Fox Mortgage portal.
         </p>
 
         {/* Clerk SignIn */}
