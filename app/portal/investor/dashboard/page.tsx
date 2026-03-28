@@ -1,45 +1,33 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Search, Download, MessageSquare, TrendingUp, DollarSign, Percent, Wallet } from 'lucide-react';
 
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
+
 export default function InvestorDashboard() {
-  const stats = [
-    { icon: DollarSign, value: '$750,000', label: 'Total Deployed', sub: 'Across 2 active positions' },
-    { icon: TrendingUp, value: '$52,500', label: 'Interest Earned YTD', sub: '10.5% annualized avg' },
-    { icon: Percent, value: '10.5%', label: 'Weighted Avg Return', sub: 'Across portfolio' },
-    { icon: Wallet, value: '$0', label: 'Available to Deploy', sub: 'All capital invested' },
-  ];
+  const router = useRouter();
+  const [positions, setPositions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [setupRequired, setSetupRequired] = useState(false);
 
-  const positions = [
-    {
-      id: '1',
-      property: '142 Wellington St, Kitchener',
-      position: '1st',
-      invested: '$500,000',
-      rate: '10.5%',
-      monthly: '$4,375',
-      maturity: 'Dec 2026',
-      status: 'Active',
-    },
-    {
-      id: '2',
-      property: '88 King St, Guelph',
-      position: '2nd',
-      invested: '$250,000',
-      rate: '13.0%',
-      monthly: '$2,708',
-      maturity: 'Jun 2026',
-      status: 'Active',
-    },
-  ];
-
-  const payments = [
-    { date: 'Apr 1', property: '142 Wellington', amount: '$4,375', status: 'Scheduled', color: 'blue' },
-    { date: 'Apr 1', property: '88 King', amount: '$2,708', status: 'Scheduled', color: 'blue' },
-    { date: 'May 1', property: '142 Wellington', amount: '$4,375', status: 'Upcoming', color: 'gray' },
-    { date: 'May 1', property: '88 King', amount: '$2,708', status: 'Upcoming', color: 'gray' },
-  ];
+  useEffect(() => {
+    fetch('/api/portal/investor/positions')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.setup_required) {
+          setSetupRequired(true);
+        } else {
+          setPositions(data.positions ?? data ?? []);
+        }
+      })
+      .catch((err) => setError(err.message ?? 'Failed to load portfolio'))
+      .finally(() => setLoading(false));
+  }, []);
 
   const quickActions = [
     { icon: Search, label: 'Browse Opportunities', href: '/portal/investor/opportunities' },
@@ -47,17 +35,94 @@ export default function InvestorDashboard() {
     { icon: MessageSquare, label: 'Contact Support', href: '/portal/investor/support' },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24">
+        <div className="w-8 h-8 border-4 border-lime border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="font-body text-gray-500">Loading your portfolio...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <h2 className="font-heading text-navy text-lg mb-2">Something went wrong</h2>
+        <p className="font-body text-gray-600">{error}</p>
+      </div>
+    );
+  }
+
+  if (setupRequired) {
+    return (
+      <div className="bg-lime/10 border border-lime/30 rounded-xl p-6 text-center">
+        <h2 className="font-heading text-navy text-lg mb-2">Portfolio Setup Pending</h2>
+        <p className="font-body text-gray-600">
+          Your investor profile is being configured. Contact Michael at{' '}
+          <a href="mailto:mfox@foxmortgage.ca" className="text-lime font-semibold hover:underline">
+            mfox@foxmortgage.ca
+          </a>{' '}
+          to complete setup.
+        </p>
+      </div>
+    );
+  }
+
+  // Computed stats
+  const totalDeployed = positions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0);
+  const monthsThisYear = new Date().getMonth() + 1;
+  const interestEarnedYTD = positions.reduce(
+    (sum, p) => sum + ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0) / 100) * (monthsThisYear / 12),
+    0
+  );
+  const weightedAvgReturn =
+    positions.length > 0
+      ? positions.reduce((sum, p) => sum + (Number(p.Investor_Rate) || 0), 0) / positions.length
+      : 0;
+  const activeCount = positions.length;
+
+  const stats = [
+    { icon: DollarSign, value: formatCurrency(totalDeployed), label: 'Total Deployed', sub: `Across ${activeCount} active position${activeCount !== 1 ? 's' : ''}` },
+    { icon: TrendingUp, value: formatCurrency(interestEarnedYTD), label: 'Interest Earned YTD', sub: `${weightedAvgReturn.toFixed(1)}% annualized avg` },
+    { icon: Percent, value: `${weightedAvgReturn.toFixed(1)}%`, label: 'Weighted Avg Return', sub: 'Across portfolio' },
+    { icon: Wallet, value: activeCount.toString(), label: 'Active Positions', sub: 'Current investments' },
+  ];
+
+  // Upcoming payments — next 1st of month for each position
+  const now = new Date();
+  const nextFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const followingFirst = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+  const formatMonthDay = (d: Date) =>
+    d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+
+  const payments = positions.flatMap((p) => {
+    const monthlyInterest = ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0)) / 100 / 12;
+    const street = p.Street ?? p.address ?? 'Property';
+    return [
+      { date: formatMonthDay(nextFirst), property: street, amount: formatCurrency(monthlyInterest), status: 'Scheduled', color: 'blue' },
+      { date: formatMonthDay(followingFirst), property: street, amount: formatCurrency(monthlyInterest), status: 'Upcoming', color: 'gray' },
+    ];
+  });
+
+  // Next payment total for welcome bar
+  const totalMonthly = positions.reduce(
+    (sum, p) => sum + ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0)) / 100 / 12,
+    0
+  );
+
   return (
     <div>
       {/* Welcome Bar */}
       <div className="bg-lime/10 border border-lime/30 rounded-xl p-4 mb-6 flex items-center justify-between">
         <div>
-          <h2 className="font-heading text-navy text-lg">Welcome back, Michael</h2>
-          <p className="text-gray-500 text-sm">Private Investor · Fox Mortgage Portal</p>
+          <h2 className="font-heading text-navy text-lg">Welcome back</h2>
+          <p className="text-gray-500 text-sm font-body">Private Investor · Fox Mortgage Portal</p>
         </div>
-        <div className="text-lime font-semibold text-sm">
-          Next Payment: April 1, 2026 · $7,083
-        </div>
+        {positions.length > 0 && (
+          <div className="text-lime font-semibold text-sm font-body">
+            Next Payment: {formatMonthDay(nextFirst)}, {nextFirst.getFullYear()} · {formatCurrency(totalMonthly)}
+          </div>
+        )}
       </div>
 
       {/* Portfolio Summary */}
@@ -66,8 +131,8 @@ export default function InvestorDashboard() {
           <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-6">
             <stat.icon className="w-5 h-5 text-lime mb-2" />
             <p className="font-heading text-2xl text-navy">{stat.value}</p>
-            <p className="text-gray-500 text-sm">{stat.label}</p>
-            <p className="text-gray-400 text-xs mt-1">{stat.sub}</p>
+            <p className="text-gray-500 text-sm font-body">{stat.label}</p>
+            <p className="text-gray-400 text-xs mt-1 font-body">{stat.sub}</p>
           </div>
         ))}
       </div>
@@ -80,72 +145,85 @@ export default function InvestorDashboard() {
             View All →
           </Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-gray-500 text-xs uppercase tracking-wider">
-                <th className="text-left py-3 font-medium">Property</th>
-                <th className="text-left py-3 font-medium">Position</th>
-                <th className="text-left py-3 font-medium">Invested</th>
-                <th className="text-left py-3 font-medium">Rate</th>
-                <th className="text-left py-3 font-medium">Monthly Int.</th>
-                <th className="text-left py-3 font-medium">Maturity</th>
-                <th className="text-left py-3 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="font-body">
-              {positions.map((pos) => (
-                <Link
-                  key={pos.id}
-                  href={`/portal/investor/portfolio/${pos.id}`}
-                  className="contents"
-                >
-                  <tr className="border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors">
-                    <td className="py-3 text-navy font-medium">{pos.property}</td>
-                    <td className="py-3 text-gray-600">{pos.position}</td>
-                    <td className="py-3 font-heading text-navy">{pos.invested}</td>
-                    <td className="py-3 text-navy">{pos.rate}</td>
-                    <td className="py-3 text-navy">{pos.monthly}</td>
-                    <td className="py-3 text-gray-600">{pos.maturity}</td>
-                    <td className="py-3">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {pos.status}
-                      </span>
-                    </td>
-                  </tr>
-                </Link>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {positions.length === 0 ? (
+          <p className="font-body text-gray-500 text-center py-8">No active positions yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-gray-500 text-xs uppercase tracking-wider">
+                  <th className="text-left py-3 font-medium">Property</th>
+                  <th className="text-left py-3 font-medium">Type</th>
+                  <th className="text-left py-3 font-medium">Invested</th>
+                  <th className="text-left py-3 font-medium">Rate</th>
+                  <th className="text-left py-3 font-medium">Monthly Int.</th>
+                  <th className="text-left py-3 font-medium">Maturity</th>
+                  <th className="text-left py-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="font-body">
+                {positions.map((pos) => {
+                  const monthlyInterest =
+                    ((Number(pos.Investor_Amount) || 0) * (Number(pos.Investor_Rate) || 0)) / 100 / 12;
+                  const maturityFormatted = pos.Maturity_Date
+                    ? new Date(pos.Maturity_Date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })
+                    : '—';
+                  return (
+                    <tr
+                      key={pos.id}
+                      onClick={() => router.push(`/portal/investor/portfolio/${pos.id}`)}
+                      className="border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="py-3 text-navy font-medium">
+                        {pos.Street}{pos.City ? `, ${pos.City}` : ''}
+                      </td>
+                      <td className="py-3 text-gray-600">{pos.Mortgage_Type} Mortgage</td>
+                      <td className="py-3 font-heading text-navy">{formatCurrency(Number(pos.Investor_Amount) || 0)}</td>
+                      <td className="py-3 text-navy">{pos.Investor_Rate}%</td>
+                      <td className="py-3 text-navy">{formatCurrency(monthlyInterest)}</td>
+                      <td className="py-3 text-gray-600">{maturityFormatted}</td>
+                      <td className="py-3">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Upcoming Payments */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h3 className="font-heading text-navy text-lg mb-4">Upcoming Payments</h3>
-        <div className="space-y-3">
-          {payments.map((payment, i) => (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-              <div className="flex items-center gap-4">
-                <span className="text-gray-500 text-sm w-16 font-body">{payment.date}</span>
-                <span className="text-navy text-sm font-medium font-body">{payment.property}</span>
+      {payments.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <h3 className="font-heading text-navy text-lg mb-4">Upcoming Payments</h3>
+          <div className="space-y-3">
+            {payments.map((payment, i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div className="flex items-center gap-4">
+                  <span className="text-gray-500 text-sm w-16 font-body">{payment.date}</span>
+                  <span className="text-navy text-sm font-medium font-body">{payment.property}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="font-heading text-navy">{payment.amount}</span>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      payment.color === 'blue'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {payment.status}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="font-heading text-navy">{payment.amount}</span>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    payment.color === 'blue'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {payment.status}
-                </span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Quick Actions */}
       <div className="grid grid-cols-3 gap-4">
