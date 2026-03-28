@@ -1,29 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { Home, TrendingUp, DollarSign, CheckCircle } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
 import { SignIn } from '@clerk/nextjs'
-
-const portalTypes = [
-  {
-    title: 'Realtor Partner Portal',
-    subtitle: 'Referrals & client monitoring',
-    icon: Home,
-    href: '/portal/dashboard',
-  },
-  {
-    title: 'Financial Planner Portal',
-    subtitle: 'Client mortgage planning',
-    icon: TrendingUp,
-    href: '/portal/dashboard',
-  },
-  {
-    title: 'Private Investor Portal',
-    subtitle: 'Deal flow & returns',
-    icon: DollarSign,
-    href: '/portal/investor/dashboard',
-  },
-]
 
 const trustBullets = [
   'Real-time mortgage monitoring for your referred clients',
@@ -74,37 +53,10 @@ export default function SignInPage() {
       <div className="w-full md:w-[60%] bg-white flex flex-col justify-center p-12">
         <h2 className="font-heading text-navy text-2xl font-bold mb-2">Sign In</h2>
         <p className="text-gray-500 font-body text-sm mb-8">
-          Choose your portal type or sign in with email below.
+          Access your Fox Mortgage partner dashboard
         </p>
 
-        {/* Portal Type Buttons */}
-        <div className="space-y-3 mb-8">
-          {portalTypes.map((portal) => (
-            <button
-              key={portal.title}
-              onClick={() => document.getElementById('clerk-signin')?.scrollIntoView({ behavior: 'smooth' })}
-              className="w-full bg-navy text-white rounded-xl py-4 px-6 flex items-center gap-4 hover:bg-navy/90 transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-full bg-lime flex items-center justify-center flex-shrink-0">
-                <portal.icon className="w-5 h-5 text-navy" />
-              </div>
-              <div>
-                <div className="font-heading font-semibold text-sm">{portal.title}</div>
-                <div className="font-body text-xs text-gray-300">{portal.subtitle}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Divider */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-gray-400 font-body text-xs">or sign in with email</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
-
         {/* Clerk SignIn */}
-        <div id="clerk-signin">
         <SignIn
           appearance={{
             elements: {
@@ -118,13 +70,12 @@ export default function SignInPage() {
               footer: 'hidden',
             }
           }}
-          redirectUrl="/portal/dashboard"
-          afterSignInUrl="/portal/dashboard"
+          redirectUrl="/portal"
+          afterSignInUrl="/portal"
         />
-        </div>
 
         <p className="text-center text-xs font-body text-gray-400 mt-6">
-          Secure access. For authorized Financial Partners only.
+          Secure access. For authorized partners and investors only.
         </p>
       </div>
     </div>

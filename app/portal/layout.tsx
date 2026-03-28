@@ -2,7 +2,7 @@
 
 import { useClerk } from '@clerk/nextjs'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   Users,
@@ -68,7 +68,11 @@ const investorPageTitles: Record<string, string> = {
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { signOut } = useClerk()
+
+  // Hardcoded for now — will come from Clerk user metadata later
+  const role = 'admin'
 
   // Sign-in page renders without sidebar
   if (pathname?.includes('/portal/sign-in')) {
@@ -144,6 +148,33 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <div className="ml-64 flex-1 flex flex-col min-h-screen bg-gray-50">
         <header className="sticky top-0 z-30 bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8">
           <h1 className="font-heading font-bold text-navy text-lg">{pageTitle}</h1>
+
+          {/* Portal Switcher — admin only */}
+          {role === 'admin' && (
+            <div className="flex items-center bg-gray-100 rounded-full p-1 gap-1">
+              <button
+                onClick={() => router.push('/portal/dashboard')}
+                className={`px-4 py-1.5 rounded-full text-sm font-body font-medium transition-colors ${
+                  !isInvestorPortal
+                    ? 'bg-lime text-navy shadow-sm'
+                    : 'text-gray-500 hover:text-navy'
+                }`}
+              >
+                Partner Portal
+              </button>
+              <button
+                onClick={() => router.push('/portal/investor/dashboard')}
+                className={`px-4 py-1.5 rounded-full text-sm font-body font-medium transition-colors ${
+                  isInvestorPortal
+                    ? 'bg-lime text-navy shadow-sm'
+                    : 'text-gray-500 hover:text-navy'
+                }`}
+              >
+                Investor Portal
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-4">
             <button className="text-gray-400 hover:text-navy">
               <Bell className="w-5 h-5" />
