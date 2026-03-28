@@ -1,6 +1,9 @@
 'use client'
 
+import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -84,6 +87,26 @@ const statusColors: Record<string, string> = {
 }
 
 export default function DashboardPage() {
+  const { user, isLoaded } = useUser()
+  const router = useRouter()
+
+  // Safety net: investor-only users who land here get redirected
+  useEffect(() => {
+    if (!isLoaded || !user) return
+    const metadata = user.publicMetadata as { roles?: string[]; role?: string }
+    const roles = metadata?.roles || []
+    const role = metadata?.role || ''
+
+    if (
+      (roles.includes('investor') || role === 'investor') &&
+      !roles.includes('realtor') &&
+      !roles.includes('financial-planner') &&
+      !roles.includes('admin') &&
+      role !== 'admin'
+    ) {
+      router.replace('/portal/investor/dashboard')
+    }
+  }, [isLoaded, user, router])
   return (
     <div>
       {/* Welcome Bar */}

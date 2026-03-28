@@ -39,7 +39,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${poppins.variable} ${montserrat.variable}`}>
       <body className="antialiased">
-        <ClerkProvider>
+        <ClerkProvider
+          afterSignInUrl="/portal"
+          afterSignUpUrl="/portal"
+          signInUrl="/portal/sign-in"
+          signUpUrl="/portal/sign-in"
+        >
           {children}
         </ClerkProvider>
       </body>
