@@ -60,7 +60,7 @@ const DEAL_FIELDS = [
   'Maturity_Date', 'Stage', 'Rate_Type', 'Term_Type', 'Exit_Strategy',
   'Lender_Notes', 'First_Payment_Date', 'Total_Loan_Amount', 'LTV',
   'Closing_Date', 'Term_Years', 'Amortization_Years', 'Zoning',
-  'Construction_Type', 'Transaction_Type', 'Contact_Name',
+  'Construction_Type', 'Transaction_Type', 'Contact_Name', 'Lender_Fee',
 ].join(',')
 
 export async function getInvestorPositions(zohoPartnerId: string) {
