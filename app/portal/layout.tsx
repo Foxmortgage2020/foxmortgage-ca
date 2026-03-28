@@ -1,5 +1,6 @@
 'use client'
 
+import { useClerk } from '@clerk/nextjs'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -42,6 +43,7 @@ const pageTitles: Record<string, string> = {
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { signOut } = useClerk()
 
   const pageTitle = pageTitles[pathname] || (pathname.startsWith('/portal/clients/') ? 'Client File' : 'Portal')
   const roleBadge = MOCK_USER.role === 'financial-planner' ? 'Financial Planner' : 'Realtor Partner'
@@ -87,7 +89,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <div className="text-[10px] bg-lime/20 text-lime px-2 py-0.5 rounded-full inline-block mt-0.5">{roleBadge}</div>
             </div>
           </div>
-          <button className="flex items-center gap-2 text-gray-400 hover:text-white text-xs mt-3 font-body">
+          <button
+            onClick={() => signOut({ redirectUrl: '/portal/sign-in' })}
+            className="flex items-center gap-2 text-gray-400 hover:text-white text-xs mt-3 font-body cursor-pointer"
+          >
             <LogOut className="w-3 h-3" />
             Sign Out
           </button>
