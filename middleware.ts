@@ -1,5 +1,8 @@
 import { authMiddleware } from '@clerk/nextjs/server'
 
+// NOTE: Disable email OTP verification in Clerk dashboard →
+// Configure → Email, Phone, Username → Email verification: off
+
 export default authMiddleware({
   // Public pages that don't require auth
   publicRoutes: [
