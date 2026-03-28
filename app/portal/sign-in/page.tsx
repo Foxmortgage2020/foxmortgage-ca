@@ -1,10 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { Home, TrendingUp, DollarSign, Mail, Lock, CheckCircle } from 'lucide-react'
-import { useState } from 'react'
-
-// TODO: Wire to Clerk SignIn component
+import { Home, TrendingUp, DollarSign, CheckCircle } from 'lucide-react'
+import { SignIn } from '@clerk/nextjs'
 
 const portalTypes = [
   {
@@ -31,9 +29,6 @@ const trustBullets = [
 ]
 
 export default function SignInPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-
   return (
     <div className="flex flex-col md:flex-row min-h-screen">
       {/* Left Panel */}
@@ -104,50 +99,25 @@ export default function SignInPage() {
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        {/* Email Form */}
-        <div className="space-y-4 mb-6">
-          <div>
-            <label className="block text-sm font-body font-medium text-navy mb-1">
-              Email
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg font-body text-sm focus:outline-none focus:ring-2 focus:ring-lime/50 focus:border-lime"
-              />
-            </div>
-          </div>
+        {/* Clerk SignIn */}
+        <SignIn
+          appearance={{
+            elements: {
+              rootBox: 'w-full',
+              card: 'shadow-none p-0 w-full',
+              headerTitle: 'hidden',
+              headerSubtitle: 'hidden',
+              socialButtonsBlockButton: 'border border-gray-200',
+              formButtonPrimary: 'bg-lime hover:bg-lime-dark text-navy font-heading font-bold',
+              footerActionLink: 'text-navy font-semibold',
+            }
+          }}
+          redirectUrl="/portal/dashboard"
+          afterSignInUrl="/portal/dashboard"
+        />
 
-          <div>
-            <label className="block text-sm font-body font-medium text-navy mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg font-body text-sm focus:outline-none focus:ring-2 focus:ring-lime/50 focus:border-lime"
-              />
-            </div>
-          </div>
-        </div>
-
-        <button className="bg-lime text-navy w-full py-3 rounded-lg font-heading font-bold text-sm hover:bg-lime-dark transition-colors mb-4">
-          Sign In
-        </button>
-
-        <p className="text-center text-sm font-body text-gray-500">
-          Need access?{' '}
-          <Link href="/contact" className="text-navy font-semibold hover:underline">
-            Contact Michael
-          </Link>
+        <p className="text-center text-xs font-body text-gray-400 mt-6">
+          Secure access. For authorized Financial Partners only.
         </p>
       </div>
     </div>
