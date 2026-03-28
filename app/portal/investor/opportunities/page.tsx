@@ -15,11 +15,14 @@ export default function InvestorOpportunitiesPage() {
 
   useEffect(() => {
     fetch('/api/portal/investor/opportunities')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to load opportunities');
-        return res.json();
+      .then(async (res) => {
+        const data = await res.json()
+        if (data.error) {
+          setError(data.error)
+        } else {
+          setOpportunities(data.data || (Array.isArray(data) ? data : []))
+        }
       })
-      .then((data) => setOpportunities(Array.isArray(data) ? data : []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);

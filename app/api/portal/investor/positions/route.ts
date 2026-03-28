@@ -1,18 +1,26 @@
-import { auth } from '@clerk/nextjs/server'
+import { currentUser } from '@clerk/nextjs/server'
 import { getInvestorPositions } from '@/lib/zoho'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
   try {
-    const { userId, sessionClaims } = auth()
-    if (!userId) {
+    const user = await currentUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const zohoPartnerId = (sessionClaims?.publicMetadata as any)?.zoho_partner_id as string | undefined
+    const metadata = user.publicMetadata as {
+      zoho_partner_id?: string
+      roles?: string[]
+    }
+    const zohoPartnerId = metadata?.zoho_partner_id
+
     if (!zohoPartnerId) {
-      return NextResponse.json({ error: 'No Zoho partner ID in user metadata', setup_required: true }, { status: 400 })
+      return NextResponse.json({
+        error: 'No Zoho partner ID configured for this account',
+        setup_pending: true,
+        data: [],
+      })
     }
 
     const positions = await getInvestorPositions(zohoPartnerId)
@@ -21,7 +29,7 @@ export async function GET() {
     console.error('[investor/positions] Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch positions' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

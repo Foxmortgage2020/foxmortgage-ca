@@ -16,12 +16,15 @@ export default function InvestorPortfolio() {
 
   useEffect(() => {
     fetch('/api/portal/investor/positions')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.setup_required) {
-          setSetupRequired(true);
+      .then(async (res) => {
+        const data = await res.json()
+        if (data.setup_pending || data.setup_required) {
+          setSetupRequired(true)
+          setPositions(data.data || [])
+        } else if (data.error) {
+          setError(data.error)
         } else {
-          setPositions(data.positions ?? data ?? []);
+          setPositions(data.data || [])
         }
       })
       .catch((err) => setError(err.message ?? 'Failed to load portfolio'))
