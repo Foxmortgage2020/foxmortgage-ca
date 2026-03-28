@@ -9,16 +9,19 @@ const portalTypes = [
     title: 'Realtor Partner Portal',
     subtitle: 'Referrals & client monitoring',
     icon: Home,
+    href: '/portal/dashboard',
   },
   {
     title: 'Financial Planner Portal',
     subtitle: 'Client mortgage planning',
     icon: TrendingUp,
+    href: '/portal/dashboard',
   },
   {
     title: 'Private Investor Portal',
     subtitle: 'Deal flow & returns',
     icon: DollarSign,
+    href: '/portal/investor/dashboard',
   },
 ]
 
@@ -79,6 +82,7 @@ export default function SignInPage() {
           {portalTypes.map((portal) => (
             <button
               key={portal.title}
+              onClick={() => document.getElementById('clerk-signin')?.scrollIntoView({ behavior: 'smooth' })}
               className="w-full bg-navy text-white rounded-xl py-4 px-6 flex items-center gap-4 hover:bg-navy/90 transition-colors text-left"
             >
               <div className="w-10 h-10 rounded-full bg-lime flex items-center justify-center flex-shrink-0">
@@ -100,6 +104,7 @@ export default function SignInPage() {
         </div>
 
         {/* Clerk SignIn */}
+        <div id="clerk-signin">
         <SignIn
           appearance={{
             elements: {
@@ -116,6 +121,7 @@ export default function SignInPage() {
           redirectUrl="/portal/dashboard"
           afterSignInUrl="/portal/dashboard"
         />
+        </div>
 
         <p className="text-center text-xs font-body text-gray-400 mt-6">
           Secure access. For authorized Financial Partners only.
