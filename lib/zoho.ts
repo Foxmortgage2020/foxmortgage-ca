@@ -55,7 +55,8 @@ export async function createZohoLead(payload: ZohoLeadPayload) {
 
 const DEAL_FIELDS = [
   'Deal_Name', 'Amount', 'Investor_Amount', 'Investor_Rate', 'Investor_Name',
-  'Deal_Status_Investor', 'Mortgage_Type', 'Mortgage_Rate', 'Payment_Amount',
+  'Deal_Status_Investor', 'Investor_Status', 'Investor_Payout_Date',
+  'Renewal_In_Progress', 'Mortgage_Type', 'Mortgage_Rate', 'Payment_Amount',
   'Payment_Frequency', 'Street', 'City', 'Province', 'Purchase_Price_Value',
   'Maturity_Date', 'Stage', 'Rate_Type', 'Term_Type', 'Exit_Strategy',
   'Lender_Notes', 'First_Payment_Date', 'Total_Loan_Amount', 'LTV',
