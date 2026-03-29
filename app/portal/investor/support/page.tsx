@@ -89,7 +89,7 @@ export default function SupportPage() {
 
           <div className="mt-4 space-y-2 w-full text-left">
             <div className="flex items-center gap-2 font-body text-sm text-navy">
-              <Phone className="w-4 h-4 text-lime" /> (519) 555-0123
+              <Phone className="w-4 h-4 text-lime" /> (519) 654-8173
             </div>
             <div className="flex items-center gap-2 font-body text-sm text-navy">
               <Mail className="w-4 h-4 text-lime" /> mfox@foxmortgage.ca
@@ -101,7 +101,7 @@ export default function SupportPage() {
               className="block bg-lime text-navy w-full py-3 rounded-lg font-heading font-bold text-sm text-center hover:opacity-90 transition-opacity">
               📅 Book a Call
             </Link>
-            <a href="tel:5195550123"
+            <a href="tel:5196548173"
               className="block border border-navy text-navy w-full py-3 rounded-lg font-heading font-bold text-sm text-center hover:bg-navy/5 transition-colors">
               📞 Call Now
             </a>

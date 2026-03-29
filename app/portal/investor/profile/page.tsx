@@ -102,7 +102,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <p className="text-gray-500 text-xs font-body">Phone</p>
-                <p className="text-navy font-medium text-sm font-body">(519) 555-0123</p>
+                <p className="text-navy font-medium text-sm font-body">(519) 654-8173</p>
               </div>
               <div>
                 <p className="text-gray-500 text-xs font-body">Date of Birth</p>
