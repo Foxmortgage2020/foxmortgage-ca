@@ -64,7 +64,7 @@ const generateMonthlyStatements = (positions: any[]) => {
   return statements.reverse();
 };
 
-export default function StatementsPage() {
+export default function ReportsPage() {
   const [positions, setPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -82,12 +82,14 @@ export default function StatementsPage() {
   const filteredStatements = allStatements.filter(s => s.year === selectedYear);
   const yearInterest = filteredStatements.reduce((sum, s) => sum + s.interestEarned, 0);
   const allTimeInterest = allStatements.reduce((sum, s) => sum + s.interestEarned, 0);
+  const avgMonthly = filteredStatements.length > 0 ? Math.round(yearInterest / filteredStatements.length) : 0;
+  const currentYear = new Date().getFullYear();
+  const isCurrentYear = selectedYear === currentYear;
 
   const activePos = positions.filter(p => isActive(p));
   const totalDeployed = activePos.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0);
   const monthlyIncome = activePos.reduce((sum, p) => sum + ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0) / 100 / 12), 0);
   const totalLenderFees = positions.reduce((sum, p) => sum + (Number(p.Lender_Fee) || 0), 0);
-  const taxYears = Array.from(new Set(allStatements.map(s => s.year))).filter(y => y < new Date().getFullYear()).sort((a, b) => b - a);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -95,11 +97,13 @@ export default function StatementsPage() {
     </div>
   );
 
+  const today = new Date();
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="mb-6">
-        <h1 className="font-heading text-navy text-2xl font-bold">Statements</h1>
-        <p className="text-gray-400 text-sm font-body mt-0.5">Monthly earnings summaries and tax documents</p>
+        <h1 className="font-heading text-navy text-2xl font-bold">Reports</h1>
+        <p className="text-gray-400 text-sm font-body mt-0.5">Monthly earnings summaries for your private mortgage investments</p>
       </div>
 
       {/* KPI Bar */}
@@ -127,120 +131,127 @@ export default function StatementsPage() {
         ))}
       </div>
 
-      {/* Year Summary */}
+      {/* Annual Summary */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="font-heading text-navy text-lg font-bold">{selectedYear} Summary</h2>
-            <p className="text-gray-400 text-xs font-body mt-0.5">{filteredStatements.length} month{filteredStatements.length !== 1 ? 's' : ''} of activity</p>
+            <p className="text-gray-400 text-xs font-body uppercase tracking-wider mb-1">Annual Summary</p>
+            <h2 className="font-heading text-navy text-xl font-bold">{selectedYear} {isCurrentYear ? 'YTD' : 'Full Year'}</h2>
           </div>
-          <div className="text-right">
-            <p className="font-heading text-navy text-2xl font-bold">{formatCurrency(yearInterest)}</p>
-            <p className="text-gray-400 text-xs font-body">Total interest earned {selectedYear}</p>
+          <a href={`mailto:mfox@foxmortgage.ca?subject=Annual Report Request: ${selectedYear}&body=Hi Michael,%0A%0ACould you please send me an annual earnings report for ${selectedYear}?%0A%0AThank you`}
+            className="flex items-center gap-1.5 bg-lime text-navy text-xs font-body font-bold px-4 py-2 rounded-lg hover:bg-lime/90 transition-colors">
+            Request Annual Report →
+          </a>
+        </div>
+        <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-gray-100">
+          <div>
+            <p className="text-gray-400 text-xs font-body">Total Earned</p>
+            <p className="font-heading text-navy text-2xl font-bold mt-0.5">{formatCurrency(yearInterest)}</p>
+          </div>
+          <div>
+            <p className="text-gray-400 text-xs font-body">Months Active</p>
+            <p className="font-heading text-navy text-2xl font-bold mt-0.5">{filteredStatements.length}</p>
+          </div>
+          <div>
+            <p className="text-gray-400 text-xs font-body">Avg Monthly</p>
+            <p className="font-heading text-navy text-2xl font-bold mt-0.5">{formatCurrency(avgMonthly)}</p>
           </div>
         </div>
-        {allTimeInterest > 0 && (
-          <div className="mt-4">
-            <div className="flex justify-between text-xs text-gray-400 font-body mb-1">
-              <span>{selectedYear} share of all-time returns</span>
-              <span>{Math.round((yearInterest / allTimeInterest) * 100)}%</span>
-            </div>
-            <div className="h-1.5 bg-gray-100 rounded-full">
-              <div className="h-full bg-lime rounded-full transition-all" style={{ width: `${Math.round((yearInterest / allTimeInterest) * 100)}%` }} />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Monthly Statements Table */}
+      {/* Monthly Reports Table */}
       <div className="bg-white rounded-xl border border-gray-200 mb-6">
         <div className="p-5 border-b border-gray-100">
-          <h2 className="font-heading text-navy text-xl font-bold">Monthly Statements</h2>
-          <p className="text-gray-400 text-xs font-body mt-0.5">Computed from live deal data · Statement PDFs available on request</p>
+          <h2 className="font-heading text-navy text-xl font-bold">Monthly Reports</h2>
+          <p className="text-gray-400 text-xs font-body mt-0.5">Monthly summaries of expected income from your investments</p>
         </div>
         {filteredStatements.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-gray-400 font-body text-sm">No activity in {selectedYear}</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                {['PERIOD', 'ACTIVE POSITIONS', 'INTEREST EARNED', 'STATEMENT'].map(h => (
-                  <th key={h} className="text-left text-xs font-body font-semibold text-gray-400 uppercase tracking-wider px-5 py-3">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredStatements.map((stmt, i) => (
-                <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3.5 text-sm font-body text-navy font-semibold">{stmt.period}</td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-body text-navy">{stmt.activePositions}</span>
-                      <span className="text-xs text-gray-400 font-body">{stmt.activeDeals.map(d => d.split(',')[0]).join(' · ')}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-sm font-body font-semibold text-navy">{formatCurrency(stmt.interestEarned)}</td>
-                  <td className="px-5 py-3.5">
-                    <a href={`mailto:mfox@foxmortgage.ca?subject=Statement Request: ${stmt.period}&body=Hi Michael,%0A%0ACould you please send me the statement for ${stmt.period}?%0A%0AThank you`}
-                      className="text-lime text-xs font-body font-semibold hover:underline flex items-center gap-1">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                      Request PDF
-                    </a>
-                  </td>
+          <>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {['PERIOD', 'ACTIVE POSITIONS', 'INTEREST EARNED', 'REPORT', 'STATUS'].map(h => (
+                    <th key={h} className="text-left text-xs font-body font-semibold text-gray-400 uppercase tracking-wider px-5 py-3">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredStatements.map((stmt, i) => {
+                  const isCurrentMonth = stmt.year === today.getFullYear() && stmt.month === today.getMonth();
+                  const status = isCurrentMonth
+                    ? { label: '⏳ In Progress', cls: 'bg-yellow-100 text-yellow-700' }
+                    : { label: '✔ Finalized', cls: 'bg-green-100 text-green-700' };
+                  return (
+                    <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3.5 text-sm font-body text-navy font-semibold">{stmt.period}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-body text-navy">{stmt.activePositions}</span>
+                          <span className="text-xs text-gray-400 font-body">{stmt.activeDeals.map(d => d.split(',')[0]).join(' · ')}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-sm font-body font-semibold text-navy">{formatCurrency(stmt.interestEarned)}</td>
+                      <td className="px-5 py-3.5">
+                        <a href={`mailto:mfox@foxmortgage.ca?subject=Report Request: ${stmt.period}&body=Hi Michael,%0A%0ACould you please send me the report for ${stmt.period}?%0A%0AThank you`}
+                          className="text-lime text-xs font-body font-semibold hover:underline flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                          Request Report
+                        </a>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className={`${status.cls} text-xs font-body font-medium px-2 py-0.5 rounded-full`}>{status.label}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <p className="text-gray-400 text-xs font-body text-center py-3 border-t border-gray-50">Reports delivered by email within 24 hours</p>
+          </>
         )}
       </div>
 
-      {/* Tax Documents */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="p-5 border-b border-gray-100">
-          <h2 className="font-heading text-navy text-xl font-bold">Tax Documents</h2>
-        </div>
-        <div className="p-5">
-          <div className="bg-lime/5 border border-lime/20 rounded-xl p-4 mb-5">
-            <div className="flex items-start gap-3">
-              <span className="text-lime text-base">ℹ️</span>
-              <p className="text-gray-600 text-sm font-body">T5 slips are issued annually by February 28 for interest income earned in the prior calendar year. Contact Michael if you have not received yours.</p>
+      {/* About These Reports */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <h2 className="font-heading text-navy text-xl font-bold mb-4">About These Reports</h2>
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-lime/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-lime text-sm">📊</span>
+            </div>
+            <div>
+              <p className="font-body font-semibold text-sm text-navy">Expected Income Summaries</p>
+              <p className="text-gray-500 text-sm font-body mt-0.5 leading-relaxed">These reports summarize expected interest income based on your active private mortgage investments. Amounts are calculated from your confirmed investment terms.</p>
             </div>
           </div>
-          {taxYears.length === 0 ? (
-            <p className="text-gray-400 text-sm font-body text-center py-4">Tax documents will appear here after your first full tax year</p>
-          ) : (
-            <div className="space-y-3">
-              {taxYears.map(year => {
-                const yearTotal = allStatements.filter(s => s.year === year).reduce((sum, s) => sum + s.interestEarned, 0);
-                return (
-                  <div key={year} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-lime/10 rounded-lg flex items-center justify-center">
-                        <svg className="w-4 h-4 text-lime" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                      </div>
-                      <div>
-                        <p className="text-navy font-semibold text-sm font-body">T5 — {year} Tax Year</p>
-                        <p className="text-gray-400 text-xs font-body">{formatCurrency(yearTotal)} in interest income</p>
-                      </div>
-                    </div>
-                    <a href={`mailto:mfox@foxmortgage.ca?subject=T5 Request: ${year} Tax Year&body=Hi Michael,%0A%0ACould you please send me my T5 slip for the ${year} tax year?%0A%0AThank you`}
-                      className="flex items-center gap-1.5 text-lime text-sm font-body font-semibold hover:underline">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                      Request
-                    </a>
-                  </div>
-                );
-              })}
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-blue-400 text-sm">📄</span>
             </div>
-          )}
+            <div>
+              <p className="font-body font-semibold text-sm text-navy">Official Tax Documents</p>
+              <p className="text-gray-500 text-sm font-body mt-0.5 leading-relaxed">Official tax documents (T5 slips) are issued by the mortgage administrator or lender. Contact Michael Fox if you require tax documentation for your investment income.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-gray-400 text-sm">✉️</span>
+            </div>
+            <div>
+              <p className="font-body font-semibold text-sm text-navy">Request a Report</p>
+              <p className="text-gray-500 text-sm font-body mt-0.5 leading-relaxed">Monthly and annual reports are available on request and delivered by email within 24 hours.{' '}<a href="mailto:mfox@foxmortgage.ca" className="text-lime hover:underline font-semibold">mfox@foxmortgage.ca</a></p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Trust footer */}
       <div className="pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400 font-body">
-        <span>Data computed from live Zoho deal records</span>
+        <span>Data computed from live deal records</span>
         <span>Questions? <a href="mailto:mfox@foxmortgage.ca" className="text-lime hover:underline">mfox@foxmortgage.ca</a></span>
       </div>
     </div>
