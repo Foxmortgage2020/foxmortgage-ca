@@ -88,6 +88,7 @@ export default function InvestorDashboard() {
   const { user } = useUser();
   const [positions, setPositions] = useState<any[]>([]);
   const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [oppsLoading, setOppsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [setupRequired, setSetupRequired] = useState(false);
@@ -108,8 +109,49 @@ export default function InvestorDashboard() {
   useEffect(() => {
     fetch('/api/portal/investor/opportunities')
       .then(r => r.json())
-      .then(data => setOpportunities((data.data || []).slice(0, 2)))
-      .catch(() => {})
+      .then(data => {
+        const live = data.data || []
+        if (live.length === 0) {
+          setOpportunities([
+            {
+              id: 'demo-1',
+              Deal_Name: 'BRXM-F025001',
+              Mortgage_Type: 'Second',
+              Investor_Rate: 12,
+              Mortgage_Rate: 12,
+              Amount: 150000,
+              City: 'Cambridge',
+              Province: 'ON',
+              LTV: 68,
+              Payment_Amount: 1500,
+              Rate_Type: 'Fixed',
+              Term_Type: 'Open',
+              Exit_Strategy: 'Borrower to refinance with A-lender upon completion of debt consolidation.',
+              isDemo: true,
+            },
+            {
+              id: 'demo-2',
+              Deal_Name: 'BRXM-F025002',
+              Mortgage_Type: 'First',
+              Investor_Rate: 11,
+              Mortgage_Rate: 11,
+              Amount: 280000,
+              City: 'Guelph',
+              Province: 'ON',
+              LTV: 55,
+              Payment_Amount: 2567,
+              Rate_Type: 'Fixed',
+              Term_Type: 'Open',
+              Exit_Strategy: 'Bridge financing for 90-day window. Very low risk with strong equity.',
+              isDemo: true,
+            }
+          ])
+        } else {
+          setOpportunities(live.slice(0, 2))
+        }
+      })
+      .catch(() => setOpportunities([]))
+      .finally(() => setOppsLoading(false))
   }, []);
 
   const quickActions = [
@@ -488,36 +530,70 @@ export default function InvestorDashboard() {
       )}
 
       {/* Available Opportunities */}
-      {opportunities.length > 0 && (
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="font-heading text-navy text-2xl">Available Opportunities</h3>
-              <p className="text-gray-400 text-xs font-body mt-0.5">Current investment opportunities underwritten by Michael Fox</p>
-            </div>
-            <Link href="/portal/investor/opportunities" className="text-lime text-sm font-semibold hover:underline shrink-0">View All →</Link>
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="font-heading text-navy text-2xl font-bold">Available Opportunities</h2>
+            <p className="text-gray-400 text-xs font-body mt-0.5">Exclusive private lending opportunities underwritten by Michael Fox</p>
           </div>
-          <div className={`grid ${opportunities.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'} gap-4`}>
-            {opportunities.map((opp, i) => (
-              <div key={opp.id || i} onClick={() => router.push('/portal/investor/opportunities')}
-                   className="bg-white rounded-xl border-2 border-lime/30 p-5 hover:border-lime cursor-pointer transition-colors hover:shadow-sm">
+          <a href="/portal/investor/opportunities" className="text-lime text-sm font-body font-semibold hover:underline shrink-0">View All →</a>
+        </div>
+        {oppsLoading ? (
+          <div className="grid grid-cols-2 gap-4">
+            {[1,2].map(i => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse h-48"/>
+            ))}
+          </div>
+        ) : opportunities.length > 0 ? (
+          <div className={`grid gap-4 ${opportunities.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+            {opportunities.map((opp: any) => (
+              <div key={opp.id}
+                   onClick={() => router.push('/portal/investor/opportunities')}
+                   className="bg-white rounded-xl border-2 border-lime/20 p-5 hover:border-lime hover:shadow-md cursor-pointer transition-all duration-200 relative">
+                {opp.isDemo && (
+                  <div className="absolute top-3 right-3">
+                    <span className="bg-gray-100 text-gray-500 text-xs font-body px-2 py-0.5 rounded-full">Sample</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-start">
                   <span className="text-gray-400 text-xs font-mono">{opp.Deal_Name}</span>
-                  <span className="bg-lime text-navy font-heading font-bold text-lg px-3 py-1 rounded-lg">{opp.Investor_Rate || opp.Mortgage_Rate}%</span>
+                  <span className="bg-lime text-navy font-heading font-bold text-xl px-3 py-1 rounded-lg ml-8">
+                    {opp.Investor_Rate || opp.Mortgage_Rate}%
+                  </span>
                 </div>
-                <p className="text-navy font-semibold text-sm mt-2">{opp.Mortgage_Type} Mortgage</p>
-                <p className="text-gray-500 text-sm">{opp.City}{opp.Province ? `, ${opp.Province}` : ''}</p>
-                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100">
-                  <div><p className="text-navy font-semibold text-sm">{formatCurrency(Number(opp.Amount) || 0)}</p><p className="text-gray-400 text-xs">Loan Amount</p></div>
-                  <div><p className="text-navy font-semibold text-sm">{opp.LTV || '—'}%</p><p className="text-gray-400 text-xs">LTV</p></div>
-                  <div><p className="text-navy font-semibold text-sm">{opp.Payment_Amount ? formatCurrency(Number(opp.Payment_Amount)) : '—'}</p><p className="text-gray-400 text-xs">/mo</p></div>
+                <p className="text-navy font-heading font-semibold text-base mt-3">
+                  {opp.Mortgage_Type} Mortgage · {opp.City}, {opp.Province}
+                </p>
+                <p className="text-gray-400 text-xs font-body mt-0.5">
+                  {opp.Rate_Type} Rate · {opp.Term_Type} Term
+                </p>
+                <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-gray-100">
+                  <div>
+                    <p className="text-navy font-heading font-bold text-sm">
+                      {opp.Amount ? `$${(opp.Amount/1000).toFixed(0)}K` : '—'}
+                    </p>
+                    <p className="text-gray-400 text-xs font-body">Loan Amount</p>
+                  </div>
+                  <div>
+                    <p className="text-navy font-heading font-bold text-sm">{opp.LTV ? `${opp.LTV}%` : '—'}</p>
+                    <p className="text-gray-400 text-xs font-body">LTV</p>
+                  </div>
+                  <div>
+                    <p className="text-navy font-heading font-bold text-sm">
+                      {opp.Payment_Amount ? `$${Number(opp.Payment_Amount).toLocaleString()}/mo` : '—'}
+                    </p>
+                    <p className="text-gray-400 text-xs font-body">Monthly</p>
+                  </div>
                 </div>
-                <p className="text-lime text-sm font-semibold mt-3">Express Interest →</p>
+                <div className="flex items-center justify-between mt-4">
+                  <span className="text-lime text-sm font-body font-semibold">View Deal →</span>
+                  <span className="bg-green-100 text-green-700 text-xs font-body px-2 py-0.5 rounded-full">Accepting Investment</span>
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : null}
+      </div>
 
       {/* Cash Flow Timeline */}
       {cashFlow.length > 0 && (
