@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import { Search, Download, MessageSquare, TrendingUp, DollarSign, Percent, Wallet, CircleDollarSign } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
@@ -207,18 +208,54 @@ export default function InvestorDashboard() {
     return months
   })()
 
-  // Insights
-  const insights: { icon: string; title: string; sub: string; color: string; textColor: string }[] = []
+  // Insights with categories
+  const insights: { icon: string; title: string; sub: string; color: string; textColor: string; category: string }[] = []
+  if (totalMonthlyIncome > 0) insights.push({ icon: '💰', title: `On track to earn ${formatCurrency(annualProjected)} this year`, sub: `${formatCurrency(totalMonthlyIncome)}/month run rate`, color: 'border-lime/30 bg-lime/5', textColor: 'text-navy', category: 'performance' })
   if (activePositions.length > 0 && activePositions.every(p => getStatusLabel(p).label === 'Performing'))
-    insights.push({ icon: '✅', title: '100% of active loans are performing', sub: 'All positions on schedule', color: 'border-green-200 bg-green-50', textColor: 'text-green-800' })
+    insights.push({ icon: '✅', title: '100% of active loans are performing', sub: 'All positions on schedule', color: 'border-green-200 bg-green-50', textColor: 'text-green-800', category: 'performance' })
   const ltvVals = positions.filter(p => p.LTV).map(p => Number(p.LTV))
   const maxLTV = ltvVals.length > 0 ? Math.max(...ltvVals) : 0
-  if (maxLTV > 0) insights.push({ icon: '🏠', title: `Max LTV exposure: ${maxLTV}%`, sub: maxLTV <= 75 ? 'Within conservative thresholds' : 'Approaching lending limits', color: maxLTV <= 75 ? 'border-blue-200 bg-blue-50' : 'border-yellow-200 bg-yellow-50', textColor: maxLTV <= 75 ? 'text-blue-800' : 'text-yellow-800' })
-  if (positions.some(p => p.Mortgage_Type === 'First') && positions.some(p => p.Mortgage_Type === 'Second'))
-    insights.push({ icon: '📊', title: 'Diversified across 1st and 2nd positions', sub: 'Balanced risk profile', color: 'border-purple-200 bg-purple-50', textColor: 'text-purple-800' })
+  if (maxLTV > 0) insights.push({ icon: '🏠', title: `Max LTV exposure: ${maxLTV}%`, sub: maxLTV <= 75 ? 'Within conservative thresholds' : 'Approaching lending limits', color: maxLTV <= 75 ? 'border-blue-200 bg-blue-50' : 'border-yellow-200 bg-yellow-50', textColor: maxLTV <= 75 ? 'text-blue-800' : 'text-yellow-800', category: 'risk' })
   const maturingSoon = positions.filter(p => { if (!p.Maturity_Date) return false; const d = (new Date(p.Maturity_Date).getTime() - now.getTime()) / (1000*60*60*24); return d > 0 && d <= 90 })
-  if (maturingSoon.length > 0) insights.push({ icon: '⏰', title: `${maturingSoon.length} position${maturingSoon.length > 1 ? 's' : ''} maturing within 90 days`, sub: maturingSoon.map(p => p.Street).join(', '), color: 'border-yellow-200 bg-yellow-50', textColor: 'text-yellow-800' })
-  if (totalMonthlyIncome > 0) insights.push({ icon: '💰', title: `On track to earn ${formatCurrency(annualProjected)} this year`, sub: `${formatCurrency(totalMonthlyIncome)}/month run rate`, color: 'border-lime/30 bg-lime/5', textColor: 'text-navy' })
+  if (maturingSoon.length > 0) insights.push({ icon: '⏰', title: `${maturingSoon.length} position${maturingSoon.length > 1 ? 's' : ''} maturing within 90 days`, sub: maturingSoon.map(p => p.Street).join(', '), color: 'border-yellow-200 bg-yellow-50', textColor: 'text-yellow-800', category: 'risk' })
+  if (positions.some(p => p.Mortgage_Type === 'First') && positions.some(p => p.Mortgage_Type === 'Second'))
+    insights.push({ icon: '📊', title: 'Diversified across 1st and 2nd positions', sub: 'Balanced risk profile', color: 'border-purple-200 bg-purple-50', textColor: 'text-purple-800', category: 'structure' })
+
+  const performanceInsights = insights.filter(i => i.category === 'performance')
+  const riskInsights = insights.filter(i => i.category === 'risk')
+  const structureInsights = insights.filter(i => i.category === 'structure')
+  const insightGroups = [
+    { label: 'Performance', emoji: '📈', items: performanceInsights, labelColor: 'text-green-600' },
+    { label: 'Risk', emoji: '⚠️', items: riskInsights, labelColor: 'text-yellow-600' },
+    { label: 'Structure', emoji: '🏗️', items: structureInsights, labelColor: 'text-purple-600' },
+  ].filter(g => g.items.length > 0)
+
+  // Chart data
+  const chartData = (() => {
+    if (!positions.length) return []
+    const startDates = positions.map(p => p.First_Payment_Date || p.Closing_Date).filter(Boolean).map(d => new Date(d))
+    if (!startDates.length) return []
+    const earliestDate = new Date(Math.min(...startDates.map(d => d.getTime())))
+    const data: { month: string; income: number }[] = []
+    let cumulative = 0
+    const current = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1)
+    while (current <= now) {
+      positions.forEach(position => {
+        const start = position.First_Payment_Date || position.Closing_Date
+        if (!start || !position.Investor_Amount || !position.Investor_Rate) return
+        const startDate = new Date(start)
+        const endDate = getIncomeEndDate(position)
+        const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+        const monthEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0)
+        if (current >= monthStart && current <= monthEnd) {
+          cumulative += ((Number(position.Investor_Amount) || 0) * (Number(position.Investor_Rate) || 0)) / 100 / 12
+        }
+      })
+      data.push({ month: new Date(current).toLocaleDateString('en-CA', { month: 'short', year: '2-digit' }), income: Math.round(cumulative) })
+      current.setMonth(current.getMonth() + 1)
+    }
+    return data
+  })()
 
   // Banner sub-text
   const bannerSub = `${activePositions.length} active position${activePositions.length !== 1 ? 's' : ''} · ${formatCurrency(totalDeployed)} deployed${paidOutPositions.length > 0 ? ` · ${paidOutPositions.length} paid out` : ''}`
@@ -258,8 +295,11 @@ export default function InvestorDashboard() {
 
       {/* Loan Details */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-heading text-navy text-2xl">Loan Details</h3>
+        <div className="flex items-center justify-between mb-1">
+          <div>
+            <h3 className="font-heading text-navy text-2xl">Loan Details</h3>
+            <p className="text-gray-400 text-xs font-body mt-0.5">Live data · {new Date().toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+          </div>
           <Link href="/portal/investor/portfolio" className="text-lime text-sm font-semibold hover:underline">View All →</Link>
         </div>
         <div className="flex gap-6 border-b border-gray-200 mb-4 overflow-x-auto">
@@ -336,7 +376,7 @@ export default function InvestorDashboard() {
             <p className="text-gray-500 text-sm font-body">Total Lender Fees Earned</p>
             <p className="text-gray-400 text-xs mt-1 font-body">One-time origination fees</p>
           </div>
-          <div className="bg-navy rounded-xl p-5">
+          <div className="bg-navy/80 rounded-xl border-l-4 border-lime p-5">
             <p className="font-heading text-2xl text-lime">{formatCurrency(totalReturn)}</p>
             <p className="text-gray-300 text-sm font-body">Total Return</p>
             <p className="text-gray-400 text-xs mt-1 font-body">Interest + fees combined</p>
@@ -380,26 +420,70 @@ export default function InvestorDashboard() {
         )}
       </div>
 
-      {/* Portfolio Insights */}
-      {insights.length > 0 && (
+      {/* Cumulative Income Chart */}
+      {chartData.length > 2 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="font-heading text-navy text-2xl font-bold">Cumulative Income</h2>
+              <p className="text-gray-400 text-xs font-body mt-0.5">Interest earned over time across all positions</p>
+            </div>
+            <div className="text-right">
+              <p className="font-heading text-navy text-2xl font-bold">{formatCurrency(chartData[chartData.length - 1]?.income || 0)}</p>
+              <p className="text-gray-400 text-xs font-body">Total earned to date</p>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+              <defs>
+                <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#95D600" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#95D600" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval="preserveStartEnd"/>
+              <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v/1000).toFixed(0)}k`} width={45}/>
+              <Tooltip
+                formatter={(value) => [formatCurrency(Number(value)), 'Cumulative Income']}
+                contentStyle={{ background: '#032133', border: 'none', borderRadius: '8px', color: 'white', fontSize: '12px' }}
+                itemStyle={{ color: '#95D600' }}
+                labelStyle={{ color: '#9ca3af', marginBottom: '4px' }}
+              />
+              <Area type="monotone" dataKey="income" stroke="#95D600" strokeWidth={2.5} fill="url(#incomeGradient)" dot={false} activeDot={{ r: 5, fill: '#95D600', stroke: '#032133', strokeWidth: 2 }}/>
+            </AreaChart>
+          </ResponsiveContainer>
+          <p className="text-gray-400 text-xs font-body text-center mt-3">Based on live deal performance</p>
+        </div>
+      )}
+
+      {/* Portfolio Insights — Grouped */}
+      {insightGroups.length > 0 && (
         <div className="mb-6">
           <div className="mb-3">
             <h3 className="font-heading text-navy text-2xl">Portfolio Insights</h3>
             <p className="text-gray-400 text-xs font-body">Auto-generated from your live deal data</p>
           </div>
-          <div className="grid grid-cols-1 gap-3">
-            {insights.map((insight, i) => (
-              <div key={i} className={`border rounded-xl p-4 ${insight.color}`}>
-                <div className="flex items-start gap-3">
-                  <span className="text-xl">{insight.icon}</span>
-                  <div>
-                    <p className={`font-body font-semibold text-sm ${insight.textColor}`}>{insight.title}</p>
-                    <p className="text-gray-500 text-xs mt-0.5 font-body">{insight.sub}</p>
+          {insightGroups.map(group => (
+            <div key={group.label} className="mb-4">
+              <p className={`text-xs font-body font-semibold uppercase tracking-wider mb-2 ${group.labelColor}`}>
+                {group.emoji} {group.label}
+              </p>
+              <div className="space-y-2">
+                {group.items.map((insight, i) => (
+                  <div key={i} className={`border rounded-xl p-4 ${insight.color}`}>
+                    <div className="flex items-start gap-3">
+                      <span className="text-lg">{insight.icon}</span>
+                      <div>
+                        <p className={`font-body font-semibold text-sm ${insight.textColor}`}>{insight.title}</p>
+                        <p className="text-gray-500 text-xs mt-0.5 font-body">{insight.sub}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -407,8 +491,11 @@ export default function InvestorDashboard() {
       {opportunities.length > 0 && (
         <div className="mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-heading text-navy text-2xl">Available Opportunities</h3>
-            <Link href="/portal/investor/opportunities" className="text-lime text-sm font-semibold hover:underline">View All →</Link>
+            <div>
+              <h3 className="font-heading text-navy text-2xl">Available Opportunities</h3>
+              <p className="text-gray-400 text-xs font-body mt-0.5">Current investment opportunities underwritten by Michael Fox</p>
+            </div>
+            <Link href="/portal/investor/opportunities" className="text-lime text-sm font-semibold hover:underline shrink-0">View All →</Link>
           </div>
           <div className={`grid ${opportunities.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'} gap-4`}>
             {opportunities.map((opp, i) => (
@@ -471,6 +558,12 @@ export default function InvestorDashboard() {
             <span className="font-body text-navy text-sm font-medium">{action.label}</span>
           </Link>
         ))}
+      </div>
+
+      {/* Trust Footer */}
+      <div className="mt-8 pt-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs text-gray-400 font-body">
+        <span>Data sourced directly from live deal records</span>
+        <span>All loans verified and underwritten · Michael Fox, Mortgage Agent Level 2 · BRX Mortgage · FSRA #13463</span>
       </div>
     </div>
   );
