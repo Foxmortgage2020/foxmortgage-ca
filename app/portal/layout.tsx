@@ -37,7 +37,6 @@ const investorNavItems = [
   { label: 'Opportunities', href: '/portal/investor/opportunities', icon: Search },
   { label: 'Reports', href: '/portal/investor/statements', icon: FileText },
   { label: 'My Profile', href: '/portal/investor/profile', icon: User },
-  { label: 'Documents', href: '/portal/investor/documents', icon: FolderOpen },
   { label: 'Support', href: '/portal/investor/support', icon: HelpCircle },
 ]
 
@@ -62,7 +61,6 @@ const investorPageTitles: Record<string, string> = {
   '/portal/investor/opportunities': 'Opportunities',
   '/portal/investor/statements': 'Reports',
   '/portal/investor/profile': 'My Profile',
-  '/portal/investor/documents': 'Documents',
   '/portal/investor/support': 'Support',
 }
 
