@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
               Phone: phone ?? '',
               Lead_Source: 'Website - SMM Wizard',
               Description: description,
+              Tag: [{ name: 'SMM Enrolled' }],
             },
           ],
         }),
