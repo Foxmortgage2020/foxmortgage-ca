@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Resend } from 'resend'
 
 async function getZohoToken(): Promise<string> {
   const res = await fetch('https://accounts.zoho.com/oauth/v2/token', {
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
       submittedAt: body.submittedAt,
     })
 
+    // ── Zoho CRM ──────────────────────────────────────────────────────────────
     try {
       const token = await getZohoToken()
       const zohoRes = await fetch('https://www.zohoapis.com/crm/v2/Leads', {
@@ -89,6 +91,53 @@ export async function POST(req: NextRequest) {
       }
     } catch (zohoErr) {
       console.error('[SMM Enroll] Zoho error (user still gets confirmation):', zohoErr)
+    }
+
+    // ── Resend notification ───────────────────────────────────────────────────
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      await resend.emails.send({
+        from: 'SMM Enrollment <noreply@app.foxmortgage.ca>',
+        to: 'mfox@foxmortgage.ca',
+        subject: `New SMM Enrollment — ${firstName} ${lastName}`,
+        text: `New SMM enrollment received.
+
+NAME: ${firstName} ${lastName}
+EMAIL: ${email}
+PHONE: ${phone || 'Not provided'}
+
+PROPERTY
+Type: ${propertyType}
+City: ${city}, ${province}
+
+MORTGAGE
+Lender: ${currentLender}
+Current Rate: ${currentRate}%
+Rate Type: ${rateType}
+Mortgage Amount: ${mortgageAmount}
+
+RENEWAL
+Month/Year: ${renewalMonth} ${renewalYear}
+
+REFERRAL
+Source: ${referralSource}
+Name: ${referralName || 'N/A'}
+
+Submitted: ${body.submittedAt}
+
+---
+OWNWELL ENTRY CHECKLIST
+[ ] Add homeowner in Ownwell
+[ ] Enter full property address
+[ ] Set use type (Owner Occupied / Rental)
+[ ] Enter original mortgage amount (exact $)
+[ ] Enter closing/maturity date
+[ ] Enter payment frequency
+[ ] Enter amortization and term
+[ ] Mark lead as Active in Zoho CRM`,
+      })
+    } catch (resendErr) {
+      console.error('[SMM Enroll] Resend error (user still gets confirmation):', resendErr)
     }
 
     return NextResponse.json({ success: true })
