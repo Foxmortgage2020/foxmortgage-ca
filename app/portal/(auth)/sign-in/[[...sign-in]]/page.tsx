@@ -37,6 +37,8 @@ export default function SignInPage() {
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId })
         router.push('/portal')
+      } else {
+        setError('Sign-in could not be completed. Please check your credentials and try again.')
       }
     } catch (err: unknown) {
       const clerkErr = err as { errors?: { message?: string }[] }
