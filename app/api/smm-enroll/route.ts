@@ -1,24 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-async function getZohoToken(): Promise<string> {
-  const res = await fetch('https://accounts.zoho.com/oauth/v2/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      refresh_token: process.env.ZOHO_REFRESH_TOKEN!,
-      client_id: process.env.ZOHO_CLIENT_ID!,
-      client_secret: process.env.ZOHO_CLIENT_SECRET!,
-      grant_type: 'refresh_token',
-    }),
-  })
-  const data = await res.json()
-  if (!data.access_token) {
-    throw new Error(`Zoho token error: ${JSON.stringify(data)}`)
-  }
-  return data.access_token
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -63,35 +45,39 @@ export async function POST(req: NextRequest) {
       submittedAt: body.submittedAt,
     })
 
-    // ── Zoho CRM ──────────────────────────────────────────────────────────────
+    // ── n8n → Zoho CRM ───────────────────────────────────────────────────────
+    // n8n receives this payload and creates a Lead in Zoho CRM
     try {
-      const token = await getZohoToken()
-      const zohoRes = await fetch('https://www.zohoapis.com/crm/v2/Leads', {
+      const n8nBase = process.env.N8N_BASE_URL ?? 'https://foxmortgage.app.n8n.cloud'
+      const n8nRes = await fetch(`${n8nBase}/webhook/smm-enroll`, {
         method: 'POST',
-        headers: {
-          Authorization: `Zoho-oauthtoken ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: [
-            {
-              First_Name: firstName,
-              Last_Name: lastName,
-              Email: email,
-              Phone: phone ?? '',
-              Lead_Source: 'Website - SMM Wizard',
-              Description: description,
-              Tag: [{ name: 'SMM Enrolled' }],
-            },
-          ],
+          firstName,
+          lastName,
+          email,
+          phone: phone ?? '',
+          propertyType,
+          city,
+          province,
+          currentLender,
+          currentRate,
+          rateType,
+          mortgageAmount,
+          renewalMonth,
+          renewalYear,
+          referralSource,
+          referralName: referralName ?? '',
+          source: body.source ?? 'smm-enroll-wizard',
+          submittedAt: body.submittedAt,
         }),
       })
-      if (!zohoRes.ok) {
-        const text = await zohoRes.text()
-        console.error('[SMM Enroll] Zoho write failed:', zohoRes.status, text.substring(0, 300))
+      if (!n8nRes.ok) {
+        const text = await n8nRes.text()
+        console.error('[SMM Enroll] n8n webhook failed:', n8nRes.status, text.substring(0, 300))
       }
-    } catch (zohoErr) {
-      console.error('[SMM Enroll] Zoho error (user still gets confirmation):', zohoErr)
+    } catch (n8nErr) {
+      console.error('[SMM Enroll] n8n error (user still gets confirmation):', n8nErr)
     }
 
     // ── Resend notification ───────────────────────────────────────────────────
@@ -101,7 +87,7 @@ export async function POST(req: NextRequest) {
         from: 'SMM Enrollment <noreply@app.foxmortgage.ca>',
         to: 'mfox@foxmortgage.ca',
         subject: `New SMM Enrollment — ${firstName} ${lastName}`,
-        text: `New SMM enrollment received.
+        text: `New Strategic Mortgage Monitoring enrollment received.
 
 NAME: ${firstName} ${lastName}
 EMAIL: ${email}
@@ -127,62 +113,14 @@ Name: ${referralName || 'N/A'}
 Submitted: ${body.submittedAt}
 
 ---
-OWNWELL ENTRY CHECKLIST
-[ ] Add homeowner in Ownwell
-[ ] Enter full property address
-[ ] Set use type (Owner Occupied / Rental)
-[ ] Enter original mortgage amount (exact $)
-[ ] Enter closing/maturity date
-[ ] Enter payment frequency
-[ ] Enter amortization and term
+STRATEGIC MORTGAGE MONITORING ENTRY CHECKLIST
+[ ] Verify lead created in Zoho CRM via n8n
+[ ] Confirm lead source = Website - SMM Wizard
+[ ] Review property and mortgage details
 [ ] Mark lead as Active in Zoho CRM`,
       })
     } catch (resendErr) {
       console.error('[SMM Enroll] Resend error (user still gets confirmation):', resendErr)
-    }
-
-    // ── Zoho Campaigns ────────────────────────────────────────────────────────
-    try {
-      const tokenRes = await fetch('https://accounts.zoho.com/oauth/v2/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          client_id: process.env.ZOHO_CLIENT_ID!,
-          client_secret: process.env.ZOHO_CLIENT_SECRET!,
-          refresh_token: process.env.ZOHO_REFRESH_TOKEN!,
-        }),
-      })
-      const tokenData = await tokenRes.json()
-      const campaignsToken: string = tokenData.access_token
-      console.log('[SMM Enroll] Zoho Campaigns token (first 20):', campaignsToken?.substring(0, 20))
-
-      const campaignsBody = new URLSearchParams({
-        resfmt: 'JSON',
-        listkey: '1588620000000211001',
-        contactinfo: JSON.stringify({
-          'Contact Email': email,
-          'First Name': firstName,
-          'Last Name': lastName,
-        }),
-      })
-      console.log('[SMM Enroll] Zoho Campaigns request body:', campaignsBody.toString())
-
-      const campaignsRes = await fetch(
-        'https://campaigns.zoho.com/api/v1.1/json/listsubscribe',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: `Zoho-oauthtoken ${campaignsToken}`,
-          },
-          body: campaignsBody,
-        }
-      )
-      const campaignsText = await campaignsRes.text()
-      console.log('[SMM Enroll] Zoho Campaigns response:', campaignsRes.status, campaignsText)
-    } catch (campaignsErr) {
-      console.error('[SMM Enroll] Zoho Campaigns error (user still gets confirmation):', campaignsErr)
     }
 
     return NextResponse.json({ success: true })
