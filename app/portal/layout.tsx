@@ -18,6 +18,7 @@ import {
   Search,
   FileText,
   User,
+  MessageSquare,
 } from 'lucide-react'
 
 const partnerNavItems = [
@@ -44,6 +45,14 @@ const adminNavItems = [
   { label: 'Admin Dashboard', href: '/portal/admin', icon: LayoutDashboard },
 ]
 
+const fpNavItems = [
+  { label: 'Dashboard', href: '/portal/fp/dashboard', icon: LayoutDashboard },
+  { label: 'My Clients', href: '/portal/fp/clients', icon: Users },
+  { label: 'Add Referral', href: '/portal/fp/add-referral', icon: UserPlus },
+  { label: 'Messages', href: '/portal/fp/messages', icon: MessageSquare },
+  { label: 'Support', href: '/portal/fp/support', icon: HelpCircle },
+]
+
 const partnerPageTitles: Record<string, string> = {
   '/portal/dashboard': 'Dashboard',
   '/portal/clients': 'Clients',
@@ -64,6 +73,14 @@ const investorPageTitles: Record<string, string> = {
   '/portal/investor/support': 'Support',
 }
 
+const fpPageTitles: Record<string, string> = {
+  '/portal/fp/dashboard': 'Dashboard',
+  '/portal/fp/clients': 'My Clients',
+  '/portal/fp/add-referral': 'Add Referral',
+  '/portal/fp/messages': 'Messages',
+  '/portal/fp/support': 'Support',
+}
+
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -81,12 +98,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   const isInvestorPortal = pathname?.startsWith('/portal/investor')
   const isAdminPortal = pathname?.startsWith('/portal/admin')
+  const isFPPortal = pathname?.startsWith('/portal/fp')
   const isAdmin = userRoles.includes('admin')
 
   // Determine nav items based on current portal route
   let navItems = partnerNavItems
   if (isAdminPortal) navItems = adminNavItems
   else if (isInvestorPortal) navItems = investorNavItems
+  else if (isFPPortal) navItems = fpNavItems
 
   // Page title
   let pageTitle = 'Portal'
@@ -96,6 +115,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     pageTitle = investorPageTitles[pathname] || 'Portal'
     if (pathname.startsWith('/portal/investor/portfolio/')) pageTitle = 'Investment Details'
     if (pathname.startsWith('/portal/investor/opportunities/')) pageTitle = 'Investment File'
+  } else if (isFPPortal) {
+    pageTitle = fpPageTitles[pathname] || 'Portal'
+    if (pathname.startsWith('/portal/fp/clients/')) pageTitle = 'Client File'
   } else {
     pageTitle = partnerPageTitles[pathname] || 'Portal'
     if (pathname.startsWith('/portal/clients/')) pageTitle = 'Client File'
@@ -172,6 +194,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 Partner Portal
               </button>
               <button
+                onClick={() => router.push('/portal/fp/dashboard')}
+                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                FP Portal
+              </button>
+              <button
                 onClick={() => router.push('/portal/investor/dashboard')}
                 className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
               >
@@ -236,16 +265,28 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                   Admin
                 </button>
               )}
-              <button
-                onClick={() => router.push('/portal/dashboard')}
-                className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
-                  !isInvestorPortal && !isAdminPortal
-                    ? 'bg-lime text-navy shadow-sm'
-                    : 'text-gray-500 hover:text-navy'
-                }`}
-              >
-                Partner
-              </button>
+              {(isAdmin || userRoles.includes('realtor')) && (
+                <button
+                  onClick={() => router.push('/portal/dashboard')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                    !isInvestorPortal && !isAdminPortal && !isFPPortal
+                      ? 'bg-lime text-navy shadow-sm'
+                      : 'text-gray-500 hover:text-navy'
+                  }`}
+                >
+                  Partner
+                </button>
+              )}
+              {(isAdmin || userRoles.includes('financial-planner')) && (
+                <button
+                  onClick={() => router.push('/portal/fp/dashboard')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                    isFPPortal ? 'bg-lime text-navy shadow-sm' : 'text-gray-500 hover:text-navy'
+                  }`}
+                >
+                  FP Portal
+                </button>
+              )}
               <button
                 onClick={() => router.push('/portal/investor/dashboard')}
                 className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
@@ -273,7 +314,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             <span className="text-navy/60">
               👁️ Viewing as Admin &mdash;{' '}
               <span className="font-semibold text-navy">
-                {isInvestorPortal ? 'Investor Portal' : 'Partner Portal'}
+                {isInvestorPortal ? 'Investor Portal' : isFPPortal ? 'FP Portal' : 'Partner Portal'}
               </span>
             </span>
             <button

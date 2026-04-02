@@ -43,13 +43,25 @@ export default function PortalRedirect() {
       return
     }
 
-    // Multi-role with investor — default to partner, switcher handles the rest
+    // Financial planner + investor — default to FP portal, switcher handles the rest
+    if (roles.includes('financial-planner') && roles.includes('investor')) {
+      router.push('/portal/fp/dashboard')
+      return
+    }
+
+    // Financial planner only
+    if (roles.includes('financial-planner')) {
+      router.push('/portal/fp/dashboard')
+      return
+    }
+
+    // Multi-role realtor + investor — default to partner, switcher handles the rest
     if (roles.includes('investor')) {
       router.push('/portal/dashboard')
       return
     }
 
-    // Default: realtor, financial planner, or anything else
+    // Default: realtor or anything else
     router.push('/portal/dashboard')
   }, [isLoaded, user, router])
 
