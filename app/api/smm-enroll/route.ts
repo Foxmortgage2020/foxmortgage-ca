@@ -141,39 +141,6 @@ OWNWELL ENTRY CHECKLIST
       console.error('[SMM Enroll] Resend error (user still gets confirmation):', resendErr)
     }
 
-    // ── Zoho Campaigns ────────────────────────────────────────────────────────
-    try {
-      const campaignsToken = await getZohoToken()
-      const campaignsBody = new URLSearchParams({
-        resfmt: 'JSON',
-        listkey: '1588620000000211001',
-        contactinfo: JSON.stringify({
-          'Contact Email': email,
-          'First Name': firstName,
-          'Last Name': lastName,
-        }),
-      })
-      console.log('[SMM Enroll] Zoho Campaigns request body:', campaignsBody.toString())
-      const campaignsRes = await fetch(
-        'https://campaigns.zoho.com/api/v1.1/json/listsubscribe',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: `Zoho-oauthtoken ${campaignsToken}`,
-          },
-          body: campaignsBody,
-        }
-      )
-      const campaignsText = await campaignsRes.text()
-      console.log('[SMM Enroll] Zoho Campaigns response:', campaignsRes.status, campaignsText)
-      if (!campaignsRes.ok) {
-        console.error('[SMM Enroll] Zoho Campaigns failed:', campaignsRes.status, campaignsText.substring(0, 300))
-      }
-    } catch (campaignsErr) {
-      console.error('[SMM Enroll] Zoho Campaigns error (user still gets confirmation):', campaignsErr)
-    }
-
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[SMM Enroll] Unhandled error:', err)
