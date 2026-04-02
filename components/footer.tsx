@@ -52,7 +52,7 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/smm" className="text-lime hover:text-lime-light transition-colors">
+                <Link href="/smm/enroll" className="text-lime hover:text-lime-light transition-colors">
                   Start Monitoring →
                 </Link>
               </li>

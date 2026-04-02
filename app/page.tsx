@@ -27,7 +27,7 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
-                  href="/smm"
+                  href="/smm/enroll"
                   className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-all hover:shadow-lg text-center"
                 >
                   Start Monitoring
@@ -149,7 +149,7 @@ export default function Home() {
                 ))}
               </div>
               <Link
-                href="/smm"
+                href="/smm/enroll"
                 className="inline-block mt-10 bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-colors"
               >
                 Enroll in Monitoring

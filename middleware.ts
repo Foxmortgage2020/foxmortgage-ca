@@ -9,6 +9,7 @@ export default authMiddleware({
     '/about',
     '/services',
     '/smm',
+    '/smm/enroll',
     '/contact',
     '/apply',
     '/private-lending',

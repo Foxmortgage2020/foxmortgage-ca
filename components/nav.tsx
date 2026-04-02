@@ -57,7 +57,7 @@ export default function Nav() {
               Partner Portal
             </Link>
             <Link
-              href="/smm"
+              href="/smm/enroll"
               className="bg-lime text-navy font-heading font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-lime-dark transition-colors"
             >
               Start Monitoring
@@ -99,7 +99,7 @@ export default function Nav() {
             </Link>
           ))}
           <Link
-            href="/smm"
+            href="/smm/enroll"
             className="block bg-lime text-navy font-heading font-bold text-sm px-5 py-3 rounded-lg text-center mt-2"
             onClick={() => setMenuOpen(false)}
           >
