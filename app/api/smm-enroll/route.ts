@@ -141,6 +141,33 @@ OWNWELL ENTRY CHECKLIST
       console.error('[SMM Enroll] Resend error (user still gets confirmation):', resendErr)
     }
 
+    // ── Zoho Campaigns ────────────────────────────────────────────────────────
+    try {
+      const campaignsToken = await getZohoToken()
+      const campaignsRes = await fetch(
+        'https://campaigns.zoho.com/api/v1.1/json/listsubscribe',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            resfmt: 'JSON',
+            listkey: '1588620000000211001',
+            contactinfo: JSON.stringify({
+              'Contact Email': email,
+              'First Name': firstName,
+              'Last Name': lastName,
+            }),
+          }),
+        }
+      )
+      if (!campaignsRes.ok) {
+        const text = await campaignsRes.text()
+        console.error('[SMM Enroll] Zoho Campaigns failed:', campaignsRes.status, text.substring(0, 300))
+      }
+    } catch (campaignsErr) {
+      console.error('[SMM Enroll] Zoho Campaigns error (user still gets confirmation):', campaignsErr)
+    }
+
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[SMM Enroll] Unhandled error:', err)
