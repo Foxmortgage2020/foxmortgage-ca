@@ -56,6 +56,17 @@
   zoho_partner_id: 7112178000001393118
   Two real Zoho positions: IFMS-F002684 (Hamilton, $500K, 12%) + BRXM-F024629 (Thorndale, $85K, 12%)
 
+### Resend Configuration
+- Verified domain: app.foxmortgage.ca (verified, North Virginia us-east-1)
+- foxmortgage.ca is NOT verified — never use as from address
+- All outgoing emails must use @app.foxmortgage.ca
+- Sending address: michael@app.foxmortgage.ca
+- n8n credential: "Resend API Paperclip" (Header Auth)
+  - Name field: Authorization
+  - Value field: Bearer re_[key]
+- SMM welcome emails: use existing "Resend API" credential
+- Paperclip briefing emails: use "Resend API Paperclip" credential
+
 ### Known Issues / In Progress
 - Investor dashboard crashes on load — API fix in progress (use currentUser() not auth())
 - Zoho credential leak: .env.local.save was accidentally committed and removed. Consider rotating ZOHO_REFRESH_TOKEN.
