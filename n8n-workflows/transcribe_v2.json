@@ -175,19 +175,88 @@
     },
     {
       "parameters": {
-        "jsCode": "// AssemblyAI fallback transcription — Phase 2\n// Runs when both YouTube timedtext paths (ASR + manual) return no content.\n// AssemblyAI accepts YouTube URLs natively — no audio download or Worker needed.\n//\n// Uses the \"AssemblyAI\" Header Auth credential configured on this node.\n// The credential sends the API key as the Authorization header.\n//\n// Cost: ~$0.37/hour of audio (pay-per-use, no monthly minimum).\n\nconst prev = $('Parse Timedtext Manual').first().json;\nconst youtubeUrl = prev.youtube_url;\nconst recordId = prev.record_id;\n\nconst BASE = 'https://api.assemblyai.com/v2';\n\n// 1. Submit transcription job — AssemblyAI accepts YouTube URLs directly\nlet submission;\ntry {\n  submission = await $helpers.httpRequestWithAuthentication.call(\n    this,\n    'httpHeaderAuth',\n    {\n      method: 'POST',\n      url: `${BASE}/transcript`,\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ audio_url: youtubeUrl }),\n    }\n  );\n} catch (err) {\n  return [{ json: {\n    record_id: recordId,\n    transcript: '',\n    method: 'none',\n    success: false,\n    error: 'AssemblyAI submission error: ' + err.message,\n  }}];\n}\n\nif (!submission.id) {\n  return [{ json: {\n    record_id: recordId,\n    transcript: '',\n    method: 'none',\n    success: false,\n    error: 'AssemblyAI returned no job ID. Response: ' + JSON.stringify(submission),\n  }}];\n}\n\nconst jobId = submission.id;\n\n// 2. Poll until complete or error (max 5 min = 30 × 10s)\nfor (let attempt = 0; attempt < 30; attempt++) {\n  await new Promise(r => setTimeout(r, 10000));\n\n  let result;\n  try {\n    result = await $helpers.httpRequestWithAuthentication.call(\n      this,\n      'httpHeaderAuth',\n      {\n        method: 'GET',\n        url: `${BASE}/transcript/${jobId}`,\n      }\n    );\n  } catch (err) {\n    continue; // Transient poll error — retry\n  }\n\n  if (result.status === 'completed') {\n    return [{ json: {\n      record_id: recordId,\n      transcript: result.text || '',\n      method: 'assemblyai',\n      success: true,\n      error: '',\n    }}];\n  }\n\n  if (result.status === 'error') {\n    return [{ json: {\n      record_id: recordId,\n      transcript: '',\n      method: 'none',\n      success: false,\n      error: 'AssemblyAI transcription failed: ' + (result.error || 'unknown error'),\n    }}];\n  }\n  // status is 'queued' or 'processing' — keep polling\n}\n\n// Timeout after 5 minutes\nreturn [{ json: {\n  record_id: recordId,\n  transcript: '',\n  method: 'none',\n  success: false,\n  error: 'AssemblyAI timed out after 5 minutes. Video may be too long or API queue is busy.',\n}}];"
+        "method": "POST",
+        "url": "https://api.assemblyai.com/v2/transcript",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "audio_url",
+              "value": "={{ $('Parse Timedtext Manual').first().json.youtube_url }}"
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "11111111-1111-1111-1111-000000000011",
-      "name": "AssemblyAI Fallback",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "name": "Submit to AssemblyAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [1760, 580],
+      "continueOnFail": true,
       "credentials": {
         "httpHeaderAuth": {
           "id": "",
           "name": "AssemblyAI"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract AssemblyAI job ID from submission response\nconst prev = $('Parse Timedtext Manual').first().json;\nconst response = $input.first().json;\n\nif (!response.id) {\n  return [{ json: {\n    record_id: prev.record_id,\n    job_id: null,\n    submit_failed: true,\n    submit_error: 'AssemblyAI submission failed: ' + (response.error || response.message || JSON.stringify(response))\n  }}];\n}\n\nreturn [{ json: {\n  record_id: prev.record_id,\n  job_id: response.id,\n  submit_failed: false,\n  submit_error: ''\n}}];"
+      },
+      "id": "11111111-1111-1111-1111-000000000012",
+      "name": "Extract Job ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1980, 580]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "11111111-1111-1111-1111-000000000013",
+      "name": "Wait 60s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2200, 580],
+      "webhookId": "aabbccdd-1234-5678-abcd-transcribev2w"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.assemblyai.com/v2/transcript/{{ $json.job_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-000000000014",
+      "name": "Poll Transcript Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2420, 580],
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "AssemblyAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format AssemblyAI result into standard transcribe_v2 output format\nconst jobInfo = $('Extract Job ID').first().json;\nconst pollResponse = $input.first().json;\n\n// Handle submission failure (job_id was null)\nif (jobInfo.submit_failed) {\n  return [{ json: {\n    record_id: jobInfo.record_id,\n    transcript: '',\n    method: 'none',\n    success: false,\n    error: jobInfo.submit_error\n  }}];\n}\n\n// Handle completed transcription\nif (pollResponse.status === 'completed') {\n  return [{ json: {\n    record_id: jobInfo.record_id,\n    transcript: pollResponse.text || '',\n    method: 'assemblyai',\n    success: true,\n    error: ''\n  }}];\n}\n\n// Handle error status\nif (pollResponse.status === 'error') {\n  return [{ json: {\n    record_id: jobInfo.record_id,\n    transcript: '',\n    method: 'none',\n    success: false,\n    error: 'AssemblyAI transcription failed: ' + (pollResponse.error || 'unknown error')\n  }}];\n}\n\n// Not ready after 60s wait (status: queued or processing)\nreturn [{ json: {\n  record_id: jobInfo.record_id,\n  transcript: '',\n  method: 'none',\n  success: false,\n  error: 'AssemblyAI not ready after 60s. Status: ' + (pollResponse.status || 'unknown') + '. Job ID: ' + jobInfo.job_id + '. Retry or increase wait time.'\n}}];"
+      },
+      "id": "11111111-1111-1111-1111-000000000015",
+      "name": "Format AssemblyAI Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 580]
     }
   ],
   "connections": {
@@ -230,7 +299,27 @@
     "Has Manual Content?": {
       "main": [
         [{"node": "Return Transcript (Manual)", "type": "main", "index": 0}],
-        [{"node": "AssemblyAI Fallback", "type": "main", "index": 0}]
+        [{"node": "Submit to AssemblyAI", "type": "main", "index": 0}]
+      ]
+    },
+    "Submit to AssemblyAI": {
+      "main": [
+        [{"node": "Extract Job ID", "type": "main", "index": 0}]
+      ]
+    },
+    "Extract Job ID": {
+      "main": [
+        [{"node": "Wait 60s", "type": "main", "index": 0}]
+      ]
+    },
+    "Wait 60s": {
+      "main": [
+        [{"node": "Poll Transcript Status", "type": "main", "index": 0}]
+      ]
+    },
+    "Poll Transcript Status": {
+      "main": [
+        [{"node": "Format AssemblyAI Result", "type": "main", "index": 0}]
       ]
     }
   },
