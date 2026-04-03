@@ -1,0 +1,236 @@
+{
+  "name": "transcribe_v2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "11111111-1111-1111-1111-000000000001",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract YouTube video ID from URL and pass through record_id\nconst input = $input.first().json;\nconst url = input.youtube_url || '';\n\n// Support all YouTube URL formats\nconst patterns = [\n  /[?&]v=([a-zA-Z0-9_-]{11})/,\n  /youtu\\.be\\/([a-zA-Z0-9_-]{11})/,\n  /embed\\/([a-zA-Z0-9_-]{11})/,\n  /shorts\\/([a-zA-Z0-9_-]{11})/\n];\n\nlet video_id = null;\nfor (const pattern of patterns) {\n  const match = url.match(pattern);\n  if (match) {\n    video_id = match[1];\n    break;\n  }\n}\n\nif (!video_id) {\n  throw new Error('Could not extract YouTube video ID from URL: ' + url);\n}\n\nreturn [{\n  json: {\n    record_id: input.record_id,\n    youtube_url: url,\n    video_id\n  }\n}];"
+      },
+      "id": "11111111-1111-1111-1111-000000000002",
+      "name": "Extract Video ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.youtube.com/api/timedtext?v={{ $json.video_id }}&lang=en&kind=asr&fmt=json3",
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-000000000003",
+      "name": "Fetch Timedtext ASR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse YouTube timedtext JSON3 format and extract plain text\n// Preserves record_id and video_id from previous node\nconst prev = $('Extract Video ID').first().json;\nconst response = $input.first().json;\n\nlet transcript = '';\nlet has_content = false;\n\ntry {\n  // Timedtext JSON3 format: { events: [{ segs: [{ utf8: '...' }] }] }\n  if (response.events && Array.isArray(response.events) && response.events.length > 0) {\n    const parts = [];\n    for (const event of response.events) {\n      if (event.segs && Array.isArray(event.segs)) {\n        for (const seg of event.segs) {\n          if (seg.utf8 && seg.utf8.trim()) {\n            parts.push(seg.utf8);\n          }\n        }\n      }\n    }\n    const raw = parts.join('');\n    // Clean up whitespace and newlines\n    transcript = raw.replace(/\\n/g, ' ').replace(/\\s+/g, ' ').trim();\n    has_content = transcript.length > 50;\n  }\n} catch (e) {\n  // Parse error — has_content stays false, falls through to fallback\n}\n\nreturn [{\n  json: {\n    record_id: prev.record_id,\n    youtube_url: prev.youtube_url,\n    video_id: prev.video_id,\n    transcript,\n    has_content,\n    method: 'timedtext_asr'\n  }\n}];"
+      },
+      "id": "11111111-1111-1111-1111-000000000004",
+      "name": "Parse Timedtext ASR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.has_content === true ? 0 : 1 }}"
+      },
+      "id": "11111111-1111-1111-1111-000000000005",
+      "name": "Has ASR Content?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "out1",
+              "name": "record_id",
+              "value": "={{ $json.record_id }}",
+              "type": "string"
+            },
+            {
+              "id": "out2",
+              "name": "transcript",
+              "value": "={{ $json.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "out3",
+              "name": "method",
+              "value": "={{ $json.method }}",
+              "type": "string"
+            },
+            {
+              "id": "out4",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "out5",
+              "name": "error",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-000000000006",
+      "name": "Return Transcript (ASR)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1100, 160]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.youtube.com/api/timedtext?v={{ $json.video_id }}&lang=en&fmt=json3",
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-000000000007",
+      "name": "Fetch Timedtext Manual",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 440],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse manual captions (same format as ASR, without kind=asr)\nconst prev = $('Parse Timedtext ASR').first().json;\nconst response = $input.first().json;\n\nlet transcript = '';\nlet has_content = false;\n\ntry {\n  if (response.events && Array.isArray(response.events) && response.events.length > 0) {\n    const parts = [];\n    for (const event of response.events) {\n      if (event.segs && Array.isArray(event.segs)) {\n        for (const seg of event.segs) {\n          if (seg.utf8 && seg.utf8.trim()) {\n            parts.push(seg.utf8);\n          }\n        }\n      }\n    }\n    const raw = parts.join('');\n    transcript = raw.replace(/\\n/g, ' ').replace(/\\s+/g, ' ').trim();\n    has_content = transcript.length > 50;\n  }\n} catch (e) {\n  // Parse error\n}\n\nreturn [{\n  json: {\n    record_id: prev.record_id,\n    youtube_url: prev.youtube_url,\n    video_id: prev.video_id,\n    transcript,\n    has_content,\n    method: 'timedtext_manual'\n  }\n}];"
+      },
+      "id": "11111111-1111-1111-1111-000000000008",
+      "name": "Parse Timedtext Manual",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 440]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.has_content === true ? 0 : 1 }}"
+      },
+      "id": "11111111-1111-1111-1111-000000000009",
+      "name": "Has Manual Content?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1540, 440]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "out1",
+              "name": "record_id",
+              "value": "={{ $json.record_id }}",
+              "type": "string"
+            },
+            {
+              "id": "out2",
+              "name": "transcript",
+              "value": "={{ $json.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "out3",
+              "name": "method",
+              "value": "={{ $json.method }}",
+              "type": "string"
+            },
+            {
+              "id": "out4",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "out5",
+              "name": "error",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-000000000010",
+      "name": "Return Transcript (Manual)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1760, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// PHASE 2 STUB: Whisper + Deepgram fallback\n// This path runs when timedtext (both ASR and manual) returns no content.\n//\n// Phase 2 prerequisites needed before implementing:\n// 1. Cloudflare Worker URL for yt-dlp audio extraction\n//    - Deploy to Michael's existing Cloudflare account\n//    - Worker accepts YouTube URL, returns audio stream/URL\n// 2. OpenAI API credential added to n8n (separate from OpenRouter)\n//    - For videos < 25MB: use native n8n OpenAI Whisper node\n// 3. Deepgram API key added to n8n credentials\n//    - For audio files > 25MB: Deepgram accepts hosted audio URLs directly\n//\n// Once Phase 2 prerequisites are in place, this stub should be replaced with:\n//   HTTP Request → Cloudflare Worker (get audio URL)\n//   → Check file size\n//   → If < 25MB: OpenAI Whisper node\n//   → If >= 25MB: Deepgram HTTP Request\n\nconst prev = $input.first().json;\n\nreturn [{\n  json: {\n    record_id: prev.record_id,\n    transcript: '',\n    method: 'none',\n    success: false,\n    error: 'PHASE_2_STUB: Timedtext unavailable for this video. Whisper/Deepgram fallback requires Cloudflare Worker + credentials (see Phase 2).'\n  }\n}];"
+      },
+      "id": "11111111-1111-1111-1111-000000000011",
+      "name": "STUB: Whisper Fallback (Phase 2)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 580]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [{"node": "Extract Video ID", "type": "main", "index": 0}]
+      ]
+    },
+    "Extract Video ID": {
+      "main": [
+        [{"node": "Fetch Timedtext ASR", "type": "main", "index": 0}]
+      ]
+    },
+    "Fetch Timedtext ASR": {
+      "main": [
+        [{"node": "Parse Timedtext ASR", "type": "main", "index": 0}]
+      ]
+    },
+    "Parse Timedtext ASR": {
+      "main": [
+        [{"node": "Has ASR Content?", "type": "main", "index": 0}]
+      ]
+    },
+    "Has ASR Content?": {
+      "main": [
+        [{"node": "Return Transcript (ASR)", "type": "main", "index": 0}],
+        [{"node": "Fetch Timedtext Manual", "type": "main", "index": 0}]
+      ]
+    },
+    "Fetch Timedtext Manual": {
+      "main": [
+        [{"node": "Parse Timedtext Manual", "type": "main", "index": 0}]
+      ]
+    },
+    "Parse Timedtext Manual": {
+      "main": [
+        [{"node": "Has Manual Content?", "type": "main", "index": 0}]
+      ]
+    },
+    "Has Manual Content?": {
+      "main": [
+        [{"node": "Return Transcript (Manual)", "type": "main", "index": 0}],
+        [{"node": "STUB: Whisper Fallback (Phase 2)", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
