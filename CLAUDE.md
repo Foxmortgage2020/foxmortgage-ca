@@ -67,6 +67,39 @@
 - SMM welcome emails: use existing "Resend API" credential
 - Paperclip briefing emails: use "Resend API Paperclip" credential
 
+### Paperclip & Automation
+
+**Paperclip** is the Fox Mortgage AI operations platform running locally at `http://localhost:3100`.
+
+#### Infrastructure
+- **launchd service:** `ca.foxmortgage.paperclip` — starts on macOS login, auto-restarts on crash
+  - Manage: `launchctl start|stop|unload ca.foxmortgage.paperclip`
+  - Logs: `~/.paperclip/logs/launchd.log` / `launchd-error.log`
+- **Company ID:** `eebfd2ee-304a-49c0-8e20-909291d01583`
+- **API:** `http://localhost:3100/api` (no auth in local_trusted mode)
+
+#### Agents
+| Agent | Role | Daily Schedule |
+|---|---|---|
+| CEO | Strategy & board briefings | 6:00 AM |
+| CMO | Content & social monitoring | 7:00 AM |
+| Client Success Manager | Enrollment check | 9:00 AM |
+| Investor Relations Manager | Deal monitoring | 10:00 AM |
+
+All 4 agents have direct n8n MCP access via `--mcp-config /Users/user/.paperclip/mcp/n8n.json`.
+
+#### Email Routing (Paperclip → n8n → Resend)
+All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend API.
+- **From address:** `michael@app.foxmortgage.ca` (verified domain only)
+- **Credential in n8n:** `Resend API Paperclip` (ID: `iJa8AHPr58GmNMda`)
+- **Briefing workflow:** `dceYGLjOIRQAuS0p` (built, awaiting activation by Michael)
+
+#### Pending n8n Webhooks (for foxmortgage.ca routes)
+- `FP_REFERRAL_WEBHOOK_URL` — Financial Planner portal referral submit (not yet built)
+- `FP_MESSAGE_WEBHOOK_URL` — Financial Planner portal message submit (not yet built)
+- SMM leads webhook — for agents to check new SMM enrollments (not yet built)
+- Investor deals webhook — for agents to check deal/position status (not yet built)
+
 ### Known Issues / In Progress
 - Investor dashboard crashes on load — API fix in progress (use currentUser() not auth())
 - Zoho credential leak: .env.local.save was accidentally committed and removed. Consider rotating ZOHO_REFRESH_TOKEN.
