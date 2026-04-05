@@ -2,6 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import {
   Users,
   DollarSign,
@@ -13,89 +14,136 @@ import {
   MessageSquare,
   ArrowRight,
   Briefcase,
+  Loader2,
 } from 'lucide-react'
 
-const stats = [
-  { label: 'Total Referrals', value: '12', change: '+3', up: true, icon: Users },
-  { label: 'Active Monitoring', value: '8', change: '+1', up: true, icon: Target },
-  { label: 'Closed Mortgages', value: '7', change: '+2', up: true, icon: CheckCircle2 },
-  { label: 'Funded Volume', value: '$4.1M', change: '+$850K', up: true, icon: DollarSign },
-  { label: 'Lead-to-Close %', value: '58.3%', change: '-3.2%', up: false, icon: TrendingUp },
-  { label: 'Savings Identified YTD', value: '$42,800', change: '', up: true, icon: DollarSign },
-  { label: 'Mortgages Under Mgmt', value: '$3.2M', change: '', up: true, icon: Briefcase },
-]
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const recentActivity = [
-  {
-    client: 'Amanda Reyes',
-    action: 'Mortgage file updated — rate hold confirmed at 4.79%',
-    date: 'Apr 1, 2026',
-    status: 'Active',
-  },
-  {
-    client: 'Ben Kowalski',
-    action: 'New referral submitted — onboarding started',
-    date: 'Mar 31, 2026',
-    status: 'Onboarding',
-  },
-  {
-    client: 'Priya Sharma',
-    action: 'Renewal review completed — savings of $410/mo identified',
-    date: 'Mar 28, 2026',
-    status: 'Savings Found',
-  },
-  {
-    client: 'Carlos Mendes',
-    action: 'Mortgage funded — $685,000 at 4.54% 5yr fixed',
-    date: 'Mar 25, 2026',
-    status: 'Closed',
-  },
-]
+interface DashboardStats {
+  totalReferrals: number
+  activeMonitoring: number
+  closedMortgages: number
+  fundedVolume: number
+  leadToClose: number
+  savingsYTD: number
+  mortgagesUnderMgmt: number
+}
+
+interface RecentDeal {
+  client: string
+  dealId: string
+  stage: string
+  lastActivity: string | null
+  savingsIdentified: string | null
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatCurrency(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`
+  return `$${n.toLocaleString('en-CA')}`
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return iso
+  }
+}
+
+function stageToStatus(stage: string): string {
+  const s = (stage ?? '').toLowerCase()
+  if (s.includes('closed won') || s.includes('funded')) return 'Closed'
+  if (s.includes('closed')) return 'Closed'
+  if (s.includes('prospecting') || s.includes('qualification') || !s) return 'Referred'
+  if (s.includes('needs') || s.includes('value') || s.includes('decision') || s.includes('perception')) return 'Onboarding'
+  return 'Active'
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const statusColors: Record<string, string> = {
   Active: 'bg-lime/20 text-lime-dark',
   Onboarding: 'bg-blue-100 text-blue-700',
   'Savings Found': 'bg-amber-100 text-amber-700',
   Closed: 'bg-gray-100 text-gray-600',
+  Referred: 'bg-purple-100 text-purple-700',
 }
 
 const quickActions = [
-  {
-    title: 'Add Referral',
-    description: 'Submit a new client referral',
-    icon: UserPlus,
-    href: '/portal/fp/add-referral',
-  },
-  {
-    title: 'View Clients',
-    description: 'See all your referred clients',
-    icon: Users,
-    href: '/portal/fp/clients',
-  },
-  {
-    title: 'Message Michael',
-    description: 'Send a message or ask a question',
-    icon: MessageSquare,
-    href: '/portal/fp/messages',
-  },
+  { title: 'Add Referral', description: 'Submit a new client referral', icon: UserPlus, href: '/portal/fp/add-referral' },
+  { title: 'View Clients', description: 'See all your referred clients', icon: Users, href: '/portal/fp/clients' },
+  { title: 'Message Michael', description: 'Send a message or ask a question', icon: MessageSquare, href: '/portal/fp/messages' },
 ]
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FPDashboardPage() {
   const { user } = useUser()
   const firstName = user?.firstName || 'there'
+
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [recent, setRecent] = useState<RecentDeal[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/portal/fp/dashboard')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.error) {
+          setStats(data.stats ?? null)
+          setRecent(data.recent ?? [])
+        }
+      })
+      .catch(() => {/* show skeleton values */})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const statCards = stats
+    ? [
+        { label: 'Total Referrals', value: String(stats.totalReferrals), icon: Users, up: true },
+        { label: 'Active Monitoring', value: String(stats.activeMonitoring), icon: Target, up: true },
+        { label: 'Closed Mortgages', value: String(stats.closedMortgages), icon: CheckCircle2, up: true },
+        { label: 'Funded Volume', value: formatCurrency(stats.fundedVolume), icon: DollarSign, up: true },
+        { label: 'Lead-to-Close %', value: `${stats.leadToClose}%`, icon: TrendingUp, up: true },
+        {
+          label: 'Savings Identified YTD',
+          value: stats.savingsYTD > 0 ? formatCurrency(stats.savingsYTD) : '—',
+          icon: DollarSign,
+          up: true,
+        },
+        { label: 'Mortgages Under Mgmt', value: formatCurrency(stats.mortgagesUnderMgmt), icon: Briefcase, up: true },
+      ]
+    : []
+
+  const upcomingRenewals = recent.filter(r => r.savingsIdentified).length
+  const hasNewActivity = recent.length > 0
 
   return (
     <div>
       {/* Welcome Bar */}
       <div className="bg-lime/10 border border-lime/30 rounded-xl p-4 mb-6 flex items-center justify-between">
         <div>
-          <h2 className="font-heading font-bold text-navy text-lg">
-            Welcome back, {firstName}
-          </h2>
+          <h2 className="font-heading font-bold text-navy text-lg">Welcome back, {firstName}</h2>
           <p className="font-body text-sm text-gray-600">
-            You have <span className="font-semibold text-navy">2 clients</span> with upcoming
-            renewals and <span className="font-semibold text-navy">1 new message</span> from
-            Michael.
+            {loading ? (
+              'Loading your portfolio…'
+            ) : stats ? (
+              <>
+                You have{' '}
+                <span className="font-semibold text-navy">{stats.activeMonitoring} client{stats.activeMonitoring !== 1 ? 's' : ''}</span>{' '}
+                under active monitoring
+                {upcomingRenewals > 0 && (
+                  <> and <span className="font-semibold text-navy">{upcomingRenewals} with savings identified</span></>
+                )}
+                .
+              </>
+            ) : (
+              'Your mortgage portfolio is ready to view.'
+            )}
           </p>
         </div>
         <Link
@@ -108,32 +156,37 @@ export default function FPDashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-sm transition-shadow"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <stat.icon className="w-5 h-5 text-gray-400" />
-              {stat.change && (
-                <span
-                  className={`flex items-center gap-0.5 text-xs font-body font-semibold ${
-                    stat.up ? 'text-green-600' : 'text-red-500'
-                  }`}
-                >
-                  {stat.up ? (
-                    <TrendingUp className="w-3 h-3" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3" />
-                  )}
-                  {stat.change}
-                </span>
-              )}
+        {loading ? (
+          Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="bg-white border border-gray-100 rounded-xl p-4 animate-pulse">
+              <div className="h-4 w-4 bg-gray-200 rounded mb-3" />
+              <div className="h-6 w-16 bg-gray-200 rounded mb-2" />
+              <div className="h-3 w-24 bg-gray-100 rounded" />
             </div>
-            <div className="font-heading font-bold text-navy text-xl">{stat.value}</div>
-            <div className="font-body text-xs text-gray-500 mt-1">{stat.label}</div>
+          ))
+        ) : statCards.length > 0 ? (
+          statCards.map((stat) => (
+            <div
+              key={stat.label}
+              className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-sm transition-shadow"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <stat.icon className="w-5 h-5 text-gray-400" />
+                {stat.up ? (
+                  <TrendingUp className="w-3 h-3 text-green-500" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 text-red-500" />
+                )}
+              </div>
+              <div className="font-heading font-bold text-navy text-xl">{stat.value}</div>
+              <div className="font-body text-xs text-gray-500 mt-1">{stat.label}</div>
+            </div>
+          ))
+        ) : (
+          <div className="col-span-4 bg-white border border-gray-100 rounded-xl p-8 text-center">
+            <p className="font-body text-sm text-gray-400">No portfolio data yet. Add your first referral to get started.</p>
           </div>
-        ))}
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -159,50 +212,60 @@ export default function FPDashboardPage() {
       {/* Recent Activity */}
       <h3 className="font-heading font-bold text-navy text-lg mb-4">Recent Activity</h3>
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
-                Client
-              </th>
-              <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
-                Activity
-              </th>
-              <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 hidden md:table-cell">
-                Date
-              </th>
-              <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentActivity.map((row, i) => (
-              <tr
-                key={i}
-                className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer"
-                onClick={() => {}}
-              >
-                <td className="px-5 py-3 font-body text-sm font-medium text-navy">
-                  {row.client}
-                </td>
-                <td className="px-5 py-3 font-body text-sm text-gray-600">{row.action}</td>
-                <td className="px-5 py-3 font-body text-sm text-gray-400 hidden md:table-cell">
-                  {row.date}
-                </td>
-                <td className="px-5 py-3">
-                  <span
-                    className={`inline-block font-body text-xs font-semibold px-3 py-1 rounded-full ${
-                      statusColors[row.status] || 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {row.status}
-                  </span>
-                </td>
+        {loading ? (
+          <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="font-body text-sm">Loading activity…</span>
+          </div>
+        ) : recent.length === 0 ? (
+          <div className="px-5 py-10 text-center font-body text-sm text-gray-400">
+            No recent activity yet.
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Client</th>
+                <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Stage</th>
+                <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3 hidden md:table-cell">Last Activity</th>
+                <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {recent.map((row, i) => {
+                const status = stageToStatus(row.stage)
+                return (
+                  <tr
+                    key={i}
+                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer"
+                  >
+                    <td className="px-5 py-3">
+                      <Link
+                        href={`/portal/fp/clients/${row.dealId}`}
+                        className="font-body text-sm font-medium text-navy hover:text-lime transition-colors"
+                      >
+                        {row.client}
+                      </Link>
+                    </td>
+                    <td className="px-5 py-3 font-body text-sm text-gray-600">{row.stage || '—'}</td>
+                    <td className="px-5 py-3 font-body text-sm text-gray-400 hidden md:table-cell">
+                      {formatDate(row.lastActivity)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span
+                        className={`inline-block font-body text-xs font-semibold px-3 py-1 rounded-full ${
+                          statusColors[status] || 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

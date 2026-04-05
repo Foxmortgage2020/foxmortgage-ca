@@ -1,17 +1,19 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ChevronLeft,
-  Phone,
   Mail,
   MessageSquare,
   CheckCircle2,
   Clock,
+  Loader2,
+  Send,
 } from 'lucide-react'
 
-// 9-stage mortgage progress tracker
+// ─── 9-stage mortgage progress tracker ───────────────────────────────────────
+
 const STAGES = [
   { id: 1, label: 'Referral Received' },
   { id: 2, label: 'Initial Consultation' },
@@ -24,156 +26,79 @@ const STAGES = [
   { id: 9, label: 'Funded' },
 ]
 
-// Mock client data keyed by ID
-const mockClients: Record<string, {
-  name: string
-  email: string
-  phone: string
-  status: string
-  currentStage: number
-  mortgageBalance: string
-  currentRate: string
-  estimatedEquity: string
-  propertyAddress: string
-  mortgageType: string
-  renewalDate: string
-  lender: string
-  savingsIdentified: string
-  notes: string
-  timeline: { date: string; event: string }[]
-  messages: { from: string; body: string; date: string }[]
-}> = {
-  c001: {
-    name: 'Amanda Reyes',
-    email: 'amanda.reyes@email.com',
-    phone: '416-555-0101',
-    status: 'Active',
-    currentStage: 9,
-    mortgageBalance: '$612,000',
-    currentRate: '5.14%',
-    estimatedEquity: '$188,000',
-    propertyAddress: '45 Maple St, Toronto, ON',
-    mortgageType: '5yr Fixed',
-    renewalDate: 'Oct 1, 2026',
-    lender: 'TD Bank',
-    savingsIdentified: '$290/mo',
-    notes: 'Client is open to switching lenders at renewal. Prefers email contact.',
-    timeline: [
-      { date: 'Apr 1, 2026', event: 'Rate hold confirmed at 4.79% — renewal strategy reviewed' },
-      { date: 'Feb 10, 2026', event: 'Strategic Mortgage Monitoring activated' },
-      { date: 'Jan 15, 2026', event: 'Mortgage file opened' },
-    ],
-    messages: [
-      { from: 'Michael Fox', body: 'Hi Amanda, just a heads up — your renewal is coming up in October. I\'ll reach out next month with rate options.', date: 'Apr 1, 2026' },
-    ],
-  },
-  c002: {
-    name: 'Ben Kowalski',
-    email: 'ben.kowalski@email.com',
-    phone: '647-555-0202',
-    status: 'Onboarding',
-    currentStage: 3,
-    mortgageBalance: '$485,000',
-    currentRate: '—',
-    estimatedEquity: '$115,000',
-    propertyAddress: '120 Oak Ave, Mississauga, ON',
-    mortgageType: 'Purchase — 5yr Fixed',
-    renewalDate: '—',
-    lender: 'Pending',
-    savingsIdentified: '—',
-    notes: 'First-time buyer. Referred by financial planner for purchase mortgage.',
-    timeline: [
-      { date: 'Mar 31, 2026', event: 'Application submitted to Michael' },
-      { date: 'Mar 28, 2026', event: 'Initial consultation completed' },
-    ],
-    messages: [],
-  },
-  c003: {
-    name: 'Priya Sharma',
-    email: 'priya.sharma@email.com',
-    phone: '905-555-0303',
-    status: 'Savings Found',
-    currentStage: 9,
-    mortgageBalance: '$738,000',
-    currentRate: '5.89%',
-    estimatedEquity: '$262,000',
-    propertyAddress: '88 Birchwood Cres, Brampton, ON',
-    mortgageType: '3yr Variable',
-    renewalDate: 'Jun 1, 2026',
-    lender: 'RBC',
-    savingsIdentified: '$410/mo',
-    notes: 'High savings potential. Renewal in June. Client wants to lock into fixed.',
-    timeline: [
-      { date: 'Mar 28, 2026', event: 'Savings alert issued — $410/mo identified by switching to 4.49% fixed' },
-      { date: 'Mar 1, 2026', event: 'Rate review completed' },
-    ],
-    messages: [
-      { from: 'You', body: 'Has Priya had a chance to review the savings analysis? She mentioned she\'d think about it.', date: 'Mar 29, 2026' },
-      { from: 'Michael Fox', body: 'Yes — she\'s interested. I\'ll confirm her availability for a call this week.', date: 'Mar 30, 2026' },
-    ],
-  },
-  c004: {
-    name: 'Carlos Mendes',
-    email: 'carlos.mendes@email.com',
-    phone: '416-555-0404',
-    status: 'Closed',
-    currentStage: 9,
-    mortgageBalance: '$685,000',
-    currentRate: '4.54%',
-    estimatedEquity: '$215,000',
-    propertyAddress: '330 Elmwood Dr, Burlington, ON',
-    mortgageType: '5yr Fixed',
-    renewalDate: 'Mar 25, 2031',
-    lender: 'Scotiabank',
-    savingsIdentified: '—',
-    notes: 'Funded Mar 25. Renewal in 2031. Excellent rate achieved.',
-    timeline: [
-      { date: 'Mar 25, 2026', event: 'Mortgage funded — $685,000 at 4.54% 5yr fixed' },
-      { date: 'Mar 10, 2026', event: 'Commitment signed' },
-      { date: 'Feb 28, 2026', event: 'Approval received from Scotiabank' },
-    ],
-    messages: [],
-  },
-  c005: {
-    name: 'Jordan Lee',
-    email: 'jordan.lee@email.com',
-    phone: '289-555-0505',
-    status: 'Active',
-    currentStage: 9,
-    mortgageBalance: '$540,000',
-    currentRate: '4.99%',
-    estimatedEquity: '$160,000',
-    propertyAddress: '71 Willow Blvd, Hamilton, ON',
-    mortgageType: '5yr Fixed',
-    renewalDate: 'Sep 20, 2026',
-    lender: 'CIBC',
-    savingsIdentified: '$180/mo',
-    notes: 'Renewal in September. Monitoring for rate dips.',
-    timeline: [
-      { date: 'Mar 20, 2026', event: 'Strategic Mortgage Monitoring report sent' },
-    ],
-    messages: [],
-  },
-  c006: {
-    name: 'Sarah Okonkwo',
-    email: 'sarah.okonkwo@email.com',
-    phone: '416-555-0606',
-    status: 'Referred',
-    currentStage: 1,
-    mortgageBalance: '—',
-    currentRate: '—',
-    estimatedEquity: '—',
-    propertyAddress: '—',
-    mortgageType: '—',
-    renewalDate: '—',
-    lender: '—',
-    savingsIdentified: '—',
-    notes: 'New referral — awaiting initial consultation.',
-    timeline: [
-      { date: 'Apr 2, 2026', event: 'Referral submitted by financial planner' },
-    ],
-    messages: [],
-  },
+// Map Zoho stage name → 1–9
+const STAGE_KEYS: [string, number][] = [
+  ['prospecting', 1],
+  ['qualification', 2],
+  ['needs analysis', 3],
+  ['value proposition', 4],
+  ['decision', 5],
+  ['perception', 6],
+  ['proposal', 7],
+  ['negotiation', 8],
+  ['closed won', 9],
+  ['funded', 9],
+]
+
+function stageToProgress(stage: string): number {
+  const s = (stage ?? '').toLowerCase()
+  for (const [key, num] of STAGE_KEYS) {
+    if (s.includes(key)) return num
+  }
+  return 1
+}
+
+function stageToStatus(stage: string, savingsIdentified: string | null): string {
+  const s = (stage ?? '').toLowerCase()
+  if (s.includes('closed won') || s.includes('funded')) return 'Closed'
+  if (s.includes('closed')) return 'Closed'
+  if (savingsIdentified && savingsIdentified !== '—' && savingsIdentified !== '0') return 'Savings Found'
+  if (s.includes('prospecting') || s.includes('qualification') || !s) return 'Referred'
+  if (s.includes('needs') || s.includes('value') || s.includes('decision') || s.includes('perception')) return 'Onboarding'
+  return 'Active'
+}
+
+function formatAmount(amount: number | null): string {
+  if (!amount) return '—'
+  return '$' + amount.toLocaleString('en-CA')
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return iso
+  }
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface FPNote {
+  id: string
+  body: string
+  createdTime: string
+  createdBy: string
+  noteType: string | null
+}
+
+interface FPClientDetail {
+  id: string
+  dealName: string
+  contactName: string
+  amount: number | null
+  mortgageRate: string | null
+  stage: string
+  city: string | null
+  province: string | null
+  mortgageType: string | null
+  termYears: string | null
+  closingDate: string | null
+  nextReviewDate: string | null
+  savingsIdentified: string | null
+  description: string | null
+  messages: FPNote[]
+  timeline: FPNote[]
 }
 
 const statusColors: Record<string, string> = {
@@ -184,15 +109,61 @@ const statusColors: Record<string, string> = {
   Referred: 'bg-purple-100 text-purple-700',
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function FPClientDetailPage({ params }: { params: { id: string } }) {
-  const client = mockClients[params.id]
+  const [client, setClient] = useState<FPClientDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [messageText, setMessageText] = useState('')
+  const [sendingMessage, setSendingMessage] = useState(false)
   const [messageSent, setMessageSent] = useState(false)
 
-  if (!client) {
+  useEffect(() => {
+    fetch(`/api/portal/fp/clients/${params.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error)
+        setClient(data.client)
+      })
+      .catch(err => setError(err.message || 'Failed to load client.'))
+      .finally(() => setLoading(false))
+  }, [params.id])
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const text = messageText.trim()
+    if (!text) return
+    setSendingMessage(true)
+    try {
+      const res = await fetch('/api/portal/fp/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: text, context: 'client', clientId: params.id }),
+      })
+      if (!res.ok) throw new Error('Failed to send')
+      setMessageSent(true)
+      setMessageText('')
+    } catch {
+      // fail silently — user can retry
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 gap-2 text-gray-400">
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span className="font-body text-sm">Loading client…</span>
+      </div>
+    )
+  }
+
+  if (error || !client) {
     return (
       <div className="text-center py-20">
-        <p className="font-body text-gray-500">Client not found.</p>
+        <p className="font-body text-gray-500">{error || 'Client not found.'}</p>
         <Link href="/portal/fp/clients" className="text-lime font-semibold text-sm hover:underline mt-2 inline-block">
           ← Back to Clients
         </Link>
@@ -200,12 +171,14 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
     )
   }
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!messageText.trim()) return
-    setMessageSent(true)
-    setMessageText('')
-  }
+  const currentStage = stageToProgress(client.stage)
+  const status = stageToStatus(client.stage, client.savingsIdentified)
+  const displayName = client.contactName || client.dealName
+  const location = [client.city, client.province].filter(Boolean).join(', ')
+  const mortgageLabel = [
+    client.mortgageType,
+    client.termYears ? `${client.termYears}yr` : null,
+  ].filter(Boolean).join(' — ')
 
   return (
     <div>
@@ -221,29 +194,18 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className="font-heading font-bold text-navy text-2xl">{client.name}</h2>
-          <div className="flex items-center gap-3 mt-2">
+          <h2 className="font-heading font-bold text-navy text-2xl">{displayName}</h2>
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
             <span
               className={`inline-block font-body text-xs font-semibold px-3 py-1 rounded-full ${
-                statusColors[client.status] || 'bg-gray-100 text-gray-600'
+                statusColors[status] || 'bg-gray-100 text-gray-600'
               }`}
             >
-              {client.status}
+              {status}
             </span>
-            <a
-              href={`mailto:${client.email}`}
-              className="flex items-center gap-1 text-xs font-body text-gray-500 hover:text-navy transition-colors"
-            >
-              <Mail className="w-3 h-3" />
-              {client.email}
-            </a>
-            <a
-              href={`tel:${client.phone}`}
-              className="flex items-center gap-1 text-xs font-body text-gray-500 hover:text-navy transition-colors"
-            >
-              <Phone className="w-3 h-3" />
-              {client.phone}
-            </a>
+            {location && (
+              <span className="font-body text-xs text-gray-500">{location}</span>
+            )}
           </div>
         </div>
       </div>
@@ -253,8 +215,8 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
         <h3 className="font-heading font-bold text-navy text-sm mb-4">Mortgage Progress</h3>
         <div className="flex items-center gap-0 overflow-x-auto pb-2">
           {STAGES.map((stage, idx) => {
-            const done = stage.id < client.currentStage
-            const current = stage.id === client.currentStage
+            const done = stage.id < currentStage
+            const current = stage.id === currentStage
             return (
               <div key={stage.id} className="flex items-center min-w-0">
                 <div className="flex flex-col items-center">
@@ -286,7 +248,7 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
                 {idx < STAGES.length - 1 && (
                   <div
                     className={`h-0.5 w-6 mx-1 flex-shrink-0 mb-5 ${
-                      stage.id < client.currentStage ? 'bg-lime' : 'bg-gray-200'
+                      stage.id < currentStage ? 'bg-lime' : 'bg-gray-200'
                     }`}
                   />
                 )}
@@ -302,18 +264,17 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
         <div className="bg-white border border-gray-100 rounded-xl p-6">
           <h3 className="font-heading font-bold text-navy text-sm mb-4">Mortgage Details</h3>
           <dl className="space-y-2">
-            {[
-              ['Property', client.propertyAddress],
-              ['Type', client.mortgageType],
-              ['Balance', client.mortgageBalance],
-              ['Current Rate', client.currentRate],
-              ['Equity Est.', client.estimatedEquity],
-              ['Lender', client.lender],
-              ['Renewal Date', client.renewalDate],
-              ['Savings Identified', client.savingsIdentified],
-            ].map(([label, value]) => (
+            {([
+              ['Location', location || '—'],
+              ['Type', mortgageLabel || client.mortgageType || '—'],
+              ['Balance', formatAmount(client.amount)],
+              ['Current Rate', client.mortgageRate ? (client.mortgageRate.includes('%') ? client.mortgageRate : client.mortgageRate + '%') : '—'],
+              ['Closing Date', formatDate(client.closingDate)],
+              ['Next Review', formatDate(client.nextReviewDate)],
+              ['Savings Identified', client.savingsIdentified ?? '—'],
+            ] as [string, string][]).map(([label, value]) => (
               <div key={label} className="flex items-start justify-between gap-4">
-                <dt className="font-body text-xs text-gray-500 w-32 flex-shrink-0">{label}</dt>
+                <dt className="font-body text-xs text-gray-500 w-36 flex-shrink-0">{label}</dt>
                 <dd className="font-body text-xs font-medium text-navy text-right">{value}</dd>
               </div>
             ))}
@@ -323,31 +284,39 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
         {/* Notes */}
         <div className="bg-white border border-gray-100 rounded-xl p-6">
           <h3 className="font-heading font-bold text-navy text-sm mb-4">Notes</h3>
-          <p className="font-body text-sm text-gray-600 leading-relaxed">{client.notes}</p>
+          {client.description ? (
+            <p className="font-body text-sm text-gray-600 leading-relaxed">{client.description}</p>
+          ) : (
+            <p className="font-body text-sm text-gray-400">No notes on file.</p>
+          )}
         </div>
       </div>
 
       {/* Activity Timeline */}
-      <div className="bg-white border border-gray-100 rounded-xl p-6 mb-6">
-        <h3 className="font-heading font-bold text-navy text-sm mb-4">Activity Timeline</h3>
-        <div className="space-y-3">
-          {client.timeline.map((item, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-lime mt-1.5 flex-shrink-0" />
-              <div>
-                <p className="font-body text-sm text-navy">{item.event}</p>
-                <p className="font-body text-xs text-gray-400 mt-0.5">{item.date}</p>
+      {client.timeline.length > 0 && (
+        <div className="bg-white border border-gray-100 rounded-xl p-6 mb-6">
+          <h3 className="font-heading font-bold text-navy text-sm mb-4">Activity Timeline</h3>
+          <div className="space-y-3">
+            {client.timeline.map((item) => (
+              <div key={item.id} className="flex items-start gap-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-lime mt-1.5 flex-shrink-0" />
+                <div>
+                  <p className="font-body text-sm text-navy">{item.body}</p>
+                  <p className="font-body text-xs text-gray-400 mt-0.5">
+                    {formatDate(item.createdTime)} · {item.createdBy}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Message thread */}
       <div className="bg-white border border-gray-100 rounded-xl p-6">
         <h3 className="font-heading font-bold text-navy text-sm mb-4 flex items-center gap-2">
           <MessageSquare className="w-4 h-4" />
-          Messages — {client.name}
+          Messages — {displayName}
         </h3>
 
         {client.messages.length === 0 && !messageSent ? (
@@ -356,24 +325,22 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
           </p>
         ) : (
           <div className="space-y-3 mb-4">
-            {client.messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${msg.from === 'You' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-sm px-4 py-3 rounded-xl text-sm font-body ${
-                    msg.from === 'You'
-                      ? 'bg-navy text-white'
-                      : 'bg-gray-100 text-navy'
-                  }`}
-                >
-                  <p className="text-[10px] font-semibold mb-1 opacity-70">{msg.from}</p>
-                  <p>{msg.body}</p>
-                  <p className="text-[10px] mt-1 opacity-50">{msg.date}</p>
+            {client.messages.map((msg) => {
+              const isFromFP = msg.createdBy !== 'Michael Fox'
+              return (
+                <div key={msg.id} className={`flex ${isFromFP ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`max-w-sm px-4 py-3 rounded-xl text-sm font-body ${
+                      isFromFP ? 'bg-navy text-white' : 'bg-gray-100 text-navy'
+                    }`}
+                  >
+                    <p className="text-[10px] font-semibold mb-1 opacity-70">{msg.createdBy}</p>
+                    <p>{msg.body}</p>
+                    <p className="text-[10px] mt-1 opacity-50">{formatDate(msg.createdTime)}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {messageSent && (
               <div className="flex justify-end">
                 <div className="max-w-sm px-4 py-3 rounded-xl text-sm font-body bg-navy text-white">
@@ -391,14 +358,20 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
             type="text"
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
-            placeholder="Send a message about this client..."
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 font-body text-sm text-navy placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lime/40"
+            placeholder="Send a message about this client…"
+            disabled={sendingMessage}
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 font-body text-sm text-navy placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lime/40 disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={!messageText.trim()}
-            className="bg-lime text-navy font-heading font-bold text-xs px-4 py-2 rounded-lg hover:bg-lime-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={!messageText.trim() || sendingMessage}
+            className="bg-lime text-navy font-heading font-bold text-xs px-4 py-2 rounded-lg hover:bg-lime-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
           >
+            {sendingMessage ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Send className="w-3 h-3" />
+            )}
             Send
           </button>
         </form>
