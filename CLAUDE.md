@@ -1,6 +1,29 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: March 28, 2026
+## Last Updated: April 4, 2026
+
+---
+
+## Current Status (April 4, 2026)
+
+### Financial Planner Portal
+- **Phase 1** ✅ live (commit `8ce7976`) — all 6 routes with static/mock data; Clerk role: `financial-planner`
+- **Phase 2** ⏳ pending — requires two n8n webhooks not yet built:
+  - `FP_REFERRAL_WEBHOOK_URL` — Financial Planner submits a referral
+  - `FP_MESSAGE_WEBHOOK_URL` — Financial Planner sends a message
+- **Zoho custom fields to create before Phase 2:**
+  - Leads module: `FP_Name`, `FP_Firm`, `FP_Email`, `Referral_Goal`
+  - Deals module: `Next_Review_Date`, `Savings_Identified`, `FP_Email`
+- **Phase 3** ❌ not started — DialPad integration (pending FOX-8 board approval)
+
+### Investor Portal
+- Dashboard crashes on load — fix: use `currentUser()` not `auth()` in API routes
+
+### Pending Webhooks for Agents
+- SMM leads webhook — agents need this to check new SMM enrollments
+- Investor deals webhook — agents need this to check deal/position status
+
+---
 
 ---
 
