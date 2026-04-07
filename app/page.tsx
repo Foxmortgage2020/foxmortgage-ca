@@ -2,6 +2,7 @@ import Nav from '@/components/nav'
 import Footer from '@/components/footer'
 import SMMDashboardCard from '@/components/smm-dashboard-card'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function Home() {
   return (
@@ -214,13 +215,17 @@ export default function Home() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Photo placeholder */}
+            {/* Michael Fox headshot */}
             <div className="flex justify-center lg:justify-start">
               <div className="w-80 h-96 bg-gradient-to-br from-navy to-navy-light rounded-2xl flex items-center justify-center overflow-hidden">
-                <div className="text-center text-white/30">
-                  <div className="text-6xl mb-2">👤</div>
-                  <p className="font-body text-sm">Michael Fox photo</p>
-                </div>
+                <Image
+                  src="/images/mike-fox.png"
+                  alt="Michael Fox, Mortgage Agent Level 2, Fox Mortgage"
+                  width={600}
+                  height={700}
+                  priority
+                  className="object-contain"
+                />
               </div>
             </div>
             <div>
