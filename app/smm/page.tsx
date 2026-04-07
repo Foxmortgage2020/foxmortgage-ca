@@ -98,7 +98,7 @@ export default function SMMPage() {
     <main className="min-h-screen bg-white font-body text-[#032133]">
       <Nav />
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 1 - HERO
+          SECTION 1 — HERO
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-[#032133] text-white pt-16">
         <div className="mx-auto max-w-5xl px-4 pt-20 pb-12 sm:px-6 sm:pt-24 lg:px-8">
@@ -116,7 +116,7 @@ export default function SMMPage() {
                 href="/smm/enroll"
                 className="inline-block w-full rounded-xl bg-[#95D600] px-8 py-4 text-center font-heading text-base font-bold text-[#032133] shadow-lg transition-transform hover:scale-[1.02] sm:w-auto sm:text-lg"
               >
-                Enroll Free. Takes 2 Minutes →
+                Enroll Free — Takes 2 Minutes →
               </Link>
             </div>
           </div>
@@ -138,7 +138,7 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 1.5 - WHY THIS EXISTS
+          SECTION 1.5 — WHY THIS EXISTS
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-white">
         <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6 lg:px-8">
@@ -161,7 +161,7 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 2 - THE PROBLEM
+          SECTION 2 — THE PROBLEM
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-white">
         <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
@@ -187,7 +187,7 @@ export default function SMMPage() {
               padding-top: 56.25%;
             }
           `}</style>
-          {/* @ts-ignore - wistia-player is a custom web component */}
+          {/* @ts-ignore — wistia-player is a custom web component */}
           <wistia-player
             media-id="kaon6ntu81"
             aspect="1.7777777777777777"
@@ -197,7 +197,7 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 3 - HOW IT WORKS
+          SECTION 3 — HOW IT WORKS
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-gray-50">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
@@ -243,7 +243,7 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 3.5 - WHAT WE WATCH
+          SECTION 3.5 — WHAT WE WATCH
           ════════════════════════════════════════════════════════════════════ */}
       <section className="w-full bg-[#032133] text-white">
         <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
@@ -286,9 +286,9 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 4 - SOCIAL PROOF (PLACEHOLDER)
+          SECTION 4 — SOCIAL PROOF (PLACEHOLDER)
           ════════════════════════════════════════════════════════════════════ */}
-      {/* TESTIMONIALS PLACEHOLDER - Michael to supply 2-3 real client quotes
+      {/* TESTIMONIALS PLACEHOLDER — Michael to supply 2-3 real client quotes
           with permission before this section goes live. Format:
           { name: string, city: string, quote: string, outcome: string } */}
       <section className="bg-white">
@@ -303,14 +303,14 @@ export default function SMMPage() {
                 initials: 'JS',
                 name: 'J. Smith',
                 city: 'Guelph, ON',
-                quote: 'Placeholder. Real testimonial coming soon.',
+                quote: 'Placeholder — real testimonial coming soon.',
                 outcome: 'Savings opportunity identified before renewal',
               },
               {
                 initials: 'JS',
                 name: 'J. Smith',
                 city: 'Guelph, ON',
-                quote: 'Placeholder. Real testimonial coming soon.',
+                quote: 'Placeholder — real testimonial coming soon.',
                 outcome: 'Savings opportunity identified before renewal',
               },
             ].map((t, i) => (
@@ -349,7 +349,7 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 5 - FAQ
+          SECTION 5 — FAQ
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-gray-50">
         <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
@@ -397,7 +397,7 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 6 - FINAL CTA
+          SECTION 6 — FINAL CTA
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-white">
         <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:px-8">
@@ -429,7 +429,7 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 7 - FOOTER COMPLIANCE STRIP
+          SECTION 7 — FOOTER COMPLIANCE STRIP
           ════════════════════════════════════════════════════════════════════ */}
       <footer className="bg-[#032133] text-white">
         <div className="mx-auto max-w-5xl px-4 py-10 text-center text-xs leading-relaxed text-gray-300 sm:px-6 lg:px-8">
