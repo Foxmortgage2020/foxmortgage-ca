@@ -4,6 +4,21 @@ import { useState } from 'react'
 import Nav from '@/components/nav'
 import Footer from '@/components/footer'
 import Link from 'next/link'
+import Script from 'next/script'
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'wistia-player': React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & {
+          'media-id'?: string
+          aspect?: string
+        },
+        HTMLElement
+      >
+    }
+  }
+}
 
 export default function PrivateLendingPage() {
   return (
@@ -29,6 +44,12 @@ export default function PrivateLendingPage() {
         </p>
       </div>
       <Footer />
+      <Script src="https://fast.wistia.com/player.js" strategy="afterInteractive" />
+      <Script
+        src="https://fast.wistia.com/embed/n2tpukpv2u.js"
+        strategy="afterInteractive"
+        type="module"
+      />
     </main>
   )
 }
@@ -48,7 +69,23 @@ function Hero() {
           </div>
         </div>
         <div className="lg:col-span-2">
-          <VideoPlaceholder caption="Deal Structure Walkthrough &middot; 6 mins" />
+          <div className="w-full rounded-2xl overflow-hidden">
+            <style>{`
+              wistia-player[media-id='n2tpukpv2u']:not(:defined) {
+                background: center / contain no-repeat
+                  url('https://fast.wistia.com/embed/medias/n2tpukpv2u/swatch');
+                display: block;
+                filter: blur(5px);
+                padding-top: 56.25%;
+              }
+            `}</style>
+            {/* @ts-ignore - wistia-player is a custom web component */}
+            <wistia-player
+              media-id="n2tpukpv2u"
+              aspect="1.7777777777777777"
+              className="w-full"
+            />
+          </div>
           <p className="text-lime text-xs mt-3 text-center">Private Lending Explained</p>
         </div>
       </div>
