@@ -3,6 +3,21 @@
 import { useState } from 'react'
 import Nav from '@/components/nav'
 import Link from 'next/link'
+import Script from 'next/script'
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'wistia-player': React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & {
+          'media-id'?: string
+          aspect?: string
+        },
+        HTMLElement
+      >
+    }
+  }
+}
 
 // ─── Inline icons ─────────────────────────────────────────────────────────────
 
@@ -136,31 +151,23 @@ export default function SMMPage() {
         </div>
       </section>
 
-      {/* VIDEO PLACEHOLDER — Michael to supply final video file or
-          Vimeo embed URL. Replace this entire block with:
-          <iframe src="YOUR_VIMEO_URL" ... />
-          Host on Vimeo, privacy-lock to foxmortgage.ca domain,
-          no autoplay, no Vimeo branding. */}
-      <section className="bg-white">
-        <div className="max-w-3xl mx-auto px-6 pb-20">
-          <div className="relative w-full overflow-hidden rounded-2xl bg-[#032133]" style={{ aspectRatio: '16 / 9' }}>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#95D600] shadow-lg">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="#FFFFFF"
-                  className="ml-1 h-8 w-8"
-                  aria-hidden="true"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </div>
-              <p className="mt-5 text-sm text-white">
-                What is Strategic Mortgage Monitoring? · 2 min
-              </p>
-            </div>
-          </div>
+      <section className="w-full bg-white py-16">
+        <div className="max-w-3xl mx-auto px-6">
+          <style>{`
+            wistia-player[media-id='kaon6ntu81']:not(:defined) {
+              background: center / contain no-repeat
+                url('https://fast.wistia.com/embed/medias/kaon6ntu81/swatch');
+              display: block;
+              filter: blur(5px);
+              padding-top: 56.25%;
+            }
+          `}</style>
+          {/* @ts-ignore — wistia-player is a custom web component */}
+          <wistia-player
+            media-id="kaon6ntu81"
+            aspect="1.7777777777777777"
+            className="w-full rounded-2xl overflow-hidden"
+          />
         </div>
       </section>
 
@@ -372,6 +379,13 @@ export default function SMMPage() {
           </p>
         </div>
       </footer>
+
+      <Script src="https://fast.wistia.com/player.js" strategy="afterInteractive" />
+      <Script
+        src="https://fast.wistia.com/embed/kaon6ntu81.js"
+        strategy="afterInteractive"
+        type="module"
+      />
     </main>
   )
 }
