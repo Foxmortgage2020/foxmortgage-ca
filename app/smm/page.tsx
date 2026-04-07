@@ -141,7 +141,7 @@ export default function SMMPage() {
           SECTION 1.5 — NARRATIVE
           ════════════════════════════════════════════════════════════════════ */}
       <section className="w-full bg-white">
-        <div className="mx-auto max-w-2xl px-6 py-24 text-center">
+        <div className="mx-auto max-w-2xl px-6 pt-24 pb-10 text-center">
           <p className="mb-6 font-heading text-3xl font-bold text-[#032133] md:text-4xl">
             Most mortgage advice shows up at the transaction.
           </p>
