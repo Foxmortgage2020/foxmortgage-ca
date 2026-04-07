@@ -1,88 +1,347 @@
-import Nav from '@/components/nav'
-import Footer from '@/components/footer'
+'use client'
+
 import Link from 'next/link'
-import SMMDashboardCard from '@/components/smm-dashboard-card'
+import { useState } from 'react'
+
+// ─── Inline icons ─────────────────────────────────────────────────────────────
+
+const CheckIcon = ({ className = '' }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    className={className}
+    aria-hidden="true"
+  >
+    <path
+      fillRule="evenodd"
+      d="M16.704 5.29a1 1 0 010 1.42l-7.5 7.5a1 1 0 01-1.42 0l-3.5-3.5a1 1 0 011.42-1.42L8.5 12.085l6.79-6.795a1 1 0 011.414 0z"
+      clipRule="evenodd"
+    />
+  </svg>
+)
+
+const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    className={`h-5 w-5 text-[#95D600] transition-transform duration-300 ${
+      open ? 'rotate-180' : 'rotate-0'
+    }`}
+    aria-hidden="true"
+  >
+    <path
+      fillRule="evenodd"
+      d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.24 4.38a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+      clipRule="evenodd"
+    />
+  </svg>
+)
+
+// ─── FAQ data ────────────────────────────────────────────────────────────────
+
+const FAQS: { q: string; a: string }[] = [
+  {
+    q: 'Is this really free?',
+    a: 'Yes. Strategic Mortgage Monitoring is completely free for Ontario homeowners. There is no subscription, no fee, and no obligation to act on anything. Michael earns income only if you choose to act on an opportunity he surfaces — and only then.',
+  },
+  {
+    q: 'What do you do with my mortgage information?',
+    a: 'Your information is used only to monitor your mortgage and contact you when a genuine opportunity exists. It is stored securely and compliant with Canadian privacy law (PIPEDA). It is never sold or shared with third parties. You can request removal at any time.',
+  },
+  {
+    q: 'Will I get constant calls trying to sell me something?',
+    a: "No. You'll receive a monthly homeownership report tracking your home value, equity position, and rate environment. Beyond that, Michael reaches out only when a specific, actionable savings opportunity exists for your mortgage. If your mortgage is performing well, you may not hear from him beyond the monthly report — that means the monitoring is working.",
+  },
+  {
+    q: 'Do I need to switch lenders or renew early to benefit?',
+    a: 'Not necessarily. Many opportunities involve your existing lender. You are never obligated to act on anything Michael surfaces. The value is awareness — knowing what exists before your renewal window closes.',
+  },
+  {
+    q: 'Is Michael licensed and regulated?',
+    a: 'Yes. Michael Fox is a Mortgage Agent, Level 2, licensed by the Financial Services Regulatory Authority of Ontario (FSRA #13463) and operating under BRX Mortgage. All activities comply with the Mortgage Brokerages, Lenders and Administrators Act, 2006.',
+  },
+]
+
+// ─── Trust bar items ─────────────────────────────────────────────────────────
+
+const TRUST_ITEMS = [
+  '73 Ontario mortgages monitored',
+  'Monthly homeownership report delivered to you',
+  'Always free — no hidden fees',
+  'Michael Fox · Mortgage Agent, Level 2 · FSRA #13463',
+]
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function SMMPage() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
+
   return (
-    <main className="min-h-screen">
-      <Nav />
-      <div className="pt-24">
-        {/* Hero */}
-        <section className="py-20 bg-navy text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-              <div>
-                <div className="inline-flex items-center bg-lime/10 border border-lime/20 rounded-full px-4 py-1.5 mb-6">
-                  <span className="w-2 h-2 rounded-full bg-lime mr-2 animate-pulse"></span>
-                  <span className="font-body text-xs font-medium text-lime">Monitoring Active</span>
-                </div>
-                <h1 className="font-heading font-bold text-4xl md:text-5xl mb-6 leading-tight">
-                  Strategic Mortgage<br /><span className="text-lime">Monitoring</span>
-                </h1>
-                <p className="font-body text-gray-300 text-lg leading-relaxed mb-8">
-                  Most homeowners find out about savings opportunities after they&apos;ve passed. Strategic Mortgage Monitoring means someone is always watching — so you&apos;re always positioned to act.
-                </p>
-                <div className="flex flex-wrap gap-6 mb-8">
-                  {['Daily rate tracking', 'Renewal alerts', 'Savings reports', 'Annual review'].map((f) => (
-                    <div key={f} className="flex items-center gap-2">
-                      <span className="text-lime">✓</span>
-                      <span className="font-body text-sm text-gray-300">{f}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex justify-center">
-                <SMMDashboardCard />
-              </div>
+    <main className="min-h-screen bg-white font-body text-[#032133]">
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 1 — HERO
+          ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-[#032133] text-white">
+        <div className="mx-auto max-w-5xl px-4 pt-20 pb-12 sm:px-6 sm:pt-24 lg:px-8">
+          <div className="text-center">
+            <h1 className="font-heading text-4xl font-bold leading-tight sm:text-5xl md:text-6xl">
+              Your mortgage, watched every day.
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-200 sm:text-xl">
+              Strategic Mortgage Monitoring is a free service for Ontario homeowners.
+              Michael Fox monitors your mortgage and contacts you only when a genuine
+              savings opportunity exists.
+            </p>
+
+            <div className="mt-10">
+              <Link
+                href="/smm/enroll"
+                className="inline-block w-full rounded-xl bg-[#95D600] px-8 py-4 text-center font-heading text-base font-bold text-[#032133] shadow-lg transition-transform hover:scale-[1.02] sm:w-auto sm:text-lg"
+              >
+                Enroll Free — Takes 2 Minutes →
+              </Link>
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* How it works */}
-        <section className="py-20 bg-white">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-14">
-              <h2 className="font-heading font-bold text-3xl text-navy mb-4">How it works</h2>
-              <p className="font-body text-gray-500">Simple to start. Powerful over time.</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[
-                { num: '01', title: 'Enroll in 5 minutes', body: 'Tell us your current rate, lender, renewal date, and mortgage balance. That\'s all we need to start.' },
-                { num: '02', title: 'We monitor daily', body: 'Every day we check rate movements, market conditions, and your specific renewal window against current opportunities.' },
-                { num: '03', title: 'You act when it matters', body: 'We reach out when there\'s a genuine opportunity. No noise, no sales pressure — just timely intelligence.' },
-              ].map((s) => (
-                <div key={s.num} className="text-center">
-                  <div className="w-14 h-14 rounded-full bg-lime flex items-center justify-center mx-auto mb-5">
-                    <span className="font-heading font-bold text-navy">{s.num}</span>
-                  </div>
-                  <h3 className="font-heading font-bold text-navy text-lg mb-3">{s.title}</h3>
-                  <p className="font-body text-gray-500 text-sm leading-relaxed">{s.body}</p>
+        {/* Trust bar */}
+        <div className="border-t border-white/10">
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+              {TRUST_ITEMS.map((item) => (
+                <div key={item} className="flex items-start gap-3">
+                  <CheckIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#95D600]" />
+                  <span className="text-sm leading-snug text-white">{item}</span>
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Enroll CTA */}
-        <section className="py-20 bg-gray-50">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="font-heading font-bold text-3xl text-navy mb-4">
-              Start monitoring your mortgage
-            </h2>
-            <p className="font-body text-gray-500 mb-10">
-              Takes 5 minutes. Michael will be in touch to confirm your details.
-            </p>
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 2 — THE PROBLEM
+          ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+          <p className="text-center text-xl leading-relaxed text-[#032133] sm:text-2xl">
+            Most Ontario homeowners signed their mortgage and haven&apos;t looked at it
+            since. Rates have moved. Renewal windows have opened. And most people
+            find out too late — after the best options have already passed.
+          </p>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 3 — HOW IT WORKS
+          ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-gray-50">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+          <h2 className="text-center font-heading text-3xl font-bold text-[#032133] sm:text-4xl">
+            Here&apos;s how it works
+          </h2>
+
+          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {[
+              {
+                num: '01',
+                title: 'Enroll in 2 minutes',
+                body: 'Share your current rate, lender, balance, and renewal date. No documents. No commitment.',
+              },
+              {
+                num: '02',
+                title: 'We monitor every day',
+                body: 'Every morning, your mortgage is checked against current market rates, lender offers, and your upcoming renewal window.',
+              },
+              {
+                num: '03',
+                title: 'You hear from us when it matters',
+                body: "Each month you receive a homeownership report. We reach out directly only when there's a genuine savings opportunity worth your attention.",
+              },
+            ].map((step) => (
+              <div
+                key={step.num}
+                className="rounded-2xl bg-[#032133] p-8 text-white shadow-md"
+              >
+                <div className="font-heading text-4xl font-bold text-[#95D600]">
+                  {step.num}
+                </div>
+                <h3 className="mt-4 font-heading text-xl font-bold text-white">
+                  {step.title}
+                </h3>
+                <p className="mt-3 text-base leading-relaxed text-gray-200">
+                  {step.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 4 — SOCIAL PROOF (PLACEHOLDER)
+          ════════════════════════════════════════════════════════════════════ */}
+      {/* TESTIMONIALS PLACEHOLDER — Michael to supply 2-3 real client quotes
+          with permission before this section goes live. Format:
+          { name: string, city: string, quote: string, outcome: string } */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+          <h2 className="text-center font-heading text-3xl font-bold text-[#032133] sm:text-4xl">
+            What SMM members are saying
+          </h2>
+
+          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2">
+            {[
+              {
+                initials: 'JS',
+                name: 'J. Smith',
+                city: 'Guelph, ON',
+                quote: 'Placeholder — real testimonial coming soon.',
+                outcome: 'Savings opportunity identified before renewal',
+              },
+              {
+                initials: 'JS',
+                name: 'J. Smith',
+                city: 'Guelph, ON',
+                quote: 'Placeholder — real testimonial coming soon.',
+                outcome: 'Savings opportunity identified before renewal',
+              },
+            ].map((t, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#032133]">
+                    <span className="font-heading text-base font-bold text-[#95D600]">
+                      {t.initials}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-heading font-bold text-[#032133]">
+                      {t.name}
+                    </div>
+                    <div className="text-sm text-gray-500">{t.city}</div>
+                  </div>
+                </div>
+                <p className="mt-5 text-base leading-relaxed text-[#032133]">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div className="mt-5 inline-block rounded-full bg-[#95D600]/10 px-3 py-1 text-xs font-bold text-[#032133]">
+                  {t.outcome}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-12 text-center text-base text-gray-600">
+            73 Ontario households enrolled — monitored across Wellington County,
+            Guelph, GTA, Hamilton, and beyond.
+          </p>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 5 — FAQ
+          ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-gray-50">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+          <h2 className="text-center font-heading text-3xl font-bold text-[#032133] sm:text-4xl">
+            Questions we get asked
+          </h2>
+
+          <div className="mt-12 space-y-4">
+            {FAQS.map((faq, i) => {
+              const open = openFaq === i
+              return (
+                <div
+                  key={i}
+                  className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(open ? null : i)}
+                    aria-expanded={open}
+                    aria-controls={`faq-panel-${i}`}
+                    className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <span className="font-heading text-base font-bold text-[#032133] sm:text-lg">
+                      {faq.q}
+                    </span>
+                    <ChevronIcon open={open} />
+                  </button>
+                  <div
+                    id={`faq-panel-${i}`}
+                    className={`grid overflow-hidden bg-white transition-all duration-300 ease-in-out ${
+                      open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <p className="px-6 pb-6 text-base leading-relaxed text-[#032133]">
+                        {faq.a}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 6 — FINAL CTA
+          ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:px-8">
+          <h2 className="font-heading text-3xl font-bold text-[#032133] sm:text-4xl">
+            Enroll in 2 minutes — it&apos;s free
+          </h2>
+          <p className="mt-4 text-lg text-gray-600">
+            Ontario homeowners only. Takes less time than making a coffee.
+          </p>
+
+          <div className="mt-10">
             <Link
               href="/smm/enroll"
-              className="inline-block bg-lime text-navy font-heading font-bold px-10 py-4 rounded-xl hover:bg-lime-dark transition-colors"
+              className="inline-block w-full rounded-xl bg-[#95D600] px-8 py-4 text-center font-heading text-base font-bold text-[#032133] shadow-lg transition-transform hover:scale-[1.02] sm:w-auto sm:text-lg"
             >
               Start Monitoring →
             </Link>
           </div>
-        </section>
-      </div>
-      <Footer />
+
+          <p className="mt-6 text-sm text-gray-500">
+            No credit card. No commitment. Cancel anytime by emailing
+            michael@foxmortgage.ca
+          </p>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 7 — FOOTER COMPLIANCE STRIP
+          ════════════════════════════════════════════════════════════════════ */}
+      <footer className="bg-[#032133] text-white">
+        <div className="mx-auto max-w-5xl px-4 py-10 text-center text-xs leading-relaxed text-gray-300 sm:px-6 lg:px-8">
+          <p>
+            Fox Mortgage · Michael Fox, Mortgage Agent, Level 2 · BRX Mortgage ·
+            FSRA #13463 · Fergus · Guelph · Wellington County · Ontario
+          </p>
+          <p className="mt-2">
+            Not intended to solicit clients already under contract.
+          </p>
+          <p className="mt-3">
+            <Link href="/privacy" className="underline hover:text-[#95D600]">
+              Privacy Policy
+            </Link>
+            <span className="mx-2 text-gray-500">|</span>
+            <Link href="/contact" className="underline hover:text-[#95D600]">
+              Contact
+            </Link>
+          </p>
+        </div>
+      </footer>
     </main>
   )
 }
