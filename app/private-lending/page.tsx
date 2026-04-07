@@ -195,7 +195,6 @@ function HowItWorks() {
       <div className="max-w-7xl mx-auto">
         <p className="font-body text-lime text-xs uppercase tracking-widest mb-2">The Process</p>
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-navy mb-12">How Private Lending Works</h2>
-        <VideoPlaceholder caption="Deal Structure Walkthrough &middot; 6 mins" className="max-w-3xl mx-auto mb-12" />
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-6">
           {steps.map((s) => (
             <div key={s.n} className="text-center">
@@ -357,7 +356,6 @@ function DealBreakdown() {
       <div className="max-w-7xl mx-auto">
         <p className="font-body text-lime text-xs uppercase tracking-widest mb-2">Real Example</p>
         <h2 className="font-heading font-bold text-3xl md:text-4xl text-navy mb-12">Actual Deal Breakdown</h2>
-        <VideoPlaceholder caption="Deal Structure Case Study" className="max-w-3xl mx-auto mb-12" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Property Card */}
           <div className="bg-navy text-white rounded-xl p-6">
@@ -591,14 +589,3 @@ function InvestorForm() {
   )
 }
 
-/* ─────────────── SHARED — VIDEO PLACEHOLDER ─────────────── */
-function VideoPlaceholder({ caption, className = '' }: { caption: string; className?: string }) {
-  return (
-    <div className={`bg-black/30 rounded-xl border border-white/10 aspect-video flex flex-col items-center justify-center ${className}`}>
-      <div className="w-16 h-16 rounded-full bg-lime flex items-center justify-center mb-3">
-        <div className="w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-l-12 border-l-navy ml-1" style={{ borderLeftWidth: '14px' }} />
-      </div>
-      <p className="text-gray-400 text-xs font-body" dangerouslySetInnerHTML={{ __html: caption }} />
-    </div>
-  )
-}
