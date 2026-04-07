@@ -138,40 +138,23 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 1.5 — WHY THIS EXISTS
+          SECTION 1.5 — NARRATIVE
           ════════════════════════════════════════════════════════════════════ */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-2xl px-4 pt-20 pb-8 text-center sm:px-6 lg:px-8">
-          <p className="font-heading text-2xl font-bold text-[#032133] sm:text-3xl">
-            Most mortgage advice is transactional.
+      <section className="w-full bg-white">
+        <div className="mx-auto max-w-2xl px-6 py-24 text-center">
+          <p className="mb-6 font-heading text-3xl font-bold text-[#032133] md:text-4xl">
+            Most mortgage advice shows up at the transaction.
           </p>
-          <p className="mt-6 text-lg leading-relaxed text-gray-600">
-            You get help when you buy. When you refinance. When you renew.
+          <p className="mx-auto mb-4 max-w-lg font-body text-lg text-gray-500">
+            When you buy. When you renew. When something goes wrong.
           </p>
-          <p className="mt-6 text-lg leading-relaxed text-gray-600">
-            But between those moments, things change.
+          <p className="mx-auto mb-12 max-w-lg font-body text-lg text-gray-500">
+            But between those moments, rates move, windows open, and opportunities
+            pass. Most homeowners never know.
           </p>
-          <p className="mt-6 text-lg leading-relaxed text-gray-600">
-            Rates move. Opportunities appear. And sometimes the best options pass quietly.
-          </p>
-          <p className="mt-10 font-heading text-2xl font-bold text-[#032133] sm:text-3xl">
-            Strategic Mortgage Monitoring exists to make sure that doesn&apos;t happen.
-          </p>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          SECTION 2 — THE PROBLEM
-          ════════════════════════════════════════════════════════════════════ */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
-          <p className="text-center text-xl leading-relaxed text-[#032133] sm:text-2xl">
-            Most homeowners assume their mortgage is fine until something forces a
-            decision.
-          </p>
-          <p className="mt-6 text-center text-xl leading-relaxed text-[#032133] sm:text-2xl">
-            The biggest opportunities and the biggest mistakes happen between those
-            decision points.
+          <div className="w-16 h-px bg-[#95D600] mx-auto mb-12" />
+          <p className="font-heading text-2xl font-bold text-[#032133] md:text-3xl">
+            Strategic Mortgage Monitoring exists to close that gap.
           </p>
         </div>
       </section>
