@@ -274,11 +274,9 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 4 — SOCIAL PROOF (PLACEHOLDER)
+          SECTION 4 — SOCIAL PROOF
           ════════════════════════════════════════════════════════════════════ */}
-      {/* TESTIMONIALS PLACEHOLDER — Michael to supply 2-3 real client quotes
-          with permission before this section goes live. Format:
-          { name: string, city: string, quote: string, outcome: string } */}
+      {/* TESTIMONIALS - Ian C. and Joe J. - approved April 7 2026 - add additional testimonials here as collected */}
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
           <h2 className="text-center font-heading text-3xl font-bold text-[#032133] sm:text-4xl">
@@ -288,42 +286,47 @@ export default function SMMPage() {
           <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2">
             {[
               {
-                initials: 'JS',
-                name: 'J. Smith',
+                initials: 'IC',
+                name: 'Ian C.',
                 city: 'Guelph, ON',
-                quote: 'Placeholder — real testimonial coming soon.',
-                outcome: 'Savings opportunity identified before renewal',
+                tag: 'SMM Member',
+                quote:
+                  "I don't even have my mortgage with Mike yet, but I've been enrolled in the monitoring program for over a year. Every month I open the report to see where things stand. It keeps me informed about my mortgage without having to do any research myself.",
               },
               {
-                initials: 'JS',
-                name: 'J. Smith',
+                initials: 'JJ',
+                name: 'Joe J.',
                 city: 'Guelph, ON',
-                quote: 'Placeholder — real testimonial coming soon.',
-                outcome: 'Savings opportunity identified before renewal',
+                tag: 'SMM Member · 3 properties monitored',
+                quote:
+                  'I get a monthly report on all my properties. When a real opportunity came up on one of them, Mike was already on it. He caught a savings opportunity before I knew one existed.',
               },
             ].map((t, i) => (
               <div
                 key={i}
-                className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm"
+                className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm"
               >
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#032133]">
-                    <span className="font-heading text-base font-bold text-[#95D600]">
+                    <span className="font-heading text-sm font-bold text-[#95D600]">
                       {t.initials}
                     </span>
                   </div>
                   <div>
-                    <div className="font-heading font-bold text-[#032133]">
+                    <div className="font-heading text-base font-bold text-[#032133]">
                       {t.name}
                     </div>
-                    <div className="text-sm text-gray-500">{t.city}</div>
+                    <div className="text-sm text-gray-400">{t.city}</div>
                   </div>
                 </div>
-                <p className="mt-5 text-base leading-relaxed text-[#032133]">
-                  &ldquo;{t.quote}&rdquo;
+                <p className="mt-5 font-body text-base leading-relaxed text-gray-600">
+                  <span className="mb-2 block font-heading text-4xl leading-none text-[#95D600]">
+                    &ldquo;
+                  </span>
+                  {t.quote}
                 </p>
-                <div className="mt-5 inline-block rounded-full bg-[#95D600]/10 px-3 py-1 text-xs font-bold text-[#032133]">
-                  {t.outcome}
+                <div className="mt-5 inline-block rounded-full bg-[#032133] px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#95D600]">
+                  {t.tag}
                 </div>
               </div>
             ))}
