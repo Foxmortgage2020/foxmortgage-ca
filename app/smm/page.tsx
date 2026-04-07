@@ -60,7 +60,7 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'Is this really free?',
-    a: 'Yes. Strategic Mortgage Monitoring is completely free for Ontario homeowners. There is no subscription, no fee, and no obligation to act on anything. Michael earns income only if you choose to act on an opportunity he surfaces — and only then.',
+    a: 'Yes. Strategic Mortgage Monitoring is included as part of how we manage mortgages long-term. There is no subscription, no fee, and no obligation to act on anything. Michael earns income only if you choose to act on an opportunity he surfaces. Only then.',
   },
   {
     q: 'What do you do with my mortgage information?',
@@ -68,11 +68,11 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'Will I get constant calls trying to sell me something?',
-    a: "No. You'll receive a monthly homeownership report tracking your home value, equity position, and rate environment. Beyond that, Michael reaches out only when a specific, actionable savings opportunity exists for your mortgage. If your mortgage is performing well, you may not hear from him beyond the monthly report — that means the monitoring is working.",
+    a: "No. You'll receive a monthly homeownership report tracking your home value, equity position, and rate environment. Beyond that, Michael reaches out only when a specific, actionable savings opportunity exists for your mortgage. If your mortgage is performing well, you may not hear from him beyond the monthly report. That means the monitoring is working.",
   },
   {
     q: 'Do I need to switch lenders or renew early to benefit?',
-    a: 'Not necessarily. Many opportunities involve your existing lender. You are never obligated to act on anything Michael surfaces. The value is awareness — knowing what exists before your renewal window closes.',
+    a: 'Not necessarily. Many opportunities involve your existing lender. You are never obligated to act on anything Michael surfaces. The value is awareness. Knowing what exists before your renewal window closes.',
   },
   {
     q: 'Is Michael licensed and regulated?',
@@ -85,7 +85,7 @@ const FAQS: { q: string; a: string }[] = [
 const TRUST_ITEMS = [
   '73 Ontario mortgages monitored',
   'Monthly homeownership report delivered to you',
-  'Always free — no hidden fees',
+  'No cost to enroll. No hidden fees.',
   'Michael Fox · Mortgage Agent, Level 2 · FSRA #13463',
 ]
 
@@ -98,7 +98,7 @@ export default function SMMPage() {
     <main className="min-h-screen bg-white font-body text-[#032133]">
       <Nav />
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 1 — HERO
+          SECTION 1 - HERO
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-[#032133] text-white pt-16">
         <div className="mx-auto max-w-5xl px-4 pt-20 pb-12 sm:px-6 sm:pt-24 lg:px-8">
@@ -107,9 +107,8 @@ export default function SMMPage() {
               Your mortgage, watched every day.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-200 sm:text-xl">
-              Strategic Mortgage Monitoring is a free service for Ontario homeowners.
-              Michael Fox monitors your mortgage and contacts you only when a genuine
-              savings opportunity exists.
+              We monitor your mortgage continuously and let you know when something is
+              worth acting on. Not when it&apos;s urgent. When it&apos;s early.
             </p>
 
             <div className="mt-10">
@@ -117,7 +116,7 @@ export default function SMMPage() {
                 href="/smm/enroll"
                 className="inline-block w-full rounded-xl bg-[#95D600] px-8 py-4 text-center font-heading text-base font-bold text-[#032133] shadow-lg transition-transform hover:scale-[1.02] sm:w-auto sm:text-lg"
               >
-                Enroll Free — Takes 2 Minutes →
+                Enroll Free. Takes 2 Minutes →
               </Link>
             </div>
           </div>
@@ -139,19 +138,45 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 2 — THE PROBLEM
+          SECTION 1.5 - WHY THIS EXISTS
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-white">
-        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
-          <p className="text-center text-xl leading-relaxed text-[#032133] sm:text-2xl">
-            Most Ontario homeowners signed their mortgage and haven&apos;t looked at it
-            since. Rates have moved. Renewal windows have opened. And most people
-            find out too late — after the best options have already passed.
+        <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6 lg:px-8">
+          <p className="font-heading text-2xl font-bold text-[#032133] sm:text-3xl">
+            Most mortgage advice is transactional.
+          </p>
+          <p className="mt-6 text-lg leading-relaxed text-gray-600">
+            You get help when you buy. When you refinance. When you renew.
+          </p>
+          <p className="mt-6 text-lg leading-relaxed text-gray-600">
+            But between those moments, things change.
+          </p>
+          <p className="mt-6 text-lg leading-relaxed text-gray-600">
+            Rates move. Opportunities appear. And sometimes the best options pass quietly.
+          </p>
+          <p className="mt-10 font-heading text-2xl font-bold text-[#032133] sm:text-3xl">
+            Strategic Mortgage Monitoring exists to make sure that doesn&apos;t happen.
           </p>
         </div>
       </section>
 
-      <section className="w-full bg-white py-16">
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 2 - THE PROBLEM
+          ════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+          <p className="text-center text-xl leading-relaxed text-[#032133] sm:text-2xl">
+            Most homeowners assume their mortgage is fine until something forces a
+            decision.
+          </p>
+          <p className="mt-6 text-center text-xl leading-relaxed text-[#032133] sm:text-2xl">
+            The biggest opportunities and the biggest mistakes happen between those
+            decision points.
+          </p>
+        </div>
+      </section>
+
+      <section className="w-full bg-white pt-6 pb-16">
         <div className="max-w-3xl mx-auto px-6">
           <style>{`
             wistia-player[media-id='kaon6ntu81']:not(:defined) {
@@ -162,7 +187,7 @@ export default function SMMPage() {
               padding-top: 56.25%;
             }
           `}</style>
-          {/* @ts-ignore — wistia-player is a custom web component */}
+          {/* @ts-ignore - wistia-player is a custom web component */}
           <wistia-player
             media-id="kaon6ntu81"
             aspect="1.7777777777777777"
@@ -172,7 +197,7 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 3 — HOW IT WORKS
+          SECTION 3 - HOW IT WORKS
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-gray-50">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
@@ -218,9 +243,52 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 4 — SOCIAL PROOF (PLACEHOLDER)
+          SECTION 3.5 - WHAT WE WATCH
           ════════════════════════════════════════════════════════════════════ */}
-      {/* TESTIMONIALS PLACEHOLDER — Michael to supply 2-3 real client quotes
+      <section className="w-full bg-[#032133] text-white">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+          <h2 className="text-center font-heading text-2xl font-bold text-white">
+            Behind the scenes, here is what we are watching
+          </h2>
+
+          <div className="mt-12 grid grid-cols-1 gap-10 md:grid-cols-2">
+            {[
+              {
+                label: 'MARKET RATES',
+                body: 'Changes in current rates relative to what you are paying.',
+              },
+              {
+                label: 'RENEWAL WINDOW',
+                body: 'Your remaining term and the optimal time to start planning.',
+              },
+              {
+                label: 'PENALTY STRUCTURE',
+                body: 'Whether breaking early would cost more than it saves.',
+              },
+              {
+                label: 'EQUITY POSITION',
+                body: 'Refinancing opportunities based on your current home value.',
+              },
+            ].map((item) => (
+              <div key={item.label}>
+                <div className="font-heading text-sm font-bold tracking-wider text-[#95D600]">
+                  {item.label}
+                </div>
+                <p className="mt-2 text-base leading-relaxed text-white">{item.body}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-12 text-center text-sm italic text-white">
+            Not to create action. To make sure nothing important is missed.
+          </p>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════
+          SECTION 4 - SOCIAL PROOF (PLACEHOLDER)
+          ════════════════════════════════════════════════════════════════════ */}
+      {/* TESTIMONIALS PLACEHOLDER - Michael to supply 2-3 real client quotes
           with permission before this section goes live. Format:
           { name: string, city: string, quote: string, outcome: string } */}
       <section className="bg-white">
@@ -235,14 +303,14 @@ export default function SMMPage() {
                 initials: 'JS',
                 name: 'J. Smith',
                 city: 'Guelph, ON',
-                quote: 'Placeholder — real testimonial coming soon.',
+                quote: 'Placeholder. Real testimonial coming soon.',
                 outcome: 'Savings opportunity identified before renewal',
               },
               {
                 initials: 'JS',
                 name: 'J. Smith',
                 city: 'Guelph, ON',
-                quote: 'Placeholder — real testimonial coming soon.',
+                quote: 'Placeholder. Real testimonial coming soon.',
                 outcome: 'Savings opportunity identified before renewal',
               },
             ].map((t, i) => (
@@ -274,14 +342,14 @@ export default function SMMPage() {
           </div>
 
           <p className="mt-12 text-center text-base text-gray-600">
-            73 Ontario households enrolled — monitored across Wellington County,
+            73 Ontario households enrolled. Monitored across Wellington County,
             Guelph, GTA, Hamilton, and beyond.
           </p>
         </div>
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 5 — FAQ
+          SECTION 5 - FAQ
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-gray-50">
         <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
@@ -329,18 +397,23 @@ export default function SMMPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 6 — FINAL CTA
+          SECTION 6 - FINAL CTA
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-white">
         <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:px-8">
           <h2 className="font-heading text-3xl font-bold text-[#032133] sm:text-4xl">
-            Enroll in 2 minutes — it&apos;s free
+            Enroll in 2 minutes. It&apos;s free.
           </h2>
           <p className="mt-4 text-lg text-gray-600">
             Ontario homeowners only. Takes less time than making a coffee.
           </p>
 
-          <div className="mt-10">
+          <p className="mt-10 mb-8 text-center font-heading text-xl text-[#032133]">
+            Most people do not need to change their mortgage. They just need to know
+            when they should.
+          </p>
+
+          <div>
             <Link
               href="/smm/enroll"
               className="inline-block w-full rounded-xl bg-[#95D600] px-8 py-4 text-center font-heading text-base font-bold text-[#032133] shadow-lg transition-transform hover:scale-[1.02] sm:w-auto sm:text-lg"
@@ -350,14 +423,13 @@ export default function SMMPage() {
           </div>
 
           <p className="mt-6 text-sm text-gray-500">
-            No credit card. No commitment. Cancel anytime by emailing
-            michael@foxmortgage.ca
+            No cost. No commitment. Cancel anytime by emailing michael@foxmortgage.ca
           </p>
         </div>
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════
-          SECTION 7 — FOOTER COMPLIANCE STRIP
+          SECTION 7 - FOOTER COMPLIANCE STRIP
           ════════════════════════════════════════════════════════════════════ */}
       <footer className="bg-[#032133] text-white">
         <div className="mx-auto max-w-5xl px-4 py-10 text-center text-xs leading-relaxed text-gray-300 sm:px-6 lg:px-8">
