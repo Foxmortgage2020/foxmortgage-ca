@@ -145,16 +145,21 @@ export default function SMMPage() {
           <p className="mb-6 font-heading text-3xl font-bold text-[#032133] md:text-4xl">
             Most mortgage advice shows up at the transaction.
           </p>
-          <p className="mx-auto mb-4 max-w-lg font-body text-lg text-gray-500">
+          <p className="mb-3 font-body text-lg text-gray-500">
             When you buy. When you renew. When something goes wrong.
           </p>
-          <p className="mx-auto mb-12 max-w-lg font-body text-lg text-gray-500">
-            But between those moments, rates move, windows open, and opportunities
-            pass. Most homeowners never know.
+          <p className="mb-3 font-body text-lg text-gray-500">
+            But between those moments, things change.
+          </p>
+          <p className="mb-3 font-body text-lg text-gray-500">
+            Rates move. Opportunities appear. And sometimes the best options pass quietly.
+          </p>
+          <p className="mb-12 font-body text-lg text-gray-500">
+            Most homeowners don&apos;t see it happening.
           </p>
           <div className="w-16 h-px bg-[#95D600] mx-auto mb-12" />
           <p className="font-heading text-2xl font-bold text-[#032133] md:text-3xl">
-            Strategic Mortgage Monitoring exists to close that gap.
+            Strategic Mortgage Monitoring exists to make sure you don&apos;t miss it.
           </p>
         </div>
       </section>
