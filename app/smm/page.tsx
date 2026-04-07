@@ -141,7 +141,7 @@ export default function SMMPage() {
           SECTION 1.5 — WHY THIS EXISTS
           ════════════════════════════════════════════════════════════════════ */}
       <section className="bg-white">
-        <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl px-4 pt-20 pb-8 text-center sm:px-6 lg:px-8">
           <p className="font-heading text-2xl font-bold text-[#032133] sm:text-3xl">
             Most mortgage advice is transactional.
           </p>
@@ -294,7 +294,7 @@ export default function SMMPage() {
       <section className="bg-white">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
           <h2 className="text-center font-heading text-3xl font-bold text-[#032133] sm:text-4xl">
-            What SMM members are saying
+            What our members are saying
           </h2>
 
           <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2">
