@@ -141,3 +141,96 @@ const metadata = user.publicMetadata as { zoho_partner_id?: string, roles?: stri
 - Never use auth() for publicMetadata — use currentUser()
 - Never hardcode blogId or investor data — always from Zoho
 - Never use MOCK_USER_ROLES — always read from real Clerk user
+
+---
+
+## Session Update — March 28, 2026
+
+### Domain & Production
+- Live at foxmortgage.ca (A record → 216.150.1.1)
+- www.foxmortgage.ca (CNAME → cname.vercel-dns.com)
+- Clerk switched to Production instance (pk_live_ keys active)
+- No "Development mode" banner — fully production
+
+### Zoho — New Custom Fields on Deals Module
+Three new fields added — use these as source of truth:
+- Investor_Status (Picklist): "Active" | "Renewal In Progress" | "Renewed" | "Paid Out" | "Legal"
+- Investor_Payout_Date (Date): exact date principal returned to investor
+- Renewal_In_Progress (Boolean): true when past maturity but continuing
+
+### Income Calculation Rules (CRITICAL)
+Always use Investor_Status as source of truth:
+- "Active" | "Renewal In Progress" | "Renewed" → income continues to today
+- "Paid Out" → income stops at Investor_Payout_Date (fallback: Maturity_Date)
+- "Legal" → income stops at Maturity_Date
+
+Helper functions (copy to any new page):
+```
+const isIncomeActive = (p) =>
+  ['Active', 'Renewal In Progress', 'Renewed'].includes(p.Investor_Status)
+  || (!p.Investor_Status && p.Deal_Status_Investor !== 'Matured')
+
+const getIncomeEndDate = (p) => {
+  const today = new Date()
+  if (p.Investor_Status === 'Paid Out') {
+    if (p.Investor_Payout_Date) return new Date(p.Investor_Payout_Date)
+    if (p.Maturity_Date) return new Date(p.Maturity_Date)
+  }
+  if (p.Investor_Status === 'Legal') {
+    if (p.Maturity_Date) return new Date(p.Maturity_Date)
+  }
+  return today
+}
+```
+
+### Status Badge System
+- Active (within 90 days of maturity) → "Maturing Soon" yellow
+- Active → "Performing" green
+- Renewal In Progress → "Renewal Pending" blue
+- Renewed → "Performing" green
+- Paid Out → "Paid Out" gray
+- Legal → "In Legal" red
+
+### Opportunities System
+- Deal_Status_Investor = "Available" → appears on Opportunities page
+- When investor commits → change to "Committed"
+- Opportunities API handles empty Zoho response (204) gracefully
+
+### Adding New Investors (Process)
+1. Create Partners record in Zoho CRM → note record ID
+2. Link their deals in Zoho: set Investor_Name, Investor_Amount, Investor_Rate, Investor_Status, Lender_Fee
+3. Create Clerk account in Production instance
+4. Set publicMetadata: { "roles": ["investor"], "zoho_partner_id": "ZOHO_PARTNER_RECORD_ID" }
+5. Investor can log in immediately — all data flows automatically
+
+### Pages Rebuilt This Session
+All investor portal pages rewritten with live Zoho data:
+- /portal/sign-in → custom form with background image, forgot password
+- /portal/investor/dashboard → full rebuild with chart, insights, opportunities, cash flow timeline, Investor_Status-driven KPIs
+- /portal/investor/portfolio → My Investments with correct status badges
+- /portal/investor/portfolio/[id] → Investment Details with Investment Snapshot, What Happens Next, dynamic notes
+- /portal/investor/statements → renamed to "Reports", computed from real deal data, annual summary, request-based PDFs
+- /portal/investor/profile → Profile Completion bar, Account Status cards, real Clerk name/email, banking info removed
+- /portal/investor/support → Clerk auto-fill, action shortcuts, success state
+
+### Domenic Tersigni — Current Deal Status
+- Hamilton IFMS-F002684: Paid Out, payout Aug 13 2024, no lender fee
+- Millgrove BRXM-F024213: Renewal In Progress, $500K, 12%, $10K fee
+- Thorndale BRXM-F024629: Paid Out, payout May 15 2025, $85K, $1.7K fee
+- Active monthly income: $4,167/month (Millgrove only)
+
+### Zoho Fields Required in getInvestorPositions() query
+Deal_Name, Amount, Investor_Amount, Investor_Rate, Investor_Name,
+Deal_Status_Investor, Investor_Status, Investor_Payout_Date,
+Renewal_In_Progress, Mortgage_Type, Mortgage_Rate, Payment_Amount,
+Payment_Frequency, Street, City, Province, Purchase_Price_Value,
+Maturity_Date, Stage, Rate_Type, Term_Type, Exit_Strategy,
+Lender_Notes, First_Payment_Date, Total_Loan_Amount, LTV,
+Closing_Date, Lender_Fee
+
+### Pending (Next Session)
+- Opportunities page review and cleanup
+- Documents page review
+- Private lender onboarding flow (Zoho Sign KYC)
+- Investor_Status data model prompt still pending (income logic fix across all pages)
+- Send Domenic his portal invite
