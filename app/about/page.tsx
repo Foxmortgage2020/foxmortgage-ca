@@ -1,6 +1,7 @@
 import Nav from '@/components/nav'
 import Footer from '@/components/footer'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function About() {
   return (
@@ -26,11 +27,15 @@ export default function About() {
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-              <div className="w-full h-96 bg-gradient-to-br from-navy to-navy-light rounded-2xl flex items-center justify-center">
-                <div className="text-center text-white/30">
-                  <div className="text-6xl mb-2">👤</div>
-                  <p className="font-body text-sm">Photo coming soon</p>
-                </div>
+              <div className="flex justify-center lg:justify-start">
+                <Image
+                  src="/images/mike-fox.png"
+                  alt="Michael Fox, Mortgage Agent Level 2, Fox Mortgage"
+                  width={600}
+                  height={700}
+                  priority
+                  className="object-contain w-full max-w-md h-auto"
+                />
               </div>
               <div>
                 <h2 className="font-heading font-bold text-2xl text-navy mb-6">
