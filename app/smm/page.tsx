@@ -1,7 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
+import Nav from '@/components/nav'
+import Link from 'next/link'
 
 // ─── Inline icons ─────────────────────────────────────────────────────────────
 
@@ -80,10 +81,11 @@ export default function SMMPage() {
 
   return (
     <main className="min-h-screen bg-white font-body text-[#032133]">
+      <Nav />
       {/* ════════════════════════════════════════════════════════════════════
           SECTION 1 — HERO
           ════════════════════════════════════════════════════════════════════ */}
-      <section className="bg-[#032133] text-white">
+      <section className="bg-[#032133] text-white pt-16">
         <div className="mx-auto max-w-5xl px-4 pt-20 pb-12 sm:px-6 sm:pt-24 lg:px-8">
           <div className="text-center">
             <h1 className="font-heading text-4xl font-bold leading-tight sm:text-5xl md:text-6xl">
@@ -131,6 +133,34 @@ export default function SMMPage() {
             since. Rates have moved. Renewal windows have opened. And most people
             find out too late — after the best options have already passed.
           </p>
+        </div>
+      </section>
+
+      {/* VIDEO PLACEHOLDER — Michael to supply final video file or
+          Vimeo embed URL. Replace this entire block with:
+          <iframe src="YOUR_VIMEO_URL" ... />
+          Host on Vimeo, privacy-lock to foxmortgage.ca domain,
+          no autoplay, no Vimeo branding. */}
+      <section className="bg-white">
+        <div className="max-w-3xl mx-auto px-6 pb-20">
+          <div className="relative w-full overflow-hidden rounded-2xl bg-[#032133]" style={{ aspectRatio: '16 / 9' }}>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#95D600] shadow-lg">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="#FFFFFF"
+                  className="ml-1 h-8 w-8"
+                  aria-hidden="true"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <p className="mt-5 text-sm text-white">
+                What is Strategic Mortgage Monitoring? · 2 min
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
