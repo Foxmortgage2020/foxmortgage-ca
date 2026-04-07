@@ -294,3 +294,50 @@ To revoke: remove financial-planner from roles array.
 - Phase 1: Complete — all 6 routes live with mock data (commit 8ce7976)
 - Phase 2: In progress — live Zoho data wiring + n8n webhooks (FOX-48)
 - Phase 3: Pending — DialPad webhook integration
+
+## SMM Page — /smm (FOX-49)
+
+**Status:** Complete — April 7, 2026
+**File:** `app/smm/page.tsx`
+**Final commit:** c935cdb
+
+### Key facts baked into the page
+- Enrolled count: 73 mortgages monitored (update this number as enrollment grows)
+- Client touchpoint: monthly homeownership report
+- Proactive contact: only when a savings opportunity exists
+- No Google reviews yet — star rating omitted until collected
+- Testimonials: Ian C. (Guelph) and Joe J. (Guelph) — approved April 7, 2026
+
+### Design decisions
+- One conversion action only — both CTAs link to /smm/enroll
+- No exit ramps — "Book a Call" and "View Report" removed
+- Em dashes prohibited in all body copy on this page
+- Three deliberate em dash exceptions (do not remove):
+  1. Hero CTA button: "Enroll Free — Takes 2 Minutes →"
+  2. Supporting proof line below testimonials
+  3. Testimonials section comment
+- Video: Wistia embed, media-id kaon6ntu81, hosted externally
+- Narrative section uses lime green divider (w-16 h-px bg-[#95D600]) between problem setup and payoff line
+
+### Page section order
+1. Hero (H1, subheadline, CTA, trust bar)
+2. Narrative ("Most mortgage advice shows up at the transaction")
+3. Video (Wistia embed kaon6ntu81)
+4. How It Works (3 navy cards, steps 01/02/03)
+5. What We Watch (navy section, 2x2 grid)
+6. Testimonials (Ian C. and Joe J.)
+7. FAQ (accordion, React useState, no external library)
+8. Final CTA with curiosity line above button
+9. Compliance footer strip
+
+### Wistia embed notes
+- media-id: kaon6ntu81
+- Loaded via next/script with strategy="afterInteractive"
+- TypeScript global declaration added for wistia-player custom element
+- Hydration warning on inline style block is pre-existing and benign — do not attempt to fix
+
+### Next actions on this page
+- Update enrolled count (currently 73) as SMM grows
+- Add Google rating to trust bar once reviews are collected
+- Add additional testimonials as collected — see comment in file above testimonials section
+- BRX Mortgage compliance review before driving paid or significant organic traffic to this page
