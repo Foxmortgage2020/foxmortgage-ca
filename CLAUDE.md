@@ -234,3 +234,63 @@ Closing_Date, Lender_Fee
 - Private lender onboarding flow (Zoho Sign KYC)
 - Investor_Status data model prompt still pending (income logic fix across all pages)
 - Send Domenic his portal invite
+
+## Financial Planner Partner Portal (FOX-8)
+
+### Routes
+All FP portal routes live under /portal/fp/:
+- /portal/fp/dashboard
+- /portal/fp/clients
+- /portal/fp/clients/[id]
+- /portal/fp/add-referral
+- /portal/fp/messages
+- /portal/fp/support
+
+API routes live under /api/portal/fp/.
+
+### Auth
+- Clerk role key: financial-planner
+- Added to publicMetadata.roles[] array
+- Always use currentUser() for FP identity and publicMetadata — never auth()
+- Clerk publicMetadata fields: fp_name, fp_firm, fp_zoho_id, fp_zoho_contact_id
+
+### Zoho
+- Deals filtered by FP_Email field matching logged-in FP's Clerk email
+- Custom fields on Leads: FP_Name, FP_Firm, FP_Email, Referral_Goal, Best_Contact_Time, Property_Value, Annual_Income
+- Custom fields on Deals: FP_Email, Next_Review_Date, Savings_Identified
+- Messages stored as Zoho Activity Notes — never in a separate DB
+- Per-client messages: Note_Type = FP_Message on Deal record
+- General inbox messages: Note_Type = FP_General_Message on FP Contact record
+
+### n8n Webhooks
+- FP_REFERRAL_WEBHOOK_URL — workflow "FP Portal — Referral Submission"
+  Triggers: Zoho Lead creation + 3 emails (Michael, FP confirmation, referred client welcome)
+- FP_MESSAGE_WEBHOOK_URL — workflow "FP Portal — Messaging"
+  Handles two types via IF branch: client_message (Note on Deal) and general_message (Note on Contact)
+
+### Resend in n8n
+- Credential name: "Resend API Paperclip" (Header Auth type)
+- The Authorization header already contains the full Bearer token
+- Select this credential on HTTP Request nodes — do not manually set Authorization header
+
+### Stage Mapping (Zoho Deal Stage → 9-stage UI tracker)
+- Qualification → 1. Inquiry
+- Needs Analysis → 2. Application
+- Value Proposition → 3. Documents
+- Id. Decision Makers → 4. Appraisal
+- Perception Analysis → 5. Lender Submission
+- Proposal/Price Quote → 6. Commitment
+- Negotiation/Review → 7. Conditions
+- Lawyer → 8. Lawyer
+- Closed Won → 9. Funded
+- Closed Lost → N/A (closed badge)
+
+### FP Provisioning (manual)
+Michael assigns financial-planner role manually in Clerk dashboard.
+Set publicMetadata: { "roles": ["financial-planner"], "fp_name": "...", "fp_firm": "...", "fp_zoho_id": "...", "fp_zoho_contact_id": "..." }
+To revoke: remove financial-planner from roles array.
+
+### Phase Status
+- Phase 1: Complete — all 6 routes live with mock data (commit 8ce7976)
+- Phase 2: In progress — live Zoho data wiring + n8n webhooks (FOX-48)
+- Phase 3: Pending — DialPad webhook integration
