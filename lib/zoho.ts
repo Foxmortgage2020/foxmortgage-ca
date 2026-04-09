@@ -114,7 +114,7 @@ const FP_DEAL_FIELDS = [
   'Deal_Name', 'Contact_Name', 'Amount', 'Mortgage_Rate', 'Stage',
   'City', 'Province', 'Mortgage_Type', 'Term_Years', 'Payment_Frequency',
   'Closing_Date', 'Last_Activity_Time', 'Next_Review_Date', 'Savings_Identified',
-  'FP_Email', 'Description',
+  'Referral_Partner', 'Description',
 ].join(',')
 
 export interface FPClient {
@@ -133,7 +133,8 @@ export interface FPClient {
   lastActivity: string | null
   nextReviewDate: string | null
   savingsIdentified: string | null
-  fpEmail: string | null
+  referralPartnerId: string | null
+  referralPartnerName: string | null
   description: string | null
 }
 
@@ -167,14 +168,15 @@ function normalizeFPClient(r: any): FPClient {
     lastActivity: r.Last_Activity_Time ?? null,
     nextReviewDate: r.Next_Review_Date ?? null,
     savingsIdentified: r.Savings_Identified != null ? String(r.Savings_Identified) : null,
-    fpEmail: r.FP_Email ?? null,
+    referralPartnerId: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.id ?? null) : null,
+    referralPartnerName: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.name ?? null) : null,
     description: r.Description ?? null,
   }
 }
 
-export async function getFPClients(fpEmail: string): Promise<FPClient[]> {
+export async function getFPClients(fpZohoId: string): Promise<FPClient[]> {
   const token = await getZohoToken()
-  const criteria = encodeURIComponent(`(FP_Email:equals:${fpEmail})`)
+  const criteria = encodeURIComponent(`(Referral_Partner:equals:${fpZohoId})`)
   const url = `${ZOHO_API}/Deals/search?criteria=${criteria}&fields=${FP_DEAL_FIELDS}&per_page=200`
   const res = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
@@ -266,10 +268,10 @@ export async function getFPMessages(fpEmail: string): Promise<FPNote[]> {
     }))
 }
 
-export async function getFPDashboardStats(fpEmail: string) {
+export async function getFPDashboardStats(fpZohoId: string) {
   const token = await getZohoToken()
 
-  const criteria = encodeURIComponent(`(FP_Email:equals:${fpEmail})`)
+  const criteria = encodeURIComponent(`(Referral_Partner:equals:${fpZohoId})`)
   const fields = 'Stage,Amount,Savings_Identified,Closing_Date'
   const url = `${ZOHO_API}/Deals/search?criteria=${criteria}&fields=${fields}&per_page=200`
   const res = await fetch(url, {

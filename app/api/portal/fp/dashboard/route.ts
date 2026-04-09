@@ -9,21 +9,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const metadata = user.publicMetadata as { roles?: string[] }
+    const metadata = user.publicMetadata as { roles?: string[]; fp_zoho_id?: string }
     const roles = metadata?.roles || []
     if (!roles.includes('financial-planner') && !roles.includes('admin')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const fpEmail = user.emailAddresses[0]?.emailAddress
-    if (!fpEmail) {
-      return NextResponse.json({ error: 'No email on account.' }, { status: 400 })
+    const fpZohoId = metadata?.fp_zoho_id
+    if (!fpZohoId) {
+      return NextResponse.json({ error: 'No Zoho Partner ID linked to account.' }, { status: 400 })
     }
 
     // Fetch KPIs and recent clients in parallel
     const [stats, clients] = await Promise.all([
-      getFPDashboardStats(fpEmail),
-      getFPClients(fpEmail),
+      getFPDashboardStats(fpZohoId),
+      getFPClients(fpZohoId),
     ])
 
     // Build recent activity from the 4 most recently active deals
