@@ -127,6 +127,7 @@ const FP_DEAL_FIELDS = [
   'Mortgage_Rate',
   'Stage',
   'Closing_Date',
+  'Modified_Time',
   'Mortgage_Type',
   'Application_Type',
   'Transaction_Type',
@@ -135,6 +136,9 @@ const FP_DEAL_FIELDS = [
   'Province',
   'Postal_Code',
   'Country',
+  'LTV',
+  'Total_Loan_Amount',
+  'Purchase_Price_Value',
   'Referral_Partner',
 ].join(',')
 
@@ -143,8 +147,9 @@ export interface FPClient {
   dealName: string
   contactName: string
   amount: number | null
-  mortgageRate: string | null
+  mortgageRate: number | null
   stage: string
+  stageModifiedTime: string | null
   city: string | null
   province: string | null
   location: string | null
@@ -156,6 +161,9 @@ export interface FPClient {
   lastActivity: string | null
   nextReviewDate: string | null
   savingsIdentified: string | null
+  ltv: number | null
+  totalLoanAmount: number | null
+  purchasePriceValue: number | null
   referralPartnerId: string | null
   referralPartnerName: string | null
   description: string | null
@@ -210,9 +218,10 @@ function normalizeFPClient(r: any): FPClient {
     id: r.id,
     dealName: r.Deal_Name ?? '',
     contactName: typeof r.Contact_Name === 'object' ? (r.Contact_Name?.name ?? '') : (r.Contact_Name ?? ''),
-    amount: r.Amount ?? null,
-    mortgageRate: r.Mortgage_Rate != null ? String(r.Mortgage_Rate) : null,
+    amount: r.Amount != null ? Number(r.Amount) : null,
+    mortgageRate: r.Mortgage_Rate != null ? Number(r.Mortgage_Rate) : null,
     stage: r.Stage ?? '',
+    stageModifiedTime: r.Modified_Time ?? null,
     city: r.City ?? null,
     province: r.Province ?? null,
     location,
@@ -224,6 +233,9 @@ function normalizeFPClient(r: any): FPClient {
     lastActivity: null,
     nextReviewDate: null,
     savingsIdentified: null,
+    ltv: r.LTV != null ? Number(r.LTV) : null,
+    totalLoanAmount: r.Total_Loan_Amount != null ? Number(r.Total_Loan_Amount) : null,
+    purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
     referralPartnerId: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.id ?? null) : null,
     referralPartnerName: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.name ?? null) : null,
     description: null,
