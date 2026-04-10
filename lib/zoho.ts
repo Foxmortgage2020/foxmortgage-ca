@@ -337,37 +337,111 @@ export async function getFPMessages(fpEmail: string): Promise<FPNote[]> {
     }))
 }
 
-export async function getFPDashboardStats(fpZohoId: string) {
-  const token = await getZohoToken()
+export interface FPDashboardStats {
+  totalReferrals: number
+  activeMonitoring: number   // Files In Progress
+  closedMortgages: number    // Funded Mortgages
+  fundedVolume: number       // Total Funded
+  leadToClose: number
+  savingsYTD: number
+  mortgagesUnderMgmt: number // Total Referred Value
+}
 
+export interface FPDashboardRecent {
+  client: string
+  dealId: string
+  stage: string
+  lastActivity: string | null
+  savingsIdentified: string | null
+}
+
+export interface FPDashboardPayload {
+  stats: FPDashboardStats
+  recent: FPDashboardRecent[]
+  warning?: string
+}
+
+const EMPTY_STATS: FPDashboardStats = {
+  totalReferrals: 0,
+  activeMonitoring: 0,
+  closedMortgages: 0,
+  fundedVolume: 0,
+  leadToClose: 0,
+  savingsYTD: 0,
+  mortgagesUnderMgmt: 0,
+}
+
+/**
+ * Dashboard data for a single FP. Single minimal-field Zoho query drives
+ * BOTH the stats cards and the Recent Activity table.
+ *
+ * Field list is the minimum required — adding more fields has historically
+ * caused INVALID_DATA 400s and silently broken the entire dashboard.
+ *
+ * Error handling: this function NEVER throws. On any Zoho failure it logs
+ * the error and returns { stats: EMPTY_STATS, recent: [], warning }. The
+ * dashboard UI is designed to render the stat grid with zeros in that case
+ * rather than disappear entirely.
+ */
+export async function getFPDashboardPayload(fpZohoId: string): Promise<FPDashboardPayload> {
   const criteria = encodeURIComponent(`(Referral_Partner:equals:${fpZohoId})`)
-  const fields = 'Stage,Amount,Closing_Date'
+  // Minimal confirmed-working field list — do NOT add fields without verifying
+  // via /crm/v2/settings/fields?module=Potentials first.
+  const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Referral_Partner'
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
-  const res = await fetch(url, {
-    headers: { Authorization: `Zoho-oauthtoken ${token}` },
-  })
 
-  const empty = {
-    totalReferrals: 0, activeMonitoring: 0, closedMortgages: 0,
-    fundedVolume: 0, leadToClose: 0, savingsYTD: 0, mortgagesUnderMgmt: 0,
+  let token: string
+  try {
+    token = await getZohoToken()
+  } catch (err) {
+    console.error('[zoho] getFPDashboardPayload token error:', err)
+    return { stats: EMPTY_STATS, recent: [], warning: 'zoho-token-failed' }
   }
 
-  if (res.status === 204) return empty
+  let res: Response
+  try {
+    res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+  } catch (err) {
+    console.error('[zoho] getFPDashboardPayload fetch error:', err, 'url:', url)
+    return { stats: EMPTY_STATS, recent: [], warning: 'zoho-network-error' }
+  }
+
+  if (res.status === 204) {
+    // No records matching criteria — return zeros, not an error.
+    return { stats: EMPTY_STATS, recent: [] }
+  }
   if (!res.ok) {
-    const text = await res.text()
-    console.error('[zoho] getFPDashboardStats error:', res.status, 'url:', url, 'body:', text.substring(0, 500))
-    throw new ZohoError(res.status, text)
+    const text = await res.text().catch(() => '')
+    console.error(
+      '[zoho] getFPDashboardPayload non-ok:',
+      res.status,
+      'url:', url,
+      'body:', text.substring(0, 500),
+    )
+    return {
+      stats: EMPTY_STATS,
+      recent: [],
+      warning: `zoho-${res.status}: ${text.substring(0, 200)}`,
+    }
   }
-  const data = await res.json()
-  const deals: any[] = data.data ?? []
-  if (deals.length === 0) return empty
 
-  // Stage-based classification — exact Zoho picklist values.
-  // Funded = Stage is "Mortgage Funded"
-  // Lost = Stage is "Mortgage Lost" (or legacy cancelled/declined)
-  // Active = everything else (all stages 1-8 in progress)
-  const isFunded = (s: string) => s === 'Mortgage Funded' || s.toLowerCase().includes('funded')
-  const isLost   = (s: string) =>
+  let body: any
+  try {
+    body = await res.json()
+  } catch (err) {
+    console.error('[zoho] getFPDashboardPayload JSON parse error:', err)
+    return { stats: EMPTY_STATS, recent: [], warning: 'zoho-parse-error' }
+  }
+
+  const deals: any[] = Array.isArray(body?.data) ? body.data : []
+  if (deals.length === 0) {
+    return { stats: EMPTY_STATS, recent: [] }
+  }
+
+  // Exact Zoho picklist classification (not substring matching).
+  const isFunded = (s: string) =>
+    s === 'Mortgage Funded' || s.toLowerCase().includes('funded')
+  const isLost = (s: string) =>
     s === 'Mortgage Lost' ||
     s.toLowerCase().includes('lost') ||
     s.toLowerCase().includes('cancelled') ||
@@ -379,25 +453,49 @@ export async function getFPDashboardStats(fpZohoId: string) {
     return !isFunded(s) && !isLost(s)
   })
 
-  // Total Funded = sum Amount of Mortgage Funded deals (scoped to this FP via criteria)
-  const totalFunded = funded.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
+  const totalReferredValue = deals.reduce(
+    (sum: number, d: any) => sum + (Number(d.Amount) || 0),
+    0,
+  )
+  const totalFunded = funded.reduce(
+    (sum: number, d: any) => sum + (Number(d.Amount) || 0),
+    0,
+  )
+  const leadToClose =
+    deals.length > 0 ? Math.round((funded.length / deals.length) * 1000) / 10 : 0
 
-  // Total Referred Value = sum Amount across ALL of this FP's referred files
-  // (criteria=(Referral_Partner:equals:fpZohoId) already scopes the query)
-  const totalReferredValue = deals.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
-
-  // Lead-to-Close % = funded / total referrals (0 if none funded yet — correct for Ben)
-  const leadToClose = deals.length > 0
-    ? Math.round((funded.length / deals.length) * 1000) / 10
-    : 0
-
-  return {
+  const stats: FPDashboardStats = {
     totalReferrals: deals.length,
-    activeMonitoring: active.length,     // now "Files In Progress" in UI
-    closedMortgages: funded.length,      // now "Funded Mortgages" in UI
-    fundedVolume: totalFunded,           // now "Total Funded" in UI
+    activeMonitoring: active.length,
+    closedMortgages: funded.length,
+    fundedVolume: totalFunded,
     leadToClose,
-    savingsYTD: 0,                        // Savings_Identified field not on Potentials module
-    mortgagesUnderMgmt: totalReferredValue, // now "Total Referred Value" in UI
+    savingsYTD: 0, // field not on Potentials
+    mortgagesUnderMgmt: totalReferredValue,
   }
+
+  // Recent Activity — derived from the same records.
+  // Modified_Time/Last_Activity_Time intentionally NOT fetched to keep the
+  // query field list minimal; Last Activity renders as "—".
+  const recent: FPDashboardRecent[] = deals.slice(0, 8).map((d: any) => {
+    const contactName =
+      typeof d.Contact_Name === 'object'
+        ? (d.Contact_Name?.name ?? '')
+        : (d.Contact_Name ?? '')
+    return {
+      client: contactName || d.Deal_Name || '(untitled)',
+      dealId: d.id,
+      stage: d.Stage ?? '',
+      lastActivity: null,
+      savingsIdentified: null,
+    }
+  })
+
+  return { stats, recent }
+}
+
+/** @deprecated — kept for legacy callers; prefer getFPDashboardPayload. */
+export async function getFPDashboardStats(fpZohoId: string): Promise<FPDashboardStats> {
+  const payload = await getFPDashboardPayload(fpZohoId)
+  return payload.stats
 }

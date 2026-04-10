@@ -85,7 +85,17 @@ export default function FPDashboardPage() {
   const { user } = useUser()
   const firstName = user?.firstName || 'there'
 
-  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const EMPTY_STATS: DashboardStats = {
+    totalReferrals: 0,
+    activeMonitoring: 0,
+    closedMortgages: 0,
+    fundedVolume: 0,
+    leadToClose: 0,
+    savingsYTD: 0,
+    mortgagesUnderMgmt: 0,
+  }
+
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS)
   const [recent, setRecent] = useState<RecentDeal[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -93,31 +103,29 @@ export default function FPDashboardPage() {
     fetch('/api/portal/fp/dashboard')
       .then(r => r.json())
       .then(data => {
-        if (!data.error) {
-          setStats(data.stats ?? null)
-          setRecent(data.recent ?? [])
-        }
+        // Payload shape: { stats, recent, warning? } — always set, even on warning.
+        if (data?.stats) setStats(data.stats)
+        if (Array.isArray(data?.recent)) setRecent(data.recent)
+        if (data?.warning) console.warn('[fp/dashboard] warning:', data.warning)
       })
-      .catch(() => {/* show skeleton values */})
+      .catch(err => console.error('[fp/dashboard] fetch error:', err))
       .finally(() => setLoading(false))
   }, [])
 
-  const statCards = stats
-    ? [
-        { label: 'Total Referrals', value: String(stats.totalReferrals), icon: Users, up: true },
-        { label: 'Files In Progress', value: String(stats.activeMonitoring), icon: Target, up: true },
-        { label: 'Funded Mortgages', value: String(stats.closedMortgages), icon: CheckCircle2, up: true },
-        { label: 'Total Funded', value: formatCurrency(stats.fundedVolume), icon: DollarSign, up: true },
-        { label: 'Lead-to-Close %', value: `${stats.leadToClose}%`, icon: TrendingUp, up: true },
-        {
-          label: 'Savings Identified YTD',
-          value: stats.savingsYTD > 0 ? formatCurrency(stats.savingsYTD) : '—',
-          icon: DollarSign,
-          up: true,
-        },
-        { label: 'Total Referred Value', value: formatCurrency(stats.mortgagesUnderMgmt), icon: Briefcase, up: true },
-      ]
-    : []
+  const statCards = [
+    { label: 'Total Referrals', value: String(stats.totalReferrals), icon: Users, up: true },
+    { label: 'Files In Progress', value: String(stats.activeMonitoring), icon: Target, up: true },
+    { label: 'Funded Mortgages', value: String(stats.closedMortgages), icon: CheckCircle2, up: true },
+    { label: 'Total Funded', value: formatCurrency(stats.fundedVolume), icon: DollarSign, up: true },
+    { label: 'Lead-to-Close %', value: `${stats.leadToClose}%`, icon: TrendingUp, up: true },
+    {
+      label: 'Savings Identified YTD',
+      value: stats.savingsYTD > 0 ? formatCurrency(stats.savingsYTD) : '—',
+      icon: DollarSign,
+      up: true,
+    },
+    { label: 'Total Referred Value', value: formatCurrency(stats.mortgagesUnderMgmt), icon: Briefcase, up: true },
+  ]
 
   const upcomingRenewals = recent.filter(r => r.savingsIdentified).length
   const hasNewActivity = recent.length > 0
@@ -131,7 +139,7 @@ export default function FPDashboardPage() {
           <p className="font-body text-sm text-gray-600">
             {loading ? (
               'Loading your portfolio…'
-            ) : stats ? (
+            ) : (
               <>
                 You have{' '}
                 <span className="font-semibold text-navy">{stats.activeMonitoring} file{stats.activeMonitoring !== 1 ? 's' : ''}</span>{' '}
@@ -141,8 +149,6 @@ export default function FPDashboardPage() {
                 )}
                 .
               </>
-            ) : (
-              'Your mortgage portfolio is ready to view.'
             )}
           </p>
         </div>
@@ -164,7 +170,7 @@ export default function FPDashboardPage() {
               <div className="h-3 w-24 bg-gray-100 rounded" />
             </div>
           ))
-        ) : statCards.length > 0 ? (
+        ) : (
           statCards.map((stat) => (
             <div
               key={stat.label}
@@ -182,10 +188,6 @@ export default function FPDashboardPage() {
               <div className="font-body text-xs text-gray-500 mt-1">{stat.label}</div>
             </div>
           ))
-        ) : (
-          <div className="col-span-4 bg-white border border-gray-100 rounded-xl p-8 text-center">
-            <p className="font-body text-sm text-gray-400">No portfolio data yet. Add your first referral to get started.</p>
-          </div>
         )}
       </div>
 
