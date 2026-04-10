@@ -105,9 +105,9 @@ export default function FPDashboardPage() {
   const statCards = stats
     ? [
         { label: 'Total Referrals', value: String(stats.totalReferrals), icon: Users, up: true },
-        { label: 'Active Monitoring', value: String(stats.activeMonitoring), icon: Target, up: true },
-        { label: 'Closed Mortgages', value: String(stats.closedMortgages), icon: CheckCircle2, up: true },
-        { label: 'Funded Volume', value: formatCurrency(stats.fundedVolume), icon: DollarSign, up: true },
+        { label: 'Files In Progress', value: String(stats.activeMonitoring), icon: Target, up: true },
+        { label: 'Funded Mortgages', value: String(stats.closedMortgages), icon: CheckCircle2, up: true },
+        { label: 'Total Funded', value: formatCurrency(stats.fundedVolume), icon: DollarSign, up: true },
         { label: 'Lead-to-Close %', value: `${stats.leadToClose}%`, icon: TrendingUp, up: true },
         {
           label: 'Savings Identified YTD',
@@ -115,7 +115,7 @@ export default function FPDashboardPage() {
           icon: DollarSign,
           up: true,
         },
-        { label: 'Mortgages Under Mgmt', value: formatCurrency(stats.mortgagesUnderMgmt), icon: Briefcase, up: true },
+        { label: 'Total Referred Value', value: formatCurrency(stats.mortgagesUnderMgmt), icon: Briefcase, up: true },
       ]
     : []
 
@@ -134,8 +134,8 @@ export default function FPDashboardPage() {
             ) : stats ? (
               <>
                 You have{' '}
-                <span className="font-semibold text-navy">{stats.activeMonitoring} client{stats.activeMonitoring !== 1 ? 's' : ''}</span>{' '}
-                under active monitoring
+                <span className="font-semibold text-navy">{stats.activeMonitoring} file{stats.activeMonitoring !== 1 ? 's' : ''}</span>{' '}
+                in progress
                 {upcomingRenewals > 0 && (
                   <> and <span className="font-semibold text-navy">{upcomingRenewals} with savings identified</span></>
                 )}

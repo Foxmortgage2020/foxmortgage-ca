@@ -362,27 +362,42 @@ export async function getFPDashboardStats(fpZohoId: string) {
   const deals: any[] = data.data ?? []
   if (deals.length === 0) return empty
 
-  const isFunded = (s: string) => s.toLowerCase().includes('funded')
-  const isLost   = (s: string) => s.toLowerCase().includes('lost') || s.toLowerCase().includes('cancelled') || s.toLowerCase().includes('declined')
+  // Stage-based classification — exact Zoho picklist values.
+  // Funded = Stage is "Mortgage Funded"
+  // Lost = Stage is "Mortgage Lost" (or legacy cancelled/declined)
+  // Active = everything else (all stages 1-8 in progress)
+  const isFunded = (s: string) => s === 'Mortgage Funded' || s.toLowerCase().includes('funded')
+  const isLost   = (s: string) =>
+    s === 'Mortgage Lost' ||
+    s.toLowerCase().includes('lost') ||
+    s.toLowerCase().includes('cancelled') ||
+    s.toLowerCase().includes('declined')
 
   const funded = deals.filter(d => isFunded(d.Stage ?? ''))
   const active = deals.filter(d => {
-    const s = (d.Stage ?? '')
+    const s = d.Stage ?? ''
     return !isFunded(s) && !isLost(s)
   })
-  const fundedVolume = funded.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
-  const mortgagesUnderMgmt = active.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
+
+  // Total Funded = sum Amount of Mortgage Funded deals (scoped to this FP via criteria)
+  const totalFunded = funded.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
+
+  // Total Referred Value = sum Amount across ALL of this FP's referred files
+  // (criteria=(Referral_Partner:equals:fpZohoId) already scopes the query)
+  const totalReferredValue = deals.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
+
+  // Lead-to-Close % = funded / total referrals (0 if none funded yet — correct for Ben)
   const leadToClose = deals.length > 0
     ? Math.round((funded.length / deals.length) * 1000) / 10
     : 0
 
   return {
     totalReferrals: deals.length,
-    activeMonitoring: active.length,
-    closedMortgages: funded.length,
-    fundedVolume,
+    activeMonitoring: active.length,     // now "Files In Progress" in UI
+    closedMortgages: funded.length,      // now "Funded Mortgages" in UI
+    fundedVolume: totalFunded,           // now "Total Funded" in UI
     leadToClose,
-    savingsYTD: 0, // Savings_Identified field not on Potentials module
-    mortgagesUnderMgmt,
+    savingsYTD: 0,                        // Savings_Identified field not on Potentials module
+    mortgagesUnderMgmt: totalReferredValue, // now "Total Referred Value" in UI
   }
 }
