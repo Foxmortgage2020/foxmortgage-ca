@@ -1,19 +1,21 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: April 4, 2026
+## Last Updated: April 10, 2026
 
 ---
 
-## Current Status (April 4, 2026)
+## Current Status (April 10, 2026)
 
 ### Financial Planner Portal
 - **Phase 1** ✅ live (commit `8ce7976`) — all 6 routes with static/mock data; Clerk role: `financial-planner`
-- **Phase 2** ⏳ pending — requires two n8n webhooks not yet built:
-  - `FP_REFERRAL_WEBHOOK_URL` — Financial Planner submits a referral
-  - `FP_MESSAGE_WEBHOOK_URL` — Financial Planner sends a message
-- **Zoho custom fields to create before Phase 2:**
-  - Leads module: `FP_Name`, `FP_Firm`, `FP_Email`, `Referral_Goal`
-  - Deals module: `Next_Review_Date`, `Savings_Identified`, `FP_Email`
+- **Phase 2** ✅ complete (FOX-48) — live Zoho data, n8n webhooks active, Vercel env vars set
+  - `FP_REFERRAL_WEBHOOK_URL` → `https://foxmortgage.app.n8n.cloud/webhook/fp-portal-referral`
+    n8n workflow ID: `j17v139rGek6tjAC`, webhookId: `df8d9aaa-fc15-4ddf-b951-4af788a17feb`
+  - `FP_MESSAGE_WEBHOOK_URL` → `https://foxmortgage.app.n8n.cloud/webhook/fp-portal-message`
+    n8n workflow ID: `1jl45sF4HfvxO5L8`, webhookId: `b8c42e1f-9d31-47ae-a762-6f5e9c830d44`
+  - Both webhooks verified 200 OK in production (executions 4574, 4575)
+  - NOTE: If webhooks stop working after an API update, the fix is: deactivate workflow,
+    PUT the full workflow JSON with `webhookId` set on the webhook node, then reactivate.
 - **Phase 3** ❌ not started — DialPad integration (pending FOX-8 board approval)
 
 ### Investor Portal
@@ -117,9 +119,9 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - **Credential in n8n:** `Resend API Paperclip` (ID: `iJa8AHPr58GmNMda`)
 - **Briefing workflow:** `dceYGLjOIRQAuS0p` (built, awaiting activation by Michael)
 
-#### Pending n8n Webhooks (for foxmortgage.ca routes)
-- `FP_REFERRAL_WEBHOOK_URL` — Financial Planner portal referral submit (not yet built)
-- `FP_MESSAGE_WEBHOOK_URL` — Financial Planner portal message submit (not yet built)
+#### n8n Webhooks (foxmortgage.ca routes)
+- `FP_REFERRAL_WEBHOOK_URL` ✅ — `https://foxmortgage.app.n8n.cloud/webhook/fp-portal-referral` (active)
+- `FP_MESSAGE_WEBHOOK_URL` ✅ — `https://foxmortgage.app.n8n.cloud/webhook/fp-portal-message` (active)
 - SMM leads webhook — for agents to check new SMM enrollments (not yet built)
 - Investor deals webhook — for agents to check deal/position status (not yet built)
 
