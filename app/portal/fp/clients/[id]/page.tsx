@@ -14,30 +14,31 @@ import {
 
 // ─── 9-stage mortgage progress tracker ───────────────────────────────────────
 
+// Labels match Zoho Potentials Stage picklist exactly (1:1 with stageToMilestone).
 const STAGES = [
-  { id: 1, label: 'Referral Received' },
-  { id: 2, label: 'Initial Consultation' },
-  { id: 3, label: 'Application Submitted' },
-  { id: 4, label: 'Documents Collected' },
-  { id: 5, label: 'Lender Submitted' },
-  { id: 6, label: 'Approval Received' },
-  { id: 7, label: 'Conditions Satisfied' },
-  { id: 8, label: 'Commitment Signed' },
-  { id: 9, label: 'Funded' },
+  { id: 1, label: 'Lead' },
+  { id: 2, label: 'Application Started' },
+  { id: 3, label: 'Collecting Documentation' },
+  { id: 4, label: 'Underwriting In Progress' },
+  { id: 5, label: 'Ready to Submit' },
+  { id: 6, label: 'Submitted to Lender' },
+  { id: 7, label: 'Conditionally Approved' },
+  { id: 8, label: 'Broker Complete' },
+  { id: 9, label: 'Mortgage Funded' },
 ]
 
-// Map Zoho Potentials Stage picklist → milestone 1–9 (0 = closed/lost)
+// Direct 1-to-1 mapping. 0 = Mortgage Lost (closed state — no progress bar).
 const stageToMilestone: Record<string, number> = {
-  'Lead':                      1,
-  'Application Started':       2,
-  'Collecting Documentation':  3,
-  'Underwriting In Progress':  4,
-  'Ready to Submit':           5,
-  'Submitted to Lender':       5,
-  'Conditionally Approved':    6,
-  'Broker Complete':           7,
-  'Mortgage Funded':           9,
-  'Mortgage Lost':             0,
+  'Lead':                     1,
+  'Application Started':      2,
+  'Collecting Documentation': 3,
+  'Underwriting In Progress': 4,
+  'Ready to Submit':          5,
+  'Submitted to Lender':      6,
+  'Conditionally Approved':   7,
+  'Broker Complete':          8,
+  'Mortgage Funded':          9,
+  'Mortgage Lost':            0,
 }
 
 function stageToProgress(stage: string): number {
@@ -47,9 +48,10 @@ function stageToProgress(stage: string): number {
   const s = stage.toLowerCase()
   if (s.includes('lost') || s.includes('cancelled') || s.includes('declined')) return 0
   if (s.includes('funded')) return 9
-  if (s.includes('complete')) return 7
-  if (s.includes('approved')) return 6
-  if (s.includes('submitted')) return 5
+  if (s.includes('complete')) return 8
+  if (s.includes('approved')) return 7
+  if (s.includes('submitted')) return 6
+  if (s.includes('ready')) return 5
   if (s.includes('underwriting')) return 4
   if (s.includes('document')) return 3
   if (s.includes('application')) return 2
@@ -60,9 +62,9 @@ function stageToStatus(stage: string, _savingsIdentified: string | null): string
   const milestone = stageToProgress(stage)
   if (milestone === 0) return 'Closed'
   if (milestone === 9) return 'Funded'
-  if (milestone >= 5) return 'Active'
-  if (milestone >= 2) return 'Onboarding'
-  return 'Referred'
+  if (milestone >= 3) return 'Active'
+  if (milestone >= 1) return 'Onboarding'
+  return 'Onboarding'
 }
 
 function formatAmount(amount: number | null): string {
