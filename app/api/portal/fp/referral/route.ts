@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const metadata = user.publicMetadata as { roles?: string[] }
+    const metadata = user.publicMetadata as { roles?: string[]; fp_firm?: string; fp_name?: string }
     const roles = metadata?.roles || []
     if (!roles.includes('financial-planner') && !roles.includes('admin')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fpName: user.fullName || `${user.firstName} ${user.lastName}`.trim(),
+          fpName: metadata?.fp_name || user.fullName || `${user.firstName} ${user.lastName}`.trim(),
+          fpFirm: metadata?.fp_firm || '',
           fpEmail: user.emailAddresses[0]?.emailAddress,
           fpClerkId: user.id,
           clientName,
@@ -57,7 +58,8 @@ export async function POST(req: NextRequest) {
     } else {
       // Webhook not yet configured — log for now
       console.log('[FP Referral] Webhook URL not set. Referral data:', {
-        fpName: user.fullName,
+        fpName: metadata?.fp_name || user.fullName,
+        fpFirm: metadata?.fp_firm || '',
         fpEmail: user.emailAddresses[0]?.emailAddress,
         clientName,
         clientEmail,
