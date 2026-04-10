@@ -114,6 +114,12 @@ export async function getInvestorDeal(dealId: string) {
 // Field list is restricted to fields confirmed to exist on the Potentials
 // schema — unknown field names cause Zoho to return INVALID_DATA 400s.
 
+// Fields confirmed to exist on the Potentials module (verified via
+// /crm/v2/settings/fields?module=Potentials). Unknown field names cause
+// Zoho to return INVALID_DATA 400s and drop the entire response.
+// NOTE: requested Zip_Code → real API name is Postal_Code.
+// NOTE: requested Goal / Mortgage_Goal do NOT exist on Potentials — use
+// Transaction_Type / Application_Type / Mortgage_Type for the type chain.
 const FP_DEAL_FIELDS = [
   'Deal_Name',
   'Contact_Name',
@@ -122,6 +128,13 @@ const FP_DEAL_FIELDS = [
   'Stage',
   'Closing_Date',
   'Mortgage_Type',
+  'Application_Type',
+  'Transaction_Type',
+  'Street',
+  'City',
+  'Province',
+  'Postal_Code',
+  'Country',
   'Referral_Partner',
 ].join(',')
 
@@ -134,7 +147,9 @@ export interface FPClient {
   stage: string
   city: string | null
   province: string | null
+  location: string | null
   mortgageType: string | null
+  type: string | null
   termYears: string | null
   paymentFrequency: string | null
   closingDate: string | null
@@ -169,7 +184,28 @@ export interface FPClientDetail extends FPClient {
   timeline: FPNote[]
 }
 
+function capitalize(s: string): string {
+  if (!s) return s
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 function normalizeFPClient(r: any): FPClient {
+  // Build full address from the 4 Potentials address fields.
+  const street   = r.Street      || ''
+  const city     = r.City        || ''
+  const province = r.Province    || ''
+  const postal   = r.Postal_Code || ''
+  const location = [street, city, province, postal].filter(Boolean).join(', ') || null
+
+  // Type chain: Mortgage_Type → Application_Type → Transaction_Type.
+  // Transaction_Type is often the only one populated on migrated files.
+  const rawType =
+    r.Mortgage_Type ||
+    r.Application_Type ||
+    r.Transaction_Type ||
+    null
+  const type = rawType ? capitalize(String(rawType)) : null
+
   return {
     id: r.id,
     dealName: r.Deal_Name ?? '',
@@ -177,9 +213,11 @@ function normalizeFPClient(r: any): FPClient {
     amount: r.Amount ?? null,
     mortgageRate: r.Mortgage_Rate != null ? String(r.Mortgage_Rate) : null,
     stage: r.Stage ?? '',
-    city: null,
-    province: null,
+    city: r.City ?? null,
+    province: r.Province ?? null,
+    location,
     mortgageType: r.Mortgage_Type ?? null,
+    type,
     termYears: null,
     paymentFrequency: null,
     closingDate: r.Closing_Date ?? null,

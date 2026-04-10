@@ -100,7 +100,9 @@ interface FPClientDetail {
   stage: string
   city: string | null
   province: string | null
+  location: string | null
   mortgageType: string | null
+  type: string | null
   termYears: string | null
   closingDate: string | null
   nextReviewDate: string | null
@@ -184,9 +186,12 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
   const currentStage = stageToProgress(client.stage)
   const status = stageToStatus(client.stage, client.savingsIdentified)
   const displayName = client.contactName || client.dealName
-  const location = [client.city, client.province].filter(Boolean).join(', ')
+  // Full address from server (Street, City, Province, Postal_Code)
+  const location = client.location || [client.city, client.province].filter(Boolean).join(', ')
+  // Normalised type from server chain (Mortgage_Type → Application_Type → Transaction_Type)
+  const typeLabel = client.type || client.mortgageType || null
   const mortgageLabel = [
-    client.mortgageType,
+    typeLabel,
     client.termYears ? `${client.termYears}yr` : null,
   ].filter(Boolean).join(' — ')
 
@@ -285,7 +290,7 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
           <dl className="space-y-2">
             {([
               ['Location', location || '—'],
-              ['Type', mortgageLabel || client.mortgageType || '—'],
+              ['Type', mortgageLabel || typeLabel || '—'],
               ['Balance', formatAmount(client.amount)],
               ['Current Rate', client.mortgageRate ? (client.mortgageRate.includes('%') ? client.mortgageRate : client.mortgageRate + '%') : '—'],
               ['Closing Date', formatDate(client.closingDate)],
