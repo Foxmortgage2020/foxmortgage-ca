@@ -109,12 +109,20 @@ export async function getInvestorDeal(dealId: string) {
 }
 
 // ─── FP Portal — CRM API calls ────────────────────────────────────────────────
+// NOTE: Fox Mortgage CRM uses the Potentials module (UI label "Mortgages"),
+// NOT the Deals module. All FP portal queries must hit /crm/v2/Potentials.
+// Field list is restricted to fields confirmed to exist on the Potentials
+// schema — unknown field names cause Zoho to return INVALID_DATA 400s.
 
 const FP_DEAL_FIELDS = [
-  'Deal_Name', 'Contact_Name', 'Amount', 'Mortgage_Rate', 'Stage',
-  'City', 'Province', 'Mortgage_Type', 'Term_Years', 'Payment_Frequency',
-  'Closing_Date', 'Last_Activity_Time', 'Next_Review_Date', 'Savings_Identified',
-  'Referral_Partner', 'Description',
+  'Deal_Name',
+  'Contact_Name',
+  'Amount',
+  'Mortgage_Rate',
+  'Stage',
+  'Closing_Date',
+  'Mortgage_Type',
+  'Referral_Partner',
 ].join(',')
 
 export interface FPClient {
@@ -138,6 +146,16 @@ export interface FPClient {
   description: string | null
 }
 
+export class ZohoError extends Error {
+  status: number
+  body: string
+  constructor(status: number, body: string) {
+    super(`Zoho ${status}: ${body.substring(0, 300)}`)
+    this.status = status
+    this.body = body
+  }
+}
+
 export interface FPNote {
   id: string
   body: string
@@ -157,35 +175,35 @@ function normalizeFPClient(r: any): FPClient {
     dealName: r.Deal_Name ?? '',
     contactName: typeof r.Contact_Name === 'object' ? (r.Contact_Name?.name ?? '') : (r.Contact_Name ?? ''),
     amount: r.Amount ?? null,
-    mortgageRate: r.Mortgage_Rate ?? null,
+    mortgageRate: r.Mortgage_Rate != null ? String(r.Mortgage_Rate) : null,
     stage: r.Stage ?? '',
-    city: r.City ?? null,
-    province: r.Province ?? null,
+    city: null,
+    province: null,
     mortgageType: r.Mortgage_Type ?? null,
-    termYears: r.Term_Years != null ? String(r.Term_Years) : null,
-    paymentFrequency: r.Payment_Frequency ?? null,
+    termYears: null,
+    paymentFrequency: null,
     closingDate: r.Closing_Date ?? null,
-    lastActivity: r.Last_Activity_Time ?? null,
-    nextReviewDate: r.Next_Review_Date ?? null,
-    savingsIdentified: r.Savings_Identified != null ? String(r.Savings_Identified) : null,
+    lastActivity: null,
+    nextReviewDate: null,
+    savingsIdentified: null,
     referralPartnerId: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.id ?? null) : null,
     referralPartnerName: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.name ?? null) : null,
-    description: r.Description ?? null,
+    description: null,
   }
 }
 
 export async function getFPClients(fpZohoId: string): Promise<FPClient[]> {
   const token = await getZohoToken()
   const criteria = encodeURIComponent(`(Referral_Partner:equals:${fpZohoId})`)
-  const url = `${ZOHO_API}/Deals/search?criteria=${criteria}&fields=${FP_DEAL_FIELDS}&per_page=200`
+  const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${FP_DEAL_FIELDS}&per_page=200`
   const res = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
   })
   if (res.status === 204) return []
   if (!res.ok) {
     const text = await res.text()
-    console.error('[zoho] getFPClients error:', res.status, text.substring(0, 200))
-    return []
+    console.error('[zoho] getFPClients error:', res.status, 'url:', url, 'body:', text.substring(0, 500))
+    throw new ZohoError(res.status, text)
   }
   const data = await res.json()
   return (data.data ?? []).map(normalizeFPClient)
@@ -194,12 +212,13 @@ export async function getFPClients(fpZohoId: string): Promise<FPClient[]> {
 export async function getFPClientDetail(dealId: string): Promise<FPClientDetail | null> {
   const token = await getZohoToken()
 
-  // Fetch the deal record
-  const dealRes = await fetch(`${ZOHO_API}/Deals/${dealId}?fields=${FP_DEAL_FIELDS}`, {
+  // Fetch the deal record (Potentials module)
+  const dealRes = await fetch(`${ZOHO_API}/Potentials/${dealId}?fields=${FP_DEAL_FIELDS}`, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
   })
   if (!dealRes.ok) {
-    console.error('[zoho] getFPClientDetail deal error:', dealRes.status)
+    const text = await dealRes.text()
+    console.error('[zoho] getFPClientDetail deal error:', dealRes.status, text.substring(0, 300))
     return null
   }
   const dealData = await dealRes.json()
@@ -212,7 +231,7 @@ export async function getFPClientDetail(dealId: string): Promise<FPClientDetail 
   let allNotes: FPNote[] = []
   try {
     const notesRes = await fetch(
-      `${ZOHO_API}/Deals/${dealId}/Notes?per_page=50&sort_by=Created_Time&sort_order=asc`,
+      `${ZOHO_API}/Potentials/${dealId}/Notes?per_page=50&sort_by=Created_Time&sort_order=asc`,
       { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
     )
     if (notesRes.ok && notesRes.status !== 204) {
@@ -272,8 +291,8 @@ export async function getFPDashboardStats(fpZohoId: string) {
   const token = await getZohoToken()
 
   const criteria = encodeURIComponent(`(Referral_Partner:equals:${fpZohoId})`)
-  const fields = 'Stage,Amount,Savings_Identified,Closing_Date'
-  const url = `${ZOHO_API}/Deals/search?criteria=${criteria}&fields=${fields}&per_page=200`
+  const fields = 'Stage,Amount,Closing_Date'
+  const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
   const res = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
   })
@@ -283,35 +302,37 @@ export async function getFPDashboardStats(fpZohoId: string) {
     fundedVolume: 0, leadToClose: 0, savingsYTD: 0, mortgagesUnderMgmt: 0,
   }
 
-  if (!res.ok || res.status === 204) return empty
+  if (res.status === 204) return empty
+  if (!res.ok) {
+    const text = await res.text()
+    console.error('[zoho] getFPDashboardStats error:', res.status, 'url:', url, 'body:', text.substring(0, 500))
+    throw new ZohoError(res.status, text)
+  }
   const data = await res.json()
   const deals: any[] = data.data ?? []
   if (deals.length === 0) return empty
 
-  const closedWon = deals.filter(d => (d.Stage ?? '').toLowerCase().includes('closed won'))
-  const active = deals.filter(d => !(d.Stage ?? '').toLowerCase().includes('closed'))
-  const fundedVolume = closedWon.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
+  const isFunded = (s: string) => s.toLowerCase().includes('funded')
+  const isLost   = (s: string) => s.toLowerCase().includes('lost') || s.toLowerCase().includes('cancelled') || s.toLowerCase().includes('declined')
+
+  const funded = deals.filter(d => isFunded(d.Stage ?? ''))
+  const active = deals.filter(d => {
+    const s = (d.Stage ?? '')
+    return !isFunded(s) && !isLost(s)
+  })
+  const fundedVolume = funded.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
   const mortgagesUnderMgmt = active.reduce((sum: number, d: any) => sum + (Number(d.Amount) || 0), 0)
   const leadToClose = deals.length > 0
-    ? Math.round((closedWon.length / deals.length) * 1000) / 10
+    ? Math.round((funded.length / deals.length) * 1000) / 10
     : 0
-
-  // Savings_Identified: sum only if numeric values present
-  const currentYear = new Date().getFullYear().toString()
-  const savingsYTD = deals
-    .filter(d => d.Closing_Date?.startsWith(currentYear))
-    .reduce((sum: number, d: any) => {
-      const val = Number(d.Savings_Identified)
-      return sum + (isNaN(val) ? 0 : val)
-    }, 0)
 
   return {
     totalReferrals: deals.length,
     activeMonitoring: active.length,
-    closedMortgages: closedWon.length,
+    closedMortgages: funded.length,
     fundedVolume,
     leadToClose,
-    savingsYTD,
+    savingsYTD: 0, // Savings_Identified field not on Potentials module
     mortgagesUnderMgmt,
   }
 }

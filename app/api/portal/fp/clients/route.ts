@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
-import { getFPClients } from '@/lib/zoho'
+import { getFPClients, ZohoError } from '@/lib/zoho'
 
 export async function GET() {
   try {
@@ -24,6 +24,13 @@ export async function GET() {
     return NextResponse.json({ clients })
   } catch (error) {
     console.error('[GET /api/portal/fp/clients]', error)
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
+    if (error instanceof ZohoError) {
+      return NextResponse.json(
+        { error: 'Zoho CRM query failed.', zohoStatus: error.status, zohoBody: error.body.substring(0, 500) },
+        { status: 502 },
+      )
+    }
+    const message = error instanceof Error ? error.message : 'Something went wrong.'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

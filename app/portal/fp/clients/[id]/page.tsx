@@ -26,36 +26,43 @@ const STAGES = [
   { id: 9, label: 'Funded' },
 ]
 
-// Map Zoho stage name → 1–9
-const STAGE_KEYS: [string, number][] = [
-  ['prospecting', 1],
-  ['qualification', 2],
-  ['needs analysis', 3],
-  ['value proposition', 4],
-  ['decision', 5],
-  ['perception', 6],
-  ['proposal', 7],
-  ['negotiation', 8],
-  ['closed won', 9],
-  ['funded', 9],
-]
+// Map Zoho Potentials Stage picklist → milestone 1–9 (0 = closed/lost)
+const stageToMilestone: Record<string, number> = {
+  'Lead':                      1,
+  'Application Started':       2,
+  'Collecting Documentation':  3,
+  'Underwriting In Progress':  4,
+  'Ready to Submit':           5,
+  'Submitted to Lender':       5,
+  'Conditionally Approved':    6,
+  'Broker Complete':           7,
+  'Mortgage Funded':           9,
+  'Mortgage Lost':             0,
+}
 
 function stageToProgress(stage: string): number {
-  const s = (stage ?? '').toLowerCase()
-  for (const [key, num] of STAGE_KEYS) {
-    if (s.includes(key)) return num
-  }
+  if (!stage) return 1
+  if (stage in stageToMilestone) return stageToMilestone[stage]
+  // Graceful fallback for unknown/legacy stage names
+  const s = stage.toLowerCase()
+  if (s.includes('lost') || s.includes('cancelled') || s.includes('declined')) return 0
+  if (s.includes('funded')) return 9
+  if (s.includes('complete')) return 7
+  if (s.includes('approved')) return 6
+  if (s.includes('submitted')) return 5
+  if (s.includes('underwriting')) return 4
+  if (s.includes('document')) return 3
+  if (s.includes('application')) return 2
   return 1
 }
 
-function stageToStatus(stage: string, savingsIdentified: string | null): string {
-  const s = (stage ?? '').toLowerCase()
-  if (s.includes('closed won') || s.includes('funded')) return 'Closed'
-  if (s.includes('closed')) return 'Closed'
-  if (savingsIdentified && savingsIdentified !== '—' && savingsIdentified !== '0') return 'Savings Found'
-  if (s.includes('prospecting') || s.includes('qualification') || !s) return 'Referred'
-  if (s.includes('needs') || s.includes('value') || s.includes('decision') || s.includes('perception')) return 'Onboarding'
-  return 'Active'
+function stageToStatus(stage: string, _savingsIdentified: string | null): string {
+  const milestone = stageToProgress(stage)
+  if (milestone === 0) return 'Closed'
+  if (milestone === 9) return 'Funded'
+  if (milestone >= 5) return 'Active'
+  if (milestone >= 2) return 'Onboarding'
+  return 'Referred'
 }
 
 function formatAmount(amount: number | null): string {
@@ -104,8 +111,9 @@ interface FPClientDetail {
 const statusColors: Record<string, string> = {
   Active: 'bg-lime/20 text-lime-dark',
   Onboarding: 'bg-blue-100 text-blue-700',
+  Funded: 'bg-emerald-100 text-emerald-700',
   'Savings Found': 'bg-amber-100 text-amber-700',
-  Closed: 'bg-gray-100 text-gray-600',
+  Closed: 'bg-gray-200 text-gray-700',
   Referred: 'bg-purple-100 text-purple-700',
 }
 
@@ -210,7 +218,15 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
         </div>
       </div>
 
-      {/* 9-Stage Progress Tracker */}
+      {/* 9-Stage Progress Tracker — hidden for Mortgage Lost (milestone 0) */}
+      {currentStage === 0 ? (
+        <div className="bg-white border border-gray-100 rounded-xl p-6 mb-6 flex items-center justify-between">
+          <h3 className="font-heading font-bold text-navy text-sm">Mortgage Progress</h3>
+          <span className="inline-block font-body text-xs font-semibold px-3 py-1 rounded-full bg-gray-200 text-gray-700">
+            Closed — {client.stage || 'Mortgage Lost'}
+          </span>
+        </div>
+      ) : (
       <div className="bg-white border border-gray-100 rounded-xl p-6 mb-6">
         <h3 className="font-heading font-bold text-navy text-sm mb-4">Mortgage Progress</h3>
         <div className="flex items-center gap-0 overflow-x-auto pb-2">
@@ -257,6 +273,7 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
           })}
         </div>
       </div>
+      )}
 
       {/* Info grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
