@@ -363,3 +363,78 @@ To revoke: remove financial-planner from roles array.
 
 ### Inbound Email Monitor
 - **NOT BUILT.** Scope explicitly dropped by user because Zoho CRM's Emails API does not support bulk querying of inbound messages with date filters. The brief's every-30-minute polling approach would require per-deal email fetches against a 200-calls/minute rate limit and would not have a reliable way to detect "unanswered" without walking every email thread. Revisit when we have a real mail pipeline (Gmail API, Outlook/Graph API, or Resend inbound routing).
+
+---
+
+## FP Portal — Financial Planner Setup (April 9, 2026)
+
+### Ben Zavitz — First FP Partner
+- Name: Ben Zavitz
+- Firm: Wealth Labs
+- Real email: hello@wealthlabs.ca
+- Zoho Partner record ID: 7112178000003669036
+- Clerk user ID (Fox Mortgage Portal production): user_3C8vdzYzbfqsdhhoBl6KHHw7VCN
+- Clerk instance: ins_3BajmGzbhbmTjTaZDpsx0ozeU6x (Fox Mortgage Portal production sk_live_)
+- Role: financial-planner
+- Referred files: BRXM-F053675 (Melissa Cohoe), BRXM-F053724 (Gianna Reinders), BRXM-F053725 (Tyler Bannerman)
+- Portal access: foxmortgage.ca/portal
+- Invitation sent: April 9, 2026
+
+### Zoho CRM — FP Portal Architecture
+- FP partners linked to mortgage files via Referral_Partner lookup field
+- Referral_Partner.id = Zoho Partner record ID = fp_zoho_id in Clerk publicMetadata
+- FP_Email field does NOT exist on Potentials module — use Referral_Partner instead
+- Portal queries: criteria=(Referral_Partner:equals:{fp_zoho_id})
+- Module: Potentials (API name) = Mortgages (UI name)
+
+### Clerk publicMetadata for FP role
+{
+  "roles": ["financial-planner"],
+  "fp_name": "Ben Zavitz",
+  "fp_firm": "Wealth Labs",
+  "fp_zoho_id": "7112178000003669036",
+  "fp_zoho_contact_id": "7112178000003669036"
+}
+
+### FP Portal Routes
+- /portal/fp/dashboard — stats filtered by Referral_Partner ID
+- /portal/fp/clients — client list filtered by Referral_Partner ID
+- /portal/fp/clients/[id] — client detail with progress bar, mortgage details, activity tabs
+- /portal/fp/messages — general messages (uses email lookup — update when real email is set)
+- /portal/fp/add-referral — referral submission form
+
+### Stage Mapping — Zoho → FP Portal Progress Bar
+| Zoho Stage | Milestone # |
+|---|---|
+| Lead | 1 |
+| Application Started | 2 |
+| Collecting Documentation | 3 |
+| Underwriting In Progress | 4 |
+| Ready to Submit | 5 |
+| Submitted to Lender | 6 |
+| Conditionally Approved | 7 |
+| Broker Complete | 8 |
+| Mortgage Funded | 9 |
+| Mortgage Lost | 0 (Closed badge) |
+
+### FP Portal Confirmed Zoho Fields (Potentials module)
+Working: Deal_Name, Contact_Name, Amount, Mortgage_Rate, Stage,
+Closing_Date, Mortgage_Type, Referral_Partner, Street, City,
+Province, Zip_Code, LTV, Total_Loan_Amount, Purchase_Price_Value
+Not working / don't exist: FP_Email, Next_Review_Date,
+Savings_Identified, Last_Activity_Time, Term_Years
+
+### Dialpad Integration (Pending)
+- Dialpad → Zoho CRM native connection exists but needs verification
+- Call summaries not yet appearing in Zoho
+- FP portal has Activity tab stubbed with "Call summaries will
+  appear here once Dialpad is connected"
+- Build this in a future session
+
+### Adding Future FP Partners
+1. Create Partner record in Zoho CRM → note record ID from URL
+2. Create Clerk user in Fox Mortgage Portal production instance
+   (NOT Content OS instance — different Clerk instance)
+3. Set publicMetadata with roles, fp_name, fp_firm, fp_zoho_id
+4. Link their referred mortgage files via Referral_Partner field in Zoho
+5. Send portal invite email
