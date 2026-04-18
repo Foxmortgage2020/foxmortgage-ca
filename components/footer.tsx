@@ -63,9 +63,19 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-white/10 mt-10 pt-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-            <p className="font-body text-xs text-gray-400">
-              © {new Date().getFullYear()} Fox Mortgage. All rights reserved.
-            </p>
+            <div className="flex flex-col gap-2">
+              <p className="font-body text-xs text-gray-400">
+                © {new Date().getFullYear()} Fox Mortgage. All rights reserved.
+              </p>
+              <div className="flex gap-4">
+                <Link href="/privacy-policy" className="font-body text-xs text-gray-400 hover:text-lime transition-colors">
+                  Privacy Policy
+                </Link>
+                <Link href="/terms-of-service" className="font-body text-xs text-gray-400 hover:text-lime transition-colors">
+                  Terms of Service
+                </Link>
+              </div>
+            </div>
             <p className="font-body text-xs text-gray-500 max-w-lg leading-relaxed">
               foxmortgage.ca is operated by Michael Fox, Mortgage Agent, Level 2, brokered by BRX Mortgage Inc., FSRA #13463. Not intended to solicit clients already under contract.
             </p>
