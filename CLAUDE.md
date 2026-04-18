@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: April 18, 2026
+## Last Updated: April 18, 2026 (FOX-114 partial — D9 bookkeeping architecture docs)
 
 ---
 
@@ -21,15 +21,77 @@
 ### Investor Portal
 - Dashboard crashes on load — fix: use `currentUser()` not `auth()` in API routes
 
-### Bookkeeping Agent — Phase 1 Infrastructure
-- **Zoho Creator app:** `creator.zoho.com/2802551ontarioinc/bookkeeping` ✅ live
-- **Forms built:** Bookkeeping_Review, Production_Projects, Production_Milestones ✅
-- **Proxy API routes live:** `/api/bookkeeping/review-queue`, `/api/bookkeeping/projects`, `/api/bookkeeping/milestones`
+### Bookkeeping Agent — Phase 1 Infrastructure (FOX-111 series)
+
+#### Architecture Overview
+Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
+1. **Nightly Categorization** (FOX-112, in progress) — 2:00 AM America/Toronto daily
+   - Pulls uncategorized QBO transactions → rules engine → AI fallback → routes by confidence
+   - Dry-run mode: `WRITE_TO_QBO=false` (n8n workflow variable) → logs to `/api/bookkeeping/dry-run-log`
+   - Requires 3 consecutive clean dry-run nights before flipping to `WRITE_TO_QBO=true`
+   - Board approval required before WRITE_TO_QBO is ever set to true
+2. **Monthly Deferred Recognition** (FOX-113, in progress) — 1st of each month, 3:00 AM America/Toronto
+   - Reads active Deferred_Revenue_Schedule records → creates QBO JournalEntries
+3. **Weekly Summary Email** (FOX-114) — Mondays 7:00 AM America/Toronto
+   - Aggregates QBO stats + review queue + deferred schedules → Resend email to mfox@foxmortgage.ca
+   - n8n workflow ID: TBD (pending FOX-114 completion)
+
+#### QBO Realms
+- **Sandbox:** `9341456901231490` — all dev/test here
+- **Production:** `9341456900727321` — DO NOT touch until Intuit App Assessment approved
+
+#### Zoho Creator
+- **App:** `creator.zoho.com/2802551ontarioinc/bookkeeping`
+- **Forms:** Bookkeeping_Review, Production_Projects, Production_Milestones, Master_Bookkeeping_Rules, Deferred_Revenue_Schedule
 - **Creator utility:** `lib/zoho-creator.ts` — uses isolated `ZOHO_CREATOR_*` env vars (NOT the CRM token)
 - **Env vars (Vercel):** `ZOHO_CREATOR_CLIENT_ID`, `ZOHO_CREATOR_CLIENT_SECRET`, `ZOHO_CREATOR_REFRESH_TOKEN`
   - Scopes: `ZohoCreator.report.READ`, `ZohoCreator.form.CREATE`, `ZohoCreator.report.UPDATE`, `ZohoCreator.meta.READ`
   - These are Creator-specific — completely isolated from CRM `ZOHO_REFRESH_TOKEN`
-- **n8n field names** (Submit to Review Queue node): `Transaction_ID`, `Vendor_Name`, `Amount`, `Transaction_Date`, `Suggested_Account`, `Suggested_Memo_Tag`, `Confidence_Score`, `Match_Method`, `AI_Notes`
+
+#### Proxy Routes (`/api/bookkeeping/*`)
+| Route | Method(s) | Data source | Status |
+|---|---|---|---|
+| `/review-queue` | GET | Zoho Creator — Bookkeeping_Review | ✅ live |
+| `/projects` | GET, POST, PATCH | Zoho Creator — Production_Projects | ✅ live |
+| `/milestones` | GET, POST | Zoho Creator — Production_Milestones | ✅ live |
+| `/rules` | GET, POST, PATCH | Zoho Creator — Master_Bookkeeping_Rules | ✅ live |
+| `/schedules` | GET, POST, PATCH | Zoho Creator — Deferred_Revenue_Schedule | ✅ live |
+| `/deferred-schedules` | GET | Zoho Creator — Deferred_Revenue_Schedule | ✅ live |
+| `/chart-of-accounts` | GET, POST | Static seeded list (QBO OAuth pending) | ✅ live |
+| `/dry-run-log` | GET, POST | In-memory (n8n calls POST when WRITE_TO_QBO=false) | ✅ live |
+| `/weekly-summary` | GET | Zoho Creator (live) + QBO (stub until FOX-112 QBO OAuth) | ✅ live |
+
+#### Admin UI (`/portal/bookkeeping/*`)
+- `/portal/bookkeeping` — landing page with queue count, quick actions
+- `/portal/bookkeeping/review-queue` — inline approve/correct/reject
+- `/portal/bookkeeping/projects` — production contracts + milestones
+- Auth: Clerk admin role check (same as `/portal/admin/*`)
+
+#### Memo-Tag Convention (business line attribution)
+- `[FOXM]` — Fox Mortgage commissions
+- `[PHUB]` — Printhub production projects
+- `[FSOC]` — Fox Social subscriptions
+- `[TLB]` — Left Bench coaching/platform
+- `[OVHD]` — Overhead/shared expenses
+
+#### n8n Field Names (Submit to Review Queue node)
+`Transaction_ID`, `Vendor_Name`, `Amount`, `Transaction_Date`, `Suggested_Account`, `Suggested_Memo_Tag`, `Confidence_Score`, `Match_Method`, `AI_Notes`
+
+#### Dry-Run Safety Procedure
+1. `WRITE_TO_QBO=false` in n8n workflow variables → logs to `/api/bookkeeping/dry-run-log`
+2. Run 3 consecutive clean nights
+3. Post dry-run log summary to FOX-111 for Michael's review
+4. Michael signs off → request board approval → flip `WRITE_TO_QBO=true`
+
+#### QBO Account IDs (Sandbox)
+| ID | Name | Purpose |
+|---|---|---|
+| 1150040000 | Fox Social - Subscription Revenue | FSOC recognized revenue |
+| 1150040001 | Left Bench - Coaching Revenue | TLB per-session revenue |
+| 1150040002 | Left Bench - Platform Revenue | TLB subscription revenue |
+| 1150040003 | Deferred Revenue | Unearned revenue parking lot |
+| 1150040004 | Printhub - Product Revenue | PHUB product sales |
+| 1150040005 | Fox Mortgage - Commission Income | FOXM commissions |
 
 ### Pending Webhooks for Agents
 - SMM leads webhook — agents need this to check new SMM enrollments
