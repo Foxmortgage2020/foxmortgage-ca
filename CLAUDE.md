@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: April 18, 2026 (FOX-114 partial — D9 bookkeeping architecture docs)
+## Last Updated: April 18, 2026 (FOX-112 — proxy routes, seed script, nightly workflow)
 
 ---
 
@@ -25,11 +25,19 @@
 
 #### Architecture Overview
 Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
-1. **Nightly Categorization** (FOX-112, in progress) — 2:00 AM America/Toronto daily
+1. **Nightly Categorization** (FOX-112) — 2:00 AM America/Toronto daily
+   - n8n workflow ID: `Uu6fsZ2A2gTn0gBs` (built, **INACTIVE** — needs credentials before activation)
    - Pulls uncategorized QBO transactions → rules engine → AI fallback → routes by confidence
-   - Dry-run mode: `WRITE_TO_QBO=false` (n8n workflow variable) → logs to `/api/bookkeeping/dry-run-log`
+   - Dry-run mode: `WRITE_TO_QBO=false` (Set node in workflow) → logs to `/api/bookkeeping/dry-run-log`
    - Requires 3 consecutive clean dry-run nights before flipping to `WRITE_TO_QBO=true`
    - Board approval required before WRITE_TO_QBO is ever set to true
+   - **Activation checklist:**
+     1. Create `Master_Bookkeeping_Rules` + `Deferred_Revenue_Schedule` forms in Zoho Creator UI
+     2. Run `npx ts-node --skip-project scripts/seed-bookkeeping-rules.ts` (after pulling env vars)
+     3. Set `BOOKKEEPING_WEBHOOK_SECRET` in Vercel env vars (any strong random string)
+     4. In n8n `Uu6fsZ2A2gTn0gBs`: create Header Auth credential (Name: `Authorization`, Value: `Bearer <secret>`) and attach to "Load Categorization Rules" + "Log Dry Run to API" nodes
+     5. Attach QuickBooks OAuth2 credential (sandbox) to "Fetch Uncategorized QBO Transactions" node
+     6. Activate workflow in n8n UI
 2. **Monthly Deferred Recognition** (FOX-113, in progress) — 1st of each month, 3:00 AM America/Toronto
    - Reads active Deferred_Revenue_Schedule records → creates QBO JournalEntries
 3. **Weekly Summary Email** (FOX-114) — Mondays 7:00 AM America/Toronto

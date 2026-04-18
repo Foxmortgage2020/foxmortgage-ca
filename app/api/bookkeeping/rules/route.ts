@@ -6,13 +6,23 @@ function adminOnly(roles: string[]): boolean {
   return roles.includes('admin')
 }
 
+// Service-account auth for n8n (no Clerk session available in automated workflows)
+function isServiceAccount(req: NextRequest): boolean {
+  const secret = process.env.BOOKKEEPING_WEBHOOK_SECRET
+  if (!secret) return false
+  return req.headers.get('authorization') === `Bearer ${secret}`
+}
+
 // GET /api/bookkeeping/rules?activeOnly=true
+// Accepts: Clerk admin session OR Authorization: Bearer <BOOKKEEPING_WEBHOOK_SECRET>
 export async function GET(req: NextRequest) {
   try {
-    const user = await currentUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const roles = (user.publicMetadata as { roles?: string[] })?.roles || []
-    if (!adminOnly(roles)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!isServiceAccount(req)) {
+      const user = await currentUser()
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const roles = (user.publicMetadata as { roles?: string[] })?.roles || []
+      if (!adminOnly(roles)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const activeOnly = req.nextUrl.searchParams.get('activeOnly') === 'true'
     const records = await getBookkeepingRules(activeOnly)
