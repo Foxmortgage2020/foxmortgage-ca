@@ -31,7 +31,7 @@ export default function TermsOfService() {
               <p className="font-body text-gray-600 leading-relaxed">
                 foxmortgage.ca is operated by 2802551 Ontario Inc., carrying on business under the trade name Fox
                 Mortgage. Michael Fox is a Mortgage Agent, Level 2, brokered by BRX Mortgage Inc. (FSRA Licence
-                #13463, FSRA Agent Licence #[FSRA AGENT LICENCE #]). Fox Mortgage is regulated by the Financial
+                #13463). Michael Fox, Mortgage Agent Level 2, FSRA Licence #M21000367, operating through BRX Mortgage (FSRA Brokerage Licence #13463). Fox Mortgage is regulated by the Financial
                 Services Regulatory Authority of Ontario (FSRA).
               </p>
             </div>
