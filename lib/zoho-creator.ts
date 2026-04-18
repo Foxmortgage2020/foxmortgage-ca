@@ -2,13 +2,12 @@
 // Zoho Creator API utilities for the bookkeeping app
 //
 // Prerequisites:
-//   1. Create Zoho Creator app named "bookkeeping" at creator.zoho.com
-//   2. Create forms: Bookkeeping_Review and Production_Projects (see FOX-105)
-//   3. Ensure ZOHO_REFRESH_TOKEN includes Creator scopes:
-//      ZohoCreator.report.READ,ZohoCreator.form.CREATE,ZohoCreator.report.UPDATE
+//   1. Zoho Creator app: creator.zoho.com/2802551ontarioinc/bookkeeping ✅
+//   2. Forms built: Bookkeeping_Review, Production_Projects, Production_Milestones ✅
+//   3. Env vars set in Vercel (isolated Creator token — NOT the CRM token) ✅
 //
-// Env vars (same as Zoho CRM — same OAuth app, needs Creator scopes added):
-//   ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN
+// Env vars (Creator-specific OAuth app — isolated from CRM):
+//   ZOHO_CREATOR_CLIENT_ID, ZOHO_CREATOR_CLIENT_SECRET, ZOHO_CREATOR_REFRESH_TOKEN
 
 const CREATOR_BASE = 'https://creator.zoho.com/api/v2/2802551ontarioinc/bookkeeping'
 
@@ -19,9 +18,9 @@ async function getCreatorToken(): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      refresh_token: process.env.ZOHO_REFRESH_TOKEN!,
-      client_id: process.env.ZOHO_CLIENT_ID!,
-      client_secret: process.env.ZOHO_CLIENT_SECRET!,
+      refresh_token: process.env.ZOHO_CREATOR_REFRESH_TOKEN!,
+      client_id: process.env.ZOHO_CREATOR_CLIENT_ID!,
+      client_secret: process.env.ZOHO_CREATOR_CLIENT_SECRET!,
       grant_type: 'refresh_token',
     }),
   })

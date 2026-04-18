@@ -1,10 +1,10 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: April 10, 2026
+## Last Updated: April 18, 2026
 
 ---
 
-## Current Status (April 10, 2026)
+## Current Status (April 18, 2026)
 
 ### Financial Planner Portal
 - **Phase 1** ✅ live (commit `8ce7976`) — all 6 routes with static/mock data; Clerk role: `financial-planner`
@@ -20,6 +20,16 @@
 
 ### Investor Portal
 - Dashboard crashes on load — fix: use `currentUser()` not `auth()` in API routes
+
+### Bookkeeping Agent — Phase 1 Infrastructure
+- **Zoho Creator app:** `creator.zoho.com/2802551ontarioinc/bookkeeping` ✅ live
+- **Forms built:** Bookkeeping_Review, Production_Projects, Production_Milestones ✅
+- **Proxy API routes live:** `/api/bookkeeping/review-queue`, `/api/bookkeeping/projects`, `/api/bookkeeping/milestones`
+- **Creator utility:** `lib/zoho-creator.ts` — uses isolated `ZOHO_CREATOR_*` env vars (NOT the CRM token)
+- **Env vars (Vercel):** `ZOHO_CREATOR_CLIENT_ID`, `ZOHO_CREATOR_CLIENT_SECRET`, `ZOHO_CREATOR_REFRESH_TOKEN`
+  - Scopes: `ZohoCreator.report.READ`, `ZohoCreator.form.CREATE`, `ZohoCreator.report.UPDATE`, `ZohoCreator.meta.READ`
+  - These are Creator-specific — completely isolated from CRM `ZOHO_REFRESH_TOKEN`
+- **n8n field names** (Submit to Review Queue node): `Transaction_ID`, `Vendor_Name`, `Amount`, `Transaction_Date`, `Suggested_Account`, `Suggested_Memo_Tag`, `Confidence_Score`, `Match_Method`, `AI_Notes`
 
 ### Pending Webhooks for Agents
 - SMM leads webhook — agents need this to check new SMM enrollments
