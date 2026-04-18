@@ -149,3 +149,87 @@ export async function createMilestone(record: Record<string, unknown>) {
   if (!res.ok) throw new Error(`Creator POST milestone failed: ${res.status} — ${JSON.stringify(data)}`)
   return data
 }
+
+// ─── Master_Bookkeeping_Rules form ────────────────────────────────────────────
+// Field API names:
+//   Vendor_Regex (text), Account_Name (text), Memo_Tag (picklist: FOXM/PHUB/FSOC/TLB/OVHD),
+//   Confidence (decimal 0-1), Active (boolean), Hit_Count (decimal)
+
+export async function getBookkeepingRules(activeOnly = false) {
+  const token = await getCreatorToken()
+  let url = `${CREATOR_BASE}/report/All_Master_Bookkeeping_Rules`
+  if (activeOnly) {
+    url += `?criteria=Active==true`
+  }
+  const res = await fetch(url, { headers: creatorHeaders(token) })
+  if (!res.ok) throw new Error(`Creator GET rules failed: ${res.status}`)
+  const data = await res.json()
+  return data.data || []
+}
+
+export async function createBookkeepingRule(record: Record<string, unknown>) {
+  const token = await getCreatorToken()
+  const res = await fetch(`${CREATOR_BASE}/form/Master_Bookkeeping_Rules/record`, {
+    method: 'POST',
+    headers: creatorHeaders(token),
+    body: JSON.stringify({ data: record }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(`Creator POST rule failed: ${res.status} — ${JSON.stringify(data)}`)
+  return data
+}
+
+export async function updateBookkeepingRule(rowId: string, updates: Record<string, unknown>) {
+  const token = await getCreatorToken()
+  const res = await fetch(`${CREATOR_BASE}/report/All_Master_Bookkeeping_Rules/${rowId}`, {
+    method: 'PATCH',
+    headers: creatorHeaders(token),
+    body: JSON.stringify({ data: updates }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(`Creator PATCH rule failed: ${res.status} — ${JSON.stringify(data)}`)
+  return data
+}
+
+// ─── Deferred_Revenue_Schedule form ───────────────────────────────────────────
+// Field API names:
+//   Transaction_ID (text), Total_Amount (decimal), Start_Date (date), End_Date (date),
+//   Method (picklist: straight-line/per-session/percentage-of-completion),
+//   Monthly_Amount (decimal), Remaining_Balance (decimal),
+//   Target_Revenue_Account_ID (text), Status (picklist: Active/Complete/Cancelled), Notes (text)
+
+export async function getDeferredSchedules(status?: string) {
+  const token = await getCreatorToken()
+  let url = `${CREATOR_BASE}/report/All_Deferred_Revenue_Schedule`
+  if (status) {
+    url += `?criteria=Status=="${status}"`
+  }
+  const res = await fetch(url, { headers: creatorHeaders(token) })
+  if (!res.ok) throw new Error(`Creator GET deferred schedules failed: ${res.status}`)
+  const data = await res.json()
+  return data.data || []
+}
+
+export async function createDeferredSchedule(record: Record<string, unknown>) {
+  const token = await getCreatorToken()
+  const res = await fetch(`${CREATOR_BASE}/form/Deferred_Revenue_Schedule/record`, {
+    method: 'POST',
+    headers: creatorHeaders(token),
+    body: JSON.stringify({ data: record }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(`Creator POST deferred schedule failed: ${res.status} — ${JSON.stringify(data)}`)
+  return data
+}
+
+export async function updateDeferredSchedule(rowId: string, updates: Record<string, unknown>) {
+  const token = await getCreatorToken()
+  const res = await fetch(`${CREATOR_BASE}/report/All_Deferred_Revenue_Schedule/${rowId}`, {
+    method: 'PATCH',
+    headers: creatorHeaders(token),
+    body: JSON.stringify({ data: updates }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(`Creator PATCH deferred schedule failed: ${res.status} — ${JSON.stringify(data)}`)
+  return data
+}

@@ -19,6 +19,8 @@ import {
   FileText,
   User,
   MessageSquare,
+  BookOpen,
+  ClipboardList,
 } from 'lucide-react'
 
 const partnerNavItems = [
@@ -43,6 +45,11 @@ const investorNavItems = [
 
 const adminNavItems = [
   { label: 'Admin Dashboard', href: '/portal/admin', icon: LayoutDashboard },
+]
+
+const adminToolsNavItems = [
+  { label: 'Bookkeeping', href: '/portal/bookkeeping', icon: BookOpen },
+  { label: 'Review Queue', href: '/portal/bookkeeping/review-queue', icon: ClipboardList },
 ]
 
 const fpNavItems = [
@@ -97,7 +104,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const userRoles = metadata?.roles || (metadata?.role ? [metadata.role] : [])
 
   const isInvestorPortal = pathname?.startsWith('/portal/investor')
-  const isAdminPortal = pathname?.startsWith('/portal/admin')
+  const isAdminPortal = pathname?.startsWith('/portal/admin') || pathname?.startsWith('/portal/bookkeeping')
   const isFPPortal = pathname?.startsWith('/portal/fp')
   const isAdmin = userRoles.includes('admin')
 
@@ -109,7 +116,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   // Page title
   let pageTitle = 'Portal'
-  if (isAdminPortal) {
+  if (pathname?.startsWith('/portal/bookkeeping/review-queue')) {
+    pageTitle = 'Review Queue'
+  } else if (pathname?.startsWith('/portal/bookkeeping/projects')) {
+    pageTitle = 'Production Contracts'
+  } else if (pathname?.startsWith('/portal/bookkeeping')) {
+    pageTitle = 'Bookkeeping Agent'
+  } else if (isAdminPortal) {
     pageTitle = 'Admin Dashboard'
   } else if (isInvestorPortal) {
     pageTitle = investorPageTitles[pathname] || 'Portal'
@@ -179,6 +192,32 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               </Link>
             )
           })}
+
+          {/* Admin tools section */}
+          {isAdminPortal && (
+            <div className="border-t border-white/10 pt-3 mt-3">
+              <p className="text-gray-500 text-xs uppercase tracking-wider px-4 mb-2 font-body">
+                Admin Tools
+              </p>
+              {adminToolsNavItems.map((item) => {
+                const isBase = item.href === '/portal/bookkeeping'
+                const active =
+                  pathname === item.href || (!isBase && pathname.startsWith(item.href + '/'))
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm font-body transition-colors ${
+                      active ? 'bg-lime text-navy font-semibold' : 'text-gray-300 hover:bg-white/10'
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
 
           {/* Admin portal switcher in sidebar */}
           {isAdminPortal && (
