@@ -20,7 +20,8 @@ interface ReviewRecord {
   Reviewer_Notes: string
 }
 
-const MEMO_TAGS = ['[FOXM]', '[PHUB]', '[FSOC]', '[TLB]', '[OVHD]']
+// QBO Plus classes — these are the actual class names in QBO
+const QBO_CLASSES = ['Fox Mortgage', 'Printhub', 'Fox Social', 'Left Bench', 'Overhead']
 
 const ACCOUNTS = [
   'Fox Mortgage - Commission Income',
@@ -195,7 +196,7 @@ export default function ReviewQueuePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                    <span className="text-xs text-gray-400 font-mono hidden md:block">{rec.Suggested_Memo_Tag}</span>
+                    <span className="text-xs text-gray-400 font-mono hidden md:block">{rec.Suggested_Memo_Tag}</span>{/* Suggested_Memo_Tag now stores QBO class name */}
                     <span className="hidden md:block">{confidence(rec.Confidence_Score)}</span>
                     <span
                       className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
@@ -231,7 +232,7 @@ export default function ReviewQueuePage() {
                         <p className="text-sm text-navy">{rec.Suggested_Account || '—'}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Suggested Memo Tag</p>
+                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Suggested QBO Class</p>
                         <p className="text-sm font-mono text-navy">{rec.Suggested_Memo_Tag || '—'}</p>
                       </div>
                     </div>
@@ -261,7 +262,7 @@ export default function ReviewQueuePage() {
                           </div>
                           <div>
                             <label className="text-xs text-gray-500 uppercase tracking-wide block mb-1">
-                              Final Memo Tag
+                              Final QBO Class
                             </label>
                             <select
                               value={edits.tag}
@@ -269,7 +270,7 @@ export default function ReviewQueuePage() {
                               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-lime"
                             >
                               <option value="">— use suggested —</option>
-                              {MEMO_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
+                              {QBO_CLASSES.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                           </div>
                         </div>
@@ -318,7 +319,7 @@ export default function ReviewQueuePage() {
                     {rec.Status !== 'Pending' && (rec.Final_Account || rec.Reviewer_Notes) && (
                       <div className="mt-2 pt-3 border-t border-gray-200 text-xs text-gray-500 space-y-1">
                         {rec.Final_Account && <p><span className="font-semibold">Final account:</span> {rec.Final_Account}</p>}
-                        {rec.Final_Memo_Tag && <p><span className="font-semibold">Final tag:</span> {rec.Final_Memo_Tag}</p>}
+                        {rec.Final_Memo_Tag && <p><span className="font-semibold">Final class:</span> {rec.Final_Memo_Tag}</p>}
                         {rec.Reviewer_Notes && <p><span className="font-semibold">Notes:</span> {rec.Reviewer_Notes}</p>}
                       </div>
                     )}

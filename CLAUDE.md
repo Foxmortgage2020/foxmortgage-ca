@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: April 18, 2026 (FOX-112 — proxy routes, seed script, nightly workflow)
+## Last Updated: April 18, 2026 (FOX-107 — QBO Plus class tracking replaces memo-tag convention)
 
 ---
 
@@ -25,19 +25,25 @@
 
 #### Architecture Overview
 Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
-1. **Nightly Categorization** (FOX-112) — 2:00 AM America/Toronto daily
-   - n8n workflow ID: `Uu6fsZ2A2gTn0gBs` (built, **INACTIVE** — needs credentials before activation)
-   - Pulls uncategorized QBO transactions → rules engine → AI fallback → routes by confidence
-   - Dry-run mode: `WRITE_TO_QBO=false` (Set node in workflow) → logs to `/api/bookkeeping/dry-run-log`
+1. **Nightly Categorization** (FOX-107) — 2:00 AM America/Toronto daily
+   - n8n workflow ID: `Rupc79GeJ8s6bbJa` (built, **INACTIVE** — needs credentials before activation)
+   - Updated April 18, 2026: uses native QBO ClassRef (QBO Plus) instead of memo-tag prefixes
+   - Pulls uncategorized QBO transactions → Fetch QBO Classes → rules engine → AI fallback → routes by confidence
+   - QBO Classes fetched dynamically each run from `SELECT * FROM Class WHERE Active=true`
+   - High-confidence → `ClassRef` + `AccountRef` written to QBO line items (PrivateNote untouched)
+   - Low-confidence → submitted to `/api/bookkeeping/review-queue` on foxmortgage.ca
+   - Dry-run: when WRITE_TO_QBO=false (n8n workflow variable), log to `/api/bookkeeping/dry-run-log` instead of writing QBO
    - Requires 3 consecutive clean dry-run nights before flipping to `WRITE_TO_QBO=true`
    - Board approval required before WRITE_TO_QBO is ever set to true
    - **Activation checklist:**
      1. Create `Master_Bookkeeping_Rules` + `Deferred_Revenue_Schedule` forms in Zoho Creator UI
-     2. Run `npx ts-node --skip-project scripts/seed-bookkeeping-rules.ts` (after pulling env vars)
-     3. Set `BOOKKEEPING_WEBHOOK_SECRET` in Vercel env vars (any strong random string)
-     4. In n8n `Uu6fsZ2A2gTn0gBs`: create Header Auth credential (Name: `Authorization`, Value: `Bearer <secret>`) and attach to "Load Categorization Rules" + "Log Dry Run to API" nodes
-     5. Attach QuickBooks OAuth2 credential (sandbox) to "Fetch Uncategorized QBO Transactions" node
-     6. Activate workflow in n8n UI
+     2. Set `BOOKKEEPING_WEBHOOK_SECRET` in Vercel env vars (any strong random string)
+     3. In n8n `Rupc79GeJ8s6bbJa`: attach credentials to nodes:
+        - "Fetch QBO Classes", "Query QBO Purchases", "Update QBO Transaction" → QuickBooks OAuth2 credential
+        - "AI Categorize Transaction" → OpenRouter Header Auth credential
+        - "Submit to Review Queue" → Header Auth (Name: `Authorization`, Value: `Bearer <BOOKKEEPING_WEBHOOK_SECRET>`)
+        - "Send Weekly Bookkeeping Summary" → `Resend API Paperclip` Header Auth credential
+     4. Activate workflow in n8n UI
 2. **Monthly Deferred Recognition** (FOX-113, in progress) — 1st of each month, 3:00 AM America/Toronto
    - Reads active Deferred_Revenue_Schedule records → creates QBO JournalEntries
 3. **Weekly Summary Email** (FOX-114) — Mondays 7:00 AM America/Toronto
@@ -75,15 +81,27 @@ Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
 - `/portal/bookkeeping/projects` — production contracts + milestones
 - Auth: Clerk admin role check (same as `/portal/admin/*`)
 
-#### Memo-Tag Convention (business line attribution)
-- `[FOXM]` — Fox Mortgage commissions
-- `[PHUB]` — Printhub production projects
-- `[FSOC]` — Fox Social subscriptions
-- `[TLB]` — Left Bench coaching/platform
-- `[OVHD]` — Overhead/shared expenses
+#### QBO Class Tracking (business line attribution — QBO Plus)
+**SUPERSEDES memo-tag convention.** QBO upgraded to Plus April 18, 2026. Native classes replace memo-tag prefixes.
+- `Fox Mortgage` — commissions, FSRA licences, legal
+- `Printhub` — shipping, courier, production costs
+- `Fox Social` — SaaS revenue, email services
+- `Left Bench` — coaching, video conferencing
+- `Overhead` — utilities, software, insurance, bank charges
+- Classes are assigned via `ClassRef` on each `AccountBasedExpenseLineDetail` line item
+- PrivateNote (Memo) field is LEFT UNCHANGED — original vendor description preserved
+- `Suggested_Memo_Tag` field in Zoho Creator Bookkeeping_Review now stores QBO class name (string)
+- Run QBO Class reports for business line P&L breakdowns natively in QuickBooks
 
 #### n8n Field Names (Submit to Review Queue node)
-`Transaction_ID`, `Vendor_Name`, `Amount`, `Transaction_Date`, `Suggested_Account`, `Suggested_Memo_Tag`, `Confidence_Score`, `Match_Method`, `AI_Notes`
+`Transaction_ID`, `Vendor_Name`, `Amount`, `Transaction_Date`, `Suggested_Account`, `Suggested_Memo_Tag` (stores QBO class name), `Confidence_Score`, `Match_Method`, `AI_Notes`
+
+#### QBO Projects (Research Finding — April 18, 2026)
+- QBO Projects available on Plus tier via `ProjectRef` on transactions
+- Does NOT support percentage-of-completion natively — tracks actual vs. estimated costs only
+- Decision: Keep Zoho Creator `Production_Projects` + `Production_Milestones` for revenue recognition scheduling
+- QBO Projects may be added as Phase 1b enhancement for Printhub job cost grouping in QBO reports
+- When added: link Printhub transactions to a QBO Project via `ProjectRef` field alongside `ClassRef: Printhub`
 
 #### Dry-Run Safety Procedure
 1. `WRITE_TO_QBO=false` in n8n workflow variables → logs to `/api/bookkeeping/dry-run-log`

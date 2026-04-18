@@ -75,7 +75,7 @@ export default function BookkeepingDashboard() {
           <div className="w-3 h-3 rounded-full bg-lime animate-pulse" />
           <div>
             <p className="font-heading font-bold text-sm">Nightly workflow active</p>
-            <p className="text-gray-400 text-xs mt-0.5">Runs at 2:00 AM ET · Dry-run mode until QBO credentials confirmed</p>
+            <p className="text-gray-400 text-xs mt-0.5">Runs at 2:00 AM ET · QBO Plus classes · Dry-run until credentials attached in n8n</p>
           </div>
         </div>
         <Link
@@ -118,23 +118,27 @@ export default function BookkeepingDashboard() {
         })}
       </div>
 
-      {/* Memo-tag reference */}
+      {/* QBO Classes reference */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="font-heading text-navy font-bold mb-4">Memo-Tag Convention</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-heading text-navy font-bold">QBO Business Line Classes</h2>
+          <span className="text-xs bg-lime/20 text-navy font-semibold px-2 py-0.5 rounded-full">Plus Tier Active</span>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
-            { tag: '[FOXM]', label: 'Fox Mortgage' },
-            { tag: '[PHUB]', label: 'Printhub' },
-            { tag: '[FSOC]', label: 'Fox Social' },
-            { tag: '[TLB]', label: 'The Left Bench' },
-            { tag: '[OVHD]', label: 'Overhead' },
-          ].map((t) => (
-            <div key={t.tag} className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="font-mono text-navy font-bold text-xs">{t.tag}</p>
-              <p className="text-gray-500 text-xs mt-1">{t.label}</p>
+            { name: 'Fox Mortgage', desc: 'Commissions, licences, legal' },
+            { name: 'Printhub', desc: 'Shipping, courier, production' },
+            { name: 'Fox Social', desc: 'SaaS revenue, email services' },
+            { name: 'Left Bench', desc: 'Coaching, video conferencing' },
+            { name: 'Overhead', desc: 'Utilities, software, insurance' },
+          ].map((cls) => (
+            <div key={cls.name} className="bg-gray-50 rounded-lg p-3 text-center">
+              <p className="font-semibold text-navy text-xs">{cls.name}</p>
+              <p className="text-gray-400 text-xs mt-1">{cls.desc}</p>
             </div>
           ))}
         </div>
+        <p className="text-xs text-gray-400 mt-3">Classes are assigned natively in QBO on each transaction line item via ClassRef. Run QBO class reports for business line P&amp;L breakdowns.</p>
       </div>
 
       {/* Recent review queue activity */}
