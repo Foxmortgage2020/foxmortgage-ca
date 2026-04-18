@@ -11,9 +11,13 @@
 
 const CREATOR_BASE = 'https://creator.zoho.com/api/v2/2802551ontarioinc/bookkeeping'
 
-// ─── Token ────────────────────────────────────────────────────────────────
+// ─── Token (cached — Zoho rate-limits rapid refresh requests) ─────────────
+
+let _creatorToken: string | null = null
+let _creatorTokenExpiry = 0
 
 async function getCreatorToken(): Promise<string> {
+  if (_creatorToken && Date.now() < _creatorTokenExpiry) return _creatorToken
   const res = await fetch('https://accounts.zoho.com/oauth/v2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -26,7 +30,9 @@ async function getCreatorToken(): Promise<string> {
   })
   const data = await res.json()
   if (!data.access_token) throw new Error(`Zoho Creator token error: ${JSON.stringify(data)}`)
-  return data.access_token
+  _creatorToken = data.access_token
+  _creatorTokenExpiry = Date.now() + 55 * 60 * 1000 // 55 min (tokens valid 60 min)
+  return _creatorToken!
 }
 
 function creatorHeaders(token: string) {
