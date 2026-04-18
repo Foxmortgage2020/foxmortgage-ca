@@ -12,27 +12,52 @@
 const CREATOR_BASE = 'https://creator.zoho.com/api/v2/2802551ontarioinc/bookkeeping'
 
 // ─── Token (cached — Zoho rate-limits rapid refresh requests) ─────────────
+// Tries accounts.zoho.com first, falls back to accounts.zoho.ca (Canadian region).
+// Remove the DEBUG lines once the correct endpoint is confirmed.
 
 let _creatorToken: string | null = null
 let _creatorTokenExpiry = 0
 
-async function getCreatorToken(): Promise<string> {
-  if (_creatorToken && Date.now() < _creatorTokenExpiry) return _creatorToken
-  const res = await fetch('https://accounts.zoho.com/oauth/v2/token', {
+async function tryZohoTokenEndpoint(baseUrl: string): Promise<{ access_token?: string; error?: string; [k: string]: unknown }> {
+  const body = new URLSearchParams({
+    refresh_token: process.env.ZOHO_CREATOR_REFRESH_TOKEN!,
+    client_id: process.env.ZOHO_CREATOR_CLIENT_ID!,
+    client_secret: process.env.ZOHO_CREATOR_CLIENT_SECRET!,
+    grant_type: 'refresh_token',
+  })
+  const res = await fetch(`${baseUrl}/oauth/v2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      refresh_token: process.env.ZOHO_CREATOR_REFRESH_TOKEN!,
-      client_id: process.env.ZOHO_CREATOR_CLIENT_ID!,
-      client_secret: process.env.ZOHO_CREATOR_CLIENT_SECRET!,
-      grant_type: 'refresh_token',
-    }),
+    body,
   })
-  const data = await res.json()
-  if (!data.access_token) throw new Error(`Zoho Creator token error: ${JSON.stringify(data)}`)
-  _creatorToken = data.access_token
+  return res.json()
+}
+
+async function getCreatorToken(): Promise<string> {
+  if (_creatorToken && Date.now() < _creatorTokenExpiry) return _creatorToken
+
+  // DEBUG: log credential prefixes to verify correct env vars are loaded
+  console.log('[zoho-creator] DEBUG client_id prefix:', process.env.ZOHO_CREATOR_CLIENT_ID?.slice(0, 15))
+  console.log('[zoho-creator] DEBUG client_secret prefix:', process.env.ZOHO_CREATOR_CLIENT_SECRET?.slice(0, 10))
+  console.log('[zoho-creator] DEBUG refresh_token prefix:', process.env.ZOHO_CREATOR_REFRESH_TOKEN?.slice(0, 10))
+
+  // Try .com first (global), fall back to .ca (Canadian data centre)
+  let data = await tryZohoTokenEndpoint('https://accounts.zoho.com')
+  console.log('[zoho-creator] DEBUG .com response:', JSON.stringify(data))
+
+  if (!data.access_token && (data.error === 'invalid_client' || data.error === 'invalid_grant')) {
+    console.log('[zoho-creator] .com returned', data.error, '— retrying with accounts.zoho.ca')
+    data = await tryZohoTokenEndpoint('https://accounts.zoho.ca')
+    console.log('[zoho-creator] DEBUG .ca response:', JSON.stringify(data))
+  }
+
+  if (!data.access_token) {
+    throw new Error(`Zoho Creator token error: ${JSON.stringify(data)}`)
+  }
+
+  _creatorToken = data.access_token as string
   _creatorTokenExpiry = Date.now() + 55 * 60 * 1000 // 55 min (tokens valid 60 min)
-  return _creatorToken!
+  return _creatorToken
 }
 
 function creatorHeaders(token: string) {
