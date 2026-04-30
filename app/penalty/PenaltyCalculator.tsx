@@ -48,7 +48,11 @@ export default function PenaltyCalculator() {
   const [mortgageType, setMortgageType] = useState<MortgageType>('fixed')
 
   const [principal, setPrincipal] = useState('482722')
-  const [months, setMonths] = useState('39')
+  const [termEndDate, setTermEndDate] = useState(() => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + 39)
+    return d.toISOString().slice(0, 10)
+  })
   const [fundingDate, setFundingDate] = useState('2023-07-01')
 
   const [contractRate, setContractRate] = useState('')
@@ -61,6 +65,14 @@ export default function PenaltyCalculator() {
 
   const [originLookupNote, setOriginLookupNote] = useState<LookupNote | null>(null)
   const [todayLookupNote, setTodayLookupNote] = useState<LookupNote | null>(null)
+
+  const monthsRemaining = useMemo(() => {
+    if (!termEndDate) return 0
+    const end = new Date(termEndDate)
+    const today = new Date()
+    const diffMs = end.getTime() - today.getTime()
+    return Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24 * 30.4375)))
+  }, [termEndDate])
 
   const selectedLender = useMemo(
     () => (selectedSlug ? lenders.find((l) => l.slug === selectedSlug) ?? null : null),
@@ -83,7 +95,7 @@ export default function PenaltyCalculator() {
   const result: PenaltyResult | null = useMemo(() => {
     if (!selectedLender) return null
     const p = parseFloat(principal) || 0
-    const m = parseFloat(months) || 0
+    const m = monthsRemaining
     if (mortgageType === 'fixed') {
       return calculateFixed(selectedLender, {
         principal: p,
@@ -108,7 +120,7 @@ export default function PenaltyCalculator() {
       primeAdjustment: primeAdjSign === '-' ? -pa : pa,
     })
   }, [
-    selectedLender, mortgageType, principal, months,
+    selectedLender, mortgageType, principal, monthsRemaining,
     contractRate, postedRate, comparableRate,
     primeRate, primeAdjSign, primeAdj,
   ])
@@ -198,7 +210,7 @@ export default function PenaltyCalculator() {
       ) : (
         <div className="rounded-2xl border-2 border-dashed border-gray-300 bg-white p-6">
           <div className="font-body text-sm text-gray-500">
-            Select a lender below to begin.
+            Pick your lender below to get started.
           </div>
         </div>
       )}
@@ -254,10 +266,13 @@ export default function PenaltyCalculator() {
       {selectedLender && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <h3 className="font-heading text-base text-[#032133] mb-4">
-            Mortgage details
+            About your mortgage
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Principal balance">
+            <Field
+              label="Mortgage balance"
+              tooltip="The amount you still owe on your mortgage."
+            >
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                 <input
@@ -269,16 +284,28 @@ export default function PenaltyCalculator() {
               </div>
             </Field>
 
-            <Field label="Months remaining">
+            <Field
+              label="When does your term end?"
+              tooltip="The date your current mortgage term expires. Find it on your renewal letter or commitment."
+            >
               <input
-                type="number"
-                value={months}
-                onChange={(e) => setMonths(e.target.value)}
+                type="date"
+                value={termEndDate}
+                onChange={(e) => setTermEndDate(e.target.value)}
                 className={inputClass}
               />
+              {termEndDate && (
+                <p className="font-body text-xs text-gray-500 mt-1">
+                  {monthsRemaining} months remaining
+                </p>
+              )}
             </Field>
 
-            <Field label="Funding date" className="sm:col-span-2">
+            <Field
+              label="When did your mortgage start?"
+              tooltip="The date your current term began. If you renewed, use the renewal date — not when you first bought the home."
+              className="sm:col-span-2"
+            >
               <input
                 type="date"
                 value={fundingDate}
@@ -289,7 +316,11 @@ export default function PenaltyCalculator() {
 
             {mortgageType === 'fixed' && (
               <>
-                <Field label="Contract rate (%)" className="sm:col-span-2">
+                <Field
+                  label="Your current interest rate (%)"
+                  tooltip="The interest rate written on your mortgage commitment. This is the rate you actually pay."
+                  className="sm:col-span-2"
+                >
                   <input
                     type="number"
                     step="0.01"
@@ -301,7 +332,8 @@ export default function PenaltyCalculator() {
 
                 {selectedLender.irdMethod === 'discounted' && (
                   <Field
-                    label="Posted rate at origination (%)"
+                    label="Your lender’s posted rate when you signed (%)"
+                    tooltip="Your lender’s advertised posted rate at the time your mortgage funded. Most lenders publish this on their website."
                     action={
                       <button
                         type="button"
@@ -328,7 +360,8 @@ export default function PenaltyCalculator() {
                 )}
 
                 <Field
-                  label="Comparable term posted rate (%)"
+                  label="Your lender’s posted rate today (%)"
+                  tooltip="Your lender’s current advertised posted rate for a term length similar to what’s left on your mortgage."
                   className={selectedLender.irdMethod === 'discounted' ? '' : 'sm:col-span-2'}
                   action={
                     <button
@@ -357,7 +390,11 @@ export default function PenaltyCalculator() {
             )}
 
             {mortgageType === 'variable' && (
-              <Field label="Contract rate (%)" className="sm:col-span-2">
+              <Field
+                label="Your current interest rate (%)"
+                tooltip="The interest rate written on your mortgage commitment. This is the rate you actually pay."
+                className="sm:col-span-2"
+              >
                 <input
                   type="number"
                   step="0.01"
@@ -417,24 +454,24 @@ export default function PenaltyCalculator() {
         </div>
       )}
 
-      {/* Step 4 — Calculation breakdown */}
+      {/* Step 4 — Your results */}
       {result && selectedLender && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <h3 className="font-heading text-base text-[#032133] mb-4">
-            Calculation breakdown
+            Your results
           </h3>
 
           <div className="grid grid-cols-3 gap-3 mb-5">
             {mortgageType === 'fixed' ? (
               <>
-                <Stat label="Rate discount" value={fmtPct(result.discount)} />
-                <Stat label="IRD differential" value={fmtPct(result.irdRateRaw)} />
+                <Stat label="Your discount off posted" value={fmtPct(result.discount)} />
+                <Stat label="Rate gap" value={fmtPct(result.irdRateRaw)} />
                 <Stat label="Methodology" value={result.methodLabel} small />
               </>
             ) : (
               <>
-                <Stat label="Rate discount" value="—" />
-                <Stat label="IRD differential" value="—" />
+                <Stat label="Your discount off posted" value="—" />
+                <Stat label="Rate gap" value="—" />
                 <Stat label="Methodology" value={result.methodLabel} small />
               </>
             )}
@@ -442,7 +479,7 @@ export default function PenaltyCalculator() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <PenaltyCard
-              label="Estimated IRD penalty"
+              label="Interest rate differential"
               value={fmtCurrency(result.irdPenalty)}
               highlighted={mortgageType === 'fixed' && irdIsHighlighted}
               note={
@@ -456,7 +493,7 @@ export default function PenaltyCalculator() {
               }
             />
             <PenaltyCard
-              label="Estimated 3-month interest"
+              label="Three months of interest"
               value={fmtCurrency(result.threeMonthPenalty)}
               highlighted={mortgageType !== 'fixed' || !irdIsHighlighted}
             />
@@ -478,18 +515,31 @@ function Field({
   children,
   action,
   disabled,
+  tooltip,
   className,
 }: {
   label: string
   children: React.ReactNode
   action?: React.ReactNode
   disabled?: boolean
+  tooltip?: string
   className?: string
 }) {
   return (
     <div className={`${disabled ? 'opacity-50' : ''} ${className ?? ''}`}>
       <label className="font-body text-xs text-gray-600 mb-1.5 flex items-center justify-between gap-2">
-        <span>{label}</span>
+        <span className="inline-flex items-center gap-1.5">
+          {label}
+          {tooltip && (
+            <span
+              title={tooltip}
+              aria-label={tooltip}
+              className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gray-200 text-[9px] font-semibold text-gray-600 cursor-help leading-none"
+            >
+              ?
+            </span>
+          )}
+        </span>
         {action}
       </label>
       {children}
