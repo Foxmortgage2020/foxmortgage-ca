@@ -13,6 +13,7 @@ export default authMiddleware({
     '/contact',
     '/apply',
     '/private-lending',
+    '/penalty',
     '/portal/sign-in',
     '/portal/sign-in/(.*)',
     '/api/contact',
