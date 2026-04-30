@@ -20,14 +20,6 @@ export default function PenaltyPage() {
                 <p className="font-body text-white/85 text-sm leading-relaxed">
                   Estimate the prepayment penalty on a fixed-rate mortgage in seconds. Use the Bank of Canada lookup for posted rates, then refine with the original commitment letter for a precise figure.
                 </p>
-                <div className="pt-2">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-[#95D600]/40 bg-[#95D600]/10 px-3 py-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#95D600]" />
-                    <span className="font-body text-xs text-[#95D600] font-medium tracking-wide">
-                      Estimate tool
-                    </span>
-                  </div>
-                </div>
               </div>
               <div className="mt-auto pt-8">
                 <p className="font-body text-white/50 text-xs leading-relaxed">

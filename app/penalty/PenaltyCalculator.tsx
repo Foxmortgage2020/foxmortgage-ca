@@ -178,8 +178,20 @@ export default function PenaltyCalculator() {
         </p>
       </div>
 
-      {/* Total card — primary result */}
-      {result && selectedLender ? (
+      {/* Lender — first interaction */}
+      <div>
+        <label className="font-body text-xs uppercase tracking-wider text-gray-500 font-medium mb-2 block">
+          Lender
+        </label>
+        <LenderCombobox
+          lenders={lenders}
+          selectedSlug={selectedSlug}
+          onSelect={handleLenderSelect}
+        />
+      </div>
+
+      {/* Total card — appears once a lender is selected */}
+      {result && selectedLender && (
         <div className="rounded-2xl border-2 border-[#032133] bg-[#032133] p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -207,12 +219,6 @@ export default function PenaltyCalculator() {
             </div>
           </div>
         </div>
-      ) : (
-        <div className="rounded-2xl border-2 border-dashed border-gray-300 bg-white p-6">
-          <div className="font-body text-sm text-gray-500">
-            Pick your lender below to get started.
-          </div>
-        </div>
       )}
 
       {/* Methodology source badge */}
@@ -223,18 +229,6 @@ export default function PenaltyCalculator() {
         <p className="font-body text-xs text-[#032133] leading-relaxed">
           <span className="font-medium">Estimate only.</span> For exact penalty figures, ask the client for their original mortgage commitment letter so we can use the actual posted rate at funding. Lender-specific rounding and amortization adjustments may move the final number by a few hundred dollars.
         </p>
-      </div>
-
-      {/* Step 1 — Lender */}
-      <div>
-        <label className="font-body text-xs uppercase tracking-wider text-gray-500 font-medium mb-2 block">
-          Lender
-        </label>
-        <LenderCombobox
-          lenders={lenders}
-          selectedSlug={selectedSlug}
-          onSelect={handleLenderSelect}
-        />
       </div>
 
       {/* Step 2 — Mortgage type */}
@@ -679,8 +673,14 @@ function LenderCombobox({
           setOpen(true)
         }}
         placeholder="Type to search lenders…"
-        className={inputClass}
+        className={`${inputClass} pr-9`}
       />
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs transition-transform ${open ? 'rotate-180' : ''}`}
+      >
+        ▾
+      </span>
       {open && (
         <div className="absolute z-10 mt-1 w-full max-h-72 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
           {filtered.length === 0 ? (
