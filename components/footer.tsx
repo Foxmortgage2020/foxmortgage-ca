@@ -30,6 +30,7 @@ export default function Footer() {
                 { href: '/smm', label: 'Monitoring' },
                 { href: '/contact', label: 'Contact' },
                 { href: '/apply', label: 'Apply Now' },
+                { href: '/penalty', label: 'Penalty Calculator' },
               ].map(({ href, label }) => (
                 <li key={href}>
                   <Link href={href} className="font-body text-sm text-gray-300 hover:text-lime transition-colors">
