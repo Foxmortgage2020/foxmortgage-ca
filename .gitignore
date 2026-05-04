@@ -38,3 +38,7 @@ yarn-error.log*
 next-env.d.ts
 .env.local.save
 .env*.save
+
+# local artifacts (not part of the project)
+{app/
+Russell Brunson/
