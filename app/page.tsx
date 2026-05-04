@@ -184,14 +184,14 @@ export default function Home() {
                 icon: '🤝',
                 title: 'Realtor Partners',
                 body: 'Refer your clients with confidence. I take care of them long after closing — and keep you informed.',
-                cta: 'Partner with Us →',
+                cta: 'Partner with Us',
                 href: '/portal/sign-in',
               },
               {
                 icon: '📊',
                 title: 'Private Investors',
                 body: 'Private lending and investment mortgage strategies. Structured deals, clear terms.',
-                cta: 'Access Portal →',
+                cta: 'Access Portal',
                 href: '/private-lending',
               },
             ].map((card) => (
