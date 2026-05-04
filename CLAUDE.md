@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: May 4, 2026 (double arrow fix, /penalty added to footer)
+## Last Updated: May 4, 2026 (n8n status audit, QBO realm pre-activation warning)
 
 ---
 
@@ -35,7 +35,12 @@ Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
    - Dry-run: when WRITE_TO_QBO=false (n8n workflow variable), log to `/api/bookkeeping/dry-run-log` instead of writing QBO
    - Requires 3 consecutive clean dry-run nights before flipping to `WRITE_TO_QBO=true`
    - Board approval required before WRITE_TO_QBO is ever set to true
+   - **⚠️ PRE-ACTIVATION: QBO Realm Must Be Switched to Sandbox First (audited 2026-05-04)**
+     All 3 QBO nodes in `Rupc79GeJ8s6bbJa` currently have **production realm `9341456900727321`** hardcoded.
+     Before attaching credentials, Michael must instruct Dev agent to update those URLs to sandbox realm `9341456901231490`.
+     Do NOT activate against production QBO until Intuit App Assessment is approved.
    - **Activation checklist:**
+     0. (Michael instructs Dev) Update QBO realm in Fetch QBO Classes, Query QBO Purchases, Update QBO Transaction → `9341456901231490`
      1. Create `Master_Bookkeeping_Rules` + `Deferred_Revenue_Schedule` forms in Zoho Creator UI
      2. Set `BOOKKEEPING_WEBHOOK_SECRET` in Vercel env vars (any strong random string)
      3. In n8n `Rupc79GeJ8s6bbJa`: attach credentials to nodes:
@@ -223,8 +228,15 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - SMM leads webhook — for agents to check new SMM enrollments (not yet built)
 - Investor deals webhook — for agents to check deal/position status (not yet built)
 
+### n8n Workflow Status (audited 2026-05-04)
+- `dceYGLjOIRQAuS0p` Fox Mortgage — Daily Briefing & Alerts ✅ active
+- `CZ1zh0gKvkQuTBMc` Fox Mortgage — SMM Lead Monitor ✅ active (since 2026-04-21)
+- `Rupc79GeJ8s6bbJa` QBO Nightly Transaction Categorization ❌ inactive — awaiting credentials + sandbox realm fix
+- `dh1qIttAuctSQ7L0` Daily Deal Briefing ✅ active (built 2026-04-07)
+
 ### Known Issues / In Progress
 - Investor dashboard crashes on load — API fix in progress (use currentUser() not auth())
+- Paperclip DB missing `pg_trgm` PostgreSQL extension — Paperclip API write operations (PATCH/POST) return 500. Read-only works. Needs Paperclip infrastructure fix.
 - Zoho credential leak: .env.local.save was accidentally committed and removed. Consider rotating ZOHO_REFRESH_TOKEN.
 - CLAUDE.md needs update after each session
 
