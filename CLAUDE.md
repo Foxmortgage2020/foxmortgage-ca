@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: April 18, 2026 (FOX-107 — QBO Plus class tracking replaces memo-tag convention)
+## Last Updated: May 4, 2026 (double arrow fix, /penalty added to footer)
 
 ---
 
@@ -226,7 +226,6 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 ### Known Issues / In Progress
 - Investor dashboard crashes on load — API fix in progress (use currentUser() not auth())
 - Zoho credential leak: .env.local.save was accidentally committed and removed. Consider rotating ZOHO_REFRESH_TOKEN.
-- Double arrow → → on homepage card links (cosmetic, fix next session)
 - CLAUDE.md needs update after each session
 
 ### API Route Pattern
