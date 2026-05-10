@@ -74,9 +74,28 @@ export async function getReviewQueue(status?: string) {
     url += `?criteria=Status=="${status}"`
   }
   const res = await fetch(url, { headers: creatorHeaders(token) })
+  if (res.status === 404) {
+    // Form/report not yet created in Zoho Creator (see FOX-105 / FOX-438).
+    // Return empty array so the portal renders a blank queue instead of 500.
+    console.warn('[zoho-creator] All_Bookkeeping_Review report returned 404 — form may not exist yet')
+    return []
+  }
   if (!res.ok) throw new Error(`Creator GET review queue failed: ${res.status}`)
   const data = await res.json()
   return data.data || []
+}
+
+// ─── Diagnostic: list forms + reports in the Creator app ──────────────────
+// Calls the Creator meta endpoint to reveal what actually exists.
+// Used by /api/bookkeeping/creator-health to diagnose 404s.
+export async function getCreatorAppMeta() {
+  const token = await getCreatorToken()
+  const res = await fetch(
+    'https://creator.zoho.com/api/v2/2802551ontarioinc/bookkeeping',
+    { headers: creatorHeaders(token) }
+  )
+  const data = await res.json()
+  return { status: res.status, data }
 }
 
 export async function createReviewRecord(record: Record<string, unknown>) {
