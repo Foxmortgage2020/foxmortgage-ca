@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { upsertSmmContactWithCasl } from '@/lib/zoho'
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
       renewalYear,
       referralSource,
       referralName,
+      caslConsentTimestamp,
+      caslConsentLanguage,
     } = body
 
     if (!firstName || !lastName || !email) {
@@ -70,6 +73,11 @@ export async function POST(req: NextRequest) {
           referralName: referralName ?? '',
           source: body.source ?? 'smm-enroll-wizard',
           submittedAt: body.submittedAt,
+          // CASL consent record — for n8n workflow to map to Zoho when updated
+          CASL_Consent_Date: caslConsentTimestamp ?? body.submittedAt,
+          CASL_Consent_Method: 'Express',
+          CASL_Consent_Source: 'foxmortgage.ca/smm — enrollment wizard',
+          CASL_Consent_Language: caslConsentLanguage ?? '',
         }),
       })
       if (!n8nRes.ok) {
@@ -78,6 +86,25 @@ export async function POST(req: NextRequest) {
       }
     } catch (n8nErr) {
       console.error('[SMM Enroll] n8n error (user still gets confirmation):', n8nErr)
+    }
+
+    // ── Direct Zoho CASL write ────────────────────────────────────────────────
+    // Writes all 4 CASL consent fields directly to the Contacts record,
+    // independent of the n8n workflow. Never blocks the user response.
+    try {
+      const caslResult = await upsertSmmContactWithCasl({
+        email,
+        firstName,
+        lastName,
+        phone: phone ?? '',
+        caslConsentDate: caslConsentTimestamp ?? body.submittedAt ?? new Date().toISOString(),
+        caslConsentMethod: 'Express',
+        caslConsentSource: 'foxmortgage.ca/smm — enrollment wizard',
+        caslConsentLanguage: caslConsentLanguage ?? '',
+      })
+      console.log('[SMM Enroll] Zoho CASL write:', caslResult)
+    } catch (caslErr) {
+      console.error('[SMM Enroll] Zoho CASL write error (user still gets confirmation):', caslErr)
     }
 
     // ── Resend notification ───────────────────────────────────────────────────

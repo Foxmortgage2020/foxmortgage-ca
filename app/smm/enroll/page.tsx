@@ -55,6 +55,17 @@ const REFERRAL_SOURCES = [
   'Other',
 ]
 
+// Exact opt-in text shown to the user at the consent step (Step 4).
+// This string is sent verbatim to Zoho as CASL_Consent_Language — do not
+// change the wording without also updating the CASL compliance memo.
+const CASL_CONSENT_TEXT =
+  'By enrolling, I consent to receive commercial electronic messages from ' +
+  'Michael Fox, Mortgage Agent, Level 2 (FSRA Licence #13463), operating as ' +
+  'an agent of BRX Mortgage (Brokerage Licence #13463), located at ' +
+  '[mailing address — pending confirmation]. I may withdraw consent at any ' +
+  'time by clicking the unsubscribe link in any email. Unsubscribe requests ' +
+  'are honoured within 10 business days.'
+
 interface FormData {
   firstName: string
   lastName: string
@@ -149,6 +160,7 @@ export default function SMMEnrollPage() {
           ...form,
           caslConsent,
           caslConsentTimestamp: new Date().toISOString(),
+          caslConsentLanguage: CASL_CONSENT_TEXT,
           source: 'smm-enroll-wizard',
           submittedAt: new Date().toISOString(),
         }),
@@ -531,14 +543,7 @@ export default function SMMEnrollPage() {
                   className="mt-0.5 w-4 h-4 flex-shrink-0 accent-lime cursor-pointer"
                 />
                 <span className="font-body text-sm text-gray-700 leading-relaxed">
-                  By enrolling, I consent to receive commercial electronic messages from{' '}
-                  <strong className="text-navy">Michael Fox, Mortgage Agent, Level 2</strong>{' '}
-                  (FSRA Licence #13463), operating as an agent of{' '}
-                  <strong className="text-navy">BRX Mortgage</strong> (Brokerage Licence #13463),
-                  located at{' '}
-                  <span className="italic text-gray-500">[mailing address — pending confirmation]</span>
-                  . I may withdraw consent at any time by clicking the unsubscribe link in any
-                  email. Unsubscribe requests are honoured within 10 business days.{' '}
+                  {CASL_CONSENT_TEXT}{' '}
                   <span className="text-red-500">*</span>
                 </span>
               </label>

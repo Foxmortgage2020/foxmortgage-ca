@@ -499,3 +499,104 @@ export async function getFPDashboardStats(fpZohoId: string): Promise<FPDashboard
   const payload = await getFPDashboardPayload(fpZohoId)
   return payload.stats
 }
+
+// ─── SMM Enrollment — CASL Consent Write ─────────────────────────────────────
+// Searches Contacts by email. If found, updates the 4 CASL fields on the
+// existing record. If not found, creates a new Contact with the CASL fields.
+// Never throws — logs errors and returns a result descriptor.
+
+export interface SmmCaslParams {
+  email: string
+  firstName: string
+  lastName: string
+  phone: string
+  caslConsentDate: string     // ISO-8601 UTC (e.g. 2026-05-11T13:47:00.000Z)
+  caslConsentMethod: string   // "Express"
+  caslConsentSource: string   // "foxmortgage.ca/smm — enrollment wizard"
+  caslConsentLanguage: string // exact opt-in text shown to user
+}
+
+export async function upsertSmmContactWithCasl(
+  params: SmmCaslParams,
+): Promise<{ action: 'updated' | 'created' | 'error'; id?: string }> {
+  let token: string
+  try {
+    token = await getZohoToken()
+  } catch (err) {
+    console.error('[zoho] upsertSmmContactWithCasl token error:', err)
+    return { action: 'error' }
+  }
+
+  // Zoho datetime expects yyyy-MM-dd'T'HH:mm:ssXXX — strip milliseconds from ISO string
+  const caslDate = params.caslConsentDate.replace(/\.\d{3}Z$/, '+00:00')
+
+  const caslFields = {
+    CASL_Consent_Date: caslDate,
+    CASL_Consent_Method: params.caslConsentMethod,
+    CASL_Consent_Source: params.caslConsentSource,
+    CASL_Consent_Language: params.caslConsentLanguage,
+  }
+
+  // Search for an existing Contact by email
+  try {
+    const searchRes = await fetch(
+      `${ZOHO_API}/Contacts/search?criteria=${encodeURIComponent(`(Email:equals:${params.email})`)}&fields=id&per_page=1`,
+      { headers: { Authorization: `Zoho-oauthtoken ${token}` } },
+    )
+    if (searchRes.ok && searchRes.status !== 204) {
+      const searchData = await searchRes.json()
+      const existing = searchData.data?.[0]
+      if (existing?.id) {
+        const updateRes = await fetch(`${ZOHO_API}/Contacts`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ data: [{ id: existing.id, ...caslFields }] }),
+        })
+        if (!updateRes.ok) {
+          const text = await updateRes.text()
+          console.error('[zoho] upsertSmmContactWithCasl update error:', updateRes.status, text.substring(0, 300))
+          return { action: 'error', id: existing.id }
+        }
+        return { action: 'updated', id: existing.id }
+      }
+    }
+  } catch (err) {
+    console.error('[zoho] upsertSmmContactWithCasl search error:', err)
+    // Fall through to create
+  }
+
+  // No existing Contact — create one
+  try {
+    const createBody: Record<string, string | undefined> = {
+      First_Name: params.firstName,
+      Last_Name: params.lastName,
+      Email: params.email,
+      Lead_Source: 'Website',
+      ...caslFields,
+    }
+    if (params.phone) createBody.Phone = params.phone
+
+    const createRes = await fetch(`${ZOHO_API}/Contacts`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Zoho-oauthtoken ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ data: [createBody] }),
+    })
+    if (!createRes.ok) {
+      const text = await createRes.text()
+      console.error('[zoho] upsertSmmContactWithCasl create error:', createRes.status, text.substring(0, 300))
+      return { action: 'error' }
+    }
+    const createData = await createRes.json()
+    const newId: string | undefined = createData.data?.[0]?.details?.id
+    return { action: 'created', id: newId }
+  } catch (err) {
+    console.error('[zoho] upsertSmmContactWithCasl create error:', err)
+    return { action: 'error' }
+  }
+}
