@@ -100,6 +100,7 @@ const SELECT =
 export default function SMMEnrollPage() {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<FormData>(emptyForm)
+  const [caslConsent, setCaslConsent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
@@ -128,7 +129,8 @@ export default function SMMEnrollPage() {
         return (
           form.renewalMonth !== '' &&
           form.renewalYear !== '' &&
-          form.referralSource !== ''
+          form.referralSource !== '' &&
+          caslConsent
         )
       default:
         return true
@@ -145,6 +147,8 @@ export default function SMMEnrollPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          caslConsent,
+          caslConsentTimestamp: new Date().toISOString(),
           source: 'smm-enroll-wizard',
           submittedAt: new Date().toISOString(),
         }),
@@ -517,6 +521,29 @@ export default function SMMEnrollPage() {
               )}
             </div>
 
+            {/* ── CASL Consent disclosure (s.6(2)(b) + s.11) ── */}
+            <div className="mt-8 bg-gray-50 border border-gray-200 rounded-xl p-5">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={caslConsent}
+                  onChange={(e) => setCaslConsent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-lime cursor-pointer"
+                />
+                <span className="font-body text-sm text-gray-700 leading-relaxed">
+                  By enrolling, I consent to receive commercial electronic messages from{' '}
+                  <strong className="text-navy">Michael Fox, Mortgage Agent, Level 2</strong>{' '}
+                  (FSRA Licence #13463), operating as an agent of{' '}
+                  <strong className="text-navy">BRX Mortgage</strong> (Brokerage Licence #13463),
+                  located at{' '}
+                  <span className="italic text-gray-500">[mailing address — pending confirmation]</span>
+                  . I may withdraw consent at any time by clicking the unsubscribe link in any
+                  email. Unsubscribe requests are honoured within 10 business days.{' '}
+                  <span className="text-red-500">*</span>
+                </span>
+              </label>
+            </div>
+
             {submitError && (
               <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4">
                 <p className="font-body text-sm text-red-600">{submitError}</p>
@@ -526,7 +553,7 @@ export default function SMMEnrollPage() {
             <button
               onClick={handleSubmit}
               disabled={!valid() || submitting}
-              className="mt-10 w-full bg-lime text-navy font-heading font-bold py-4 rounded-xl hover:bg-lime-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-6 w-full bg-lime text-navy font-heading font-bold py-4 rounded-xl hover:bg-lime-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {submitting ? 'Enrolling…' : 'Enroll Me →'}
             </button>
