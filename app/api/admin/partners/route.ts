@@ -65,7 +65,14 @@ export async function GET(req: Request) {
 
     for (const u of list) {
       const md = (u.publicMetadata ?? {}) as Record<string, unknown>
-      const userRoles = Array.isArray(md.roles) ? (md.roles as string[]) : []
+      // Clerk metadata in this org has inconsistent shapes — some users have
+      // `roles: ['…']` (plural array) and others have `role: '…'` (singular
+      // string). Match PortalLayoutClient's fallback so both shapes resolve.
+      const userRoles: string[] = Array.isArray(md.roles)
+        ? (md.roles as string[])
+        : typeof md.role === 'string'
+          ? [md.role as string]
+          : []
       if (!userRoles.includes(clerkRoleTag)) continue
 
       const zohoId = typeof md[zohoIdKey] === 'string' ? (md[zohoIdKey] as string) : null

@@ -198,9 +198,12 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     try {
       await fetch('/api/admin/impersonate/exit', { method: 'POST' })
     } catch {
-      // Best-effort — even if the request errored, the user wanted to exit
+      // Best-effort — even if the request errored, the user wanted to exit.
     }
-    router.refresh()
+    // No router.refresh() here. Callers must refresh AFTER router.push()
+    // so the destination page (not the source) re-evaluates server components
+    // and picks up the cleared impersonation cookie. Refreshing before push
+    // invalidates the page we're about to leave, not the one we're heading to.
   }
 
   function handleAdminPillClick() {
@@ -208,6 +211,7 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
       void (async () => {
         await exitImpersonation()
         router.push('/portal/admin')
+        router.refresh()
       })()
     } else {
       router.push('/portal/admin')
@@ -474,6 +478,7 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
               onClick={async () => {
                 await exitImpersonation()
                 router.push('/portal/admin')
+                router.refresh()
               }}
               className="text-lime font-semibold hover:underline text-xs"
             >
