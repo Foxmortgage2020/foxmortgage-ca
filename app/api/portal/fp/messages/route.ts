@@ -1,26 +1,30 @@
 import { NextResponse } from 'next/server'
-import { currentUser } from '@clerk/nextjs/server'
+import { getPortalContext } from '@/lib/auth'
 import { getFPMessages } from '@/lib/zoho'
 
 export async function GET() {
   try {
-    const user = await currentUser()
-    if (!user) {
+    const ctx = await getPortalContext()
+    if (!ctx) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const metadata = user.publicMetadata as { roles?: string[] }
-    const roles = metadata?.roles || []
-    if (!roles.includes('financial-planner') && !roles.includes('admin')) {
+    const isFP = ctx.actor.roles.includes('financial-planner')
+    const isAdmin = ctx.actor.roles.includes('admin')
+    if (!isFP && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const fpEmail = user.emailAddresses[0]?.emailAddress
-    if (!fpEmail) {
-      return NextResponse.json({ error: 'No email on account.' }, { status: 400 })
+    // Pass the effective FP partner id — getFPMessages resolves the email
+    // from the Partners record internally, so under impersonation we fetch
+    // the impersonated FP's messages, not the admin's.
+    const fpZohoId = ctx.effectiveFpId
+    if (!fpZohoId) {
+      // Admin not impersonating anyone — no FP context, nothing to show.
+      return NextResponse.json({ messages: [] })
     }
 
-    const messages = await getFPMessages(fpEmail)
+    const messages = await getFPMessages(fpZohoId)
     return NextResponse.json({ messages })
   } catch (error) {
     console.error('[GET /api/portal/fp/messages]', error)

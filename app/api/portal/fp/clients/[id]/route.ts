@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { currentUser } from '@clerk/nextjs/server'
+import { getPortalContext } from '@/lib/auth'
 import { getFPClientDetail } from '@/lib/zoho'
 
 export async function GET(
@@ -7,14 +7,14 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await currentUser()
-    if (!user) {
+    const ctx = await getPortalContext()
+    if (!ctx) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const metadata = user.publicMetadata as { roles?: string[] }
-    const roles = metadata?.roles || []
-    if (!roles.includes('financial-planner') && !roles.includes('admin')) {
+    const isFP = ctx.actor.roles.includes('financial-planner')
+    const isAdmin = ctx.actor.roles.includes('admin')
+    if (!isFP && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -26,6 +26,17 @@ export async function GET(
     const client = await getFPClientDetail(id)
     if (!client) {
       return NextResponse.json({ error: 'Client not found.' }, { status: 404 })
+    }
+
+    // Ownership check — the requested client must be linked to the actor's
+    // effective FP id. For a non-impersonating admin (no fp_zoho_id),
+    // effectiveFpId is null and the check correctly fails — admins should
+    // impersonate to view a specific FP's client.
+    if (client.referralPartnerId !== ctx.effectiveFpId) {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'You do not have access to this client.' },
+        { status: 403 },
+      )
     }
 
     return NextResponse.json({ client })

@@ -1,11 +1,17 @@
-import { currentUser } from '@clerk/nextjs/server'
+import { getPortalContext } from '@/lib/auth'
 import { getZohoToken } from '@/lib/zoho'
 
 export async function GET() {
   try {
-    const user = await currentUser()
-    if (!user) {
+    const ctx = await getPortalContext()
+    if (!ctx) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isInvestor = ctx.actor.roles.includes('investor')
+    const isAdmin = ctx.actor.roles.includes('admin')
+    if (!isInvestor && !isAdmin) {
+      return Response.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const token = await getZohoToken()

@@ -1,21 +1,24 @@
 import { NextResponse } from 'next/server'
-import { currentUser } from '@clerk/nextjs/server'
+import { getPortalContext } from '@/lib/auth'
 import { getFPDashboardPayload } from '@/lib/zoho'
 
 export async function GET() {
   try {
-    const user = await currentUser()
-    if (!user) {
+    const ctx = await getPortalContext()
+    if (!ctx) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const metadata = user.publicMetadata as { roles?: string[]; fp_zoho_id?: string }
-    const roles = metadata?.roles || []
-    if (!roles.includes('financial-planner') && !roles.includes('admin')) {
+    const isFP = ctx.actor.roles.includes('financial-planner')
+    const isAdmin = ctx.actor.roles.includes('admin')
+    if (!isFP && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const fpZohoId = metadata?.fp_zoho_id
+    // effectiveFpId is the impersonated partner's id when an admin is
+    // impersonating an FP, otherwise the actor's own fp_zoho_id. Null
+    // means admin not-impersonating with no linked FP id — nothing to fetch.
+    const fpZohoId = ctx.effectiveFpId
     if (!fpZohoId) {
       return NextResponse.json({ error: 'No Zoho Partner ID linked to account.' }, { status: 400 })
     }

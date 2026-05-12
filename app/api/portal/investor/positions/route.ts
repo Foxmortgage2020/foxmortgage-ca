@@ -1,20 +1,23 @@
-import { currentUser } from '@clerk/nextjs/server'
-import { getInvestorPositions } from '@/lib/zoho'
 import { NextResponse } from 'next/server'
+import { getPortalContext } from '@/lib/auth'
+import { getInvestorPositions } from '@/lib/zoho'
 
 export async function GET() {
   try {
-    const user = await currentUser()
-    if (!user) {
+    const ctx = await getPortalContext()
+    if (!ctx) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const metadata = user.publicMetadata as {
-      zoho_partner_id?: string
-      roles?: string[]
+    const isInvestor = ctx.actor.roles.includes('investor')
+    const isAdmin = ctx.actor.roles.includes('admin')
+    if (!isInvestor && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const zohoPartnerId = metadata?.zoho_partner_id
 
+    // effectivePartnerId is the impersonated investor's id when an admin is
+    // impersonating, otherwise the actor's own zoho_partner_id.
+    const zohoPartnerId = ctx.effectivePartnerId
     if (!zohoPartnerId) {
       return NextResponse.json({
         error: 'No Zoho partner ID configured for this account',

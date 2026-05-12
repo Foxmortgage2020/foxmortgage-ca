@@ -305,8 +305,22 @@ export async function getFPClientDetail(dealId: string): Promise<FPClientDetail 
   }
 }
 
-export async function getFPMessages(fpEmail: string): Promise<FPNote[]> {
+export async function getFPMessages(partnerId: string): Promise<FPNote[]> {
   const token = await getZohoToken()
+
+  // Look up the FP's Email from the Partners module first. This makes the
+  // function impersonation-safe: under admin impersonation, the route passes
+  // the impersonated partner's id, so we resolve to that partner's email
+  // (not the admin's). Pre-impersonation, this also works because the FP's
+  // own publicMetadata.fp_zoho_id matches their Partners record id.
+  const partnerRes = await fetch(
+    `${ZOHO_API}/Partners/${partnerId}?fields=Email`,
+    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+  )
+  if (!partnerRes.ok || partnerRes.status === 204) return []
+  const partnerData = await partnerRes.json()
+  const fpEmail = partnerData?.data?.[0]?.Email
+  if (!fpEmail) return []
 
   // Find the FP's Contact record by email
   const contactRes = await fetch(
