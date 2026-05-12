@@ -31,13 +31,27 @@ export default function InvestorOpportunitiesPage() {
     e.preventDefault();
     setExpressed((prev) => ({ ...prev, [dealId]: true }));
     try {
-      await fetch('/api/portal/investor/express-interest', {
+      const res = await fetch('/api/portal/investor/express-interest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dealId }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error === 'ImpersonationReadOnly') {
+          // Roll back the optimistic confirmation and surface the message
+          setExpressed((prev) => {
+            const next = { ...prev };
+            delete next[dealId];
+            return next;
+          });
+          setError(
+            "You're viewing this portal as a partner. Exit impersonation to take admin actions.",
+          );
+        }
+      }
     } catch {
-      // silently fail – confirmation already shown
+      // network error — confirmation already shown
     }
   };
 

@@ -160,6 +160,7 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
   const [messageText, setMessageText] = useState('')
   const [sendingMessage, setSendingMessage] = useState(false)
   const [messageSent, setMessageSent] = useState(false)
+  const [messageError, setMessageError] = useState('')
   const [activityTab, setActivityTab] = useState<'messages' | 'calls'>('messages')
 
   useEffect(() => {
@@ -178,17 +179,25 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
     const text = messageText.trim()
     if (!text) return
     setSendingMessage(true)
+    setMessageError('')
     try {
       const res = await fetch('/api/portal/fp/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: text, context: 'client', clientId: params.id }),
       })
-      if (!res.ok) throw new Error('Failed to send')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (data.error === 'ImpersonationReadOnly') {
+          setMessageError("You're viewing this portal as a partner. Exit impersonation to take admin actions.")
+          return
+        }
+        throw new Error('Failed to send')
+      }
       setMessageSent(true)
       setMessageText('')
     } catch {
-      // fail silently — user can retry
+      setMessageError('Could not send message. Please try again.')
     } finally {
       setSendingMessage(false)
     }
@@ -539,6 +548,12 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {messageError && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 font-body text-xs text-amber-900">
+                {messageError}
               </div>
             )}
 

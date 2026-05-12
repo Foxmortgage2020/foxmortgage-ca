@@ -57,6 +57,11 @@ export default function FPAddReferralPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
+        if (data.error === 'ImpersonationReadOnly') {
+          throw new Error(
+            "You're viewing this portal as a partner. Exit impersonation to take admin actions.",
+          )
+        }
         throw new Error(data.error || 'Submission failed')
       }
 

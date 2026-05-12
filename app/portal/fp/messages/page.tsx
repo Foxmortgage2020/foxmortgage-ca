@@ -71,7 +71,16 @@ export default function FPMessagesPage() {
         body: JSON.stringify({ body: text, context: 'general' }),
       })
 
-      if (!res.ok) throw new Error('Failed to send message')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (data.error === 'ImpersonationReadOnly') {
+          setError(
+            "You're viewing this portal as a partner. Exit impersonation to take admin actions.",
+          )
+          return
+        }
+        throw new Error('Failed to send message')
+      }
 
       setMessages((prev) => [
         ...prev,
