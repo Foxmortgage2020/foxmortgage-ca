@@ -180,8 +180,11 @@ Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
 
 ### Test Users
 - Admin: mfox@foxmortgage.ca (user_3BYB3x4imxXSRxxWmMpOnmiAcv6)
-- Test investor: info@justsigns.ca — Domenic Tersigni (user_3BYZ7HAhZmLoXk2XPa8j4xJyT3A)
+- Live investor partner: tersignicorp@gmail.com — Dominic Tersigni
   zoho_partner_id: 7112178000001393118
+  Production Clerk record exists (do not reference dev-pool userId).
+  Clerk metadata shape: {roles: "investor", zoho_partner_id: "..."}
+  Note: Clerk has display name "Domenic" (with e); Zoho has "Dominic" (with i). Zoho is canonical — banner will show "Dominic".
   Two real Zoho positions: IFMS-F002684 (Hamilton, $500K, 12%) + BRXM-F024629 (Thorndale, $85K, 12%)
 
 ### Resend Configuration
