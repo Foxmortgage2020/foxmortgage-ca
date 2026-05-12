@@ -117,9 +117,25 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     return <>{children}</>
   }
 
-  // Derive roles from Clerk user metadata
-  const metadata = user?.publicMetadata as { roles?: string[]; role?: string } | undefined
-  const userRoles = metadata?.roles || (metadata?.role ? [metadata.role] : [])
+  // Derive roles from Clerk user metadata. Three shapes exist in production
+  // and all three must normalize to a string[]:
+  //   1. `roles: ['financial-planner']`  (plural array)
+  //   2. `roles: 'investor'`             (plural key, string value)
+  //   3. `role:  'admin'`                (singular key, string)
+  // The previous `metadata?.roles || (… role …)` worked for cases 1 and 3 but
+  // returned a raw string for case 2 (because `||` keeps a truthy string),
+  // which then ran `.includes(...)` as substring matching instead of array
+  // membership. The branches below pin the shape to string[] in all cases.
+  const metadata = user?.publicMetadata as
+    | { roles?: string[] | string; role?: string }
+    | undefined
+  const userRoles: string[] = Array.isArray(metadata?.roles)
+    ? (metadata!.roles as string[])
+    : typeof metadata?.roles === 'string'
+      ? [metadata.roles as string]
+      : typeof metadata?.role === 'string'
+        ? [metadata.role as string]
+        : []
 
   const isInvestorPortal = pathname?.startsWith('/portal/investor')
   const isAdminPortal = pathname?.startsWith('/portal/admin') || pathname?.startsWith('/portal/bookkeeping')
