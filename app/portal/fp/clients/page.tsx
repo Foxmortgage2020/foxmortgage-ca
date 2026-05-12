@@ -21,10 +21,9 @@ function formatAmount(amount: number | null): string {
   return '$' + amount.toLocaleString('en-CA')
 }
 
-function formatRate(rate: string | null): string {
-  if (!rate) return '—'
-  if (rate.includes('%')) return rate
-  return rate + '%'
+function formatRate(rate: number | null): string {
+  if (rate == null) return '—'
+  return `${rate}%`
 }
 
 function formatDate(iso: string | null): string {
@@ -45,7 +44,7 @@ interface FPClient {
   dealName: string
   contactName: string
   amount: number | null
-  mortgageRate: string | null
+  mortgageRate: number | null
   stage: string
   nextReviewDate: string | null
   savingsIdentified: string | null
