@@ -11,6 +11,7 @@ import {
   deriveStatus,
   monthsActive as calcMonthsActive,
   interestEarned as calcInterestEarned,
+  interestForMonth as calcInterestForMonth,
   statusBadge,
   fromZohoDeal,
   type InvestmentStatus,
@@ -227,40 +228,30 @@ export default function InvestorDashboard() {
   ].filter(g => g.items.length > 0)
 
   // Chart data — cumulative income across all positions, per calendar month.
-  // For each position we only accumulate income for months that fall between
-  // First_Payment_Date and the position's effective end date (payout date for
-  // paid-out, maturity for matured, today for performing).
+  // Per-month income routes through interestForMonth so partial final periods
+  // (per diem on early-payout months) accumulate correctly.
   const chartData = (() => {
     if (!positions.length) return []
-    const startDates = positions.map(p => p.First_Payment_Date || p.Closing_Date).filter(Boolean).map(d => new Date(d))
+    const startDates = positions
+      .map(p => p.First_Payment_Date || p.Closing_Date)
+      .filter(Boolean)
+      .map(d => new Date(d))
     if (!startDates.length) return []
     const earliestDate = new Date(Math.min(...startDates.map(d => d.getTime())))
+    const inputs = positions.map(p => fromZohoDeal(p))
     const data: { month: string; income: number }[] = []
     let cumulative = 0
     const current = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1)
     while (current <= now) {
-      positions.forEach(position => {
-        const input = fromZohoDeal(position)
-        const start = input.firstPaymentDate || input.closingDate
-        if (!start || !input.investorAmount) return
-        const startDate = new Date(start)
-        const positionStatus = deriveStatus(input)
-        let endDate: Date
-        if (positionStatus === 'paid_out') {
-          endDate = input.investorPayoutDate ? new Date(input.investorPayoutDate)
-            : (input.maturityDate ? new Date(input.maturityDate) : now)
-        } else if (positionStatus === 'matured') {
-          endDate = input.maturityDate ? new Date(input.maturityDate) : now
-        } else {
-          endDate = now
-        }
-        const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-        const monthEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0)
-        if (current >= monthStart && current <= monthEnd) {
-          cumulative += input.paymentAmount
-        }
+      const year = current.getFullYear()
+      const month = current.getMonth()
+      inputs.forEach(input => {
+        cumulative += calcInterestForMonth(input, year, month)
       })
-      data.push({ month: new Date(current).toLocaleDateString('en-CA', { month: 'short', year: '2-digit' }), income: Math.round(cumulative) })
+      data.push({
+        month: new Date(current).toLocaleDateString('en-CA', { month: 'short', year: '2-digit' }),
+        income: Math.round(cumulative),
+      })
       current.setMonth(current.getMonth() + 1)
     }
     return data

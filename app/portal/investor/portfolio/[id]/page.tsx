@@ -9,6 +9,7 @@ import {
   monthsActive as calcMonthsActive,
   interestEarned as calcInterestEarned,
   totalReturn as calcTotalReturn,
+  finalPeriodInterest as calcFinalPeriodInterest,
   nextPayment as calcNextPayment,
   termDisplay as calcTermDisplay,
   statusBadgeDark,
@@ -49,7 +50,15 @@ export default function InvestmentDetail() {
   const isPerforming = status === 'performing'
   const monthsActive = calcMonthsActive(input)
   const interestEarned = calcInterestEarned(input)
+  const finalPerDiem = calcFinalPeriodInterest(input)
   const totalReturn = calcTotalReturn(input)
+  // Days component of the per-diem partial-final-period (for the subtitle).
+  // Derived inline so the lib doesn't have to expose another helper.
+  const perDiemDays = (() => {
+    if (finalPerDiem <= 0 || !input.firstPaymentDate || !input.investorPayoutDate) return 0
+    const dailyAmount = (input.investorAmount * (input.investorRate / 100)) / 365
+    return dailyAmount > 0 ? Math.round(finalPerDiem / dailyAmount) : 0
+  })()
   const next = calcNextPayment(input)
   const term = calcTermDisplay(input)
   const badge = statusBadgeDark(status)
@@ -235,7 +244,12 @@ export default function InvestmentDetail() {
               <div>
                 <p className="text-gray-400 text-xs font-body">Interest Earned</p>
                 <p className="font-heading text-lime text-3xl font-bold">{formatCurrency(interestEarned)}</p>
-                <p className="text-gray-500 text-xs font-body mt-0.5">{monthsActive} month{monthsActive !== 1 ? 's' : ''} × {formatCurrency(paymentAmount)}/mo</p>
+                <p className="text-gray-500 text-xs font-body mt-0.5">
+                  {monthsActive} month{monthsActive !== 1 ? 's' : ''} × {formatCurrency(paymentAmount)}/mo
+                  {perDiemDays > 0 && (
+                    <> + {perDiemDays} day{perDiemDays !== 1 ? 's' : ''} per diem</>
+                  )}
+                </p>
               </div>
               {lenderFee > 0 && (
                 <div className="pt-3 border-t border-white/10">

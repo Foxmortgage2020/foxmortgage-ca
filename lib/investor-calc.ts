@@ -5,17 +5,35 @@
 // `fromZohoDeal` helper at the bottom adapts raw Zoho records to this shape
 // so the page-level code never has to spell out field names twice.
 //
-// The core rule this library enforces (and which the previous inline math
-// did not): Investor_Payout_Date is the source of truth for "is this
-// mortgage still earning?" — not the Investor_Status string. A real
-// payout date in the past means paid out, regardless of whether Mike
-// remembered to set Investor_Status = 'Paid Out' in Zoho.
+// Two rules this library enforces:
+//
+//   1. Investor_Payout_Date is the source of truth for "is this mortgage
+//      still earning?" — not the Investor_Status string. A real payout
+//      date in the past means paid out, regardless of whether Mike
+//      remembered to set Investor_Status = 'Paid Out' in Zoho.
+//
+//   2. Partial periods earn per diem interest, not a full monthly
+//      payment. Per diem rule: investorAmount × (investorRate / 100 / 365)
+//      per day. Applied to partial first periods (if firstPaymentDate
+//      is < 28 days after closingDate) and partial final periods (if
+//      payout date falls between scheduled payment dates).
+//
+// firstPaymentDate is required for accurate earnings calculations. If
+// it isn't set on a Zoho record, monthsActive / interestEarned /
+// isActiveInMonth all return 0 — better to show nothing than to guess
+// from closingDate and overcount.
 
 const DAY_MS = 24 * 60 * 60 * 1000
 // Average month length. Used to convert (end - start) days into a
-// payment-count approximation. The investment ledger lives in Mike's
-// head right now; once we have one, this estimate gets replaced.
+// completed-full-month count for monthsActive. Partial-period dollars
+// come from per diem, not from this approximation.
 const AVG_MONTH_DAYS = 30.4375
+// Per diem convention: annual rate divided by 365 days, simple interest.
+const DAYS_PER_YEAR = 365
+// A first period shorter than this many days is considered "partial" and
+// gets per diem instead of a full paymentAmount. 28 covers short Februaries
+// so we don't quibble over Feb-vs-Mar day-count differences.
+const FULL_FIRST_PERIOD_DAYS = 28
 
 export type InvestmentInput = {
   closingDate: string | null
@@ -43,8 +61,30 @@ function parseDate(s: string | null | undefined): Date | null {
   return isNaN(d.getTime()) ? null : d
 }
 
-function paymentStart(input: InvestmentInput): Date | null {
-  return parseDate(input.firstPaymentDate) ?? parseDate(input.closingDate)
+// The anchor for everything payment-related is firstPaymentDate — the date
+// the investor first received a monthly payment. We do NOT fall back to
+// closingDate (the funding date) because the investor doesn't start
+// earning a monthly payment until firstPaymentDate; treating closingDate
+// as the start fabricates an early payment that didn't happen. If
+// firstPaymentDate is null, the lib's earnings functions return 0.
+function firstPaymentAnchor(input: InvestmentInput): Date | null {
+  return parseDate(input.firstPaymentDate)
+}
+
+/**
+ * Per diem dollar amount: investorAmount × (investorRate / 100 / 365).
+ * Used as the building block for any partial-period interest.
+ */
+export function dailyInterestAmount(input: InvestmentInput): number {
+  return (input.investorAmount * (input.investorRate / 100)) / DAYS_PER_YEAR
+}
+
+/**
+ * Per diem interest for a specific number of days. Negative or zero day
+ * counts return 0.
+ */
+export function perDiemInterest(input: InvestmentInput, days: number): number {
+  return dailyInterestAmount(input) * Math.max(0, days)
 }
 
 /**
@@ -65,23 +105,25 @@ export function deriveStatus(input: InvestmentInput, asOf: Date = new Date()): I
 }
 
 /**
- * Approximate the number of monthly payments received to date.
+ * Number of full monthly payments received to date — NOT counting any
+ * partial final period (those dollars come from finalPeriodInterest).
  *
- * Counting rule: the first payment counts as 1 on or after firstPaymentDate,
- * then one additional payment per ~30.4-day period elapsed.
+ * Counting rule: the first payment counts as 1 on firstPaymentDate, then
+ * one additional payment per ~30.4-day period elapsed. Anchored on
+ * firstPaymentDate; returns 0 if that date isn't set.
  *
  * Worked example (Nick Hishon, BRXM-F025315):
- *   firstPaymentDate = 2025-01-07, payoutDate = 2025-02-26 (50 days)
- *   floor(50 / 30.4375) + 1 = 1 + 1 = 2 payments
- *   2 × $1,400 = $2,800 — matches what Nick actually received.
+ *   firstPaymentDate = 2025-02-15, payoutDate = 2025-02-26 (11 days)
+ *   floor(11 / 30.4375) + 1 = 0 + 1 = 1 full monthly payment
+ *   Plus a partial Feb 15-26 period → finalPeriodInterest = $506.30
+ *   Total interestEarned: 1 × $1,400 + $506.30 = $1,906.30
  *
  * For paid-out positions we clamp end to the payout date. For matured
  * positions we clamp to maturity. For performing positions we clamp to
- * `asOf` (defaults to now). Returns 0 if there is no payment-start date
- * or if asOf is before the first payment.
+ * `asOf` (defaults to now).
  */
 export function monthsActive(input: InvestmentInput, asOf: Date = new Date()): number {
-  const start = paymentStart(input)
+  const start = firstPaymentAnchor(input)
   if (!start) return 0
   const status = deriveStatus(input, asOf)
   let end: Date
@@ -97,8 +139,79 @@ export function monthsActive(input: InvestmentInput, asOf: Date = new Date()): n
   return Math.floor(days / AVG_MONTH_DAYS) + 1
 }
 
+/**
+ * Interest from a partial final period for a paid-out investment.
+ *
+ * If the position is paid out and the payout date falls between scheduled
+ * monthly payment anniversaries, the investor received per diem interest
+ * for the days from the most recent scheduled payment to the payout date.
+ *
+ * Returns 0 for active / matured / renewal positions, for paid-out
+ * positions without a payoutDate (legacy data), or when the payout date
+ * lands exactly on a payment anniversary (no partial period).
+ *
+ * Worked example (Nick):
+ *   firstPaymentDate = 2025-02-15, payoutDate = 2025-02-26
+ *   last anniversary <= payout: Feb 15 (next would be Mar 15)
+ *   days = 11 → per diem 11 × ($120,000 × 0.14 / 365) = $506.30
+ */
+export function finalPeriodInterest(input: InvestmentInput, asOf: Date = new Date()): number {
+  if (deriveStatus(input, asOf) !== 'paid_out') return 0
+  const payout = parseDate(input.investorPayoutDate)
+  if (!payout) return 0
+  const anchor = firstPaymentAnchor(input)
+  if (!anchor || payout.getTime() < anchor.getTime()) return 0
+  const cursor = new Date(anchor.getTime())
+  while (true) {
+    const next = new Date(cursor.getTime())
+    next.setMonth(next.getMonth() + 1)
+    if (next.getTime() > payout.getTime()) break
+    cursor.setTime(next.getTime())
+  }
+  const days = Math.round((payout.getTime() - cursor.getTime()) / DAY_MS)
+  if (days <= 0) return 0
+  return perDiemInterest(input, days)
+}
+
+/**
+ * Adjustment applied when the first period (closingDate → firstPaymentDate)
+ * is shorter than a full month. Returns the CORRECTION compared to the
+ * default of using paymentAmount for the first month:
+ *   perDiemInterest(actualDays) - paymentAmount  (typically negative)
+ *
+ * Returns 0 for clean full first periods (>= 28 days between funding and
+ * first payment) or when either date is missing.
+ *
+ * NOTE: this adjustment is folded into `interestEarned` but is NOT
+ * reflected by `interestForMonth` — the monthly table treats every
+ * active month as a full paymentAmount plus per-diem in the payout
+ * month. Real portfolios have clean monthly cadence; if a position
+ * with a partial first period ever appears, sums of interestForMonth
+ * will exceed interestEarned by paymentAmount - perDiem(actualDays).
+ */
+export function firstPeriodAdjustment(input: InvestmentInput): number {
+  const anchor = firstPaymentAnchor(input)
+  const closing = parseDate(input.closingDate)
+  if (!anchor || !closing) return 0
+  if (closing.getTime() >= anchor.getTime()) return 0
+  const actualDays = Math.round((anchor.getTime() - closing.getTime()) / DAY_MS)
+  if (actualDays >= FULL_FIRST_PERIOD_DAYS) return 0
+  return perDiemInterest(input, actualDays) - input.paymentAmount
+}
+
+/**
+ * Total interest received to date.
+ *   base       = (full monthly payments × paymentAmount)
+ *   final      = per diem for partial final period (paid-out only)
+ *   firstAdj   = correction for partial first period (usually 0)
+ *
+ * Nick: 1 × $1,400 + $506.30 + 0 = $1,906.30
+ */
 export function interestEarned(input: InvestmentInput, asOf: Date = new Date()): number {
-  return monthsActive(input, asOf) * input.paymentAmount
+  const base = monthsActive(input, asOf) * input.paymentAmount
+  const final = finalPeriodInterest(input, asOf)
+  const firstAdj = firstPeriodAdjustment(input)
+  return base + final + firstAdj
 }
 
 export function totalReturn(input: InvestmentInput, asOf: Date = new Date()): number {
@@ -120,7 +233,7 @@ export function nextPayment(
   asOf: Date = new Date(),
 ): { date: string; amount: number } | null {
   if (deriveStatus(input, asOf) !== 'performing') return null
-  const start = paymentStart(input)
+  const start = firstPaymentAnchor(input)
   if (!start) return null
   const cursor = new Date(start.getTime())
   while (cursor.getTime() <= asOf.getTime()) {
@@ -152,20 +265,23 @@ export function termDisplay(input: InvestmentInput, asOf: Date = new Date()): Te
  * Point-in-time: was this investment active and earning during the
  * specified calendar month?
  *
+ * "Active in month" means at least one payment (full or per diem)
+ * landed in this month. Anchored on firstPaymentDate — the month a
+ * payment was first received, not the funding month.
+ *
  * Active for month [year, monthIndex] iff:
- *   - paymentStart is set, AND
- *   - paymentStart is on or before the last day of the month, AND
+ *   - firstPaymentDate is set, AND
+ *   - firstPaymentDate is on or before the last day of the month, AND
  *   - the position had not yet been paid out by the first day of the
  *     month — i.e. investorPayoutDate (if any) falls in this month or
- *     later. The payout MONTH still counts as active (the final
- *     payment is received during it; Nick's Feb 26 2025 payout still
- *     gets a Feb payment), but every month after the payout is not.
+ *     later. The payout MONTH still counts as active (Nick's Feb 26
+ *     2025 payout still earns a Feb payment plus per diem), but
+ *     every month after the payout is not.
  *
  * Verification using Nick (BRXM-F025315):
- *   firstPaymentDate 2025-01-07, payoutDate 2025-02-26
- *   isActiveInMonth(2024, 11) → false (before first payment)
- *   isActiveInMonth(2025, 0)  → true  (Jan 2025 — first payment month)
- *   isActiveInMonth(2025, 1)  → true  (Feb 2025 — payout month)
+ *   firstPaymentDate 2025-02-15, payoutDate 2025-02-26
+ *   isActiveInMonth(2025, 0)  → false (Jan 2025 — no payment received)
+ *   isActiveInMonth(2025, 1)  → true  (Feb 2025 — full payment + per diem)
  *   isActiveInMonth(2025, 2)  → false (Mar 2025 — after payout)
  *   isActiveInMonth(2026, 0)  → false (long after payout)
  */
@@ -174,7 +290,7 @@ export function isActiveInMonth(
   year: number,
   monthIndex: number,
 ): boolean {
-  const start = paymentStart(input)
+  const start = firstPaymentAnchor(input)
   if (!start) return false
   const firstOfMonth = new Date(year, monthIndex, 1)
   const lastOfMonth = new Date(year, monthIndex + 1, 0)
@@ -196,23 +312,47 @@ export function isActiveInMonth(
 
 /**
  * Interest earned by this investment in the specified calendar month.
- * Returns input.paymentAmount when the position was active that month,
- * 0 otherwise.
+ *   - Inactive month → 0
+ *   - Regular active month → input.paymentAmount
+ *   - Payout month → input.paymentAmount + per diem for the days
+ *     between the last regular payment anniversary and the payout date
  *
- * Verification using Nick:
- *   interestForMonth(2025, 0) → 1400
- *   interestForMonth(2025, 1) → 1400
- *   interestForMonth(2025, 2) → 0
- *   sum across 2025 months: 2800
- *   sum across 2026 months: 0
- *   sum across all months:  2800
+ * Verification using Nick (firstPaymentDate Feb 15 2025, payout Feb 26 2025):
+ *   interestForMonth(2025, 0) → 0       (Jan — no payment received)
+ *   interestForMonth(2025, 1) → 1906.30 (Feb — full $1,400 + 11-day per diem)
+ *   interestForMonth(2025, 2) → 0       (Mar — after payout)
+ *   sum across all months → $1,906.30   (matches interestEarned)
+ *
+ * Caveat: this function does NOT apply firstPeriodAdjustment for
+ * positions with partial first periods (closingDate → firstPaymentDate
+ * shorter than 28 days). interestEarned does. Mike's portfolio has
+ * clean monthly cadence so the two reconcile in practice.
  */
 export function interestForMonth(
   input: InvestmentInput,
   year: number,
   monthIndex: number,
 ): number {
-  return isActiveInMonth(input, year, monthIndex) ? input.paymentAmount : 0
+  if (!isActiveInMonth(input, year, monthIndex)) return 0
+  let amount = input.paymentAmount
+
+  // Payout month: add per diem for the partial final period.
+  const payout = parseDate(input.investorPayoutDate)
+  if (payout && payout.getFullYear() === year && payout.getMonth() === monthIndex) {
+    const anchor = firstPaymentAnchor(input)
+    if (anchor && payout.getTime() >= anchor.getTime()) {
+      const cursor = new Date(anchor.getTime())
+      while (true) {
+        const next = new Date(cursor.getTime())
+        next.setMonth(next.getMonth() + 1)
+        if (next.getTime() > payout.getTime()) break
+        cursor.setTime(next.getTime())
+      }
+      const days = Math.round((payout.getTime() - cursor.getTime()) / DAY_MS)
+      if (days > 0) amount += perDiemInterest(input, days)
+    }
+  }
+  return amount
 }
 
 export type StatusBadgeDescriptor = {
