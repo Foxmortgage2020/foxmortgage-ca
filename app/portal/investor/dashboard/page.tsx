@@ -13,6 +13,7 @@ import {
   monthsActive as calcMonthsActive,
   interestEarned as calcInterestEarned,
   interestForMonth as calcInterestForMonth,
+  portfolioIRR as calcPortfolioIRR,
   statusBadge,
   fromZohoDeal,
   type InvestmentStatus,
@@ -147,6 +148,12 @@ export default function InvestorDashboard() {
   const legalPositions = positions.filter(p => p.Investor_Status === 'Legal')
 
   const totalMonthlyIncome = positions.reduce((sum, p) => sum + monthlyIncomeFor(p), 0)
+  // Portfolio-level money-weighted IRR. Temporary placement — will be
+  // restructured into a proper KPI card in the next commit.
+  const portfolioIRRValue = calcPortfolioIRR(positions.map(p => fromZohoDeal(p)))
+  const portfolioIRRDisplay = portfolioIRRValue !== null
+    ? `${(portfolioIRRValue * 100).toFixed(1)}%`
+    : '—'
   const totalDeployed = activePositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0)
   const avgRate = activePositions.length > 0
     ? activePositions.reduce((sum, p) => sum + (Number(p.Investor_Rate) || 0), 0) / activePositions.length : 0
@@ -290,7 +297,7 @@ export default function InvestorDashboard() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-2">
         {stats.map((stat, i) => (
           <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow">
             <stat.icon className="w-5 h-5 text-lime mb-2" />
@@ -300,6 +307,10 @@ export default function InvestorDashboard() {
           </div>
         ))}
       </div>
+      <p className="text-gray-500 text-xs font-body mb-6">
+        Portfolio IRR (lifetime, annualized):{' '}
+        <span className="text-navy font-semibold">{portfolioIRRDisplay}</span>
+      </p>
 
       {/* Loan Details */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">

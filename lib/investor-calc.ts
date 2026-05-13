@@ -413,6 +413,184 @@ export function statusBadgeDark(status: InvestmentStatus): StatusBadgeDescriptor
 }
 
 /**
+ * Single dated cash flow event. Convention: positive = inflow to the
+ * investor, negative = outflow from the investor. So principal goes
+ * out as negative at funding and comes back as positive at payout.
+ */
+export type CashFlow = {
+  date: Date
+  amount: number
+}
+
+/**
+ * Generate the complete cash flow series for a single investment.
+ *
+ * Paid-out:
+ *   t=closing:        -investorAmount + lenderFee
+ *   each anniversary of firstPaymentDate up to payoutDate: +paymentAmount
+ *   t=payoutDate:     +finalPeriodInterest (per diem) + investorAmount
+ *
+ * Performing / renewal / matured (still has principal at risk):
+ *   t=closing:        -investorAmount + lenderFee
+ *   each anniversary of firstPaymentDate up to asOf: +paymentAmount
+ *   t=asOf:           +investorAmount (synthetic "if I closed today")
+ *
+ * Returns [] if closingDate is missing.
+ *
+ * Worked example (Nick, BRXM-F025315):
+ *   closing 2025-01-15, firstPayment 2025-02-15, payout 2025-02-26
+ *   investorAmount 120000, paymentAmount 1400, lenderFee 2800
+ *   →
+ *   [
+ *     { 2025-01-15, -117200 },   // -120000 + 2800
+ *     { 2025-02-15, +1400 },     // first full month
+ *     { 2025-02-26, +120506.30 } // +506.30 per diem + 120000 principal
+ *   ]
+ */
+export function generateCashFlows(input: InvestmentInput, asOf: Date = new Date()): CashFlow[] {
+  const closing = parseDate(input.closingDate)
+  if (!closing) return []
+
+  const flows: CashFlow[] = []
+  flows.push({ date: closing, amount: -input.investorAmount + input.lenderFee })
+
+  const anchor = firstPaymentAnchor(input)
+  const status = deriveStatus(input, asOf)
+
+  let endDate: Date
+  if (status === 'paid_out') {
+    endDate = parseDate(input.investorPayoutDate)
+      ?? parseDate(input.maturityDate)
+      ?? asOf
+  } else {
+    endDate = asOf
+  }
+
+  // Walk full monthly payments from firstPaymentDate to (and including) the
+  // last anniversary on or before endDate.
+  if (anchor && anchor.getTime() <= endDate.getTime()) {
+    const cursor = new Date(anchor.getTime())
+    while (cursor.getTime() <= endDate.getTime()) {
+      flows.push({ date: new Date(cursor.getTime()), amount: input.paymentAmount })
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+  }
+
+  // Helper: merge an amount onto the cash flow with the same date if one
+  // exists; otherwise push a new entry. Keeps the series tidy when per
+  // diem + principal both land on payout date.
+  const addOn = (date: Date, amount: number) => {
+    const existing = flows.find(f => f.date.getTime() === date.getTime())
+    if (existing) existing.amount += amount
+    else flows.push({ date: new Date(date.getTime()), amount })
+  }
+
+  if (status === 'paid_out') {
+    const payout = parseDate(input.investorPayoutDate) ?? parseDate(input.maturityDate)
+    if (payout) {
+      const perDiem = finalPeriodInterest(input, asOf)
+      if (perDiem > 0) addOn(payout, perDiem)
+      addOn(payout, input.investorAmount)
+    }
+  } else {
+    // Synthetic "as if closed today" — principal back as of asOf.
+    // Doesn't try to add per diem since last payment; the next payment is
+    // due in the future and this scenario assumes we'd unwind cleanly.
+    addOn(asOf, input.investorAmount)
+  }
+
+  flows.sort((a, b) => a.date.getTime() - b.date.getTime())
+  return flows
+}
+
+/**
+ * Money-weighted IRR for a cash flow series, solved via Newton-Raphson
+ * with bisection fallback.
+ *
+ * Defines NPV(r) = sum_i { amount_i / (1 + r)^(days_i / 365) }
+ * where days_i is days from the earliest cash flow to event i.
+ *
+ * Returns annualized IRR as a decimal (0.118 = 11.8%), or null if the
+ * solver fails to converge or the cash flow shape doesn't admit an IRR.
+ */
+export function calculateIRR(
+  cashflows: CashFlow[],
+  guess: number = 0.10,
+  maxIterations: number = 100,
+  tolerance: number = 1e-7,
+): number | null {
+  if (!cashflows || cashflows.length < 2) return null
+
+  const sorted = [...cashflows].sort((a, b) => a.date.getTime() - b.date.getTime())
+  const start = sorted[0].date.getTime()
+  const points = sorted.map(c => ({
+    t: (c.date.getTime() - start) / DAY_MS / DAYS_PER_YEAR, // time in years
+    amount: c.amount,
+  }))
+
+  const npv = (r: number): number => {
+    if (1 + r <= 0) return NaN
+    let sum = 0
+    for (const p of points) sum += p.amount / Math.pow(1 + r, p.t)
+    return sum
+  }
+  const npvDeriv = (r: number): number => {
+    if (1 + r <= 0) return NaN
+    let sum = 0
+    for (const p of points) sum -= (p.amount * p.t) / Math.pow(1 + r, p.t + 1)
+    return sum
+  }
+
+  // Newton-Raphson
+  let r = guess
+  for (let i = 0; i < maxIterations; i++) {
+    const f = npv(r)
+    if (!isFinite(f)) break
+    if (Math.abs(f) < tolerance) return r
+    const df = npvDeriv(r)
+    if (!isFinite(df) || Math.abs(df) < 1e-12) break
+    const next = r - f / df
+    if (!isFinite(next) || next <= -0.99 || next > 10) break
+    r = next
+  }
+
+  // Bisection fallback on a wide bracket. Requires NPV to change sign in
+  // the bracket — for "normal" cash flow shapes (one outflow followed
+  // by inflows) there's at most one positive root.
+  let lo = -0.99
+  let hi = 5.0
+  let fLo = npv(lo)
+  let fHi = npv(hi)
+  if (!isFinite(fLo) || !isFinite(fHi)) return null
+  if (fLo === 0) return lo
+  if (fHi === 0) return hi
+  if (fLo * fHi > 0) return null
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2
+    const fMid = npv(mid)
+    if (!isFinite(fMid)) return null
+    if (Math.abs(fMid) < tolerance) return mid
+    if (fMid * fLo < 0) { hi = mid; fHi = fMid }
+    else                 { lo = mid; fLo = fMid }
+    if (hi - lo < tolerance) return (lo + hi) / 2
+  }
+  return null
+}
+
+/**
+ * Portfolio-level IRR: concatenate every investment's cash flows into
+ * one chronologically sorted series and solve. Returns null if there
+ * are no investments or the solver can't find a root.
+ */
+export function portfolioIRR(inputs: InvestmentInput[], asOf: Date = new Date()): number | null {
+  if (!inputs.length) return null
+  const all: CashFlow[] = []
+  for (const input of inputs) all.push(...generateCashFlows(input, asOf))
+  if (all.length < 2) return null
+  return calculateIRR(all, 0.10)
+}
+
+/**
  * Adapter: raw Zoho `Deals` (or `Potentials`) record → normalized
  * InvestmentInput. Lives here so the page-level code references field
  * names exactly once. paymentAmount falls back to the rate-derived

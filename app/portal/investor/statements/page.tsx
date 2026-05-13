@@ -6,6 +6,7 @@ import {
   fromZohoDeal,
   interestForMonth,
   isActiveInMonth,
+  portfolioIRR,
 } from '@/lib/investor-calc';
 
 const formatCurrency = (n: number) =>
@@ -113,6 +114,12 @@ export default function ReportsPage() {
   const totalDeployed = incomeActivePositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0);
   const monthlyIncome = incomeActivePositions.reduce((sum, p) => sum + fromZohoDeal(p).paymentAmount, 0);
   const totalLenderFees = positions.reduce((sum, p) => sum + (Number(p.Lender_Fee) || 0), 0);
+  // Portfolio-level money-weighted IRR — temporary placement. Will be
+  // promoted to a proper KPI card in the next commit.
+  const portfolioIRRValue = portfolioIRR(positions.map(p => fromZohoDeal(p)))
+  const portfolioIRRDisplay = portfolioIRRValue !== null
+    ? `${(portfolioIRRValue * 100).toFixed(1)}%`
+    : '—'
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -130,7 +137,7 @@ export default function ReportsPage() {
       </div>
 
       {/* KPI Bar */}
-      <div className="bg-navy rounded-xl p-5 mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="bg-navy rounded-xl p-5 mb-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'ALL-TIME INTEREST', value: formatCurrency(allTimeInterest) },
           { label: 'LENDER FEES EARNED', value: formatCurrency(totalLenderFees) },
@@ -143,6 +150,10 @@ export default function ReportsPage() {
           </div>
         ))}
       </div>
+      <p className="text-gray-500 text-xs font-body mb-6">
+        Portfolio IRR (lifetime, annualized):{' '}
+        <span className="text-navy font-semibold">{portfolioIRRDisplay}</span>
+      </p>
 
       {/* Year Tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
