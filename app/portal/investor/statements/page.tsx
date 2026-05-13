@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  deriveStatus,
+  isIncomeActive,
   fromZohoDeal,
   interestForMonth,
   isActiveInMonth,
@@ -107,10 +107,11 @@ export default function ReportsPage() {
   const isCurrentYear = selectedYear === currentYear;
 
   // KPI strip — match the dashboard pattern exactly so the two pages
-  // never disagree.
-  const performingPositions = positions.filter(p => deriveStatus(fromZohoDeal(p)) === 'performing')
-  const totalDeployed = performingPositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0);
-  const monthlyIncome = performingPositions.reduce((sum, p) => sum + fromZohoDeal(p).paymentAmount, 0);
+  // never disagree. Income-active = performing OR renewal; both are
+  // currently paying the investor.
+  const incomeActivePositions = positions.filter(p => isIncomeActive(fromZohoDeal(p)))
+  const totalDeployed = incomeActivePositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0);
+  const monthlyIncome = incomeActivePositions.reduce((sum, p) => sum + fromZohoDeal(p).paymentAmount, 0);
   const totalLenderFees = positions.reduce((sum, p) => sum + (Number(p.Lender_Fee) || 0), 0);
 
   if (loading) return (

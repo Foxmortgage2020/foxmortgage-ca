@@ -105,6 +105,24 @@ export function deriveStatus(input: InvestmentInput, asOf: Date = new Date()): I
 }
 
 /**
+ * Is this investment currently generating monthly income for the investor?
+ *
+ * Returns true for both 'performing' (normal active) and 'renewal'
+ * (renewal in progress — the client keeps paying monthly while terms
+ * are negotiated, so the investor's income stream doesn't pause).
+ * Returns false for 'paid_out' and 'matured'.
+ *
+ * Use this for financial filters: Active Capital totals, Monthly Income
+ * sums, cash flow projections. Use deriveStatus directly when you need
+ * to distinguish performing from renewal visually (status badges,
+ * "What Happens Next" copy).
+ */
+export function isIncomeActive(input: InvestmentInput, asOf: Date = new Date()): boolean {
+  const status = deriveStatus(input, asOf)
+  return status === 'performing' || status === 'renewal'
+}
+
+/**
  * Number of full monthly payments received to date — NOT counting any
  * partial final period (those dollars come from finalPeriodInterest).
  *
@@ -232,7 +250,10 @@ export function nextPayment(
   input: InvestmentInput,
   asOf: Date = new Date(),
 ): { date: string; amount: number } | null {
-  if (deriveStatus(input, asOf) !== 'performing') return null
+  // Both performing and renewal positions have scheduled monthly payments.
+  // Renewal in particular continues paying during negotiation, so the
+  // Upcoming Schedule should keep ticking.
+  if (!isIncomeActive(input, asOf)) return null
   const start = firstPaymentAnchor(input)
   if (!start) return null
   const cursor = new Date(start.getTime())

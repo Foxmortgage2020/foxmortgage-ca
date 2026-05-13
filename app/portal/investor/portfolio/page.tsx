@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import PortalErrorState from '@/components/PortalErrorState';
 import {
   deriveStatus,
+  isIncomeActive as calcIsIncomeActive,
   statusBadge,
   fromZohoDeal,
   nextPayment as calcNextPayment,
@@ -75,7 +76,8 @@ export default function InvestorPortfolio() {
   );
 
   // ── Calculations (all status decisions route through lib/investor-calc) ──
-  const activePositions = positions.filter(p => deriveStatus(fromZohoDeal(p)) === 'performing')
+  // Active = income-generating, which includes both performing and renewal.
+  const activePositions = positions.filter(p => calcIsIncomeActive(fromZohoDeal(p)))
   const totalDeployed = activePositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0)
   const monthlyIncome = activePositions.reduce((sum, p) => sum + fromZohoDeal(p).paymentAmount, 0)
 

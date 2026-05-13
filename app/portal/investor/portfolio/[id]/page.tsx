@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import {
   deriveStatus,
+  isIncomeActive as calcIsIncomeActive,
   monthsActive as calcMonthsActive,
   interestEarned as calcInterestEarned,
   totalReturn as calcTotalReturn,
@@ -47,7 +48,11 @@ export default function InvestmentDetail() {
   // ── Derived state (all calc routes through lib/investor-calc) ──
   const input = fromZohoDeal(deal)
   const status = deriveStatus(input)
+  // isPerforming = strict status (drives the "Performing on schedule" copy)
+  // isIncomeActive = financial reality (drives the Monthly Income tile and
+  // the Upcoming Schedule visibility — renewals still pay monthly)
   const isPerforming = status === 'performing'
+  const isIncomeActive = calcIsIncomeActive(input)
   const monthsActive = calcMonthsActive(input)
   const interestEarned = calcInterestEarned(input)
   const finalPerDiem = calcFinalPeriodInterest(input)
@@ -141,7 +146,7 @@ export default function InvestmentDetail() {
             }
             const tiles = [
               { label: 'Amount Invested', value: formatCurrency(invested) },
-              { label: 'Monthly Income', value: isPerforming ? formatCurrency(paymentAmount) : '$0' },
+              { label: 'Monthly Income', value: isIncomeActive ? formatCurrency(paymentAmount) : '$0' },
               { label: 'Interest Rate', value: `${rate}%` },
               { label: 'Total Earned', value: formatCurrency(interestEarned) },
               { label: termLabel, value: termValue },
@@ -290,8 +295,10 @@ export default function InvestmentDetail() {
             })()}
           </div>
 
-          {/* Upcoming Schedule — hidden entirely for paid-out / matured positions */}
-          {isPerforming && next && (
+          {/* Upcoming Schedule — visible for any income-active position
+              (performing OR renewal). Renewals still have a next payment
+              date during negotiation. Hidden for paid-out / matured. */}
+          {isIncomeActive && next && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <p className="font-heading text-navy font-semibold text-sm mb-3">Upcoming Schedule</p>
               <div className="space-y-2">

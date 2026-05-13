@@ -9,6 +9,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import PortalErrorState from '@/components/PortalErrorState';
 import {
   deriveStatus,
+  isIncomeActive as calcIsIncomeActive,
   monthsActive as calcMonthsActive,
   interestEarned as calcInterestEarned,
   interestForMonth as calcInterestForMonth,
@@ -25,9 +26,13 @@ const formatCurrency = (n: number) =>
 // this deal still earning?" means. Single source of truth in
 // lib/investor-calc.ts.
 const statusFor = (p: any): InvestmentStatus => deriveStatus(fromZohoDeal(p))
+// monthlyIncomeFor returns income for ANY income-active position (performing
+// or renewal). Renewals continue paying during negotiation, so they
+// contribute to Monthly Income totals even though their status badge says
+// "Renewal in Progress".
 const monthlyIncomeFor = (p: any): number => {
   const input = fromZohoDeal(p)
-  return deriveStatus(input) === 'performing' ? input.paymentAmount : 0
+  return calcIsIncomeActive(input) ? input.paymentAmount : 0
 }
 const interestEarnedFor = (p: any): number => calcInterestEarned(fromZohoDeal(p))
 const monthsActiveFor = (p: any): number => calcMonthsActive(fromZohoDeal(p))
@@ -132,9 +137,9 @@ export default function InvestorDashboard() {
 
   // ── Status-driven calculations (all go through lib/investor-calc) ──
   // "active" here means the deal is still earning the investor money.
-  // Anything paid_out/matured/renewal is excluded from the active set so
-  // KPIs like Total Deployed and Monthly Income reflect reality.
-  const activePositions = positions.filter(p => statusFor(p) === 'performing')
+  // Performing AND renewal both qualify — paid-out and matured don't.
+  // Renewal counts because the client keeps paying during negotiation.
+  const activePositions = positions.filter(p => calcIsIncomeActive(fromZohoDeal(p)))
   const paidOutPositions = positions.filter(p => statusFor(p) === 'paid_out')
   // Legal is not in the new InvestmentStatus enum — kept here as a
   // separate alert filter on the raw string so the red banner still
@@ -208,7 +213,10 @@ export default function InvestorDashboard() {
   // Insights with categories
   const insights: { icon: string; title: string; sub: string; color: string; textColor: string; category: string }[] = []
   if (totalMonthlyIncome > 0) insights.push({ icon: '💰', title: `On track to earn ${formatCurrency(annualProjected)} this year`, sub: `${formatCurrency(totalMonthlyIncome)}/month run rate`, color: 'border-lime/30 bg-lime/5', textColor: 'text-navy', category: 'performance' })
-  if (activePositions.length > 0)
+  // Only claim "100% performing" if every income-active position is
+  // strictly performing (not in renewal). Otherwise the insight would
+  // misrepresent renewal positions as fully on schedule.
+  if (activePositions.length > 0 && activePositions.every(p => statusFor(p) === 'performing'))
     insights.push({ icon: '✅', title: '100% of active loans are performing', sub: 'All positions on schedule', color: 'border-green-200 bg-green-50', textColor: 'text-green-800', category: 'performance' })
   const ltvVals = positions.filter(p => p.LTV).map(p => Number(p.LTV))
   const maxLTV = ltvVals.length > 0 ? Math.max(...ltvVals) : 0
