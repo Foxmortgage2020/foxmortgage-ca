@@ -148,6 +148,73 @@ export function termDisplay(input: InvestmentInput, asOf: Date = new Date()): Te
   return { type: 'unknown', date: null }
 }
 
+/**
+ * Point-in-time: was this investment active and earning during the
+ * specified calendar month?
+ *
+ * Active for month [year, monthIndex] iff:
+ *   - paymentStart is set, AND
+ *   - paymentStart is on or before the last day of the month, AND
+ *   - the position had not yet been paid out by the first day of the
+ *     month — i.e. investorPayoutDate (if any) falls in this month or
+ *     later. The payout MONTH still counts as active (the final
+ *     payment is received during it; Nick's Feb 26 2025 payout still
+ *     gets a Feb payment), but every month after the payout is not.
+ *
+ * Verification using Nick (BRXM-F025315):
+ *   firstPaymentDate 2025-01-07, payoutDate 2025-02-26
+ *   isActiveInMonth(2024, 11) → false (before first payment)
+ *   isActiveInMonth(2025, 0)  → true  (Jan 2025 — first payment month)
+ *   isActiveInMonth(2025, 1)  → true  (Feb 2025 — payout month)
+ *   isActiveInMonth(2025, 2)  → false (Mar 2025 — after payout)
+ *   isActiveInMonth(2026, 0)  → false (long after payout)
+ */
+export function isActiveInMonth(
+  input: InvestmentInput,
+  year: number,
+  monthIndex: number,
+): boolean {
+  const start = paymentStart(input)
+  if (!start) return false
+  const firstOfMonth = new Date(year, monthIndex, 1)
+  const lastOfMonth = new Date(year, monthIndex + 1, 0)
+  if (start.getTime() > lastOfMonth.getTime()) return false
+
+  const payout = parseDate(input.investorPayoutDate)
+  if (payout && payout.getTime() < firstOfMonth.getTime()) return false
+
+  // Legacy data path: payoutDate not set but Investor_Status was flipped
+  // to 'Paid Out' manually. Treat the maturity month as the last active
+  // month in that case (best we can do without a real payout date).
+  if (!payout && input.investorStatus === 'Paid Out') {
+    const maturity = parseDate(input.maturityDate)
+    if (maturity && maturity.getTime() < firstOfMonth.getTime()) return false
+  }
+
+  return true
+}
+
+/**
+ * Interest earned by this investment in the specified calendar month.
+ * Returns input.paymentAmount when the position was active that month,
+ * 0 otherwise.
+ *
+ * Verification using Nick:
+ *   interestForMonth(2025, 0) → 1400
+ *   interestForMonth(2025, 1) → 1400
+ *   interestForMonth(2025, 2) → 0
+ *   sum across 2025 months: 2800
+ *   sum across 2026 months: 0
+ *   sum across all months:  2800
+ */
+export function interestForMonth(
+  input: InvestmentInput,
+  year: number,
+  monthIndex: number,
+): number {
+  return isActiveInMonth(input, year, monthIndex) ? input.paymentAmount : 0
+}
+
 export type StatusBadgeDescriptor = {
   label: string
   color: string  // Tailwind classes: background + text

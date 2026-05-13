@@ -1,73 +1,84 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+  deriveStatus,
+  fromZohoDeal,
+  interestForMonth,
+  isActiveInMonth,
+} from '@/lib/investor-calc';
 
 const formatCurrency = (n: number) =>
-  new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD',
-    minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat('en-CA', {
+    style: 'currency', currency: 'CAD',
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(n);
 
-const getIncomeStart = (p: any): Date =>
-  new Date(p.First_Payment_Date || p.Closing_Date);
+type MonthlyStatement = {
+  period: string
+  month: number
+  year: number
+  activePositions: number
+  activeDeals: string[]
+  interestEarned: number
+}
 
-const getIncomeEnd = (p: any): Date => {
-  if (p.Investor_Status === 'Paid Out') {
-    if (p.Investor_Payout_Date) return new Date(p.Investor_Payout_Date);
-    if (p.Maturity_Date) return new Date(p.Maturity_Date);
-  }
-  return new Date();
-};
+/**
+ * Walk months from the earliest payment-start across all positions to
+ * today. For each month, sum interestForMonth across positions and
+ * count which positions were active that month. Skip months with zero
+ * activity so paid-out positions don't appear after their payout date.
+ */
+function generateMonthlyStatements(positions: any[]): MonthlyStatement[] {
+  if (!positions.length) return []
+  const inputs = positions.map(p => ({ raw: p, input: fromZohoDeal(p) }))
+  const starts = inputs
+    .map(({ input }) => input.firstPaymentDate || input.closingDate)
+    .filter((d): d is string => !!d)
+    .map(d => new Date(d))
+    .filter(d => !isNaN(d.getTime()))
+  if (!starts.length) return []
 
-const isActive = (p: any): boolean =>
-  ['Active', 'Renewal In Progress', 'Renewed'].includes(p.Investor_Status)
-  || (!p.Investor_Status && p.Deal_Status_Investor !== 'Matured');
+  const earliest = new Date(Math.min(...starts.map(d => d.getTime())))
+  const today = new Date()
+  const rows: MonthlyStatement[] = []
+  const cursor = new Date(earliest.getFullYear(), earliest.getMonth(), 1)
 
-const generateMonthlyStatements = (positions: any[]) => {
-  if (!positions.length) return [];
-  const starts = positions
-    .map(p => new Date(p.First_Payment_Date || p.Closing_Date))
-    .filter(d => !isNaN(d.getTime()));
-  if (!starts.length) return [];
-  const earliest = new Date(Math.min(...starts.map(d => d.getTime())));
-  const statements: { period: string; month: number; year: number; activePositions: number; activeDeals: string[]; interestEarned: number }[] = [];
-  const today = new Date();
-  const current = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
-  while (current <= today) {
-    const monthStart = new Date(current);
-    const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-    let monthlyTotal = 0;
-    let activeCount = 0;
-    const activeDeals: string[] = [];
-    positions.forEach(p => {
-      const start = getIncomeStart(p);
-      const end = getIncomeEnd(p);
-      const dealStart = new Date(start.getFullYear(), start.getMonth(), 1);
-      const dealEnd = new Date(end.getFullYear(), end.getMonth() + 1, 0);
-      if (monthStart <= dealEnd && monthEnd >= dealStart) {
-        const monthly = ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0)) / 100 / 12;
-        monthlyTotal += monthly;
-        activeCount++;
-        activeDeals.push(p.Street || 'Property');
+  while (cursor <= today) {
+    const year = cursor.getFullYear()
+    const month = cursor.getMonth()
+    let monthlyTotal = 0
+    let activeCount = 0
+    const activeDeals: string[] = []
+
+    inputs.forEach(({ raw, input }) => {
+      if (isActiveInMonth(input, year, month)) {
+        monthlyTotal += interestForMonth(input, year, month)
+        activeCount += 1
+        activeDeals.push(raw.Street || 'Property')
       }
-    });
+    })
+
     if (monthlyTotal > 0) {
-      statements.push({
-        period: current.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' }),
-        month: current.getMonth(),
-        year: current.getFullYear(),
+      rows.push({
+        period: cursor.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' }),
+        month,
+        year,
         activePositions: activeCount,
         activeDeals,
         interestEarned: Math.round(monthlyTotal),
-      });
+      })
     }
-    current.setMonth(current.getMonth() + 1);
+    cursor.setMonth(cursor.getMonth() + 1)
   }
-  return statements.reverse();
-};
+  return rows.reverse()
+}
 
 export default function ReportsPage() {
   const [positions, setPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const currentYear = new Date().getFullYear()
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   useEffect(() => {
     fetch('/api/portal/investor/positions')
@@ -78,17 +89,28 @@ export default function ReportsPage() {
   }, []);
 
   const allStatements = generateMonthlyStatements(positions);
-  const availableYears = Array.from(new Set(allStatements.map(s => s.year))).sort((a, b) => b - a);
+  // Year tabs are derived from the corrected row set. If a position is
+  // paid out, its post-payout months are skipped entirely so years with
+  // no activity disappear from the tab list rather than fabricating.
+  // Always include the current year so the tab strip isn't blank when
+  // there's no current-year activity (it'll just show an empty state).
+  const availableYears = (() => {
+    const fromRows = Array.from(new Set(allStatements.map(s => s.year)))
+    if (!fromRows.includes(currentYear)) fromRows.push(currentYear)
+    return fromRows.sort((a, b) => b - a)
+  })()
   const filteredStatements = allStatements.filter(s => s.year === selectedYear);
   const yearInterest = filteredStatements.reduce((sum, s) => sum + s.interestEarned, 0);
   const allTimeInterest = allStatements.reduce((sum, s) => sum + s.interestEarned, 0);
-  const avgMonthly = filteredStatements.length > 0 ? Math.round(yearInterest / filteredStatements.length) : 0;
-  const currentYear = new Date().getFullYear();
+  const monthsActiveThisYear = filteredStatements.length
+  const avgMonthly = monthsActiveThisYear > 0 ? Math.round(yearInterest / monthsActiveThisYear) : 0;
   const isCurrentYear = selectedYear === currentYear;
 
-  const activePos = positions.filter(p => isActive(p));
-  const totalDeployed = activePos.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0);
-  const monthlyIncome = activePos.reduce((sum, p) => sum + ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0) / 100 / 12), 0);
+  // KPI strip — match the dashboard pattern exactly so the two pages
+  // never disagree.
+  const performingPositions = positions.filter(p => deriveStatus(fromZohoDeal(p)) === 'performing')
+  const totalDeployed = performingPositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0);
+  const monthlyIncome = performingPositions.reduce((sum, p) => sum + fromZohoDeal(p).paymentAmount, 0);
   const totalLenderFees = positions.reduce((sum, p) => sum + (Number(p.Lender_Fee) || 0), 0);
 
   if (loading) return (
@@ -150,7 +172,7 @@ export default function ReportsPage() {
           </div>
           <div>
             <p className="text-gray-400 text-xs font-body">Months Active</p>
-            <p className="font-heading text-navy text-2xl font-bold mt-0.5">{filteredStatements.length}</p>
+            <p className="font-heading text-navy text-2xl font-bold mt-0.5">{monthsActiveThisYear}</p>
           </div>
           <div>
             <p className="text-gray-400 text-xs font-body">Avg Monthly</p>
@@ -167,7 +189,7 @@ export default function ReportsPage() {
         </div>
         {filteredStatements.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-gray-400 font-body text-sm">No activity in {selectedYear}</p>
+            <p className="text-gray-400 font-body text-sm">No earnings recorded for {selectedYear}</p>
           </div>
         ) : (
           <>
