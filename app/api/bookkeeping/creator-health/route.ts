@@ -16,6 +16,9 @@ export async function GET() {
     return NextResponse.json(meta)
   } catch (err) {
     console.error('[GET /api/bookkeeping/creator-health]', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: "We couldn't load this data right now. Please try again in a moment.", code: 'ZOHO_UNAVAILABLE' },
+      { status: 503 },
+    )
   }
 }

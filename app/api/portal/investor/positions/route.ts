@@ -29,10 +29,10 @@ export async function GET() {
     const positions = await getInvestorPositions(zohoPartnerId)
     return NextResponse.json({ data: positions })
   } catch (error) {
-    console.error('[investor/positions] Error:', error)
+    console.error('[GET /api/portal/investor/positions]', new Date().toISOString(), error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch positions' },
-      { status: 500 },
+      { error: "We couldn't load this data right now. Please try again in a moment.", code: 'ZOHO_UNAVAILABLE' },
+      { status: 503 },
     )
   }
 }

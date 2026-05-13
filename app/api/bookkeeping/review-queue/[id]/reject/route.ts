@@ -27,6 +27,9 @@ export async function POST(
     return NextResponse.json({ result })
   } catch (err) {
     console.error('[POST /api/bookkeeping/review-queue/[id]/reject]', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: "We couldn't load this data right now. Please try again in a moment.", code: 'ZOHO_UNAVAILABLE' },
+      { status: 503 },
+    )
   }
 }

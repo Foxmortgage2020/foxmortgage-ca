@@ -8,21 +8,52 @@
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
 // ─── Token Management ─────────────────────────────────────────────────────
+// Cached in module scope — Zoho's token endpoint rate-limits before the data
+// endpoints do, so refreshing on every call is the fastest way to surface
+// "Access Denied / too many requests" errors to users. Pattern mirrors
+// lib/zoho-creator.ts. Inflight-promise singleton prevents a thundering herd
+// of concurrent refreshes when the cache expires.
 
-export async function getZohoToken(): Promise<string> {
+let _crmToken: string | null = null
+let _crmTokenExpiry = 0
+let _crmTokenInflight: Promise<string> | null = null
+
+async function refreshZohoToken(): Promise<string> {
+  const refreshToken = process.env.ZOHO_REFRESH_TOKEN
+  const clientId = process.env.ZOHO_CLIENT_ID
+  const clientSecret = process.env.ZOHO_CLIENT_SECRET
+  if (!refreshToken || !clientId || !clientSecret) {
+    throw new Error(
+      'Zoho CRM env vars missing on this Vercel project. Required: ' +
+      'ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN',
+    )
+  }
   const res = await fetch('https://accounts.zoho.com/oauth/v2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      refresh_token: process.env.ZOHO_REFRESH_TOKEN!,
-      client_id: process.env.ZOHO_CLIENT_ID!,
-      client_secret: process.env.ZOHO_CLIENT_SECRET!,
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
       grant_type: 'refresh_token',
     }),
   })
   const data = await res.json()
   if (!data.access_token) throw new Error(`Zoho token error: ${JSON.stringify(data)}`)
-  return data.access_token
+  _crmToken = data.access_token as string
+  // Cache for 55 min; tokens are valid 60 min. Refresh 60s before expiry so a
+  // call right at the boundary doesn't race the server-side invalidation.
+  _crmTokenExpiry = Date.now() + 55 * 60 * 1000
+  return _crmToken
+}
+
+export async function getZohoToken(): Promise<string> {
+  if (_crmToken && Date.now() < _crmTokenExpiry - 60_000) return _crmToken
+  if (_crmTokenInflight) return _crmTokenInflight
+  _crmTokenInflight = refreshZohoToken().finally(() => {
+    _crmTokenInflight = null
+  })
+  return _crmTokenInflight
 }
 
 // ─── Lead Creation ────────────────────────────────────────────────────────

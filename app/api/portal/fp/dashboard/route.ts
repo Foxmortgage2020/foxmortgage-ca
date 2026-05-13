@@ -28,8 +28,10 @@ export async function GET() {
     const payload = await getFPDashboardPayload(fpZohoId)
     return NextResponse.json(payload)
   } catch (error) {
-    console.error('[GET /api/portal/fp/dashboard]', error)
-    const message = error instanceof Error ? error.message : 'Something went wrong.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('[GET /api/portal/fp/dashboard]', new Date().toISOString(), error)
+    return NextResponse.json(
+      { error: "We couldn't load this data right now. Please try again in a moment.", code: 'ZOHO_UNAVAILABLE' },
+      { status: 503 },
+    )
   }
 }

@@ -111,11 +111,20 @@ export async function POST(req: Request) {
     )
   }
 
-  // 3. Look up the partner in Zoho. A null return means 404/empty; any
-  // non-OK status from Zoho (auth, scope, network) is thrown by the helper
-  // and surfaces as a 500 from Next.js — those errors should not be silently
-  // coerced into PartnerNotFound.
-  const partner = await lookupPartner(partnerId)
+  // 3. Look up the partner in Zoho. A null return means 404/empty (mapped to
+  // PartnerNotFound 400 below). Any non-OK status from Zoho (auth, scope,
+  // network, rate limit) is thrown by the helper and caught here so the
+  // client sees a sanitized 503 instead of raw Zoho error text.
+  let partner: PartnerLookup
+  try {
+    partner = await lookupPartner(partnerId)
+  } catch (error) {
+    console.error('[POST /api/admin/impersonate]', new Date().toISOString(), error)
+    return NextResponse.json(
+      { error: "We couldn't load this data right now. Please try again in a moment.", code: 'ZOHO_UNAVAILABLE' },
+      { status: 503 },
+    )
+  }
   if (!partner) {
     return NextResponse.json(
       {

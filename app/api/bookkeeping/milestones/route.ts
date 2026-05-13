@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ records })
   } catch (err) {
     console.error('[GET /api/bookkeeping/milestones]', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: "We couldn't load this data right now. Please try again in a moment.", code: 'ZOHO_UNAVAILABLE' },
+      { status: 503 },
+    )
   }
 }
 
@@ -40,6 +43,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ result }, { status: 201 })
   } catch (err) {
     console.error('[POST /api/bookkeeping/milestones]', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: "We couldn't load this data right now. Please try again in a moment.", code: 'ZOHO_UNAVAILABLE' },
+      { status: 503 },
+    )
   }
 }
