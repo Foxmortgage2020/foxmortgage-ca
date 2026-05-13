@@ -1,5 +1,5 @@
 import { getPortalContext } from '@/lib/auth'
-import { getZohoToken } from '@/lib/zoho'
+import { getInvestorOpportunities } from '@/lib/zoho'
 
 export async function GET() {
   try {
@@ -14,44 +14,13 @@ export async function GET() {
       return Response.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const token = await getZohoToken()
-
-    const fields = [
-      'Deal_Name', 'Amount', 'Mortgage_Type', 'Mortgage_Rate',
-      'Investor_Rate', 'Payment_Amount', 'City', 'Province',
-      'Street', 'LTV', 'Purchase_Price_Value', 'Maturity_Date',
-      'Exit_Strategy', 'Lender_Notes', 'Rate_Type', 'Term_Type',
-      'Deal_Status_Investor', 'Stage', 'Closing_Date'
-    ].join(',')
-
-    const url = `https://www.zohoapis.com/crm/v2/Deals/search?criteria=(Deal_Status_Investor:equals:Available)&fields=${fields}&per_page=10`
-
-    const res = await fetch(url, {
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
-    })
-
-    // Zoho returns 204 No Content when no records match
-    if (res.status === 204 || res.status === 404) {
-      return Response.json({ data: [] })
-    }
-
-    if (!res.ok) {
-      const text = await res.text()
-      console.error('Zoho opportunities error:', res.status, text)
-      return Response.json({ data: [] })
-    }
-
-    const text = await res.text()
-    if (!text || text.trim() === '') {
-      return Response.json({ data: [] })
-    }
-
-    const json = JSON.parse(text)
-    const records = json.data || []
-
+    // Cached for 5 min per lib/cache.ts — first request hits Zoho,
+    // subsequent investor dashboard + opportunities loads within the
+    // window are served from memory.
+    const records = await getInvestorOpportunities()
     return Response.json({ data: records })
   } catch (error) {
-    console.error('Opportunities error:', error)
+    console.error('[GET /api/portal/investor/opportunities]', new Date().toISOString(), error)
     return Response.json({ data: [] })
   }
 }

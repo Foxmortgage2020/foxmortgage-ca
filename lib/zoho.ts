@@ -5,6 +5,8 @@
 //   ZOHO_REFRESH_TOKEN
 //   ZOHO_ORG_ID
 
+import { opportunitiesCache, fpMessagesCache } from '@/lib/cache'
+
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
 // ─── Token Management ─────────────────────────────────────────────────────
@@ -110,19 +112,67 @@ export async function getInvestorPositions(zohoPartnerId: string) {
   return data.data || []
 }
 
-export async function getInvestorOpportunities() {
+// Field list for the public opportunities card view — narrower than
+// DEAL_FIELDS to keep the Zoho payload light. Verified against the
+// fields the opportunities page actually reads.
+const OPPORTUNITY_FIELDS = [
+  'Deal_Name', 'Amount', 'Mortgage_Type', 'Mortgage_Rate',
+  'Investor_Rate', 'Payment_Amount', 'City', 'Province',
+  'Street', 'LTV', 'Purchase_Price_Value', 'Maturity_Date',
+  'Exit_Strategy', 'Lender_Notes', 'Rate_Type', 'Term_Type',
+  'Deal_Status_Investor', 'Stage', 'Closing_Date',
+].join(',')
+
+const OPPORTUNITIES_CACHE_KEY = 'opportunities:all'
+
+/**
+ * Public opportunities feed. Same query runs for every investor on every
+ * dashboard + opportunities page load, so the result is cached under a
+ * single shared key for 5 minutes (see lib/cache.ts).
+ *
+ * Only successful responses are cached. On 204/4xx/5xx/network errors
+ * the function returns [] and does NOT poison the cache, so the next
+ * request retries fresh.
+ */
+export async function getInvestorOpportunities(): Promise<any[]> {
+  const cached = opportunitiesCache.get(OPPORTUNITIES_CACHE_KEY) as any[] | undefined
+  if (cached !== undefined) return cached
+
   const token = await getZohoToken()
-  const url = `${ZOHO_API}/Deals/search?criteria=(Deal_Status_Investor:equals:Available)&fields=${DEAL_FIELDS}&per_page=50`
+  const url = `${ZOHO_API}/Deals/search?criteria=(Deal_Status_Investor:equals:Available)&fields=${OPPORTUNITY_FIELDS}&per_page=10`
   const response = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
   })
+
+  // 204 No Content = no records match criteria. Cache the empty result
+  // so we don't hammer Zoho when there are simply no opportunities open.
+  if (response.status === 204 || response.status === 404) {
+    opportunitiesCache.set(OPPORTUNITIES_CACHE_KEY, [])
+    return []
+  }
   if (!response.ok) {
-    const text = await response.text()
+    const text = await response.text().catch(() => '')
     console.error('[zoho] getInvestorOpportunities error:', response.status, text.substring(0, 200))
     return []
   }
-  const data = await response.json()
-  return data.data || []
+
+  const text = await response.text()
+  if (!text || text.trim() === '') {
+    opportunitiesCache.set(OPPORTUNITIES_CACHE_KEY, [])
+    return []
+  }
+
+  let json: any
+  try {
+    json = JSON.parse(text)
+  } catch (err) {
+    console.error('[zoho] getInvestorOpportunities parse error:', err)
+    return []
+  }
+
+  const records = json.data || []
+  opportunitiesCache.set(OPPORTUNITIES_CACHE_KEY, records)
+  return records
 }
 
 export async function getInvestorDeal(dealId: string) {
@@ -336,7 +386,21 @@ export async function getFPClientDetail(dealId: string): Promise<FPClientDetail 
   }
 }
 
+/**
+ * FP messages thread. Three sequential Zoho calls per page load
+ * (Partners.Email → Contacts/search → Contacts.Notes), so the result
+ * is cached per partner id for 2 minutes. Only successful results are
+ * cached; failures fall through to the existing return-[] path.
+ *
+ * Cache busting on the /api/portal/fp/message POST path is a future
+ * improvement — for now a new note can be 0–120s late on the same
+ * device. Acceptable for v1.
+ */
 export async function getFPMessages(partnerId: string): Promise<FPNote[]> {
+  const cacheKey = `fp-messages:${partnerId}`
+  const cached = fpMessagesCache.get(cacheKey) as FPNote[] | undefined
+  if (cached !== undefined) return cached
+
   const token = await getZohoToken()
 
   // Look up the FP's Email from the Partners module first. This makes the
@@ -371,7 +435,7 @@ export async function getFPMessages(partnerId: string): Promise<FPNote[]> {
   if (!notesRes.ok || notesRes.status === 204) return []
   const notesData = await notesRes.json()
 
-  return (notesData.data ?? [])
+  const messages: FPNote[] = (notesData.data ?? [])
     .filter((n: any) => n.Note_Type === 'FP_General_Message')
     .map((n: any): FPNote => ({
       id: n.id,
@@ -380,6 +444,9 @@ export async function getFPMessages(partnerId: string): Promise<FPNote[]> {
       createdBy: typeof n.Created_By === 'object' ? (n.Created_By?.name ?? 'Michael Fox') : (n.Created_By ?? 'Michael Fox'),
       noteType: n.Note_Type ?? null,
     }))
+
+  fpMessagesCache.set(cacheKey, messages)
+  return messages
 }
 
 export interface FPDashboardStats {
