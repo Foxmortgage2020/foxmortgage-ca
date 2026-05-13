@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { UserPlus, Search, ChevronRight, Loader2 } from 'lucide-react'
+import PortalErrorState from '@/components/PortalErrorState'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -71,7 +72,9 @@ export default function FPClientsPage() {
   const [activeTab, setActiveTab] = useState('All')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
+  const loadClients = useCallback(() => {
+    setLoading(true)
+    setError('')
     fetch('/api/portal/fp/clients')
       .then(r => r.json())
       .then(data => {
@@ -81,6 +84,12 @@ export default function FPClientsPage() {
       .catch(err => setError(err.message || 'Failed to load clients.'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => { loadClients() }, [loadClients])
+
+  if (error) {
+    return <PortalErrorState message={error} onRetry={loadClients} />
+  }
 
   const clientsWithStatus = clients.map(c => ({
     ...c,
@@ -109,12 +118,6 @@ export default function FPClientsPage() {
           Add Referral
         </Link>
       </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 font-body text-sm text-red-700 mb-4">
-          {error}
-        </div>
-      )}
 
       {/* Search */}
       <div className="relative mb-4">

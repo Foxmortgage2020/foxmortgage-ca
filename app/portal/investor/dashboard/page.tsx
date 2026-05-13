@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import { Search, Download, MessageSquare, TrendingUp, DollarSign, Percent, Wallet, CircleDollarSign } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import PortalErrorState from '@/components/PortalErrorState';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
@@ -94,7 +95,9 @@ export default function InvestorDashboard() {
   const [setupRequired, setSetupRequired] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
 
-  useEffect(() => {
+  const loadPositions = useCallback(() => {
+    setLoading(true);
+    setError(null);
     fetch('/api/portal/investor/positions')
       .then(async (res) => {
         const data = await res.json()
@@ -105,6 +108,8 @@ export default function InvestorDashboard() {
       .catch((err) => setError(err.message ?? 'Failed to load portfolio'))
       .finally(() => setLoading(false))
   }, []);
+
+  useEffect(() => { loadPositions(); }, [loadPositions]);
 
   useEffect(() => {
     fetch('/api/portal/investor/opportunities')
@@ -166,12 +171,7 @@ export default function InvestorDashboard() {
       <p className="font-body text-gray-500">Loading your portfolio...</p>
     </div>
   );
-  if (error) return (
-    <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-      <h2 className="font-heading text-navy text-lg mb-2">Something went wrong</h2>
-      <p className="font-body text-gray-600">{error}</p>
-    </div>
-  );
+  if (error) return <PortalErrorState message={error} onRetry={loadPositions} />;
   if (setupRequired) return (
     <div className="bg-lime/10 border border-lime/30 rounded-xl p-6 text-center">
       <h2 className="font-heading text-navy text-lg mb-2">Portfolio Setup Pending</h2>

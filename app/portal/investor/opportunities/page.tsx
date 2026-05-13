@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { MapPin, ArrowRight } from 'lucide-react';
+import PortalErrorState from '@/components/PortalErrorState';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
@@ -10,22 +11,27 @@ const formatCurrency = (n: number) =>
 export default function InvestorOpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [expressed, setExpressed] = useState<{ [key: string]: boolean }>({});
 
-  useEffect(() => {
+  const loadOpportunities = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
     fetch('/api/portal/investor/opportunities')
       .then(async (res) => {
         const data = await res.json()
         if (data.error) {
-          setError(data.error)
+          setLoadError(data.error)
         } else {
           setOpportunities(data.data || (Array.isArray(data) ? data : []))
         }
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => setLoadError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadOpportunities(); }, [loadOpportunities]);
 
   const handleExpress = async (e: React.MouseEvent, dealId: string) => {
     e.preventDefault();
@@ -45,7 +51,7 @@ export default function InvestorOpportunitiesPage() {
             delete next[dealId];
             return next;
           });
-          setError(
+          setActionNotice(
             "You're viewing this portal as a partner. Exit impersonation to take admin actions.",
           );
         }
@@ -63,12 +69,8 @@ export default function InvestorOpportunitiesPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="text-center py-32">
-        <p className="text-red-500 font-body">{error}</p>
-      </div>
-    );
+  if (loadError) {
+    return <PortalErrorState message={loadError} onRetry={loadOpportunities} />;
   }
 
   const availableOpps = opportunities.filter((o) => o.Stage !== 'Funded' && o.Stage !== 'Closed');
@@ -172,6 +174,12 @@ export default function InvestorOpportunitiesPage() {
           </span>
         </div>
       </div>
+
+      {actionNotice && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 font-body text-sm text-amber-800 mb-4">
+          {actionNotice}
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">

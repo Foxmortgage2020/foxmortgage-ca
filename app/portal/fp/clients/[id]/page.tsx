@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import PortalErrorState from '@/components/PortalErrorState'
 import {
   ChevronLeft,
   MessageSquare,
@@ -163,7 +164,9 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
   const [messageError, setMessageError] = useState('')
   const [activityTab, setActivityTab] = useState<'messages' | 'calls'>('messages')
 
-  useEffect(() => {
+  const loadClient = useCallback(() => {
+    setLoading(true)
+    setError('')
     fetch(`/api/portal/fp/clients/${params.id}`)
       .then(r => r.json())
       .then(data => {
@@ -173,6 +176,8 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
       .catch(err => setError(err.message || 'Failed to load client.'))
       .finally(() => setLoading(false))
   }, [params.id])
+
+  useEffect(() => { loadClient() }, [loadClient])
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -212,10 +217,14 @@ export default function FPClientDetailPage({ params }: { params: { id: string } 
     )
   }
 
-  if (error || !client) {
+  if (error) {
+    return <PortalErrorState message={error} onRetry={loadClient} />
+  }
+
+  if (!client) {
     return (
       <div className="text-center py-20">
-        <p className="font-body text-gray-500">{error || 'Client not found.'}</p>
+        <p className="font-body text-gray-500">Client not found.</p>
         <Link
           href="/portal/fp/clients"
           className="text-lime font-semibold text-sm hover:underline mt-2 inline-block"

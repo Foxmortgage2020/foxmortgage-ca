@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import PortalErrorState from '@/components/PortalErrorState';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
@@ -71,7 +72,9 @@ export default function InvestorPortfolio() {
   const [error, setError] = useState<string | null>(null);
   const [setupRequired, setSetupRequired] = useState(false);
 
-  useEffect(() => {
+  const loadPositions = useCallback(() => {
+    setLoading(true);
+    setError(null);
     fetch('/api/portal/investor/positions')
       .then(async (res) => {
         const data = await res.json()
@@ -83,18 +86,15 @@ export default function InvestorPortfolio() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => { loadPositions(); }, [loadPositions]);
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-24">
       <div className="w-8 h-8 border-4 border-lime border-t-transparent rounded-full animate-spin mb-4" />
       <p className="font-body text-gray-500">Loading your portfolio...</p>
     </div>
   );
-  if (error) return (
-    <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-      <h2 className="font-heading text-navy text-lg mb-2">Something went wrong</h2>
-      <p className="font-body text-gray-600">{error}</p>
-    </div>
-  );
+  if (error) return <PortalErrorState message={error} onRetry={loadPositions} />;
   if (setupRequired) return (
     <div className="bg-lime/10 border border-lime/30 rounded-xl p-6 text-center">
       <h2 className="font-heading text-navy text-lg mb-2">Portfolio Setup Pending</h2>
