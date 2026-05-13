@@ -7,82 +7,31 @@ import { useUser } from '@clerk/nextjs';
 import { Search, Download, MessageSquare, TrendingUp, DollarSign, Percent, Wallet, CircleDollarSign } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import PortalErrorState from '@/components/PortalErrorState';
+import {
+  deriveStatus,
+  monthsActive as calcMonthsActive,
+  interestEarned as calcInterestEarned,
+  statusBadge,
+  fromZohoDeal,
+  type InvestmentStatus,
+} from '@/lib/investor-calc';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
 
-// ── Investor_Status-driven helpers ──
-
-const isIncomeActive = (p: any): boolean => {
-  const status = p.Investor_Status
-  return ['Active', 'Renewal In Progress', 'Renewed'].includes(status)
-    || (!status && p.Deal_Status_Investor !== 'Matured')
+// Adapter: position record → InvestmentStatus + key derived numbers.
+// Centralized here so every section of the dashboard agrees on what "is
+// this deal still earning?" means. Single source of truth in
+// lib/investor-calc.ts.
+const statusFor = (p: any): InvestmentStatus => deriveStatus(fromZohoDeal(p))
+const monthlyIncomeFor = (p: any): number => {
+  const input = fromZohoDeal(p)
+  return deriveStatus(input) === 'performing' ? input.paymentAmount : 0
 }
+const interestEarnedFor = (p: any): number => calcInterestEarned(fromZohoDeal(p))
+const monthsActiveFor = (p: any): number => calcMonthsActive(fromZohoDeal(p))
 
-const getIncomeEndDate = (p: any): Date => {
-  const today = new Date()
-  if (p.Investor_Status === 'Paid Out') {
-    if (p.Investor_Payout_Date) return new Date(p.Investor_Payout_Date)
-    if (p.Maturity_Date) return new Date(p.Maturity_Date)
-    return today
-  }
-  if (p.Investor_Status === 'Legal') {
-    if (p.Maturity_Date) return new Date(p.Maturity_Date)
-    return today
-  }
-  return today
-}
-
-const getIncomeStartDate = (p: any): Date => {
-  const start = p.First_Payment_Date || p.Closing_Date
-  return start ? new Date(start) : new Date()
-}
-
-const getMonthsActive = (p: any): number => {
-  const start = getIncomeStartDate(p)
-  const end = getIncomeEndDate(p)
-  return Math.max(0, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)))
-}
-
-const getMonthlyIncome = (p: any): number => {
-  if (!isIncomeActive(p)) return 0
-  return ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0)) / 100 / 12
-}
-
-const getInterestEarned = (p: any): number => {
-  const monthlyRate = ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0)) / 100 / 12
-  return monthlyRate * getMonthsActive(p)
-}
-
-// ── Status badge system ──
-
-const getStatusLabel = (position: any) => {
-  const status = position.Investor_Status
-  const daysUntilMaturity = position.Maturity_Date
-    ? Math.ceil((new Date(position.Maturity_Date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-    : null
-
-  switch (status) {
-    case 'Active':
-      if (daysUntilMaturity !== null && daysUntilMaturity <= 90 && daysUntilMaturity > 0)
-        return { label: 'Maturing Soon', color: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' }
-      return { label: 'Performing', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' }
-    case 'Renewal In Progress':
-      return { label: 'Renewal Pending', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-400' }
-    case 'Renewed':
-      return { label: 'Performing', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' }
-    case 'Paid Out':
-      return { label: 'Paid Out', color: 'bg-gray-100 text-gray-500', dot: 'bg-gray-400' }
-    case 'Legal':
-      return { label: 'In Legal', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' }
-    default:
-      if (position.Deal_Status_Investor === 'Matured')
-        return { label: 'Paid Out', color: 'bg-gray-100 text-gray-500', dot: 'bg-gray-400' }
-      return { label: 'Performing', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' }
-  }
-}
-
-type TabKey = 'all' | 'performing' | 'renewal_pending' | 'paid_out' | 'legal'
+type TabKey = 'all' | 'performing' | 'renewal_pending' | 'paid_out'
 
 export default function InvestorDashboard() {
   const router = useRouter();
@@ -180,16 +129,22 @@ export default function InvestorDashboard() {
     </div>
   );
 
-  // ── Investor_Status-driven calculations ──
-  const activePositions = positions.filter(p => isIncomeActive(p))
-  const paidOutPositions = positions.filter(p => p.Investor_Status === 'Paid Out' || (!p.Investor_Status && p.Deal_Status_Investor === 'Matured'))
+  // ── Status-driven calculations (all go through lib/investor-calc) ──
+  // "active" here means the deal is still earning the investor money.
+  // Anything paid_out/matured/renewal is excluded from the active set so
+  // KPIs like Total Deployed and Monthly Income reflect reality.
+  const activePositions = positions.filter(p => statusFor(p) === 'performing')
+  const paidOutPositions = positions.filter(p => statusFor(p) === 'paid_out')
+  // Legal is not in the new InvestmentStatus enum — kept here as a
+  // separate alert filter on the raw string so the red banner still
+  // surfaces if Mike ever sets one.
   const legalPositions = positions.filter(p => p.Investor_Status === 'Legal')
 
-  const totalMonthlyIncome = positions.reduce((sum, p) => sum + getMonthlyIncome(p), 0)
+  const totalMonthlyIncome = positions.reduce((sum, p) => sum + monthlyIncomeFor(p), 0)
   const totalDeployed = activePositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0)
   const avgRate = activePositions.length > 0
     ? activePositions.reduce((sum, p) => sum + (Number(p.Investor_Rate) || 0), 0) / activePositions.length : 0
-  const totalInterestEarned = positions.reduce((sum, p) => sum + getInterestEarned(p), 0)
+  const totalInterestEarned = positions.reduce((sum, p) => sum + interestEarnedFor(p), 0)
   const totalLenderFees = positions.reduce((sum, p) => sum + (Number(p.Lender_Fee) || 0), 0)
   const totalReturn = totalInterestEarned + totalLenderFees
   const annualProjected = totalMonthlyIncome * 12
@@ -203,13 +158,12 @@ export default function InvestorDashboard() {
     { icon: CircleDollarSign, value: formatCurrency(unallocatedCapital), label: 'Unallocated', sub: 'Available to deploy' },
   ];
 
-  // Tab filtering
+  // Tab filtering — maps the InvestmentStatus enum to tab keys.
   function matchesTab(p: any, tab: TabKey) {
-    const st = getStatusLabel(p)
-    if (tab === 'performing') return st.label === 'Performing' || st.label === 'Maturing Soon'
-    if (tab === 'renewal_pending') return st.label === 'Renewal Pending'
-    if (tab === 'paid_out') return st.label === 'Paid Out'
-    if (tab === 'legal') return st.label === 'In Legal'
+    const st = statusFor(p)
+    if (tab === 'performing') return st === 'performing'
+    if (tab === 'renewal_pending') return st === 'renewal'
+    if (tab === 'paid_out') return st === 'paid_out' || st === 'matured'
     return true
   }
   const getTabCount = (tab: TabKey) => tab === 'all' ? positions.length : positions.filter(p => matchesTab(p, tab)).length
@@ -220,7 +174,6 @@ export default function InvestorDashboard() {
     { key: 'performing', label: 'Performing' },
     { key: 'renewal_pending', label: 'Renewal Pending' },
     { key: 'paid_out', label: 'Paid Out' },
-    { key: 'legal', label: 'Legal', hideIfZero: true },
   ]
   const visibleTabs = allTabs.filter(t => !t.hideIfZero || getTabCount(t.key) > 0)
 
@@ -231,7 +184,8 @@ export default function InvestorDashboard() {
   const nextFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1)
   const formatMonthDay = (d: Date) => d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
 
-  // Cash Flow
+  // Cash Flow — only sums from currently performing positions (paid-out and
+  // matured deals don't generate future payments).
   const cashFlow = (() => {
     const months: { month: string; payments: { property: string; amount: number; status: string }[]; total: number }[] = []
     for (let i = 0; i < 3; i++) {
@@ -240,7 +194,7 @@ export default function InvestorDashboard() {
       const payments: { property: string; amount: number; status: string }[] = []
       let total = 0
       positions.forEach(p => {
-        const mi = getMonthlyIncome(p)
+        const mi = monthlyIncomeFor(p)
         if (mi <= 0) return
         payments.push({ property: p.Street || 'Property', amount: mi, status: i === 0 ? 'Scheduled' : 'Upcoming' })
         total += mi
@@ -253,7 +207,7 @@ export default function InvestorDashboard() {
   // Insights with categories
   const insights: { icon: string; title: string; sub: string; color: string; textColor: string; category: string }[] = []
   if (totalMonthlyIncome > 0) insights.push({ icon: '💰', title: `On track to earn ${formatCurrency(annualProjected)} this year`, sub: `${formatCurrency(totalMonthlyIncome)}/month run rate`, color: 'border-lime/30 bg-lime/5', textColor: 'text-navy', category: 'performance' })
-  if (activePositions.length > 0 && activePositions.every(p => getStatusLabel(p).label === 'Performing'))
+  if (activePositions.length > 0)
     insights.push({ icon: '✅', title: '100% of active loans are performing', sub: 'All positions on schedule', color: 'border-green-200 bg-green-50', textColor: 'text-green-800', category: 'performance' })
   const ltvVals = positions.filter(p => p.LTV).map(p => Number(p.LTV))
   const maxLTV = ltvVals.length > 0 ? Math.max(...ltvVals) : 0
@@ -272,7 +226,10 @@ export default function InvestorDashboard() {
     { label: 'Structure', emoji: '🏗️', items: structureInsights, labelColor: 'text-purple-600' },
   ].filter(g => g.items.length > 0)
 
-  // Chart data
+  // Chart data — cumulative income across all positions, per calendar month.
+  // For each position we only accumulate income for months that fall between
+  // First_Payment_Date and the position's effective end date (payout date for
+  // paid-out, maturity for matured, today for performing).
   const chartData = (() => {
     if (!positions.length) return []
     const startDates = positions.map(p => p.First_Payment_Date || p.Closing_Date).filter(Boolean).map(d => new Date(d))
@@ -283,14 +240,24 @@ export default function InvestorDashboard() {
     const current = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1)
     while (current <= now) {
       positions.forEach(position => {
-        const start = position.First_Payment_Date || position.Closing_Date
-        if (!start || !position.Investor_Amount || !position.Investor_Rate) return
+        const input = fromZohoDeal(position)
+        const start = input.firstPaymentDate || input.closingDate
+        if (!start || !input.investorAmount) return
         const startDate = new Date(start)
-        const endDate = getIncomeEndDate(position)
+        const positionStatus = deriveStatus(input)
+        let endDate: Date
+        if (positionStatus === 'paid_out') {
+          endDate = input.investorPayoutDate ? new Date(input.investorPayoutDate)
+            : (input.maturityDate ? new Date(input.maturityDate) : now)
+        } else if (positionStatus === 'matured') {
+          endDate = input.maturityDate ? new Date(input.maturityDate) : now
+        } else {
+          endDate = now
+        }
         const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
         const monthEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0)
         if (current >= monthStart && current <= monthEnd) {
-          cumulative += ((Number(position.Investor_Amount) || 0) * (Number(position.Investor_Rate) || 0)) / 100 / 12
+          cumulative += input.paymentAmount
         }
       })
       data.push({ month: new Date(current).toLocaleDateString('en-CA', { month: 'short', year: '2-digit' }), income: Math.round(cumulative) })
@@ -373,9 +340,9 @@ export default function InvestorDashboard() {
               </thead>
               <tbody className="font-body">
                 {filteredPositions.map((pos) => {
-                  const mi = ((Number(pos.Investor_Amount) || 0) * (Number(pos.Investor_Rate) || 0)) / 100 / 12;
+                  const mi = monthlyIncomeFor(pos);
                   const matFmt = pos.Maturity_Date ? new Date(pos.Maturity_Date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' }) : '—';
-                  const status = getStatusLabel(pos);
+                  const badge = statusBadge(statusFor(pos));
                   return (
                     <tr key={pos.id} onClick={() => router.push(`/portal/investor/portfolio/${pos.id}`)}
                         className="border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors">
@@ -383,13 +350,13 @@ export default function InvestorDashboard() {
                       <td className="py-3 text-gray-600">{pos.Mortgage_Type} Mortgage</td>
                       <td className="py-3 font-heading text-navy">{formatCurrency(Number(pos.Investor_Amount) || 0)}</td>
                       <td className="py-3 text-navy">{pos.Investor_Rate}%</td>
-                      <td className="py-3 text-navy">{formatCurrency(mi)}</td>
+                      <td className="py-3 text-navy">{mi > 0 ? formatCurrency(mi) : '—'}</td>
                       <td className="py-3 text-gray-600">{pos.Lender_Fee ? formatCurrency(Number(pos.Lender_Fee)) : '—'}</td>
                       <td className="py-3 text-gray-600">{matFmt}</td>
                       <td className="py-3">
-                        <span className={`${status.color} rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1.5 w-fit`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                          {status.label}
+                        <span className={`${badge.color} rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1.5 w-fit`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                          {badge.label}
                         </span>
                       </td>
                     </tr>
@@ -435,9 +402,14 @@ export default function InvestorDashboard() {
                   {paidOutPositions.length} position{paidOutPositions.length !== 1 ? 's' : ''} paid out at maturity
                 </p>
                 <p className="text-gray-500 text-xs mt-0.5 font-body">
-                  {paidOutPositions.map(p =>
-                    `${p.Street}, ${p.City} (paid out ${p.Investor_Payout_Date ? new Date(p.Investor_Payout_Date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' }) : p.Maturity_Date ? new Date(p.Maturity_Date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' }) : 'at maturity'})`
-                  ).join(' · ')} · Capital returned to investor
+                  {paidOutPositions.map(p => {
+                    const input = fromZohoDeal(p)
+                    const payoutDate = input.investorPayoutDate ?? input.maturityDate
+                    const dateLabel = payoutDate
+                      ? new Date(payoutDate).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })
+                      : 'at maturity'
+                    return `${p.Street}, ${p.City} (paid out ${dateLabel})`
+                  }).join(' · ')} · Capital returned to investor
                 </p>
               </div>
             </div>

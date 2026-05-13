@@ -3,66 +3,38 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import PortalErrorState from '@/components/PortalErrorState';
+import {
+  deriveStatus,
+  statusBadge,
+  fromZohoDeal,
+  nextPayment as calcNextPayment,
+} from '@/lib/investor-calc';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
 
-// ── Investor_Status helpers ──
-
-const isIncomeActive = (p: any): boolean => {
-  const s = p.Investor_Status
-  return ['Active', 'Renewal In Progress', 'Renewed'].includes(s)
-    || (!s && p.Deal_Status_Investor !== 'Matured')
-}
-
-const getStatusLabel = (p: any) => {
-  const s = p.Investor_Status
-  const daysLeft = p.Maturity_Date
-    ? Math.ceil((new Date(p.Maturity_Date).getTime() - Date.now()) / 86400000) : null
-  switch (s) {
-    case 'Active':
-      if (daysLeft !== null && daysLeft <= 90 && daysLeft > 0)
-        return { label: 'Maturing Soon', color: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' }
-      return { label: 'Performing', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' }
-    case 'Renewal In Progress':
-      return { label: 'Renewal Pending', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-400' }
-    case 'Renewed':
-      return { label: 'Performing', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' }
-    case 'Paid Out':
-      return { label: 'Paid Out', color: 'bg-gray-100 text-gray-500', dot: 'bg-gray-400' }
-    case 'Legal':
-      return { label: 'In Legal', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' }
-    default:
-      if (p.Deal_Status_Investor === 'Matured')
-        return { label: 'Paid Out', color: 'bg-gray-100 text-gray-500', dot: 'bg-gray-400' }
-      return { label: 'Performing', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' }
+const getNextAction = (p: any): string => {
+  const input = fromZohoDeal(p)
+  const status = deriveStatus(input)
+  if (status === 'paid_out') {
+    const payout = input.investorPayoutDate ?? input.maturityDate
+    const label = payout
+      ? new Date(payout).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })
+      : 'at maturity'
+    return `Capital returned ${label}`
   }
-}
-
-const getNextAction = (p: any) => {
-  switch (p.Investor_Status) {
-    case 'Paid Out':
-      return `Capital returned ${p.Investor_Payout_Date
-        ? new Date(p.Investor_Payout_Date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })
-        : 'at maturity'}`
-    case 'Renewal In Progress':
-      return 'Renewal agreement in progress — payments continuing'
-    case 'Renewed':
-      return `Renewed · New maturity ${p.Maturity_Date
-        ? new Date(p.Maturity_Date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' }) : '—'}`
-    case 'Legal':
-      return 'Legal proceedings in progress — contact Michael Fox'
-    default: {
-      const daysLeft = p.Maturity_Date
-        ? Math.ceil((new Date(p.Maturity_Date).getTime() - Date.now()) / 86400000) : null
-      if (daysLeft !== null && daysLeft <= 90 && daysLeft > 0)
-        return `Matures in ${daysLeft} days — renewal discussion upcoming`
-      if (daysLeft !== null && daysLeft > 0)
-        return `Next payment ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
-          .toLocaleDateString('en-CA', { month: 'long', day: 'numeric' })}`
-      return 'Active'
-    }
+  if (status === 'renewal') return 'Renewal agreement in progress — payments continuing'
+  if (status === 'matured') return 'Reached maturity — awaiting renewal or payout'
+  const daysLeft = input.maturityDate
+    ? Math.ceil((new Date(input.maturityDate).getTime() - Date.now()) / 86400000) : null
+  if (daysLeft !== null && daysLeft <= 90 && daysLeft > 0) {
+    return `Matures in ${daysLeft} days — renewal discussion upcoming`
   }
+  const next = calcNextPayment(input)
+  if (next) {
+    return `Next payment ${new Date(next.date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric' })}`
+  }
+  return 'Active'
 }
 
 export default function InvestorPortfolio() {
@@ -102,24 +74,31 @@ export default function InvestorPortfolio() {
     </div>
   );
 
-  // ── Calculations ──
-  const activePositions = positions.filter(p => isIncomeActive(p))
+  // ── Calculations (all status decisions route through lib/investor-calc) ──
+  const activePositions = positions.filter(p => deriveStatus(fromZohoDeal(p)) === 'performing')
   const totalDeployed = activePositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0)
-  const monthlyIncome = activePositions.reduce((sum, p) =>
-    sum + ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0) / 100 / 12), 0)
+  const monthlyIncome = activePositions.reduce((sum, p) => sum + fromZohoDeal(p).paymentAmount, 0)
 
   const ytdStart = new Date(new Date().getFullYear(), 0, 1)
   const ytdInterest = positions.reduce((sum, p) => {
-    const start = p.First_Payment_Date || p.Closing_Date
+    const input = fromZohoDeal(p)
+    const status = deriveStatus(input)
+    const start = input.firstPaymentDate || input.closingDate
     if (!start) return sum
     const startDate = new Date(start)
-    const endDate = p.Investor_Status === 'Paid Out'
-      ? (p.Investor_Payout_Date ? new Date(p.Investor_Payout_Date) : (p.Maturity_Date ? new Date(p.Maturity_Date) : new Date()))
-      : new Date()
+    let endDate: Date
+    if (status === 'paid_out') {
+      endDate = input.investorPayoutDate ? new Date(input.investorPayoutDate)
+        : (input.maturityDate ? new Date(input.maturityDate) : new Date())
+    } else if (status === 'matured') {
+      endDate = input.maturityDate ? new Date(input.maturityDate) : new Date()
+    } else {
+      endDate = new Date()
+    }
     const effectiveStart = startDate > ytdStart ? startDate : ytdStart
     if (effectiveStart > endDate) return sum
     const months = Math.max(0, Math.round((endDate.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24 * 30)))
-    return sum + ((Number(p.Investor_Amount) || 0) * (Number(p.Investor_Rate) || 0) / 100 / 12) * months
+    return sum + input.paymentAmount * months
   }, 0)
 
   const kpis = [
@@ -150,12 +129,14 @@ export default function InvestorPortfolio() {
       ) : (
         <div className="space-y-4">
           {positions.map((pos) => {
-            const amt = Number(pos.Investor_Amount) || 0
-            const rate = Number(pos.Investor_Rate) || 0
-            const mi = (amt * rate / 100) / 12
-            const status = getStatusLabel(pos)
-            const isPaidOut = pos.Investor_Status === 'Paid Out' || (!pos.Investor_Status && pos.Deal_Status_Investor === 'Matured')
-            const isRenewal = pos.Investor_Status === 'Renewal In Progress'
+            const input = fromZohoDeal(pos)
+            const posStatus = deriveStatus(input)
+            const badge = statusBadge(posStatus)
+            const amt = input.investorAmount
+            const rate = input.investorRate
+            const mi = input.paymentAmount
+            const isPaidOut = posStatus === 'paid_out' || posStatus === 'matured'
+            const isRenewal = posStatus === 'renewal'
             const address = `${pos.Street ?? ''}${pos.City ? `, ${pos.City}` : ''}${pos.Province ? ` ${pos.Province}` : ''}`
             const matFmt = pos.Maturity_Date ? new Date(pos.Maturity_Date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' }) : '—'
 
@@ -182,9 +163,9 @@ export default function InvestorPortfolio() {
                 className="bg-white rounded-xl border border-gray-200 p-6 hover:border-lime transition-colors cursor-pointer hover:shadow-sm">
                 <div className="flex items-start justify-between mb-1">
                   <h3 className="font-heading text-navy text-lg">{address}</h3>
-                  <span className={`${status.color} rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1.5 shrink-0`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                    {status.label}
+                  <span className={`${badge.color} rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1.5 shrink-0`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                    {badge.label}
                   </span>
                 </div>
                 <p className="text-gray-500 text-sm font-body mb-4">

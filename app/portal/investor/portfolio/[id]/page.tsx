@@ -4,9 +4,25 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import {
+  deriveStatus,
+  monthsActive as calcMonthsActive,
+  interestEarned as calcInterestEarned,
+  totalReturn as calcTotalReturn,
+  nextPayment as calcNextPayment,
+  termDisplay as calcTermDisplay,
+  statusBadgeDark,
+  fromZohoDeal,
+} from '@/lib/investor-calc';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
+
+const formatDateLong = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
+
+const formatDateShort = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export default function InvestmentDetail() {
   const params = useParams();
@@ -27,52 +43,49 @@ export default function InvestmentDetail() {
   if (error) return <div className="text-center py-32"><p className="text-red-500 font-body">{error}</p></div>;
   if (!deal) return <div className="text-center py-32"><p className="text-gray-500 font-body">Deal not found</p></div>;
 
-  // ── Data mapping ──
-  const invested = Number(deal.Investor_Amount) || 0
-  const rate = Number(deal.Investor_Rate) || 0
-  const monthlyIncome = Number(deal.Payment_Amount) || (invested * rate / 100 / 12)
-  const maturityDate = deal.Maturity_Date
+  // ── Derived state (all calc routes through lib/investor-calc) ──
+  const input = fromZohoDeal(deal)
+  const status = deriveStatus(input)
+  const isPerforming = status === 'performing'
+  const monthsActive = calcMonthsActive(input)
+  const interestEarned = calcInterestEarned(input)
+  const totalReturn = calcTotalReturn(input)
+  const next = calcNextPayment(input)
+  const term = calcTermDisplay(input)
+  const badge = statusBadgeDark(status)
+
+  const invested = input.investorAmount
+  const rate = input.investorRate
+  const paymentAmount = input.paymentAmount
   const ltv = deal.LTV
   const propertyValue = Number(deal.Purchase_Price_Value) || 0
   const mortgageType = deal.Mortgage_Type || '—'
   const paymentFreq = deal.Payment_Frequency || 'Monthly'
   const exitStrategy = deal.Exit_Strategy
-  const lenderFee = Number(deal.Lender_Fee) || 0
-  const firstPayment = deal.First_Payment_Date || deal.Closing_Date
-  const investorStatus = deal.Investor_Status
+  const lenderFee = input.lenderFee
+  const firstPayment = input.firstPaymentDate || input.closingDate
+  const investorStatus = input.investorStatus
+  const maturityDate = input.maturityDate
   const dealName = deal.Deal_Name || '—'
   const street = deal.Street || ''
   const city = deal.City || ''
   const province = deal.Province || ''
-  const isActive = ['Active', 'Renewal In Progress', 'Renewed'].includes(investorStatus) || (!investorStatus && deal.Deal_Status_Investor !== 'Matured')
-
-  const monthsActive = (() => {
-    if (!firstPayment) return 0
-    const start = new Date(firstPayment)
-    const end = investorStatus === 'Paid Out'
-      ? (deal.Investor_Payout_Date ? new Date(deal.Investor_Payout_Date) : (maturityDate ? new Date(maturityDate) : new Date()))
-      : new Date()
-    return Math.max(0, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)))
-  })()
-
-  const interestEarned = (invested * rate / 100 / 12) * monthsActive
-  const totalReturn = interestEarned + lenderFee
-  const daysRemaining = maturityDate ? Math.ceil((new Date(maturityDate).getTime() - Date.now()) / 86400000) : null
 
   // ── Notes ──
   const getNotes = () => {
     const notes: { date: string; text: string; tag: string; tagColor: string }[] = []
-    if (investorStatus === 'Renewal In Progress') {
-      notes.push({ date: maturityDate ? new Date(maturityDate).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : '—', text: 'Mortgage reached original maturity date — renewal in progress', tag: '🔄 Renewal', tagColor: 'bg-blue-100 text-blue-700' })
+    if (status === 'renewal') {
+      notes.push({ date: maturityDate ? formatDateShort(maturityDate) : '—', text: 'Mortgage reached original maturity date — renewal in progress', tag: '🔄 Renewal', tagColor: 'bg-blue-100 text-blue-700' })
     }
-    if (investorStatus === 'Paid Out') {
-      notes.push({ date: deal.Investor_Payout_Date ? new Date(deal.Investor_Payout_Date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : 'At maturity', text: 'Principal and final interest payment returned to investor', tag: '✅ Paid Out', tagColor: 'bg-gray-100 text-gray-600' })
+    if (status === 'paid_out') {
+      const payoutDate = input.investorPayoutDate ?? maturityDate
+      notes.push({ date: payoutDate ? formatDateShort(payoutDate) : 'At maturity', text: 'Principal and final interest payment returned to investor', tag: '✅ Paid Out', tagColor: 'bg-gray-100 text-gray-600' })
     }
     if (firstPayment) {
-      notes.push({ date: new Date(firstPayment).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }), text: 'First payment received — mortgage active', tag: '✔ Payment', tagColor: 'bg-green-100 text-green-700' })
+      notes.push({ date: formatDateShort(firstPayment), text: 'First payment received — mortgage active', tag: '✔ Payment', tagColor: 'bg-green-100 text-green-700' })
     }
     if (deal.Closing_Date) {
-      notes.push({ date: new Date(deal.Closing_Date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }), text: `Mortgage funded — ${formatCurrency(invested)} deployed`, tag: '📄 Admin', tagColor: 'bg-purple-100 text-purple-700' })
+      notes.push({ date: formatDateShort(deal.Closing_Date), text: `Mortgage funded — ${formatCurrency(invested)} deployed`, tag: '📄 Admin', tagColor: 'bg-purple-100 text-purple-700' })
     }
     return notes
   }
@@ -91,31 +104,46 @@ export default function InvestmentDetail() {
             <p className="text-gray-400 text-xs font-body uppercase tracking-wider">{dealName} · {street}, {city}</p>
             <h2 className="font-heading text-white text-2xl font-bold mt-1">Investment Snapshot</h2>
           </div>
-          {(() => {
-            const badge = investorStatus === 'Paid Out' ? { l: 'Paid Out', c: 'bg-gray-600 text-gray-200' }
-              : investorStatus === 'Renewal In Progress' ? { l: 'Renewal Pending', c: 'bg-blue-500/20 text-blue-300' }
-              : investorStatus === 'Legal' ? { l: 'In Legal', c: 'bg-red-500/20 text-red-300' }
-              : { l: 'Performing', c: 'bg-lime/20 text-lime' }
-            return <span className={`${badge.c} text-xs font-body font-semibold px-3 py-1 rounded-full`}>{badge.l}</span>
-          })()}
+          <span className={`${badge.color} text-xs font-body font-semibold px-3 py-1 rounded-full`}>
+            {badge.label}
+          </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {[
-            { label: 'Amount Invested', value: formatCurrency(invested) },
-            { label: 'Monthly Income', value: isActive ? formatCurrency(monthlyIncome) : '$0' },
-            { label: 'Interest Rate', value: `${rate}%` },
-            { label: 'Total Earned', value: formatCurrency(interestEarned) },
-            { label: daysRemaining !== null && daysRemaining > 0 ? `Matures ${new Date(maturityDate).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}` : 'Matured',
-              value: daysRemaining !== null && daysRemaining > 0 ? `${daysRemaining} days`
-                : investorStatus === 'Renewal In Progress' ? 'Renewal pending'
-                : investorStatus === 'Paid Out' ? 'Paid out' : '—'
-            },
-          ].map((item, i) => (
-            <div key={i}>
-              <p className="text-gray-400 text-xs font-body">{item.label}</p>
-              <p className="font-heading text-white text-xl font-bold mt-0.5">{item.value}</p>
-            </div>
-          ))}
+          {(() => {
+            // Term-tile content depends on status: paid-out shows the payout date;
+            // performing shows days-until-maturity; matured/renewal show a label.
+            let termLabel = 'Term Maturity'
+            let termValue = '—'
+            if (term.type === 'paid_out' && term.date) {
+              termLabel = 'Paid Out'
+              termValue = formatDateShort(term.date)
+            } else if (term.type === 'maturity' && term.date) {
+              if (isPerforming) {
+                const daysRemaining = Math.ceil((new Date(term.date).getTime() - Date.now()) / 86400000)
+                termLabel = `Matures ${new Date(term.date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}`
+                termValue = daysRemaining > 0 ? `${daysRemaining} days` : 'Matured'
+              } else if (status === 'renewal') {
+                termLabel = 'Original Maturity'
+                termValue = 'Renewal pending'
+              } else {
+                termLabel = 'Matured'
+                termValue = new Date(term.date).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })
+              }
+            }
+            const tiles = [
+              { label: 'Amount Invested', value: formatCurrency(invested) },
+              { label: 'Monthly Income', value: isPerforming ? formatCurrency(paymentAmount) : '$0' },
+              { label: 'Interest Rate', value: `${rate}%` },
+              { label: 'Total Earned', value: formatCurrency(interestEarned) },
+              { label: termLabel, value: termValue },
+            ]
+            return tiles.map((item, i) => (
+              <div key={i}>
+                <p className="text-gray-400 text-xs font-body">{item.label}</p>
+                <p className="font-heading text-white text-xl font-bold mt-0.5">{item.value}</p>
+              </div>
+            ))
+          })()}
         </div>
       </div>
 
@@ -168,9 +196,11 @@ export default function InvestmentDetail() {
               <h3 className="font-heading text-navy text-lg font-bold">Payment History</h3>
               <span className="text-lime text-sm font-body font-semibold">Total Received: {formatCurrency(interestEarned)}</span>
             </div>
-            <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
-              <p className="text-green-700 text-sm font-body font-semibold">✓ {monthsActive} payment{monthsActive !== 1 ? 's' : ''} received · All on time</p>
-              <p className="text-green-600 text-xs font-body mt-0.5">Detailed payment records coming soon</p>
+            <div className={`${status === 'paid_out' ? 'bg-gray-50 border-gray-200' : 'bg-green-50 border-green-200'} border rounded-xl p-3 mb-4`}>
+              <p className={`${status === 'paid_out' ? 'text-gray-600' : 'text-green-700'} text-sm font-body font-semibold`}>
+                ✓ {monthsActive} payment{monthsActive !== 1 ? 's' : ''} received · {status === 'paid_out' ? 'Position closed' : 'All on time'}
+              </p>
+              <p className={`${status === 'paid_out' ? 'text-gray-500' : 'text-green-600'} text-xs font-body mt-0.5`}>Detailed payment records coming soon</p>
             </div>
             <table className="w-full text-sm">
               <thead><tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider"><th className="text-left py-2 font-medium">Date</th><th className="text-left py-2 font-medium">Amount</th><th className="text-left py-2 font-medium">Type</th><th className="text-left py-2 font-medium">Status</th></tr></thead>
@@ -205,7 +235,7 @@ export default function InvestmentDetail() {
               <div>
                 <p className="text-gray-400 text-xs font-body">Interest Earned</p>
                 <p className="font-heading text-lime text-3xl font-bold">{formatCurrency(interestEarned)}</p>
-                <p className="text-gray-500 text-xs font-body mt-0.5">{monthsActive} month{monthsActive !== 1 ? 's' : ''} × {formatCurrency(invested * rate / 100 / 12)}/mo</p>
+                <p className="text-gray-500 text-xs font-body mt-0.5">{monthsActive} month{monthsActive !== 1 ? 's' : ''} × {formatCurrency(paymentAmount)}/mo</p>
               </div>
               {lenderFee > 0 && (
                 <div className="pt-3 border-t border-white/10">
@@ -225,47 +255,59 @@ export default function InvestmentDetail() {
           {/* What Happens Next */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <p className="font-heading text-navy font-semibold text-sm mb-3">What Happens Next</p>
-            {investorStatus === 'Paid Out' && (
+            {status === 'paid_out' && (
               <div className="flex items-start gap-2"><span className="text-gray-400 text-sm">✅</span><p className="text-gray-600 text-sm font-body">Capital returned to investor. This position is closed.</p></div>
             )}
-            {investorStatus === 'Renewal In Progress' && (
+            {status === 'renewal' && (
               <div className="space-y-2">
                 <div className="flex items-start gap-2"><span className="text-blue-400 text-sm">🔄</span><p className="text-gray-600 text-sm font-body">Renewal agreement in progress. Payments continuing on original terms.</p></div>
                 <div className="flex items-start gap-2"><span className="text-gray-400 text-sm">→</span><p className="text-gray-500 text-xs font-body">Contact Michael Fox for renewal timeline</p></div>
               </div>
             )}
-            {investorStatus === 'Legal' && (
-              <div className="flex items-start gap-2"><span className="text-red-400 text-sm">⚠️</span><p className="text-gray-600 text-sm font-body">Legal proceedings in progress. Contact Michael Fox immediately.</p></div>
+            {status === 'matured' && (
+              <div className="flex items-start gap-2"><span className="text-blue-400 text-sm">📅</span><p className="text-gray-600 text-sm font-body">Reached maturity. Awaiting renewal or payout — contact Michael Fox for next steps.</p></div>
             )}
-            {(investorStatus === 'Active' || investorStatus === 'Renewed' || !investorStatus) && daysRemaining !== null && (
-              daysRemaining <= 90 && daysRemaining > 0 ? (
-                <div className="flex items-start gap-2"><span className="text-yellow-400 text-sm">⏰</span><p className="text-gray-600 text-sm font-body">Matures in {daysRemaining} days. Renewal discussion upcoming.</p></div>
-              ) : daysRemaining > 0 ? (
-                <div className="flex items-start gap-2"><span className="text-lime text-sm">✅</span><p className="text-gray-600 text-sm font-body">Performing on schedule. Next payment {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('en-CA', { month: 'long', day: 'numeric' })}.</p></div>
-              ) : null
-            )}
+            {status === 'performing' && next && (() => {
+              const daysRemaining = maturityDate ? Math.ceil((new Date(maturityDate).getTime() - Date.now()) / 86400000) : null
+              if (daysRemaining !== null && daysRemaining <= 90 && daysRemaining > 0) {
+                return <div className="flex items-start gap-2"><span className="text-yellow-400 text-sm">⏰</span><p className="text-gray-600 text-sm font-body">Matures in {daysRemaining} days. Renewal discussion upcoming.</p></div>
+              }
+              return <div className="flex items-start gap-2"><span className="text-lime text-sm">✅</span><p className="text-gray-600 text-sm font-body">Performing on schedule. Next payment {formatDateLong(next.date)}.</p></div>
+            })()}
           </div>
 
-          {/* Upcoming Schedule */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="font-heading text-navy font-semibold text-sm mb-3">Upcoming Schedule</p>
-            {isActive ? (
+          {/* Upcoming Schedule — hidden entirely for paid-out / matured positions */}
+          {isPerforming && next && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <p className="font-heading text-navy font-semibold text-sm mb-3">Upcoming Schedule</p>
               <div className="space-y-2">
                 <div className="bg-lime/5 border border-lime/20 rounded-lg p-3 flex justify-between items-center">
-                  <div><p className="text-navy text-sm font-body font-semibold">Next Payment</p><p className="text-gray-500 text-xs font-body">{new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p></div>
-                  <p className="text-lime font-heading font-semibold">{formatCurrency(monthlyIncome)}</p>
+                  <div>
+                    <p className="text-navy text-sm font-body font-semibold">Next Payment</p>
+                    <p className="text-gray-500 text-xs font-body">{formatDateLong(next.date)}</p>
+                  </div>
+                  <p className="text-lime font-heading font-semibold">{formatCurrency(next.amount)}</p>
                 </div>
                 {maturityDate && (
                   <div className="bg-gray-50 rounded-lg p-3 flex justify-between items-center">
-                    <div><p className="text-navy text-sm font-body font-semibold">Term Maturity</p><p className="text-gray-500 text-xs font-body">{new Date(maturityDate).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p></div>
+                    <div>
+                      <p className="text-navy text-sm font-body font-semibold">Term Maturity</p>
+                      <p className="text-gray-500 text-xs font-body">{formatDateLong(maturityDate)}</p>
+                    </div>
                     <span className="text-gray-400 text-sm">📅</span>
                   </div>
                 )}
               </div>
-            ) : (
-              <p className="text-gray-500 text-sm font-body">No upcoming payments — position {investorStatus === 'Paid Out' ? 'paid out' : 'inactive'}</p>
-            )}
-          </div>
+            </div>
+          )}
+          {status === 'paid_out' && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <p className="font-heading text-navy font-semibold text-sm mb-3">Closed</p>
+              <p className="text-gray-500 text-sm font-body">
+                Paid out on {term.date ? formatDateLong(term.date) : 'an earlier date'}.
+              </p>
+            </div>
+          )}
 
           {/* Notes & Updates */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
