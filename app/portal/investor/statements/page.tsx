@@ -8,6 +8,11 @@ import {
   isActiveInMonth,
   portfolioIRR,
 } from '@/lib/investor-calc';
+import KpiHelpTooltip from '@/components/KpiHelpTooltip';
+
+const IRR_TOOLTIP_BODY = `Money-weighted internal rate of return across all your investments, lifetime to date. Calculated from actual cash flows: principal deployed, monthly interest payments, lender fees, and principal returned.
+
+This is the standard return calculation used in private credit reporting. Short-duration positions can produce high annualized figures that aren't predictive of future returns.`
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', {
@@ -114,8 +119,15 @@ export default function ReportsPage() {
   const totalDeployed = incomeActivePositions.reduce((sum, p) => sum + (Number(p.Investor_Amount) || 0), 0);
   const monthlyIncome = incomeActivePositions.reduce((sum, p) => sum + fromZohoDeal(p).paymentAmount, 0);
   const totalLenderFees = positions.reduce((sum, p) => sum + (Number(p.Lender_Fee) || 0), 0);
-  // Portfolio-level money-weighted IRR — temporary placement. Will be
-  // promoted to a proper KPI card in the next commit.
+  // All-Time Cash Earned = interest received lifetime + lender fees lifetime.
+  // Matches the dashboard's card #4.
+  const allTimeCashEarned = allTimeInterest + totalLenderFees
+  // Avg Return: principal-weighted would be more rigorous, but the
+  // dashboard uses an unweighted average for the same field, so we match
+  // its formula here to keep the two pages consistent.
+  const avgRate = incomeActivePositions.length > 0
+    ? incomeActivePositions.reduce((sum, p) => sum + (Number(p.Investor_Rate) || 0), 0) / incomeActivePositions.length
+    : 0;
   const portfolioIRRValue = portfolioIRR(positions.map(p => fromZohoDeal(p)))
   const portfolioIRRDisplay = portfolioIRRValue !== null
     ? `${(portfolioIRRValue * 100).toFixed(1)}%`
@@ -136,24 +148,30 @@ export default function ReportsPage() {
         <p className="text-gray-400 text-sm font-body mt-0.5">Monthly earnings summaries for your private mortgage investments</p>
       </div>
 
-      {/* KPI Bar */}
-      <div className="bg-navy rounded-xl p-5 mb-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* KPI Bar — mirrors the dashboard's 5-column layout: deployment →
+          performance → lifetime return. Card 5 is the IRR hero. */}
+      <div className="bg-navy rounded-xl p-5 mb-6 grid grid-cols-2 sm:grid-cols-5 gap-4">
         {[
-          { label: 'ALL-TIME INTEREST', value: formatCurrency(allTimeInterest) },
-          { label: 'LENDER FEES EARNED', value: formatCurrency(totalLenderFees) },
-          { label: 'ACTIVE CAPITAL', value: formatCurrency(totalDeployed) },
-          { label: 'MONTHLY INCOME', value: formatCurrency(monthlyIncome) },
+          { label: 'TOTAL DEPLOYED',          value: formatCurrency(totalDeployed),     sub: `Across ${incomeActivePositions.length} active position${incomeActivePositions.length !== 1 ? 's' : ''}` },
+          { label: 'AVG RETURN',              value: `${avgRate.toFixed(1)}%`,          sub: 'Active positions' },
+          { label: 'MONTHLY INCOME',          value: formatCurrency(monthlyIncome),     sub: 'Current run rate' },
+          { label: 'ALL-TIME CASH EARNED',    value: formatCurrency(allTimeCashEarned), sub: 'Interest + lender fees' },
         ].map((kpi, i) => (
           <div key={i} className={i > 0 ? 'sm:border-l sm:border-white/10 sm:pl-4' : ''}>
             <p className="text-gray-400 text-xs font-body uppercase tracking-wider">{kpi.label}</p>
             <p className="font-heading text-white text-xl font-bold mt-1">{kpi.value}</p>
+            <p className="text-gray-500 text-xs mt-1 font-body">{kpi.sub}</p>
           </div>
         ))}
+        <div className="sm:border-l sm:border-white/10 sm:pl-4">
+          <p className="text-gray-400 text-xs font-body uppercase tracking-wider flex items-center gap-1.5">
+            ALL-TIME ANNUALIZED RETURN
+            <KpiHelpTooltip title="Portfolio IRR (lifetime, annualized)" body={IRR_TOOLTIP_BODY} variant="dark" />
+          </p>
+          <p className="font-heading text-white text-xl font-bold mt-1">{portfolioIRRDisplay}</p>
+          <p className="text-gray-500 text-xs mt-1 font-body">Money-weighted IRR</p>
+        </div>
       </div>
-      <p className="text-gray-500 text-xs font-body mb-6">
-        Portfolio IRR (lifetime, annualized):{' '}
-        <span className="text-navy font-semibold">{portfolioIRRDisplay}</span>
-      </p>
 
       {/* Year Tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">

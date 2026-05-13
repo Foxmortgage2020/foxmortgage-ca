@@ -7,6 +7,7 @@ import { useUser } from '@clerk/nextjs';
 import { Search, Download, MessageSquare, TrendingUp, DollarSign, Percent, Wallet, CircleDollarSign } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import PortalErrorState from '@/components/PortalErrorState';
+import KpiHelpTooltip from '@/components/KpiHelpTooltip';
 import {
   deriveStatus,
   isIncomeActive as calcIsIncomeActive,
@@ -18,6 +19,10 @@ import {
   fromZohoDeal,
   type InvestmentStatus,
 } from '@/lib/investor-calc';
+
+const IRR_TOOLTIP_BODY = `Money-weighted internal rate of return across all your investments, lifetime to date. Calculated from actual cash flows: principal deployed, monthly interest payments, lender fees, and principal returned.
+
+This is the standard return calculation used in private credit reporting. Short-duration positions can produce high annualized figures that aren't predictive of future returns.`
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
@@ -148,8 +153,6 @@ export default function InvestorDashboard() {
   const legalPositions = positions.filter(p => p.Investor_Status === 'Legal')
 
   const totalMonthlyIncome = positions.reduce((sum, p) => sum + monthlyIncomeFor(p), 0)
-  // Portfolio-level money-weighted IRR. Temporary placement — will be
-  // restructured into a proper KPI card in the next commit.
   const portfolioIRRValue = calcPortfolioIRR(positions.map(p => fromZohoDeal(p)))
   const portfolioIRRDisplay = portfolioIRRValue !== null
     ? `${(portfolioIRRValue * 100).toFixed(1)}%`
@@ -159,16 +162,19 @@ export default function InvestorDashboard() {
     ? activePositions.reduce((sum, p) => sum + (Number(p.Investor_Rate) || 0), 0) / activePositions.length : 0
   const totalInterestEarned = positions.reduce((sum, p) => sum + interestEarnedFor(p), 0)
   const totalLenderFees = positions.reduce((sum, p) => sum + (Number(p.Lender_Fee) || 0), 0)
-  const totalReturn = totalInterestEarned + totalLenderFees
+  // "All-Time Cash Earned" is interest + lender fees combined — the
+  // historical cash investors actually received, not the projection-leaning
+  // interest-only number.
+  const allTimeCashEarned = totalInterestEarned + totalLenderFees
   const annualProjected = totalMonthlyIncome * 12
-  const unallocatedCapital = 0
 
+  // Card 1-4 driven by this array; the IRR card (#5) is rendered
+  // explicitly so it can host the help-tooltip alongside its label.
   const stats = [
-    { icon: DollarSign, value: formatCurrency(totalDeployed), label: 'Total Deployed', sub: `Across ${activePositions.length} active position${activePositions.length !== 1 ? 's' : ''}` },
-    { icon: TrendingUp, value: formatCurrency(totalInterestEarned), label: 'Interest Earned', sub: 'All time' },
-    { icon: Percent, value: `${avgRate.toFixed(1)}%`, label: 'Avg Return', sub: 'Active positions' },
-    { icon: Wallet, value: formatCurrency(totalMonthlyIncome), label: 'Monthly Income', sub: 'Current run rate' },
-    { icon: CircleDollarSign, value: formatCurrency(unallocatedCapital), label: 'Unallocated', sub: 'Available to deploy' },
+    { icon: DollarSign,        value: formatCurrency(totalDeployed),       label: 'Total Deployed',       sub: `Across ${activePositions.length} active position${activePositions.length !== 1 ? 's' : ''}` },
+    { icon: Percent,           value: `${avgRate.toFixed(1)}%`,            label: 'Avg Return',           sub: 'Active positions' },
+    { icon: Wallet,            value: formatCurrency(totalMonthlyIncome),  label: 'Monthly Income',       sub: 'Current run rate' },
+    { icon: CircleDollarSign,  value: formatCurrency(allTimeCashEarned),   label: 'All-Time Cash Earned', sub: 'Interest + lender fees' },
   ];
 
   // Tab filtering — maps the InvestmentStatus enum to tab keys.
@@ -296,21 +302,28 @@ export default function InvestorDashboard() {
         )}
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-2">
-        {stats.map((stat, i) => (
+      {/* KPI Row — left-to-right narrative: deployment → performance → lifetime return */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {stats.map(stat => (
           <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow">
             <stat.icon className="w-5 h-5 text-lime mb-2" />
-            <p className={`font-heading text-2xl ${i === 4 && unallocatedCapital > 0 ? 'text-lime' : 'text-navy'}`}>{stat.value}</p>
+            <p className="font-heading text-2xl text-navy">{stat.value}</p>
             <p className="text-gray-500 text-sm font-body">{stat.label}</p>
             <p className="text-gray-400 text-xs mt-1 font-body">{stat.sub}</p>
           </div>
         ))}
+        {/* IRR hero card — same shape as the others, distinguished by the
+            value and its help icon, not by layout. */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow">
+          <TrendingUp className="w-5 h-5 text-lime mb-2" />
+          <p className="font-heading text-2xl text-navy">{portfolioIRRDisplay}</p>
+          <p className="text-gray-500 text-sm font-body flex items-center gap-1.5">
+            All-Time Annualized Return
+            <KpiHelpTooltip title="Portfolio IRR (lifetime, annualized)" body={IRR_TOOLTIP_BODY} />
+          </p>
+          <p className="text-gray-400 text-xs mt-1 font-body">Money-weighted IRR</p>
+        </div>
       </div>
-      <p className="text-gray-500 text-xs font-body mb-6">
-        Portfolio IRR (lifetime, annualized):{' '}
-        <span className="text-navy font-semibold">{portfolioIRRDisplay}</span>
-      </p>
 
       {/* Loan Details */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -396,7 +409,7 @@ export default function InvestorDashboard() {
             <p className="text-gray-400 text-xs mt-1 font-body">One-time origination fees</p>
           </div>
           <div className="bg-navy/80 rounded-xl border-l-4 border-lime p-5">
-            <p className="font-heading text-2xl text-lime">{formatCurrency(totalReturn)}</p>
+            <p className="font-heading text-2xl text-lime">{formatCurrency(allTimeCashEarned)}</p>
             <p className="text-gray-300 text-sm font-body">Total Return</p>
             <p className="text-gray-400 text-xs mt-1 font-body">Interest + fees combined</p>
           </div>
