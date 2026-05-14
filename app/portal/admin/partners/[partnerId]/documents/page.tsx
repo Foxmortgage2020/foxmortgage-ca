@@ -10,9 +10,15 @@ import DocumentUploader from '@/components/DocumentUploader'
 // caching benefit, just confusing build-time errors if we let it try.
 export const dynamic = 'force-dynamic'
 
+// Same date-only timezone fix as the partner detail page — parse
+// YYYY-MM-DD strings as local components so they don't render one day
+// earlier in Eastern timezone.
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
-  const d = new Date(iso)
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  const d = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(iso)
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 }

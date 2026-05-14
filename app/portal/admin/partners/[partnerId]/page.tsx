@@ -23,9 +23,16 @@ export const dynamic = 'force-dynamic'
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n)
 
+// Date-only strings from Zoho (Uploaded_Date, Expiry_Date, etc.) come
+// as bare YYYY-MM-DD and `new Date(iso)` parses them as midnight UTC —
+// which renders one day earlier in Eastern timezone. Parse as local
+// components so the rendered day matches Zoho.
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
-  const d = new Date(iso)
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  const d = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(iso)
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 }

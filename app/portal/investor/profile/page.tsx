@@ -87,12 +87,13 @@ function countApprovedRequiredDocs(docs: PartnerDocument[]): number {
 }
 
 // 10 profile fields + 5 required documents = 15 completion items.
-// Rounded to nearest 10% per spec.
+// Rounded to nearest whole percent so each completed item bumps the
+// headline number visibly (every item is ~6.7%; nearest-10% rounding
+// hid the change when uploading the first document).
 function computeCompletion(p: PartnerProfile, docs: PartnerDocument[]): number {
   const filled = countFilledFields(p) + countApprovedRequiredDocs(docs)
   const total = COMPLETION_FIELD_KEYS.length + REQUIRED_DOCUMENT_TYPES.length
-  const raw = (filled / total) * 100
-  return Math.round(raw / 10) * 10
+  return Math.round((filled / total) * 100)
 }
 
 function documentStatusBadge(status: string | null): { label: string; cls: string } {
@@ -104,9 +105,17 @@ function documentStatusBadge(status: string | null): { label: string; cls: strin
   }
 }
 
+// Zoho returns date-only fields (Date_of_Birth, Uploaded_Date, etc.)
+// as bare YYYY-MM-DD strings. `new Date(iso)` parses those as midnight
+// UTC, which in Eastern timezone renders one day earlier. For date-only
+// strings we construct a local Date directly from the components so the
+// rendered day matches what's stored in Zoho.
 function formatDob(iso: string | null): string {
   if (!iso) return '—'
-  const d = new Date(iso)
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  const d = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(iso)
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 }
