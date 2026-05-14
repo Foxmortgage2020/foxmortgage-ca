@@ -5,7 +5,13 @@
 //   ZOHO_REFRESH_TOKEN
 //   ZOHO_ORG_ID
 
-import { opportunitiesCache, fpMessagesCache, partnersCache } from '@/lib/cache'
+import {
+  opportunitiesCache,
+  fpMessagesCache,
+  partnersCache,
+  getDocumentHints,
+  pruneDocumentHints,
+} from '@/lib/cache'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
@@ -310,17 +316,13 @@ function normalizePartnerDocument(r: any): PartnerDocument {
   }
 }
 
-/**
- * List Partner_Documents records for a single partner. Optional status
- * filter narrows the result to the investor-visible subset (Approved /
- * Submitted / Expired) — admins fetch unfiltered.
- */
-export async function getPartnerDocuments(
+// Internal: just the search half of getPartnerDocuments. Split out so
+// the public function can run search + hint fetches in parallel.
+async function searchPartnerDocuments(
   partnerId: string,
   statuses?: string[],
 ): Promise<PartnerDocument[]> {
   const token = await getZohoToken()
-  // criteria: (Partner.id:equals:{id}) AND ((Document_Status:equals:Approved)or(...))
   const partnerClause = `(Partner.id:equals:${partnerId})`
   let criteria = partnerClause
   if (statuses && statuses.length > 0) {
@@ -335,11 +337,73 @@ export async function getPartnerDocuments(
   if (res.status === 204) return []
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    console.error('[zoho] getPartnerDocuments error:', res.status, text.substring(0, 300))
+    console.error('[zoho] searchPartnerDocuments error:', res.status, text.substring(0, 300))
     throw new Error(`Zoho Partner_Documents search failed with status ${res.status}`)
   }
   const data = await res.json()
   return (data?.data ?? []).map(normalizePartnerDocument)
+}
+
+/**
+ * List Partner_Documents records for a single partner. Optional status
+ * filter narrows the result to the investor-visible subset (Approved /
+ * Submitted / Expired) — admins fetch unfiltered.
+ *
+ * Read-after-write: Zoho's custom-module search index has 1-5 min
+ * latency on freshly created records, so this function additionally
+ * fetches any cached hint ids (records created in the last 5 min on
+ * this Vercel instance) by direct id and merges them in. Direct id
+ * fetches have immediate consistency. Once an id starts showing up
+ * in search results the hint is pruned so the cache doesn't drift.
+ */
+export async function getPartnerDocuments(
+  partnerId: string,
+  statuses?: string[],
+): Promise<PartnerDocument[]> {
+  const hintIds = getDocumentHints(partnerId)
+
+  // Run the search + hint-by-id fetches in parallel. A failure on any
+  // single hint id (e.g. record deleted in Zoho between hint and fetch)
+  // is treated as "no record" rather than poisoning the whole list.
+  const [searchResults, hintFetches] = await Promise.all([
+    searchPartnerDocuments(partnerId, statuses),
+    Promise.all(
+      hintIds.map(id =>
+        getPartnerDocument(id).catch(err => {
+          console.error('[zoho] hint fetch failed for document', id, err)
+          return null
+        }),
+      ),
+    ),
+  ])
+
+  const hintResults = hintFetches.filter((d): d is PartnerDocument => d !== null)
+
+  // Filter hint results to match the same status filter the caller
+  // requested. Admin uploads default to Approved so the investor-view
+  // statuses [Approved, Submitted, Expired] is a passthrough in
+  // practice — this branch matters if an admin ever uploads a record
+  // in Pending status (then the investor read still hides it).
+  const filteredHints = statuses && statuses.length > 0
+    ? hintResults.filter(d => d.documentStatus !== null && statuses.includes(d.documentStatus))
+    : hintResults
+
+  // Merge + dedupe by id. Search results win on conflict (canonical
+  // post-indexing shape).
+  const searchIds = new Set(searchResults.map(d => d.id))
+  const merged = [
+    ...searchResults,
+    ...filteredHints.filter(d => !searchIds.has(d.id)),
+  ]
+
+  // Prune any hints that the search index has now caught up to. Skips
+  // the work entirely if there were no hints in the first place.
+  if (hintIds.length > 0) {
+    const resolved = hintIds.filter(id => searchIds.has(id))
+    if (resolved.length > 0) pruneDocumentHints(partnerId, resolved)
+  }
+
+  return merged
 }
 
 /**

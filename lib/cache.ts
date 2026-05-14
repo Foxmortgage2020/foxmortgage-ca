@@ -50,3 +50,73 @@ export const partnersCache = createCache<string, any[]>({
   max: 4,
   ttlMs: 2 * 60 * 1000,
 })
+
+// Document hint cache — read-after-write workaround for Zoho's custom
+// module search index, which has 1-5 min latency on freshly-created
+// records. After an admin upload we cache the new document id keyed
+// by partner id; the next getPartnerDocuments call fetches those ids
+// directly (immediate consistency) and merges with the search results
+// so the investor sees their upload right away even before search
+// indexing catches up.
+//
+// 5-min TTL covers the typical Zoho indexing window. Capped at 100
+// partner-key entries; cap on hint count per partner enforced at the
+// helper level.
+//
+// Caveat: each Vercel Node lambda has its own cache instance. If the
+// upload lands on instance A and the next read lands on instance B,
+// the hint isn't there and the user sees the previous behavior
+// (empty until search catches up). Acceptable for Phase 1; the
+// COQL migration noted in commit message gives us global immediate
+// consistency.
+export const documentHintsCache = createCache<string, string[]>({
+  max: 100,
+  ttlMs: 5 * 60 * 1000,
+})
+
+const HINT_KEY = (partnerId: string) => `hints:${partnerId}`
+// Per-partner cap. Twenty consecutive uploads within five minutes for
+// one investor is already implausible; the cap is a safety belt.
+const MAX_HINTS_PER_PARTNER = 20
+
+/**
+ * Record a freshly-created document id against a partner. Newest entries
+ * win when the cap is exceeded (LRU-style, but the underlying store is
+ * an LRUCache of arrays — we manage the per-partner order ourselves).
+ *
+ * Idempotent: re-adding an id that's already in the list moves it to
+ * the end rather than duplicating.
+ */
+export function addDocumentHint(partnerId: string, documentId: string): void {
+  const key = HINT_KEY(partnerId)
+  const existing = documentHintsCache.get(key) ?? []
+  const next = [...existing.filter(id => id !== documentId), documentId]
+    .slice(-MAX_HINTS_PER_PARTNER)
+  documentHintsCache.set(key, next)
+}
+
+/**
+ * Returns the recent-upload hints for this partner, or [] if none.
+ * Never null.
+ */
+export function getDocumentHints(partnerId: string): string[] {
+  return documentHintsCache.get(HINT_KEY(partnerId)) ?? []
+}
+
+/**
+ * Remove ids from the hint cache for this partner — used by the read
+ * path once those ids start appearing in the search results, so stale
+ * hints don't accumulate.
+ */
+export function pruneDocumentHints(partnerId: string, idsToRemove: string[]): void {
+  if (idsToRemove.length === 0) return
+  const key = HINT_KEY(partnerId)
+  const existing = documentHintsCache.get(key) ?? []
+  const removeSet = new Set(idsToRemove)
+  const next = existing.filter(id => !removeSet.has(id))
+  if (next.length === 0) {
+    documentHintsCache.delete(key)
+  } else {
+    documentHintsCache.set(key, next)
+  }
+}

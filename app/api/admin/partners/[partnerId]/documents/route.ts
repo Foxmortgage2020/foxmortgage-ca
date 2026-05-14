@@ -6,6 +6,7 @@ import {
   updatePartnerDocument,
   uploadAttachment,
 } from '@/lib/zoho'
+import { addDocumentHint } from '@/lib/cache'
 
 // Document size + MIME guardrails. Mirror the values shown to the
 // admin in the upload form. 10 MiB is well below Zoho's per-attachment
@@ -130,7 +131,9 @@ export async function POST(
         attachErr,
       )
       // Leave the record in place but surface the failure. Mike can
-      // re-upload or delete the orphan in Zoho.
+      // re-upload or delete the orphan in Zoho. We intentionally do
+      // NOT register the hint in this path — the investor portal
+      // should not surface a record with no file attached.
       return NextResponse.json(
         {
           error: 'Document record was created but the file upload failed. Delete the empty record in Zoho before retrying.',
@@ -139,6 +142,13 @@ export async function POST(
         { status: 500 },
       )
     }
+
+    // Read-after-write hint. Zoho's search index has 1-5 min latency
+    // on new custom-module records, so without this the investor
+    // wouldn't see the upload until indexing catches up. The hint
+    // gives getPartnerDocuments a direct-by-id fetch path that's
+    // immediately consistent. See lib/cache.ts for the TTL + caveats.
+    addDocumentHint(partnerId, documentId)
 
     // Best-effort File_URL backfill — fine if it fails since the
     // download flow doesn't rely on it.
