@@ -40,3 +40,13 @@ export const fpMessagesCache = createCache<string, any[]>({
   max: 500,
   ttlMs: 2 * 60 * 1000,
 })
+
+// Admin partners list — shared key. 2-min TTL is short enough that any
+// new Partner Mike creates in Zoho shows up quickly when he navigates
+// to the list page, long enough to absorb tab-switch reloads. Two
+// keys: 'all' (the full Partner list) and 'docs:all' (full
+// Partner_Documents list used for per-partner doc counts on the table).
+export const partnersCache = createCache<string, any[]>({
+  max: 4,
+  ttlMs: 2 * 60 * 1000,
+})

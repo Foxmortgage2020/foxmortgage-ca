@@ -52,6 +52,7 @@ const adminNavItems = [
 
 const adminToolsNavItems = [
   { label: 'Bookkeeping', href: '/portal/bookkeeping', icon: BookOpen },
+  { label: 'Partners', href: '/portal/admin/partners', icon: Users },
   { label: 'Review Queue', href: '/portal/bookkeeping/review-queue', icon: ClipboardList },
 ]
 

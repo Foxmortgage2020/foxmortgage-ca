@@ -5,7 +5,7 @@
 //   ZOHO_REFRESH_TOKEN
 //   ZOHO_ORG_ID
 
-import { opportunitiesCache, fpMessagesCache } from '@/lib/cache'
+import { opportunitiesCache, fpMessagesCache, partnersCache } from '@/lib/cache'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
@@ -149,6 +149,129 @@ function normalizePartnerProfile(r: any): PartnerProfile {
     riskProfile: r.Risk_Profile ?? null,
     investorPreferences: r.Investor_Preferences ?? null,
   }
+}
+
+// ─── Partner list (admin) ─────────────────────────────────────────────────
+
+// Slim field list for the admin partners list table — name, contact,
+// type, last-activity. Avoid pulling the heavier profile fields like
+// Investor_Preferences here; the detail page re-fetches via getPartner.
+const PARTNER_LIST_FIELDS = [
+  'Name', 'Email', 'Phone', 'Mobile', 'City', 'Province',
+  'Partner_Type', 'Partner_Status', 'Modified_Time',
+].join(',')
+
+export interface PartnerListItem {
+  id: string
+  name: string | null
+  email: string | null
+  phone: string | null
+  city: string | null
+  province: string | null
+  partnerType: string | null
+  partnerStatus: string | null
+  modifiedTime: string | null
+}
+
+function normalizePartnerListItem(r: any): PartnerListItem {
+  return {
+    id: r.id,
+    name: r.Name ?? null,
+    email: r.Email ?? null,
+    phone: r.Mobile ?? r.Phone ?? null,
+    city: r.City ?? null,
+    province: r.Province ?? null,
+    partnerType: r.Partner_Type ?? null,
+    partnerStatus: r.Partner_Status ?? null,
+    modifiedTime: r.Modified_Time ?? null,
+  }
+}
+
+/**
+ * Returns every Partner record. Pages through Zoho's 200-per-page max
+ * until `more_records` is false. Cached for 2 min under a single key
+ * (the admin list is the only consumer right now).
+ *
+ * Returns [] if the org has no Partner records.
+ */
+export async function listAllPartners(): Promise<PartnerListItem[]> {
+  const cacheKey = 'all'
+  const cached = partnersCache.get(cacheKey) as PartnerListItem[] | undefined
+  if (cached !== undefined) return cached
+
+  const token = await getZohoToken()
+  const all: PartnerListItem[] = []
+  let page = 1
+  // Hard cap on page iterations as a safety net — even at 200/page that
+  // covers 4,000 partners, which is well above any realistic count.
+  while (page <= 20) {
+    const url = `${ZOHO_API}/Partners?fields=${PARTNER_LIST_FIELDS}&per_page=200&page=${page}&sort_by=Modified_Time&sort_order=desc`
+    const res = await fetch(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      cache: 'no-store',
+    })
+    if (res.status === 204) break
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error('[zoho] listAllPartners error:', res.status, text.substring(0, 300))
+      throw new Error(`Zoho Partners list failed with status ${res.status}`)
+    }
+    const data = await res.json()
+    const rows = (data?.data ?? []).map(normalizePartnerListItem)
+    all.push(...rows)
+    const moreRecords = data?.info?.more_records === true
+    if (!moreRecords) break
+    page += 1
+  }
+
+  partnersCache.set(cacheKey, all)
+  return all
+}
+
+/**
+ * Returns every Partner_Documents record (slim shape). Used by the
+ * admin partners list to count documents per partner without N+1.
+ * Cached separately from the partners list so we can invalidate them
+ * independently if needed.
+ */
+export async function listAllPartnerDocuments(): Promise<PartnerDocument[]> {
+  const cacheKey = 'docs:all'
+  const cached = partnersCache.get(cacheKey) as PartnerDocument[] | undefined
+  if (cached !== undefined) return cached
+
+  const token = await getZohoToken()
+  const all: PartnerDocument[] = []
+  let page = 1
+  while (page <= 20) {
+    const url = `${ZOHO_API}/Partner_Documents?fields=${PARTNER_DOCUMENT_FIELDS}&per_page=200&page=${page}`
+    const res = await fetch(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      cache: 'no-store',
+    })
+    if (res.status === 204) break
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error('[zoho] listAllPartnerDocuments error:', res.status, text.substring(0, 300))
+      throw new Error(`Zoho Partner_Documents list failed with status ${res.status}`)
+    }
+    const data = await res.json()
+    const rows = (data?.data ?? []).map(normalizePartnerDocument)
+    all.push(...rows)
+    if (data?.info?.more_records !== true) break
+    page += 1
+  }
+
+  partnersCache.set(cacheKey, all)
+  return all
+}
+
+/**
+ * Fetch every Deal where this partner is the Investor_Name. Same
+ * shape and field list as the investor positions endpoint — the admin
+ * detail page is just viewing one investor's holdings.
+ */
+export async function getDealsByPartner(partnerId: string): Promise<any[]> {
+  return getInvestorPositions(partnerId)
 }
 
 // ─── Partner_Documents (custom module) ────────────────────────────────────
