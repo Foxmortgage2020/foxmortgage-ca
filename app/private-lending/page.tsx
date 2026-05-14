@@ -64,8 +64,8 @@ function Hero() {
           <h1 className="font-heading font-bold text-4xl md:text-5xl lg:text-6xl leading-tight mb-6">Earn 9&ndash;14% Returns Secured by Ontario Real Estate</h1>
           <p className="font-body text-gray-300 text-lg mb-8 max-w-xl">Deploy capital into first and second position mortgages backed by registered charges on residential and commercial properties across Ontario.</p>
           <div className="flex flex-wrap gap-4">
-            <Link href="#investor-form" className="border border-white text-white font-heading font-bold text-sm px-6 py-3 rounded-lg hover:bg-white/10 transition-colors">Download Investor Guide</Link>
-            <Link href="#how-it-works" className="bg-lime text-navy font-heading font-bold text-sm px-6 py-3 rounded-lg hover:bg-lime-dark transition-colors">See How It Works</Link>
+            <Link href="/private-lending/apply" className="bg-lime text-navy font-heading font-bold text-sm px-6 py-3 rounded-lg hover:bg-lime-dark transition-colors">Apply to invest</Link>
+            <Link href="#how-it-works" className="border border-white text-white font-heading font-bold text-sm px-6 py-3 rounded-lg hover:bg-white/10 transition-colors">See how it works</Link>
           </div>
         </div>
         <div className="lg:col-span-2">
@@ -459,7 +459,7 @@ function HowToGetStarted() {
           ))}
         </div>
         <div className="text-center">
-          <Link href="#investor-form" className="bg-lime text-navy px-8 py-4 rounded-lg font-heading font-bold text-lg hover:bg-lime-dark transition-colors inline-block">Schedule Your Investor Call</Link>
+          <Link href="/private-lending/apply" className="bg-lime text-navy px-8 py-4 rounded-lg font-heading font-bold text-lg hover:bg-lime-dark transition-colors inline-block">Apply to invest</Link>
           <p className="font-body text-gray-500 text-sm mt-4">No obligation. No pressure. Just a conversation about whether this fits your portfolio.</p>
         </div>
       </div>

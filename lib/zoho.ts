@@ -11,6 +11,9 @@ import {
   partnersCache,
   getDocumentHints,
   pruneDocumentHints,
+  rememberMagicLink,
+  forgetMagicLink,
+  lookupMagicLink,
 } from '@/lib/cache'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
@@ -110,16 +113,19 @@ const DEAL_FIELDS = [
 // is no Mailing_ prefix on this module. Verified via getFields on the
 // Partners module.
 const PARTNER_PROFILE_FIELDS = [
-  'Name', 'Email', 'Phone', 'Mobile',
+  'Name', 'Preferred_Name', 'Email', 'Phone', 'Mobile',
   'Street', 'City', 'Province', 'Postal_Code',
   'Partner_Type', 'Partner_Status',
   'Date_of_Birth', 'Residency_Status', 'Entity_Type',
   'Risk_Profile', 'Investor_Preferences',
+  'Onboarding_Stage', 'Last_Onboarding_Step',
+  'Magic_Link_Token', 'Magic_Link_Expires_At', 'Magic_Link_Used_At',
 ].join(',')
 
 export interface PartnerProfile {
   id: string
   name: string | null
+  preferredName: string | null
   email: string | null
   phone: string | null
   mobile: string | null
@@ -134,12 +140,18 @@ export interface PartnerProfile {
   entityType: string | null
   riskProfile: string | null
   investorPreferences: string | null
+  onboardingStage: string | null
+  lastOnboardingStep: string | null
+  magicLinkToken: string | null
+  magicLinkExpiresAt: string | null  // ISO datetime from Zoho
+  magicLinkUsedAt: string | null
 }
 
 function normalizePartnerProfile(r: any): PartnerProfile {
   return {
     id: r.id,
     name: r.Name ?? null,
+    preferredName: r.Preferred_Name ?? null,
     email: r.Email ?? null,
     phone: r.Phone ?? null,
     mobile: r.Mobile ?? null,
@@ -154,6 +166,11 @@ function normalizePartnerProfile(r: any): PartnerProfile {
     entityType: r.Entity_Type ?? null,
     riskProfile: r.Risk_Profile ?? null,
     investorPreferences: r.Investor_Preferences ?? null,
+    onboardingStage: r.Onboarding_Stage ?? null,
+    lastOnboardingStep: r.Last_Onboarding_Step ?? null,
+    magicLinkToken: r.Magic_Link_Token ?? null,
+    magicLinkExpiresAt: r.Magic_Link_Expires_At ?? null,
+    magicLinkUsedAt: r.Magic_Link_Used_At ?? null,
   }
 }
 
@@ -610,6 +627,106 @@ export async function getPartner(partnerId: string): Promise<PartnerProfile | nu
   const record = data?.data?.[0]
   if (!record) return null
   return normalizePartnerProfile(record)
+}
+
+/**
+ * Update arbitrary fields on a Partner record. Mirror of
+ * updatePartnerDocument — accepts a patch map keyed by Zoho api_name.
+ * Throws on any non-OK so route handlers can fall through to their
+ * sanitized error response.
+ */
+export async function updatePartner(
+  partnerId: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const token = await getZohoToken()
+  const res = await fetch(`${ZOHO_API}/Partners/${partnerId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ data: [{ id: partnerId, ...patch }] }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] updatePartner error:', res.status, text.substring(0, 500))
+    throw new Error(`Zoho update Partners failed with status ${res.status}`)
+  }
+}
+
+/**
+ * Create a Partner record. Returns the new record id on success.
+ * Mirror of createPartnerDocument's POST shape. The caller is
+ * responsible for passing field names that exist on the Partners
+ * module — Zoho silently drops unknowns.
+ */
+export async function createPartner(payload: Record<string, unknown>): Promise<string> {
+  const token = await getZohoToken()
+  const res = await fetch(`${ZOHO_API}/Partners`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ data: [payload] }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] createPartner error:', res.status, text.substring(0, 500))
+    throw new Error(`Zoho create Partners failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  const id = data?.data?.[0]?.details?.id
+  if (!id) throw new Error(`Zoho create Partners returned no id: ${JSON.stringify(data)}`)
+  return id as string
+}
+
+/**
+ * Find a Partner by their magic-link token. Hits the read-after-write
+ * cache first (lib/cache.ts) so freshly-issued tokens resolve
+ * immediately even before Zoho's search index catches up. Falls
+ * through to /Partners/search on cache miss.
+ *
+ * Returns null if no Partner matches. Does NOT validate expiry or
+ * usage — caller is responsible for those checks.
+ */
+export async function findPartnerByMagicLinkToken(token: string): Promise<PartnerProfile | null> {
+  if (!token) return null
+
+  // Cache fast-path: token was just issued on this Vercel instance.
+  const cachedPartnerId = lookupMagicLink(token)
+  if (cachedPartnerId) {
+    const partner = await getPartner(cachedPartnerId)
+    // If the partner exists and the token still matches, return.
+    // Otherwise the cache is stale (token was rotated) — fall through
+    // to search.
+    if (partner && partner.magicLinkToken === token) return partner
+    forgetMagicLink(token)
+  }
+
+  // Search path: criteria match on Magic_Link_Token.
+  const zohoToken = await getZohoToken()
+  const url = `${ZOHO_API}/Partners/search?criteria=${encodeURIComponent(
+    `(Magic_Link_Token:equals:${token})`,
+  )}&fields=${PARTNER_PROFILE_FIELDS}&per_page=1`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${zohoToken}` },
+    cache: 'no-store',
+  })
+  if (res.status === 204) return null
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] findPartnerByMagicLinkToken error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho Partners search by token failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  const record = data?.data?.[0]
+  if (!record) return null
+  const partner = normalizePartnerProfile(record)
+  // Repopulate cache so subsequent reads on this instance are fast.
+  rememberMagicLink(token, partner.id)
+  return partner
 }
 
 export async function getInvestorPositions(zohoPartnerId: string) {

@@ -120,3 +120,31 @@ export function pruneDocumentHints(partnerId: string, idsToRemove: string[]): vo
     documentHintsCache.set(key, next)
   }
 }
+
+// Magic-link token → partner id cache. Same read-after-write pattern as
+// documentHintsCache: Zoho's search-by-criteria has 1-5 min indexing
+// latency, so a newly-issued magic link wouldn't resolve via
+// /Partners/search?criteria=(Magic_Link_Token:...) for several minutes
+// after creation. Investors can click the email immediately.
+//
+// Populated on send-link write; consulted by the magic-link route's
+// findPartnerByMagicLinkToken lookup; falls through to search if no
+// hint is present. TTL matches the magic-link lifetime (14 days) so
+// stale hints don't linger after the token expires. Caveat: same
+// per-lambda-instance limitation as the document hint cache.
+export const magicLinkCache = createCache<string, { partnerId: string }>({
+  max: 500,
+  ttlMs: 14 * 24 * 60 * 60 * 1000,
+})
+
+export function rememberMagicLink(token: string, partnerId: string): void {
+  magicLinkCache.set(token, { partnerId })
+}
+
+export function forgetMagicLink(token: string): void {
+  magicLinkCache.delete(token)
+}
+
+export function lookupMagicLink(token: string): string | null {
+  return magicLinkCache.get(token)?.partnerId ?? null
+}

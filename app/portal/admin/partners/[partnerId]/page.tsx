@@ -17,6 +17,8 @@ import {
 } from '@/lib/investor-calc'
 import DocumentUploader from '@/components/DocumentUploader'
 import ImpersonateButton from '@/components/ImpersonateButton'
+import SendOnboardingLinkButton from '@/components/SendOnboardingLinkButton'
+import { isMagicLinkExpired } from '@/lib/onboarding'
 
 export const dynamic = 'force-dynamic'
 
@@ -164,7 +166,27 @@ export default async function AdminPartnerDetailPage({
             {partner.city && <span className="text-gray-600">{partner.city}</span>}
           </div>
         </div>
-        <ImpersonateButton partnerId={partnerId} role="investor" />
+        <div className="flex flex-col items-end gap-2">
+          {/* Send / Resend Onboarding Link button. Visible only on Lead
+              or on Invited when the previous magic link has been used
+              or has expired. Once the investor is In Progress / further,
+              this control disappears. */}
+          {(() => {
+            const stage = partner.onboardingStage
+            if (stage === 'Lead') {
+              return <SendOnboardingLinkButton partnerId={partnerId} label="Send Onboarding Link" />
+            }
+            if (stage === 'Invited') {
+              const tokenStale =
+                Boolean(partner.magicLinkUsedAt) || isMagicLinkExpired(partner.magicLinkExpiresAt)
+              if (tokenStale) {
+                return <SendOnboardingLinkButton partnerId={partnerId} label="Resend Onboarding Link" />
+              }
+            }
+            return null
+          })()}
+          <ImpersonateButton partnerId={partnerId} role="investor" />
+        </div>
       </div>
 
       {/* Overview KPIs */}
