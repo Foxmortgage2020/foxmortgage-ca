@@ -735,6 +735,14 @@ export async function getInvestorPositions(zohoPartnerId: string) {
   const response = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
   })
+
+  // Zoho v2 /search returns 204 No Content with an empty body when zero
+  // records match. Response.ok is true for 204, so we must intercept it
+  // before calling .json() — otherwise the empty body throws
+  // "Unexpected end of JSON input". Same pattern as getInvestorOpportunities
+  // and searchPartnerDocuments.
+  if (response.status === 204 || response.status === 404) return []
+
   if (!response.ok) {
     const text = await response.text()
     console.error('[zoho] getInvestorPositions error:', response.status, text.substring(0, 200))
