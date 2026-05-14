@@ -1,257 +1,250 @@
 'use client';
 
-import { useState } from 'react';
-import { useUser } from '@clerk/nextjs';
-import { Shield } from 'lucide-react';
+// Three fields intentionally deferred from this page:
+// - SIN: captured at deal level in Finmo, not in the CRM
+//   (PIPEDA / compliance concerns)
+// - Compliance Status + Last Review: will be workflow-driven from the
+//   Ontario Compliance Checklist Loop 2 work; manual entry would be
+//   brittle. Both fields will come from that workflow when it lands.
 
-export default function ProfilePage() {
-  const { user } = useUser();
+import { useState, useEffect, useCallback } from 'react'
+import PortalErrorState from '@/components/PortalErrorState'
 
-  const fullName = user?.fullName || 'Investor';
-  const email = user?.primaryEmailAddress?.emailAddress || '—';
-  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`;
+interface PartnerProfile {
+  id: string
+  name: string | null
+  email: string | null
+  phone: string | null
+  mobile: string | null
+  street: string | null
+  city: string | null
+  province: string | null
+  postalCode: string | null
+  partnerType: string | null
+  partnerStatus: string | null
+  dateOfBirth: string | null
+  residencyStatus: string | null
+  entityType: string | null
+  riskProfile: string | null
+  investorPreferences: string | null
+}
 
-  const complianceDocs = [
-    { type: 'KYC Verification', status: 'Verified', statusColor: 'bg-green-100 text-green-700', date: 'Jan 15, 2024', actions: ['View', 'Replace'] },
-    { type: 'AML Compliance', status: 'Verified', statusColor: 'bg-green-100 text-green-700', date: 'Jan 15, 2024', actions: ['View', 'Replace'] },
-    { type: 'Accredited Investor', status: 'Pending', statusColor: 'bg-yellow-100 text-yellow-700', date: 'N/A', actions: ['Upload'] },
-    { type: 'Subscription Agreement', status: 'Verified', statusColor: 'bg-green-100 text-green-700', date: 'Jan 17, 2024', actions: ['View'] },
-    { type: 'Risk Disclosure', status: 'Verified', statusColor: 'bg-green-100 text-green-700', date: 'Jan 17, 2024', actions: ['View'] },
-  ];
+// The 10 fields we measure completion against — matches the 10 fields
+// rendered below (address is one logical field even though it's
+// composed of four columns in Zoho).
+const COMPLETION_FIELD_KEYS = [
+  'name',
+  'email',
+  'phone',
+  'dateOfBirth',
+  'residencyStatus',
+  'partnerType',
+  'entityType',
+  'riskProfile',
+  'investorPreferences',
+  'address',
+] as const
 
-  const signatureHistory = [
-    { doc: 'Subscription Agreement', date: 'Jan 17, 2024', method: 'In-Portal' },
-    { doc: 'Risk Disclosure', date: 'Jan 17, 2024', method: 'In-Portal' },
-  ];
+function isAddressComplete(p: PartnerProfile): boolean {
+  return Boolean(p.street && p.city && p.province && p.postalCode)
+}
 
-  const completionItems = [
-    { label: 'Personal Information', done: true },
-    { label: 'KYC Verification', done: true },
-    { label: 'AML Compliance', done: true },
-    { label: 'Accredited Investor', done: false },
-    { label: 'Subscription Agreement', done: true },
-  ];
-  const completionPct = Math.round((completionItems.filter(i => i.done).length / completionItems.length) * 100);
+function fieldFilled(p: PartnerProfile, key: typeof COMPLETION_FIELD_KEYS[number]): boolean {
+  if (key === 'address') return isAddressComplete(p)
+  const v = p[key as keyof PartnerProfile]
+  return typeof v === 'string' && v.trim().length > 0
+}
+
+function computeCompletion(p: PartnerProfile): number {
+  const filled = COMPLETION_FIELD_KEYS.filter(k => fieldFilled(p, k)).length
+  const raw = (filled / COMPLETION_FIELD_KEYS.length) * 100
+  // Round to nearest 10% per spec.
+  return Math.round(raw / 10) * 10
+}
+
+function formatDob(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function fmt(v: string | null | undefined): string {
+  if (v == null) return '—'
+  const trimmed = String(v).trim()
+  return trimmed.length > 0 ? trimmed : '—'
+}
+
+function formatAddress(p: PartnerProfile): string {
+  const parts = [p.street, p.city, p.province, p.postalCode].filter(Boolean)
+  return parts.length > 0 ? parts.join(', ') : '—'
+}
+
+export default function InvestorProfilePage() {
+  const [profile, setProfile] = useState<PartnerProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [setupPending, setSetupPending] = useState(false)
+
+  const loadProfile = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    setSetupPending(false)
+    fetch('/api/portal/investor/profile')
+      .then(async (res) => {
+        const data = await res.json()
+        if (data.setup_pending) { setSetupPending(true); return }
+        if (data.error) { setError(data.error); return }
+        setProfile(data.profile)
+      })
+      .catch(err => setError(err.message ?? 'Failed to load profile'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { loadProfile() }, [loadProfile])
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-24">
+      <div className="w-8 h-8 border-4 border-lime border-t-transparent rounded-full animate-spin mb-4" />
+      <p className="font-body text-gray-500">Loading your profile...</p>
+    </div>
+  )
+  if (error) return <PortalErrorState message={error} onRetry={loadProfile} />
+  if (setupPending) return (
+    <div className="bg-lime/10 border border-lime/30 rounded-xl p-6 text-center max-w-xl mx-auto">
+      <h2 className="font-heading text-navy text-lg mb-2">Profile Setup Pending</h2>
+      <p className="font-body text-gray-600">
+        Contact Michael at{' '}
+        <a href="mailto:mfox@foxmortgage.ca" className="text-lime font-semibold hover:underline">mfox@foxmortgage.ca</a>{' '}
+        to finish setup.
+      </p>
+    </div>
+  )
+  if (!profile) return null
+
+  const completion = computeCompletion(profile)
+  const address = formatAddress(profile)
 
   return (
     <div>
       <h1 className="font-heading text-2xl font-bold text-navy mb-1">Investor Profile</h1>
-      <p className="font-body text-gray-500 text-sm mb-6">Manage your personal information, compliance documents, and preferences</p>
-
-      {/* Account Status Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {[
-          { label: 'Investor Status', value: 'Active', icon: '✅', color: 'bg-green-50 border-green-200', valueColor: 'text-green-700' },
-          { label: 'Compliance Status', value: 'Action Required', icon: '⚠️', color: 'bg-yellow-50 border-yellow-200', valueColor: 'text-yellow-700' },
-          { label: 'Last Review', value: 'Jan 15, 2024', icon: '📋', color: 'bg-gray-50 border-gray-200', valueColor: 'text-navy' },
-        ].map((item, i) => (
-          <div key={i} className={`border rounded-xl p-4 ${item.color}`}>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-base">{item.icon}</span>
-              <p className="text-gray-500 text-xs font-body">{item.label}</p>
-            </div>
-            <p className={`font-heading font-bold text-base ${item.valueColor}`}>{item.value}</p>
-          </div>
-        ))}
-      </div>
+      <p className="font-body text-gray-500 text-sm mb-6">
+        Your personal information and investor profile. Updates are coordinated through Mike to keep records consistent.
+      </p>
 
       {/* Profile Completion */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
         <div className="flex justify-between items-center mb-3">
           <div>
             <p className="font-heading text-navy font-semibold text-sm">Profile Completion</p>
-            <p className="text-gray-400 text-xs font-body mt-0.5">Complete your profile to unlock full platform access</p>
+            {completion < 100 && (
+              <p className="text-gray-400 text-xs font-body mt-0.5">
+                Contact Mike to update your profile
+              </p>
+            )}
           </div>
-          <span className="font-heading text-navy text-2xl font-bold">{completionPct}%</span>
+          <span className="font-heading text-navy text-2xl font-bold">{completion}%</span>
         </div>
-        <div className="h-2 bg-gray-100 rounded-full mb-3">
-          <div className="h-full bg-lime rounded-full transition-all duration-500" style={{ width: `${completionPct}%` }} />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {completionItems.map((item, i) => (
-            <span key={i} className={`text-xs font-body px-2.5 py-1 rounded-full flex items-center gap-1 ${item.done ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-              {item.done ? '✓' : '!'} {item.label}
-            </span>
-          ))}
+        <div className="h-2 bg-navy/10 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-lime rounded-full transition-all duration-500"
+            style={{ width: `${completion}%` }}
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Personal Information */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-heading text-lg font-bold text-navy">Personal Information</h2>
-              <button className="text-lime text-sm font-medium hover:underline">✏️ Edit</button>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Personal Information */}
+        <section className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="font-heading text-lg font-bold text-navy mb-4">Personal Information</h2>
+          <dl className="grid grid-cols-2 gap-4">
+            <div>
+              <dt className="text-gray-500 text-xs font-body">Name</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(profile.name)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 text-xs font-body">Email</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5 break-all">{fmt(profile.email)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 text-xs font-body">Phone</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(profile.mobile || profile.phone)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 text-xs font-body">Date of Birth</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5">{formatDob(profile.dateOfBirth)}</dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-gray-500 text-xs font-body">Residency Status</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(profile.residencyStatus)}</dd>
+            </div>
+          </dl>
+        </section>
+
+        {/* Investor Profile */}
+        <section className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="font-heading text-lg font-bold text-navy mb-4">Investor Profile</h2>
+          <dl className="space-y-4">
+            <div>
+              <dt className="text-gray-500 text-xs font-body">Partner Type</dt>
+              <dd className="mt-1">
+                {profile.partnerType ? (
+                  <span className="inline-block bg-navy text-lime rounded-full px-3 py-1 text-sm font-body font-semibold">
+                    {profile.partnerType}
+                  </span>
+                ) : (
+                  <span className="text-navy font-medium text-sm font-body">—</span>
+                )}
+              </dd>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-gray-500 text-xs font-body">Full Legal Name</p>
-                <p className="text-navy font-medium text-sm font-body">
-                  {fullName}
-                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-body">✓ Verified</span>
-                </p>
+                <dt className="text-gray-500 text-xs font-body">Entity Type</dt>
+                <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(profile.entityType)}</dd>
               </div>
               <div>
-                <p className="text-gray-500 text-xs font-body">Email</p>
-                <p className="text-navy font-medium text-sm font-body">
-                  {email}
-                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-body">✓ Verified</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs font-body">Phone</p>
-                <p className="text-navy font-medium text-sm font-body">(519) 654-8173</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs font-body">Date of Birth</p>
-                <p className="text-navy font-medium text-sm font-body">••••••••••</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs font-body">Mailing Address</p>
-                <p className="text-navy font-medium text-sm font-body">Fergus, Ontario</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs font-body">SIN</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-navy font-semibold font-body">••••••••••</span>
-                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-body">🔒 Secured</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs font-body">Residency Status</p>
-                <p className="text-navy font-medium text-sm font-body">Canadian Citizen</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs font-body">Entity Type</p>
-                <p className="text-navy font-medium text-sm font-body">Personal Account</p>
+                <dt className="text-gray-500 text-xs font-body">Risk Profile</dt>
+                <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(profile.riskProfile)}</dd>
               </div>
             </div>
-          </div>
-
-          {/* Compliance & Documents */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="font-heading text-lg font-bold text-navy mb-4">Compliance & Documents</h2>
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-xs text-gray-400 font-body uppercase tracking-wider border-b">
-                  <th className="pb-3">Document Type</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3">Uploaded Date</th>
-                  <th className="pb-3">Action</th>
-                </tr>
-              </thead>
-              <tbody className="font-body text-sm">
-                {complianceDocs.map((doc) => (
-                  <tr key={doc.type} className={`border-b last:border-b-0 transition-colors ${doc.status === 'Pending' ? 'bg-yellow-50/50' : 'hover:bg-gray-50'}`}>
-                    <td className="py-3 text-navy font-medium">{doc.type}</td>
-                    <td className="py-3">
-                      <span className={`${doc.statusColor} px-2 py-0.5 rounded-full text-xs font-medium`}>
-                        {doc.status === 'Verified' ? '✓ ' : '⚠ '}{doc.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-gray-500">{doc.date}</td>
-                    <td className="py-3">
-                      <div className="flex gap-2">
-                        {doc.actions.map((action) => (
-                          <button key={action} className="text-lime text-sm hover:underline">{action}</button>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Investor Preferences */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="font-heading text-lg font-bold text-navy mb-1">Investor Preferences</h2>
-            <p className="font-body text-gray-500 text-xs mb-4">Communication Preferences</p>
-            <div className="space-y-2 mb-4">
-              <label className="flex items-center gap-2 font-body text-sm text-navy">
-                <input type="checkbox" defaultChecked className="accent-lime w-4 h-4" /> Email notifications
-              </label>
-              <label className="flex items-center gap-2 font-body text-sm text-navy">
-                <input type="checkbox" className="accent-lime w-4 h-4" /> SMS alerts
-              </label>
-              <label className="flex items-center gap-2 font-body text-sm text-navy">
-                <input type="checkbox" defaultChecked className="accent-lime w-4 h-4" /> Portal notifications only
-              </label>
-            </div>
-            <p className="font-body text-gray-500 text-xs mb-1">Update Frequency</p>
-            <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-navy font-body mb-4">
-              <option>Monthly Portfolio Snapshot</option>
-            </select>
-            <p className="font-body text-gray-500 text-xs mb-2">Notification Settings</p>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 font-body text-sm text-navy">
-                <input type="checkbox" defaultChecked className="accent-lime w-4 h-4" /> Payment alerts
-              </label>
-              <label className="flex items-center gap-2 font-body text-sm text-navy">
-                <input type="checkbox" defaultChecked className="accent-lime w-4 h-4" /> New deal availability
-              </label>
-            </div>
-          </div>
-
-          {/* Risk Profile Summary */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="font-heading text-lg font-bold text-navy">Risk Profile Summary</h2>
-            <p className="text-gray-400 text-xs font-body mt-0.5 mb-4">Based on your completed suitability assessment</p>
-            <div className="space-y-3 font-body text-sm">
-              <div><p className="text-gray-500 text-xs">Profile Type</p><p className="text-navy font-medium">Moderate</p></div>
-              <div><p className="text-gray-500 text-xs">Net Worth</p><p className="text-navy font-medium">$500K - $1M</p></div>
-              <div><p className="text-gray-500 text-xs">Jurisdiction</p><p className="text-navy font-medium">Ontario</p></div>
-              <div><p className="text-gray-500 text-xs">Investment Restrictions</p><p className="text-navy font-medium">Max LTV 75%</p></div>
-            </div>
-            <button onClick={() => alert('Suitability survey will be available soon. Contact mfox@foxmortgage.ca')}
-              className="mt-4 w-full border border-navy text-navy rounded-lg py-2 text-sm font-medium hover:bg-navy/5 transition-colors">
-              Retake Suitability Survey
-            </button>
-          </div>
-
-          {/* Digital Signature History */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="font-heading text-lg font-bold text-navy mb-4">Digital Signature History</h2>
             <div>
-              {signatureHistory.map((sig) => (
-                <div key={sig.doc} className="flex justify-between border-b py-2 last:border-b-0">
-                  <div>
-                    <p className="font-body text-sm text-navy font-medium">{sig.doc}</p>
-                    <p className="font-body text-xs text-gray-400">{sig.date}</p>
+              <dt className="text-gray-500 text-xs font-body">Investor Preferences</dt>
+              <dd className="mt-1">
+                {profile.investorPreferences && profile.investorPreferences.trim().length > 0 ? (
+                  <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 max-h-32 overflow-y-auto">
+                    <p className="text-navy text-sm font-body whitespace-pre-wrap">{profile.investorPreferences}</p>
                   </div>
-                  <span className="font-body text-xs text-gray-500 self-center">{sig.method}</span>
-                </div>
-              ))}
+                ) : (
+                  <span className="text-navy font-medium text-sm font-body">—</span>
+                )}
+              </dd>
             </div>
-          </div>
+          </dl>
+        </section>
 
-          {/* Security Information */}
-          <div className="bg-navy text-white rounded-xl p-5">
-            <h2 className="font-heading text-lg font-bold mb-3 flex items-center gap-2">
-              <Shield className="w-5 h-5" /> Security Information
-            </h2>
-            <div className="space-y-2 font-body text-sm">
-              <div className="flex justify-between"><span className="text-gray-300">Last Login</span><span>Today, 8:09 PM</span></div>
-              <div className="flex justify-between"><span className="text-gray-300">Device</span><span>Chrome on macOS</span></div>
-              <div className="flex justify-between"><span className="text-gray-300">IP</span><span>192.168.1.•••</span></div>
+        {/* Contact */}
+        <section className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
+          <h2 className="font-heading text-lg font-bold text-navy mb-4">Contact</h2>
+          <dl>
+            <div>
+              <dt className="text-gray-500 text-xs font-body">Mailing Address</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5 whitespace-pre-line">
+                {address === '—' ? '—' : (
+                  <>
+                    {profile.street && <>{profile.street}<br /></>}
+                    {(profile.city || profile.province) && (
+                      <>
+                        {[profile.city, profile.province].filter(Boolean).join(', ')}
+                        {profile.postalCode ? `  ${profile.postalCode}` : ''}
+                      </>
+                    )}
+                  </>
+                )}
+              </dd>
             </div>
-            <div className="mt-4 space-y-2">
-              <button className="w-full text-sm font-body text-gray-300 border border-white/20 rounded-lg py-2 hover:border-white/40 hover:bg-white/5 transition-colors">
-                Manage Sessions
-              </button>
-              <button onClick={() => alert('All other sessions have been logged out.')}
-                className="w-full text-sm font-body text-red-300 border border-red-400/30 rounded-lg py-2 hover:bg-red-500/10 transition-colors">
-                Log Out All Devices
-              </button>
-            </div>
-          </div>
-        </div>
+          </dl>
+        </section>
       </div>
     </div>
-  );
+  )
 }

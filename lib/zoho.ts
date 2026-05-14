@@ -97,6 +97,86 @@ const DEAL_FIELDS = [
   'Construction_Type', 'Transaction_Type', 'Contact_Name', 'Lender_Fee',
 ].join(',')
 
+// ─── Partner Profile ──────────────────────────────────────────────────────
+
+// Fields read by the investor Profile page. Address fields live as
+// flat columns on Partners (Street, City, Province, Postal_Code) — there
+// is no Mailing_ prefix on this module. Verified via getFields on the
+// Partners module.
+const PARTNER_PROFILE_FIELDS = [
+  'Name', 'Email', 'Phone', 'Mobile',
+  'Street', 'City', 'Province', 'Postal_Code',
+  'Partner_Type', 'Partner_Status',
+  'Date_of_Birth', 'Residency_Status', 'Entity_Type',
+  'Risk_Profile', 'Investor_Preferences',
+].join(',')
+
+export interface PartnerProfile {
+  id: string
+  name: string | null
+  email: string | null
+  phone: string | null
+  mobile: string | null
+  street: string | null
+  city: string | null
+  province: string | null
+  postalCode: string | null
+  partnerType: string | null
+  partnerStatus: string | null
+  dateOfBirth: string | null         // ISO yyyy-MM-dd from Zoho
+  residencyStatus: string | null
+  entityType: string | null
+  riskProfile: string | null
+  investorPreferences: string | null
+}
+
+function normalizePartnerProfile(r: any): PartnerProfile {
+  return {
+    id: r.id,
+    name: r.Name ?? null,
+    email: r.Email ?? null,
+    phone: r.Phone ?? null,
+    mobile: r.Mobile ?? null,
+    street: r.Street ?? null,
+    city: r.City ?? null,
+    province: r.Province ?? null,
+    postalCode: r.Postal_Code ?? null,
+    partnerType: r.Partner_Type ?? null,
+    partnerStatus: r.Partner_Status ?? null,
+    dateOfBirth: r.Date_of_Birth ?? null,
+    residencyStatus: r.Residency_Status ?? null,
+    entityType: r.Entity_Type ?? null,
+    riskProfile: r.Risk_Profile ?? null,
+    investorPreferences: r.Investor_Preferences ?? null,
+  }
+}
+
+/**
+ * Fetches a Partner record from the custom Partners module by id.
+ * Returns null on 404/204 (no such partner) so the caller can map that
+ * to a friendly "setup pending" state. Throws on any other non-OK
+ * response (auth, scope, network, rate limit) so the route handler's
+ * outer try/catch can return the standard sanitized 503.
+ */
+export async function getPartner(partnerId: string): Promise<PartnerProfile | null> {
+  const token = await getZohoToken()
+  const url = `${ZOHO_API}/Partners/${partnerId}?fields=${PARTNER_PROFILE_FIELDS}`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 404 || res.status === 204) return null
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] getPartner error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho Partners lookup failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  const record = data?.data?.[0]
+  if (!record) return null
+  return normalizePartnerProfile(record)
+}
+
 export async function getInvestorPositions(zohoPartnerId: string) {
   const token = await getZohoToken()
   const url = `${ZOHO_API}/Deals/search?criteria=(Investor_Name:equals:${zohoPartnerId})&fields=${DEAL_FIELDS}&per_page=50`
