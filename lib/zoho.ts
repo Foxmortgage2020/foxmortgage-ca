@@ -151,6 +151,254 @@ function normalizePartnerProfile(r: any): PartnerProfile {
   }
 }
 
+// ─── Partner_Documents (custom module) ────────────────────────────────────
+
+// Field list for the document list view. We don't fetch File_URL because the
+// download flow re-fetches the attachment list directly from Zoho's
+// Attachments API — File_URL is documentation/traceability only.
+const PARTNER_DOCUMENT_FIELDS = [
+  'Name', 'Document_Type', 'Document_Status', 'Uploaded_Date',
+  'Expiry_Date', 'Partner', 'Reviewer_Notes',
+].join(',')
+
+export interface PartnerDocument {
+  id: string
+  name: string
+  documentType: string | null
+  documentStatus: string | null
+  uploadedDate: string | null
+  expiryDate: string | null
+  partnerId: string | null
+  reviewerNotes: string | null
+}
+
+function normalizePartnerDocument(r: any): PartnerDocument {
+  // Partner is a lookup field — Zoho returns it as { id, name } object on read.
+  const partnerRef = r.Partner
+  return {
+    id: r.id,
+    name: r.Name ?? '',
+    documentType: r.Document_Type ?? null,
+    documentStatus: r.Document_Status ?? null,
+    uploadedDate: r.Uploaded_Date ?? null,
+    expiryDate: r.Expiry_Date ?? null,
+    partnerId: typeof partnerRef === 'object' && partnerRef ? (partnerRef.id ?? null) : null,
+    reviewerNotes: r.Reviewer_Notes ?? null,
+  }
+}
+
+/**
+ * List Partner_Documents records for a single partner. Optional status
+ * filter narrows the result to the investor-visible subset (Approved /
+ * Submitted / Expired) — admins fetch unfiltered.
+ */
+export async function getPartnerDocuments(
+  partnerId: string,
+  statuses?: string[],
+): Promise<PartnerDocument[]> {
+  const token = await getZohoToken()
+  // criteria: (Partner.id:equals:{id}) AND ((Document_Status:equals:Approved)or(...))
+  const partnerClause = `(Partner.id:equals:${partnerId})`
+  let criteria = partnerClause
+  if (statuses && statuses.length > 0) {
+    const statusClauses = statuses.map(s => `(Document_Status:equals:${s})`).join('or')
+    criteria = `${partnerClause}and(${statusClauses})`
+  }
+  const url = `${ZOHO_API}/Partner_Documents/search?criteria=${encodeURIComponent(criteria)}&fields=${PARTNER_DOCUMENT_FIELDS}&per_page=200`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 204) return []
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] getPartnerDocuments error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho Partner_Documents search failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  return (data?.data ?? []).map(normalizePartnerDocument)
+}
+
+/**
+ * Fetch a single Partner_Documents record by id. Returns null on 404/204
+ * so the download route can map to a clean 404.
+ */
+export async function getPartnerDocument(documentId: string): Promise<PartnerDocument | null> {
+  const token = await getZohoToken()
+  const url = `${ZOHO_API}/Partner_Documents/${documentId}?fields=${PARTNER_DOCUMENT_FIELDS}`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 404 || res.status === 204) return null
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] getPartnerDocument error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho Partner_Documents lookup failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  const record = data?.data?.[0]
+  if (!record) return null
+  return normalizePartnerDocument(record)
+}
+
+export interface CreatePartnerDocumentInput {
+  name: string                  // Display label, e.g. "KYC - 2026-05-14"
+  partnerId: string
+  documentType: string          // Picklist value
+  documentStatus?: string       // Picklist; defaults to "Approved" on admin upload
+  uploadedDate?: string         // ISO yyyy-MM-dd; defaults to today
+  expiryDate?: string | null
+  reviewerNotes?: string | null
+  fileUrl?: string | null
+}
+
+/**
+ * Create a Partner_Documents record. Returns the new record's id on
+ * success, throws on failure so the route's outer try/catch can return
+ * the sanitized 503.
+ */
+export async function createPartnerDocument(input: CreatePartnerDocumentInput): Promise<string> {
+  const token = await getZohoToken()
+  const today = new Date().toISOString().slice(0, 10)
+  const payload: Record<string, unknown> = {
+    Name: input.name,
+    Partner: { id: input.partnerId },
+    Document_Type: input.documentType,
+    Document_Status: input.documentStatus ?? 'Approved',
+    Uploaded_Date: input.uploadedDate ?? today,
+  }
+  if (input.expiryDate) payload.Expiry_Date = input.expiryDate
+  if (input.reviewerNotes) payload.Reviewer_Notes = input.reviewerNotes
+  if (input.fileUrl) payload.File_URL = input.fileUrl
+
+  const res = await fetch(`${ZOHO_API}/Partner_Documents`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ data: [payload] }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] createPartnerDocument error:', res.status, text.substring(0, 500))
+    throw new Error(`Zoho create Partner_Documents failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  const id = data?.data?.[0]?.details?.id
+  if (!id) throw new Error(`Zoho create Partner_Documents returned no id: ${JSON.stringify(data)}`)
+  return id as string
+}
+
+/**
+ * Update specific fields on an existing Partner_Documents record. Used
+ * to backfill File_URL after the attachment upload succeeds.
+ */
+export async function updatePartnerDocument(documentId: string, patch: Record<string, unknown>): Promise<void> {
+  const token = await getZohoToken()
+  const res = await fetch(`${ZOHO_API}/Partner_Documents/${documentId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ data: [{ id: documentId, ...patch }] }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] updatePartnerDocument error:', res.status, text.substring(0, 500))
+    throw new Error(`Zoho update Partner_Documents failed with status ${res.status}`)
+  }
+}
+
+export interface ZohoAttachment {
+  id: string
+  fileName: string
+  size: number | null
+}
+
+/**
+ * List attachments on a Zoho record.
+ */
+export async function listAttachments(module: string, recordId: string): Promise<ZohoAttachment[]> {
+  const token = await getZohoToken()
+  const url = `${ZOHO_API}/${module}/${recordId}/Attachments`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 204) return []
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] listAttachments error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho listAttachments failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  return (data?.data ?? []).map((a: any) => ({
+    id: a.id,
+    fileName: a.File_Name ?? 'document',
+    size: a.Size != null ? Number(a.Size) : null,
+  }))
+}
+
+/**
+ * Upload a file as an attachment to a Zoho record. Returns the
+ * attachment id. Uses multipart/form-data per Zoho's Attachments API.
+ */
+export async function uploadAttachment(
+  module: string,
+  recordId: string,
+  file: Blob,
+  fileName: string,
+): Promise<string> {
+  const token = await getZohoToken()
+  const form = new FormData()
+  form.append('file', file, fileName)
+  const res = await fetch(`${ZOHO_API}/${module}/${recordId}/Attachments`, {
+    method: 'POST',
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    body: form,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] uploadAttachment error:', res.status, text.substring(0, 500))
+    throw new Error(`Zoho upload attachment failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  const id = data?.data?.[0]?.details?.id
+  if (!id) throw new Error(`Zoho upload attachment returned no id: ${JSON.stringify(data)}`)
+  return id as string
+}
+
+/**
+ * Download an attachment as a Response, ready to forward to the client.
+ * Zoho's Attachments GET endpoint returns the file binary directly (no
+ * intermediate redirect on the v2 API as long as the request includes
+ * the Zoho-oauthtoken header). We pass through Content-Type and let the
+ * route handler set Content-Disposition.
+ */
+export async function fetchAttachment(
+  module: string,
+  recordId: string,
+  attachmentId: string,
+): Promise<{ body: ArrayBuffer; contentType: string }> {
+  const token = await getZohoToken()
+  const url = `${ZOHO_API}/${module}/${recordId}/Attachments/${attachmentId}`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho] fetchAttachment error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho fetch attachment failed with status ${res.status}`)
+  }
+  const body = await res.arrayBuffer()
+  const contentType = res.headers.get('content-type') ?? 'application/octet-stream'
+  return { body, contentType }
+}
+
 /**
  * Fetches a Partner record from the custom Partners module by id.
  * Returns null on 404/204 (no such partner) so the caller can map that

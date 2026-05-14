@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getPortalContext } from '@/lib/auth'
-import { getPartner } from '@/lib/zoho'
+import { getPartner, getPartnerDocuments } from '@/lib/zoho'
+
+// Investor-visible document statuses. Pending and Rejected are hidden
+// from the investor view — those are admin-only states (e.g. an admin
+// has uploaded a draft and not yet approved it, or has rejected an
+// investor's submission).
+const INVESTOR_VISIBLE_STATUSES = ['Approved', 'Submitted', 'Expired']
 
 // GET /api/portal/investor/profile
 //
@@ -45,8 +51,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Profile not found.' }, { status: 404 })
     }
 
+    // Fetch documents in parallel with the partner lookup-style call would
+    // be cleaner, but the dependency on partnerId means it's already
+    // sequenced. Documents are status-filtered to the investor-visible
+    // subset; Pending/Rejected stay hidden until they progress.
+    const documents = await getPartnerDocuments(partnerId, INVESTOR_VISIBLE_STATUSES)
+
     return NextResponse.json({
       profile,
+      documents,
       actor: { email: ctx.actor.email },
     })
   } catch (error) {

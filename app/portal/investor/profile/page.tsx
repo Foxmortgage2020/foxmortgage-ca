@@ -29,9 +29,19 @@ interface PartnerProfile {
   investorPreferences: string | null
 }
 
-// The 10 fields we measure completion against — matches the 10 fields
-// rendered below (address is one logical field even though it's
-// composed of four columns in Zoho).
+interface PartnerDocument {
+  id: string
+  name: string
+  documentType: string | null
+  documentStatus: string | null
+  uploadedDate: string | null
+  expiryDate: string | null
+  partnerId: string | null
+  reviewerNotes: string | null
+}
+
+// The 10 fields we measure profile completion against. Address is one
+// logical field even though it's composed of four columns in Zoho.
 const COMPLETION_FIELD_KEYS = [
   'name',
   'email',
@@ -45,6 +55,17 @@ const COMPLETION_FIELD_KEYS = [
   'address',
 ] as const
 
+// Core onboarding documents. An "Approved" record of each type counts
+// as one completion item. Values must match the Document_Type picklist
+// in Zoho exactly (see app/api/admin/partners/[partnerId]/documents/route.ts).
+const REQUIRED_DOCUMENT_TYPES = [
+  'KYC',
+  'AML Declaration',
+  'Accredited Investor',
+  'Risk Disclosure',
+  'Void Cheque',
+] as const
+
 function isAddressComplete(p: PartnerProfile): boolean {
   return Boolean(p.street && p.city && p.province && p.postalCode)
 }
@@ -55,11 +76,32 @@ function fieldFilled(p: PartnerProfile, key: typeof COMPLETION_FIELD_KEYS[number
   return typeof v === 'string' && v.trim().length > 0
 }
 
-function computeCompletion(p: PartnerProfile): number {
-  const filled = COMPLETION_FIELD_KEYS.filter(k => fieldFilled(p, k)).length
-  const raw = (filled / COMPLETION_FIELD_KEYS.length) * 100
-  // Round to nearest 10% per spec.
+function countFilledFields(p: PartnerProfile): number {
+  return COMPLETION_FIELD_KEYS.filter(k => fieldFilled(p, k)).length
+}
+
+function countApprovedRequiredDocs(docs: PartnerDocument[]): number {
+  return REQUIRED_DOCUMENT_TYPES.filter(reqType =>
+    docs.some(d => d.documentStatus === 'Approved' && d.documentType === reqType)
+  ).length
+}
+
+// 10 profile fields + 5 required documents = 15 completion items.
+// Rounded to nearest 10% per spec.
+function computeCompletion(p: PartnerProfile, docs: PartnerDocument[]): number {
+  const filled = countFilledFields(p) + countApprovedRequiredDocs(docs)
+  const total = COMPLETION_FIELD_KEYS.length + REQUIRED_DOCUMENT_TYPES.length
+  const raw = (filled / total) * 100
   return Math.round(raw / 10) * 10
+}
+
+function documentStatusBadge(status: string | null): { label: string; cls: string } {
+  switch (status) {
+    case 'Approved':  return { label: 'Approved',  cls: 'bg-lime/20 text-lime-dark' }
+    case 'Submitted': return { label: 'Submitted', cls: 'bg-gray-100 text-gray-700' }
+    case 'Expired':   return { label: 'Expired',   cls: 'bg-amber-100 text-amber-700' }
+    default:          return { label: status ?? '—', cls: 'bg-gray-100 text-gray-600' }
+  }
 }
 
 function formatDob(iso: string | null): string {
@@ -82,6 +124,7 @@ function formatAddress(p: PartnerProfile): string {
 
 export default function InvestorProfilePage() {
   const [profile, setProfile] = useState<PartnerProfile | null>(null)
+  const [documents, setDocuments] = useState<PartnerDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [setupPending, setSetupPending] = useState(false)
@@ -96,6 +139,7 @@ export default function InvestorProfilePage() {
         if (data.setup_pending) { setSetupPending(true); return }
         if (data.error) { setError(data.error); return }
         setProfile(data.profile)
+        setDocuments(data.documents ?? [])
       })
       .catch(err => setError(err.message ?? 'Failed to load profile'))
       .finally(() => setLoading(false))
@@ -122,7 +166,9 @@ export default function InvestorProfilePage() {
   )
   if (!profile) return null
 
-  const completion = computeCompletion(profile)
+  const completion = computeCompletion(profile, documents)
+  const filledFieldCount = countFilledFields(profile)
+  const approvedRequiredDocs = countApprovedRequiredDocs(documents)
   const address = formatAddress(profile)
 
   return (
@@ -145,12 +191,15 @@ export default function InvestorProfilePage() {
           </div>
           <span className="font-heading text-navy text-2xl font-bold">{completion}%</span>
         </div>
-        <div className="h-2 bg-navy/10 rounded-full overflow-hidden">
+        <div className="h-2 bg-navy/10 rounded-full overflow-hidden mb-2">
           <div
             className="h-full bg-lime rounded-full transition-all duration-500"
             style={{ width: `${completion}%` }}
           />
         </div>
+        <p className="text-gray-500 text-xs font-body">
+          {filledFieldCount} of {COMPLETION_FIELD_KEYS.length} profile fields complete · {approvedRequiredDocs} of {REQUIRED_DOCUMENT_TYPES.length} compliance documents uploaded
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -243,6 +292,55 @@ export default function InvestorProfilePage() {
               </dd>
             </div>
           </dl>
+        </section>
+
+        {/* Documents */}
+        <section className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
+          <h2 className="font-heading text-lg font-bold text-navy mb-4">Documents</h2>
+          {documents.length === 0 ? (
+            <p className="font-body text-gray-500 text-sm py-4 text-center">
+              No documents yet. Mike will upload your compliance documents here as your onboarding progresses.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider text-left">
+                    <th className="pb-3 font-medium">Document</th>
+                    <th className="pb-3 font-medium">Type</th>
+                    <th className="pb-3 font-medium">Status</th>
+                    <th className="pb-3 font-medium">Date</th>
+                    <th className="pb-3 font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="font-body">
+                  {documents.map((doc) => {
+                    const badge = documentStatusBadge(doc.documentStatus)
+                    return (
+                      <tr key={doc.id} className="border-b border-gray-50 last:border-0">
+                        <td className="py-3 text-navy font-medium">{doc.name}</td>
+                        <td className="py-3 text-gray-700">{doc.documentType ?? '—'}</td>
+                        <td className="py-3">
+                          <span className={`${badge.cls} text-xs font-semibold px-2 py-0.5 rounded-full`}>
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="py-3 text-gray-500">{formatDob(doc.uploadedDate)}</td>
+                        <td className="py-3">
+                          <a
+                            href={`/api/portal/investor/documents/${doc.id}`}
+                            className="text-lime font-semibold text-sm hover:underline"
+                          >
+                            Download
+                          </a>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
     </div>
