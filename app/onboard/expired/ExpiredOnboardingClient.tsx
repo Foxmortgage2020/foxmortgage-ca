@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 interface ExpiredOnboardingClientProps {
+  partnerIdParam: string
   refToken: string
   partnerName: string | null
   partnerEmail: string | null
@@ -17,6 +18,7 @@ interface ExpiredOnboardingClientProps {
 // a reserved React prop and can't be passed from a Server Component
 // to a Client Component (React 19 / Next 14 rule).
 export default function ExpiredOnboardingClient({
+  partnerIdParam,
   refToken,
   partnerName,
   partnerEmail,
@@ -29,10 +31,13 @@ export default function ExpiredOnboardingClient({
     setBusy(true)
     setError(null)
     try {
+      // Forward whichever shape we received. The API accepts both:
+      //   { p, ref } — Path B canonical
+      //   { ref }    — legacy fallback (pre-Path-B emails)
       const res = await fetch('/api/onboard/request-new-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: refToken }),
+        body: JSON.stringify({ p: partnerIdParam, ref: refToken }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

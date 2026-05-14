@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
-import { findPartnerByMagicLinkToken, updatePartner } from '@/lib/zoho'
+import { findPartnerByIdAndMagicLinkToken, updatePartner } from '@/lib/zoho'
 import { forgetMagicLink } from '@/lib/cache'
 import { isMagicLinkExpired, formatZohoDateTime } from '@/lib/onboarding'
 
 // POST /api/onboard/signup
 //
-// Public route — the magic-link token IS the auth. Body:
-//   { token: string, password: string }
+// Public route — the (partnerId, token) pair IS the auth. Body:
+//   { partnerId: string, token: string, password: string }
 //
 // Flow:
-//   1. Validate token + partner (re-check expiry; defense against
-//      concurrent expiration between the welcome-page server load and
-//      the form submit)
+//   1. Validate id+token via direct getPartner + constant-time token
+//      compare (re-check expiry; defense against concurrent expiration
+//      between the welcome-page server load and the form submit)
 //   2. Create Clerk user via backend SDK with email pre-verified —
 //      skips Clerk's own email_code verification because the magic
 //      link already proved email control
@@ -20,7 +20,7 @@ import { isMagicLinkExpired, formatZohoDateTime } from '@/lib/onboarding'
 //   4. Update Partner record: Magic_Link_Used_At = NOW,
 //      Onboarding_Stage = "In Progress", Last_Onboarding_Step =
 //      "Account Created"
-//   5. Forget the magic-link hint so it can't be re-used
+//   5. Forget the magic-link cache hint so it can't be re-used
 //
 // Returns { ok: true, userId } on success. The client then signs the
 // user in browser-side via useSignIn() to establish the session
@@ -33,8 +33,15 @@ export async function POST(req: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 })
     }
-    const { token, password } = (body ?? {}) as { token?: unknown; password?: unknown }
+    const { partnerId, token, password } = (body ?? {}) as {
+      partnerId?: unknown
+      token?: unknown
+      password?: unknown
+    }
 
+    if (typeof partnerId !== 'string' || !/^\d{15,19}$/.test(partnerId)) {
+      return NextResponse.json({ error: 'Invalid onboarding link.' }, { status: 400 })
+    }
     if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) {
       return NextResponse.json({ error: 'Invalid onboarding link.' }, { status: 400 })
     }
@@ -42,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Password must be at least 8 characters.' }, { status: 400 })
     }
 
-    const partner = await findPartnerByMagicLinkToken(token)
+    const partner = await findPartnerByIdAndMagicLinkToken(partnerId, token)
     if (!partner) {
       return NextResponse.json({ error: 'Onboarding link is no longer valid.' }, { status: 400 })
     }

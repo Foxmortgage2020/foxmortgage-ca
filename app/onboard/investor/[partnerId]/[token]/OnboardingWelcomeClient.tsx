@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 interface OnboardingWelcomeClientProps {
   firstName: string
   email: string
+  partnerId: string
   token: string
 }
 
@@ -16,6 +17,8 @@ interface OnboardingWelcomeClientProps {
 //   2. Password form
 //
 // Submitting the password POSTs to /api/onboard/signup, which:
+//   - Validates the id+token pair against Zoho (direct getPartner —
+//     immediately consistent, no search index lag)
 //   - Creates the Clerk user with email pre-verified (skipping the
 //     standard email_code verification — the magic link already
 //     proved email control)
@@ -28,6 +31,7 @@ interface OnboardingWelcomeClientProps {
 export default function OnboardingWelcomeClient({
   firstName,
   email,
+  partnerId,
   token,
 }: OnboardingWelcomeClientProps) {
   const router = useRouter()
@@ -57,12 +61,12 @@ export default function OnboardingWelcomeClient({
 
     setBusy(true)
     try {
-      // Server-side: create the Clerk user (email pre-verified), set
-      // publicMetadata, update Zoho Partner state.
+      // Server-side: validate id+token, create the Clerk user (email
+      // pre-verified), set publicMetadata, update Zoho Partner state.
       const res = await fetch('/api/onboard/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ partnerId, token, password }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

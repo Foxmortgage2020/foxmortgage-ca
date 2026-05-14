@@ -75,7 +75,12 @@ export async function POST(
     // incoming request when available, falling back to the canonical
     // production URL so emails sent from any env land somewhere safe.
     const origin = _req.nextUrl.origin
-    const link = `${origin}/onboard/investor/${token}`
+    // Path B URL shape: /onboard/investor/{partnerId}/{token}. Embedding
+    // the partner id alongside the token lets the welcome route do a
+    // direct GET /Partners/{id} (immediately consistent) instead of
+    // /Partners/search?criteria=(Magic_Link_Token:equals:...) which
+    // lagged 1-5 min on freshly-issued tokens.
+    const link = `${origin}/onboard/investor/${partnerId}/${token}`
 
     // Email send is best-effort but blocking — if Resend fails we
     // surface the error to the admin so they know the link wasn't

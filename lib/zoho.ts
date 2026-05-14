@@ -5,6 +5,7 @@
 //   ZOHO_REFRESH_TOKEN
 //   ZOHO_ORG_ID
 
+import { timingSafeEqual } from 'crypto'
 import {
   opportunitiesCache,
   fpMessagesCache,
@@ -683,6 +684,46 @@ export async function createPartner(payload: Record<string, unknown>): Promise<s
 }
 
 /**
+ * Find a Partner by id + magic-link token (canonical Path B lookup).
+ *
+ * Issues `getPartner(partnerId)` (direct GET /Partners/{id}, always
+ * immediately consistent — no search index involved) and constant-time
+ * compares the stored Magic_Link_Token to the URL token. The id-in-URL
+ * pattern eliminates the false-expired failure mode that the older
+ * findPartnerByMagicLinkToken (search-by-token) has when the click
+ * lands within Zoho's 1-5 min search-index window.
+ *
+ * Returns null if:
+ *   - Partner not found (Zoho 404)
+ *   - Partner has no Magic_Link_Token on file
+ *   - Stored Magic_Link_Token doesn't match the URL token
+ *
+ * All three null cases are indistinguishable to the caller — no
+ * info leak about which partner ids exist or which tokens are live.
+ * Caller is responsible for expiry + Magic_Link_Used_At checks.
+ */
+export async function findPartnerByIdAndMagicLinkToken(
+  partnerId: string,
+  token: string,
+): Promise<PartnerProfile | null> {
+  if (!partnerId || !token) return null
+
+  const partner = await getPartner(partnerId)
+  if (!partner || !partner.magicLinkToken) return null
+
+  // Constant-time comparison. The page-level regex already guarantees
+  // both strings are 64 hex chars; timingSafeEqual rejects mismatched
+  // lengths so we double-check before calling it (calling with
+  // mismatched lengths throws RangeError, not a timing-safe false).
+  const a = Buffer.from(partner.magicLinkToken)
+  const b = Buffer.from(token)
+  if (a.length !== b.length) return null
+  if (!timingSafeEqual(a, b)) return null
+
+  return partner
+}
+
+/**
  * Find a Partner by their magic-link token. Hits the read-after-write
  * cache first (lib/cache.ts) so freshly-issued tokens resolve
  * immediately even before Zoho's search index catches up. Falls
@@ -690,6 +731,14 @@ export async function createPartner(payload: Record<string, unknown>): Promise<s
  *
  * Returns null if no Partner matches. Does NOT validate expiry or
  * usage — caller is responsible for those checks.
+ *
+ * @deprecated Path B (commit landing 2026-05-14) replaced this with
+ * findPartnerByIdAndMagicLinkToken, which uses direct getPartner and
+ * is immediately consistent. This function is retained only for the
+ * legacy fallback route (`app/onboard/investor/[partnerId]/page.tsx`)
+ * and the legacy ?ref= shape on /onboard/expired. Schedule for deletion
+ * 2026-05-29 once all in-flight pre-Path-B magic-link emails (14-day
+ * TTL) have expired.
  */
 export async function findPartnerByMagicLinkToken(token: string): Promise<PartnerProfile | null> {
   if (!token) return null
