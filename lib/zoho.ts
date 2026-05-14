@@ -694,45 +694,31 @@ export async function createPartner(payload: Record<string, unknown>): Promise<s
 export async function findPartnerByMagicLinkToken(token: string): Promise<PartnerProfile | null> {
   if (!token) return null
 
-  // Cache fast-path: token was just issued on this Vercel instance. Saves a
-  // network roundtrip on warm-instance hits; falls through to COQL when
-  // the click lands on a different lambda than the send-link POST.
+  // Cache fast-path: token was just issued on this Vercel instance.
   const cachedPartnerId = lookupMagicLink(token)
   if (cachedPartnerId) {
     const partner = await getPartner(cachedPartnerId)
     // If the partner exists and the token still matches, return.
     // Otherwise the cache is stale (token was rotated) — fall through
-    // to COQL.
+    // to search.
     if (partner && partner.magicLinkToken === token) return partner
     forgetMagicLink(token)
   }
 
-  // COQL path: queries the source-of-truth, immediately consistent. The
-  // /search endpoint we used previously hits Zoho's custom-module search
-  // index, which lags 1-5 min on freshly-issued tokens — caused the
-  // false-expired bug when an investor clicks within minutes of send.
-  // See schema_actual.md "Zoho API Gotchas" for the full pattern.
-  //
-  // Defense-in-depth: escape single quotes in the token before string
-  // interpolation. The route's regex /^[a-f0-9]{64}$/i already guarantees
-  // no quote characters reach this function, but the escape is cheap.
+  // Search path: criteria match on Magic_Link_Token.
   const zohoToken = await getZohoToken()
-  const escapedToken = token.replace(/'/g, "''")
-  const coql = `select id, ${PARTNER_PROFILE_FIELDS} from Partners where Magic_Link_Token = '${escapedToken}' limit 1`
-  const res = await fetch(`${ZOHO_API}/coql`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Zoho-oauthtoken ${zohoToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ select_query: coql }),
+  const url = `${ZOHO_API}/Partners/search?criteria=${encodeURIComponent(
+    `(Magic_Link_Token:equals:${token})`,
+  )}&fields=${PARTNER_PROFILE_FIELDS}&per_page=1`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${zohoToken}` },
     cache: 'no-store',
   })
   if (res.status === 204) return null
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    console.error('[zoho] findPartnerByMagicLinkToken COQL error:', res.status, text.substring(0, 300))
-    throw new Error(`Zoho Partners COQL by token failed with status ${res.status}`)
+    console.error('[zoho] findPartnerByMagicLinkToken error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho Partners search by token failed with status ${res.status}`)
   }
   const data = await res.json()
   const record = data?.data?.[0]
