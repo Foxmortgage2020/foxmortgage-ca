@@ -40,8 +40,14 @@ export default function RootLayout({
     <html lang="en" className={`${poppins.variable} ${montserrat.variable}`}>
       <body className="antialiased">
         <ClerkProvider
-          afterSignInUrl="/portal"
-          afterSignUpUrl="/portal"
+          // Clerk v5: afterSignInUrl/afterSignUpUrl are deprecated.
+          // Use *FallbackRedirectUrl so per-flow redirects (e.g. the
+          // onboarding signup's explicit router.push to the hub, or
+          // a redirect_url query param on the sign-in form) still
+          // win. The fallback only kicks in when nothing more
+          // specific is set.
+          signInFallbackRedirectUrl="/portal"
+          signUpFallbackRedirectUrl="/portal"
           signInUrl="/portal/sign-in"
           signUpUrl="/portal/sign-in"
         >
