@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: May 4, 2026 (n8n status audit, QBO realm pre-activation warning)
+## Last Updated: May 15, 2026 (FOX-112 bookkeeping service-account auth fix)
 
 ---
 
@@ -25,30 +25,46 @@
 
 #### Architecture Overview
 Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
-1. **Nightly Categorization** (FOX-107) — 2:00 AM America/Toronto daily
-   - n8n workflow ID: `Rupc79GeJ8s6bbJa` (built, **INACTIVE** — needs credentials before activation)
-   - Updated April 18, 2026: uses native QBO ClassRef (QBO Plus) instead of memo-tag prefixes
-   - Pulls uncategorized QBO transactions → Fetch QBO Classes → rules engine → AI fallback → routes by confidence
-   - QBO Classes fetched dynamically each run from `SELECT * FROM Class WHERE Active=true`
-   - High-confidence → `ClassRef` + `AccountRef` written to QBO line items (PrivateNote untouched)
-   - Low-confidence → submitted to `/api/bookkeeping/review-queue` on foxmortgage.ca
-   - Dry-run: when WRITE_TO_QBO=false (n8n workflow variable), log to `/api/bookkeeping/dry-run-log` instead of writing QBO
-   - Requires 3 consecutive clean dry-run nights before flipping to `WRITE_TO_QBO=true`
-   - Board approval required before WRITE_TO_QBO is ever set to true
-   - **⚠️ PRE-ACTIVATION: QBO Realm Must Be Switched to Sandbox First (audited 2026-05-04)**
+1. **Nightly Categorization** — there are TWO workflows in this lineage. They coexist on purpose: the dry-run cut validates the auth/pipeline plumbing in sandbox; the full pipeline is the eventual production target.
+
+   **1a. FOX-112 dry-run validation cut — `Uu6fsZ2A2gTn0gBs`** ("Bookkeeping — Nightly Transaction Categorization")
+   - Cron: 2:00 AM daily (`0 2 * * *`), active=false (manually triggerable via MCP)
+   - 9 nodes: Schedule trigger → Workflow Config (Set) → Load Categorization Rules → Fetch Uncategorized QBO Transactions → Rules Engine (regex only, no AI) → Check Write Mode → either httpbin stub (no auth) or Log Dry Run to API. Includes one sticky note.
+   - QBO realm: **sandbox `9341456901231490`** (correct).
+   - Logs to `/api/bookkeeping/dry-run-log` when WRITE_TO_QBO=false (currently false).
+   - **As of 2026-05-15: bookkeeping service-account auth verified end-to-end.** Workflow run 8241 confirmed both Header Auth nodes ("Load Categorization Rules", "Log Dry Run to API") reach the route handler with a valid Bearer header. Current blocker: route returns 503 `ZOHO_UNAVAILABLE` because `Master_Bookkeeping_Rules` Zoho Creator form is not yet created (see Activation checklist below).
+   - **Known secondary defect:** the "Fetch Uncategorized QBO Transactions" node points at credential `QWhiRCi4zGSstnHW` ("Zoho Full Access (CRM + Creator + WorkDrive)") instead of a QuickBooks OAuth2 credential. The workflow halts on the 503 above before that node runs, so this hasn't surfaced yet. Fix when the rules endpoint is unblocked.
+
+   **1b. Full-pipeline future production — `Rupc79GeJ8s6bbJa`** ("QBO Nightly Transaction Categorization")
+   - Built April 18, 2026, **INACTIVE**, never executed.
+   - 13 nodes: cron 7:00 UTC → Fetch QBO Classes → Query QBO Purchases → Rules Engine → Needs AI? → AI Categorize Transaction (OpenRouter Claude Haiku) → Parse AI Response → High Confidence? → Update QBO Transaction OR Submit to Review Queue. Plus a separate Monday 14:00 UTC cron → Send Weekly Bookkeeping Summary (Resend email).
+   - Native QBO ClassRef (QBO Plus) instead of memo-tag prefixes.
+   - Pulls uncategorized QBO transactions → fetches Classes → rules engine → AI fallback → routes by confidence.
+   - QBO Classes fetched dynamically each run from `SELECT * FROM Class WHERE Active=true`.
+   - High-confidence → `ClassRef` + `AccountRef` written to QBO line items (PrivateNote untouched).
+   - Low-confidence → submitted to `/api/bookkeeping/review-queue` on foxmortgage.ca.
+   - **⚠️ PRE-ACTIVATION: QBO Realm Must Be Switched to Sandbox First (audited 2026-05-04, still applies)**
      All 3 QBO nodes in `Rupc79GeJ8s6bbJa` currently have **production realm `9341456900727321`** hardcoded.
      Before attaching credentials, Michael must instruct Dev agent to update those URLs to sandbox realm `9341456901231490`.
      Do NOT activate against production QBO until Intuit App Assessment is approved.
-   - **Activation checklist:**
+   - Requires 3 consecutive clean dry-run nights (via 1a, not 1b) before flipping `WRITE_TO_QBO=true` here.
+   - Board approval required before WRITE_TO_QBO is ever set to true.
+   - **Activation checklist for `Rupc79GeJ8s6bbJa`:**
      0. (Michael instructs Dev) Update QBO realm in Fetch QBO Classes, Query QBO Purchases, Update QBO Transaction → `9341456901231490`
-     1. Create `Master_Bookkeeping_Rules` + `Deferred_Revenue_Schedule` forms in Zoho Creator UI
-     2. Set `BOOKKEEPING_WEBHOOK_SECRET` in Vercel env vars (any strong random string)
+     1. Create `Master_Bookkeeping_Rules` + `Deferred_Revenue_Schedule` forms in Zoho Creator UI **— still outstanding; this is what blocks `Uu6fsZ2A2gTn0gBs` from returning 200 today.**
+     2. Set `BOOKKEEPING_WEBHOOK_SECRET` in Vercel env vars ✅ **done 2026-05-15** (encrypted type, Production scope)
      3. In n8n `Rupc79GeJ8s6bbJa`: attach credentials to nodes:
         - "Fetch QBO Classes", "Query QBO Purchases", "Update QBO Transaction" → QuickBooks OAuth2 credential
         - "AI Categorize Transaction" → OpenRouter Header Auth credential
-        - "Submit to Review Queue" → Header Auth (Name: `Authorization`, Value: `Bearer <BOOKKEEPING_WEBHOOK_SECRET>`)
+        - "Submit to Review Queue" → Header Auth: use the same **Fox Bookkeeping API** credential created for `Uu6fsZ2A2gTn0gBs` (id `6rVxjMhbq2zLOqqj`)
         - "Send Weekly Bookkeeping Summary" → `Resend API Paperclip` Header Auth credential
      4. Activate workflow in n8n UI
+
+   **Bookkeeping service-account auth — FOX-112 implementation notes (2026-05-15):**
+   - `BOOKKEEPING_WEBHOOK_SECRET` is set in Vercel Production with `type: "encrypted"`. **Do not use `vercel env add` from a pipe to set this** — the CLI stores piped values as `type: "sensitive"` which is write-only and silently presents as empty to `vercel env pull`. Use the Vercel REST API directly: `POST /v10/projects/{id}/env` with `{"type":"encrypted","target":["production"],"value":"<plaintext>"}`.
+   - n8n credential **Fox Bookkeeping API** (id `6rVxjMhbq2zLOqqj`, project `JTCIC344s4l5JCyv`) is a Header Auth credential. **Name** field = `Authorization`, **Value** field = literal `Bearer <secret>` (the literal string `Bearer ` + the plaintext secret pasted directly). n8n Header Auth Value does **NOT** expand env expressions like `{{$env.FOO}}` — that pattern silently sends `{{$env.FOO}}` as the literal header value.
+   - The `httpHeaderAuth` credential schema in the n8n public API requires an `allowedDomains` field. When creating via API, set it to `"https://www.foxmortgage.ca, https://foxmortgage.ca"`.
+   - `middleware.ts` exempts `/api/bookkeeping/rules` and `/api/bookkeeping/dry-run-log` from Clerk's `authMiddleware` (commit `effbdb3`). Before this fix, Clerk intercepted unauthenticated service-account requests and returned `null` body 401 before the route handler's `isServiceAccount()` Bearer check could run. Any future bookkeeping route that wants service-account access must be added to `publicRoutes` alongside its own Bearer enforcement.
 2. **Monthly Deferred Recognition** (FOX-113, in progress) — 1st of each month, 3:00 AM America/Toronto
    - Reads active Deferred_Revenue_Schedule records → creates QBO JournalEntries
 3. **Weekly Summary Email** (FOX-114) — Mondays 7:00 AM America/Toronto
@@ -234,7 +250,8 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 ### n8n Workflow Status (audited 2026-05-04)
 - `dceYGLjOIRQAuS0p` Fox Mortgage — Daily Briefing & Alerts ✅ active
 - `CZ1zh0gKvkQuTBMc` Fox Mortgage — SMM Lead Monitor ✅ active (since 2026-04-21)
-- `Rupc79GeJ8s6bbJa` QBO Nightly Transaction Categorization ❌ inactive — awaiting credentials + sandbox realm fix
+- `Rupc79GeJ8s6bbJa` QBO Nightly Transaction Categorization (FOX-107 full pipeline, AI + review queue + weekly summary) ❌ inactive — production realm still hardcoded; needs Zoho forms + sandbox realm migration before activation
+- `Uu6fsZ2A2gTn0gBs` Bookkeeping — Nightly Transaction Categorization (FOX-112 dry-run validation cut, sandbox realm) ⚠️ inactive — service-account auth verified 2026-05-15, blocked on Zoho Creator `Master_Bookkeeping_Rules` form creation (route returns 503 ZOHO_UNAVAILABLE until form exists)
 - `dh1qIttAuctSQ7L0` Daily Deal Briefing ✅ active (built 2026-04-07)
 
 ### Known Issues / In Progress
