@@ -214,9 +214,22 @@ export async function createMilestone(record: Record<string, unknown>) {
 // ─── Master_Bookkeeping_Rules form ────────────────────────────────────────────
 // Field API names:
 //   Vendor_Regex (text), Account_Name (text), Memo_Tag (picklist: FOXM/PHUB/FSOC/TLB/OVHD),
-//   Confidence (decimal 0-1), Active (boolean), Hit_Count (decimal)
+//   Confidence (decimal 0-1), Active (boolean), Hit_Count (decimal),
+//   Description_Pattern (multi-line text — added 2026-05-15 for FOX-112 schema extension;
+//     enables matching on memo/description text when vendor name is empty or unmatched)
 
-export async function getBookkeepingRules(activeOnly = false) {
+export type BookkeepingRule = {
+  ID: string
+  Vendor_Regex: string
+  Description_Pattern: string  // always string after normalization — empty when not set
+  Account_Name: string
+  Memo_Tag: string  // FOXM | PHUB | FSOC | TLB | OVHD
+  Confidence: string  // Zoho returns decimals as strings; parseFloat at use site
+  Active: string  // 'true' | 'false'
+  Hit_Count: string
+}
+
+export async function getBookkeepingRules(activeOnly = false): Promise<BookkeepingRule[]> {
   const token = await getCreatorToken()
   let url = `${CREATOR_BASE}/report/All_Master_Bookkeeping_Rules`
   if (activeOnly) {
@@ -229,7 +242,21 @@ export async function getBookkeepingRules(activeOnly = false) {
   }
   if (!res.ok) throw new Error(`Creator GET rules failed: ${res.status}`)
   const data = await res.json()
-  return data.data || []
+  const raw: Array<Record<string, unknown>> = data.data || []
+  // Normalize Description_Pattern so older rules (created before the 2026-05-15 schema
+  // extension) read as empty string rather than undefined/null. Downstream consumers
+  // (n8n Rules Engine in workflow Uu6fsZ2A2gTn0gBs) can then treat empty as "field not
+  // set" and skip the description-pattern branch.
+  return raw.map((r) => ({
+    ID: String(r.ID ?? ''),
+    Vendor_Regex: String(r.Vendor_Regex ?? ''),
+    Description_Pattern: String(r.Description_Pattern ?? ''),
+    Account_Name: String(r.Account_Name ?? ''),
+    Memo_Tag: String(r.Memo_Tag ?? ''),
+    Confidence: String(r.Confidence ?? '0'),
+    Active: String(r.Active ?? 'false'),
+    Hit_Count: String(r.Hit_Count ?? '0'),
+  }))
 }
 
 export async function createBookkeepingRule(record: Record<string, unknown>) {
