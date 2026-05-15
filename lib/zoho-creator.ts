@@ -88,6 +88,15 @@ export async function getReviewQueue(status?: string) {
 // ─── Diagnostic: list forms + reports in the Creator app ──────────────────
 // Calls the Creator meta endpoint to reveal what actually exists.
 // Used by /api/bookkeeping/creator-health to diagnose 404s.
+//
+// TODO(FOX-112 follow-up): the endpoint `/api/v2/<owner>/<app>` rejects GET with
+//   HTTP 405 + `{"code":2945,"description":"GET is not a valid method for this request."}`.
+//   This isn't a one-line GET→POST flip — POST against the same URL also fails because
+//   that path isn't a listing endpoint. The correct Creator v2 "list app components"
+//   call is `GET /api/v2.1/<owner>/<app>/components` (note v2.1, not v2). Rewriting this
+//   to use the v2.1 components endpoint (or removing the helper entirely if the
+//   creator-health route no longer needs it) is its own commit. Confirmed broken
+//   in direct probe on 2026-05-15.
 export async function getCreatorAppMeta() {
   const token = await getCreatorToken()
   const res = await fetch(
@@ -136,6 +145,10 @@ export async function getProjects(status?: string) {
     url += `?criteria=Status=="${status}"`
   }
   const res = await fetch(url, { headers: creatorHeaders(token) })
+  if (res.status === 404) {
+    console.warn('[zoho-creator] All_Production_Projects report returned 404 — form may not exist yet or report is empty')
+    return []
+  }
   if (!res.ok) throw new Error(`Creator GET projects failed: ${res.status}`)
   const data = await res.json()
   return data.data || []
@@ -177,6 +190,10 @@ export async function getMilestones(projectId?: string) {
     url += `?criteria=Project_ID=="${projectId}"`
   }
   const res = await fetch(url, { headers: creatorHeaders(token) })
+  if (res.status === 404) {
+    console.warn('[zoho-creator] All_Production_Milestones report returned 404 — form may not exist yet or report is empty')
+    return []
+  }
   if (!res.ok) throw new Error(`Creator GET milestones failed: ${res.status}`)
   const data = await res.json()
   return data.data || []
@@ -206,6 +223,10 @@ export async function getBookkeepingRules(activeOnly = false) {
     url += `?criteria=Active==true`
   }
   const res = await fetch(url, { headers: creatorHeaders(token) })
+  if (res.status === 404) {
+    console.warn('[zoho-creator] All_Master_Bookkeeping_Rules report returned 404 — form may not exist yet or report is empty')
+    return []
+  }
   if (!res.ok) throw new Error(`Creator GET rules failed: ${res.status}`)
   const data = await res.json()
   return data.data || []
@@ -249,6 +270,10 @@ export async function getDeferredSchedules(status?: string) {
     url += `?criteria=Status=="${status}"`
   }
   const res = await fetch(url, { headers: creatorHeaders(token) })
+  if (res.status === 404) {
+    console.warn('[zoho-creator] All_Deferred_Revenue_Schedule report returned 404 — form may not exist yet or report is empty')
+    return []
+  }
   if (!res.ok) throw new Error(`Creator GET deferred schedules failed: ${res.status}`)
   const data = await res.json()
   return data.data || []
