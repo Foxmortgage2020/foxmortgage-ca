@@ -56,6 +56,20 @@ export default async function InvestorPortalGate({
         ? [metadata.role]
         : []
 
+  // Admin bypass. Admins access investor portal routes via two paths:
+  //   1. Impersonating a specific partner — the cookie is set, downstream
+  //      pages use getPortalContext().effectivePartnerId to fetch
+  //      per-partner data.
+  //   2. Direct nav for inspection/support — they see whatever the page
+  //      renders without partner context (pre-ec186d4 behavior).
+  // The actor's literal Clerk role is `admin`, not `investor`, so the
+  // stage gate below would falsely bounce them to /portal → /portal/admin.
+  // This bypass restores pre-ec186d4 admin access without weakening the
+  // gate for non-admin investors.
+  if (roles.includes('admin')) {
+    return <>{children}</>
+  }
+
   if (!roles.includes('investor')) {
     // Not an investor — they don't belong here. Send them to /portal
     // for role-based routing.

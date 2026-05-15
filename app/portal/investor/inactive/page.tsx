@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { currentUser } from '@clerk/nextjs/server'
 import { getPartner } from '@/lib/zoho'
+import { getPortalContext } from '@/lib/auth'
 import InactiveClient from './InactiveClient'
 
 // Inactive investor landing page.
@@ -41,6 +42,25 @@ export default async function InactiveInvestorPage() {
       : typeof metadata.role === 'string'
         ? [metadata.role]
         : []
+
+  // Admin bypass — symmetric with the (active)/layout.tsx bypass. An
+  // admin may need to view the inactive screen for support purposes
+  // (typically arriving via impersonation of an Inactive investor).
+  // When impersonating, getPortalContext's effectivePartnerId points
+  // at the impersonated partner so we can show their name in the
+  // page header. When NOT impersonating, fall back to a generic
+  // "Investor" label since admin has no partner record of their own.
+  if (roles.includes('admin')) {
+    const ctx = await getPortalContext()
+    let displayName = 'Investor'
+    if (ctx?.impersonation?.partnerName) {
+      displayName = ctx.impersonation.partnerName
+    } else if (ctx?.effectivePartnerId) {
+      const partner = await getPartner(ctx.effectivePartnerId)
+      if (partner?.name) displayName = partner.name
+    }
+    return <InactiveClient fullName={displayName} />
+  }
 
   if (!roles.includes('investor')) redirect('/portal')
 
