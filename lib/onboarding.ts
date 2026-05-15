@@ -98,3 +98,46 @@ export function deriveCurrentStepIndex(lastStep: string | null): number {
 export function isStepComplete(stepIndex: number, lastStep: string | null): boolean {
   return stepIndex < deriveCurrentStepIndex(lastStep)
 }
+
+// ─── Stage-aware sign-in routing ──────────────────────────────────────────
+
+/**
+ * Canonical map from Partner Onboarding_Stage to the URL an investor
+ * should land at when they sign in (or arrive via deep link).
+ *
+ * Single source of truth — used by:
+ *   - The sign-in route's server-side pre-check (already-signed-in users)
+ *   - The /portal/investor/(active)/layout.tsx gate (stage enforcement)
+ *   - The /onboard/investor/hub/page.tsx self-routing (Active hits hub by
+ *     accident → bounce to /portal/investor; Inactive → bounce to inactive)
+ *
+ * Stage → destination:
+ *   Active / Review Due      → /portal/investor (full investor portal)
+ *   Inactive                 → /portal/investor/inactive (reach-out screen)
+ *   Lead / Invited / In Progress / Awaiting Review / Approved / null / unknown
+ *                            → /onboard/investor/hub (hub renders the
+ *                              correct state per stage)
+ *
+ * Note: "Lead" and "Invited" investors don't have Clerk accounts yet (no
+ * signup has happened), so they shouldn't be hitting any sign-in flow.
+ * The fallback to /hub for those stages is a defensive default — they'd
+ * be bounced again from the hub since they wouldn't have a valid session.
+ */
+export function computeInvestorDestination(
+  stage: string | null | undefined,
+): string {
+  switch (stage) {
+    case 'Active':
+    case 'Review Due':
+      return '/portal/investor'
+    case 'Inactive':
+      return '/portal/investor/inactive'
+    case 'Lead':
+    case 'Invited':
+    case 'In Progress':
+    case 'Awaiting Review':
+    case 'Approved':
+    default:
+      return '/onboard/investor/hub'
+  }
+}

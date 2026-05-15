@@ -13,6 +13,7 @@ interface OnboardingHubClientProps {
   steps: OnboardingStep[]
   currentStepIndex: number
   lastOnboardingStep: string | null
+  onboardingStage: string | null
 }
 
 // 8-step shell. Each step renders a placeholder panel with a
@@ -20,12 +21,26 @@ interface OnboardingHubClientProps {
 // in Zoho and advances the sidebar. Real form sections ship in
 // Commits 2-4 and replace each panel one at a time.
 //
-// Terminal state: when Last_Onboarding_Step === "Submitted for Review"
-// (the completionValue of step 8), the main panel swaps to a
-// confirmation card and the sidebar marks all 8 steps complete. This
-// state is derived from `lastStep`, so it persists across sign-outs
-// — server-side page.tsx reads partner.lastOnboardingStep from Zoho
-// on every load and passes it through to this component.
+// Three terminal render states layered on top of the 8-step flow:
+//
+//   1. SUBMITTED — Last_Onboarding_Step === "Submitted for Review"
+//      (which is also stage = Awaiting Review). The investor has
+//      completed all 8 steps and submitted for Mike's review.
+//
+//   2. APPROVED — Onboarding_Stage === "Approved". Mike has approved
+//      the application and will follow up to finalize account setup
+//      before the investor becomes Active. Drives a NEW confirmation
+//      card distinct from SUBMITTED.
+//
+//   3. ACTIVE / REVIEW DUE / INACTIVE — these never render here. The
+//      hub's server page.tsx redirects them away (Active → portal,
+//      Inactive → inactive page) before this component mounts.
+//
+// All terminal states share the same sidebar treatment: all 8 steps
+// marked complete, no active-step highlight. They're sourced from
+// stage/lastStep, both of which page.tsx re-reads from Zoho on every
+// load, so they survive sign-out → sign-in round-trips without any
+// client-side storage.
 export default function OnboardingHubClient({
   firstName,
   fullName,
@@ -33,6 +48,7 @@ export default function OnboardingHubClient({
   steps,
   currentStepIndex: initialStepIndex,
   lastOnboardingStep: initialLastStep,
+  onboardingStage,
 }: OnboardingHubClientProps) {
   const router = useRouter()
   const { signOut } = useClerk()
@@ -41,17 +57,20 @@ export default function OnboardingHubClient({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Terminal "Submitted for Review" state. Drives the confirmation
-  // panel and the all-complete sidebar treatment. Sourced from
-  // lastStep (not currentIndex) so it survives sign-out → sign-in
-  // round-trips: page.tsx re-derives both on each load from Zoho.
-  const submitted = lastStep === 'Submitted for Review'
+  // Terminal states. Approved takes priority over Submitted because
+  // Approved implies Submitted (stage progression is monotonic) — once
+  // Mike approves, the investor never moves backward into the review
+  // queue. The "stage trumps lastStep" ordering here matters when the
+  // two diverge briefly (e.g., during a manual stage edit in Zoho).
+  const approved = onboardingStage === 'Approved'
+  const submitted = !approved && lastStep === 'Submitted for Review'
+  const inTerminal = approved || submitted
 
-  // When submitted, every step in the sidebar shows as complete
+  // In any terminal state, every step in the sidebar shows as complete
   // (including step 8). Otherwise the standard "all idx < current
   // are complete" rule applies.
   const isStepCompleteByIndex = (idx: number): boolean =>
-    submitted || idx < currentIndex
+    inTerminal || idx < currentIndex
   const activeStep = steps[currentIndex]
 
   const handleMarkComplete = async () => {
@@ -116,9 +135,10 @@ export default function OnboardingHubClient({
             <ol className="space-y-1">
               {steps.map((step, idx) => {
                 const complete = isStepCompleteByIndex(idx)
-                // Suppress the active highlight when submitted — the
-                // user is in a terminal state, all 8 read as complete.
-                const active = !submitted && idx === currentIndex
+                // Suppress the active highlight in any terminal state —
+                // the user is done with the step machine, all 8 read
+                // as complete.
+                const active = !inTerminal && idx === currentIndex
                 return (
                   <li key={step.completionValue}>
                     <button
@@ -154,11 +174,40 @@ export default function OnboardingHubClient({
         {/* Main panel */}
         <main className="flex-1">
           <div className="bg-white rounded-xl border border-gray-200 p-8">
-            {submitted ? (
-              // Terminal confirmation card — no buttons. The user is
-              // done. Sign-out lives in the header for anyone who wants
-              // to leave; clicking sidebar steps is silently a no-op
-              // (the panel keeps rendering this confirmation).
+            {approved ? (
+              // Approved terminal state — Mike has approved the
+              // application but the investor hasn't yet transitioned
+              // to Active (final account-setup steps pending). No
+              // buttons; Mike drives the next step out-of-band.
+              <>
+                <h1 className="font-heading text-2xl font-bold text-navy mb-3">
+                  Your application has been approved.
+                </h1>
+                <p className="font-body text-gray-700 text-base leading-relaxed mb-4">
+                  Congratulations, {firstName}. Your investor application is approved.
+                </p>
+                <p className="font-body text-gray-700 text-base leading-relaxed mb-4">
+                  Mike will reach out within 1 business day to finalize your account
+                  setup and walk you through any final documents needed before your
+                  first deal.
+                </p>
+                <p className="font-body text-gray-600 text-sm leading-relaxed">
+                  If you have any questions in the meantime, just reach out at{' '}
+                  <a
+                    href="mailto:mfox@foxmortgage.ca"
+                    className="text-lime hover:underline font-semibold"
+                  >
+                    mfox@foxmortgage.ca
+                  </a>
+                  .
+                </p>
+              </>
+            ) : submitted ? (
+              // Submitted-for-Review terminal card. The user finished
+              // all 8 steps but Mike hasn't reviewed yet. Stays here
+              // until Mike flips Onboarding_Stage to Approved (then
+              // the approved branch above takes over) or Active
+              // (then page.tsx redirects them out to /portal/investor).
               //
               // Out of scope here (per spec): the investor confirmation
               // email and the "new application in review queue" notification
