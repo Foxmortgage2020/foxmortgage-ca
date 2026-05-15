@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: May 15, 2026 (FOX-112 bookkeeping service-account auth fix)
+## Last Updated: May 15, 2026 (FOX-112 first clean dry-run + Vercel CLI + QBO query footguns)
 
 ---
 
@@ -32,8 +32,11 @@ Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
    - 9 nodes: Schedule trigger → Workflow Config (Set) → Load Categorization Rules → Fetch Uncategorized QBO Transactions → Rules Engine (regex only, no AI) → Check Write Mode → either httpbin stub (no auth) or Log Dry Run to API. Includes one sticky note.
    - QBO realm: **sandbox `9341456901231490`** (correct).
    - Logs to `/api/bookkeeping/dry-run-log` when WRITE_TO_QBO=false (currently false).
-   - **As of 2026-05-15: bookkeeping service-account auth verified end-to-end.** Workflow run 8241 confirmed both Header Auth nodes ("Load Categorization Rules", "Log Dry Run to API") reach the route handler with a valid Bearer header. Current blocker: route returns 503 `ZOHO_UNAVAILABLE` because `Master_Bookkeeping_Rules` Zoho Creator form is not yet created (see Activation checklist below).
-   - **Known secondary defect:** the "Fetch Uncategorized QBO Transactions" node points at credential `QWhiRCi4zGSstnHW` ("Zoho Full Access (CRM + Creator + WorkDrive)") instead of a QuickBooks OAuth2 credential. The workflow halts on the 503 above before that node runs, so this hasn't surfaced yet. Fix when the rules endpoint is unblocked.
+   - **As of 2026-05-15: first clean dry-run end-to-end ✅.** Workflow execution `8247` (2026-05-15) ran all 7 active nodes green: Trigger → Workflow Config (`WRITE_TO_QBO=false`, `QBO_REALM_ID=9341456901231490`) → Load Categorization Rules (HTTP 200, empty `{"records":[]}`) → Fetch Uncategorized QBO Transactions (HTTP 200, 6 Purchases) → Rules Engine — Match Transactions (1 item passed the new uncategorized filter) → Check Write Mode (routed to false branch since `WRITE_TO_QBO=false`; the Write-Stub branch is intentionally idle here) → Log Dry Run to API (HTTP 200, body `{"ok":true}`). One Purchase (id `182`, DocNumber `FOX-112-DRY-RUN-SEED`, $99.99) was seeded into the sandbox via a one-off API call during validation; safe to delete once Mike confirms.
+   - **FOX-114 three-night clean-run counter starts from tonight's scheduled 02:00 AM execution** (the manual run on 2026-05-15 doesn't count). Need 3 consecutive clean nights before `WRITE_TO_QBO` can be flipped to `true`.
+   - **Master_Bookkeeping_Rules form** in Zoho Creator: ✅ exists (created by Mike 2026-05-15) with the 6 required field link-names (`Vendor_Regex`, `Account_Name`, `Memo_Tag`, `Confidence`, `Active`, `Hit_Count`) and the auto-generated `All_Master_Bookkeeping_Rules` report. Form is empty (zero rules seeded). Rules engine emits `match_method: 'no_match'` for every transaction until rules are added — that's expected dry-run behavior.
+   - **QBO sandbox OAuth2 credential**: `1RTFGz2TrFtUtu97` "QuickBooks Online account" (sandbox environment, realm `9341456901231490`). Bound to the "Fetch Uncategorized QBO Transactions" node via `predefinedCredentialType` + `nodeCredentialType: "quickBooksOAuth2Api"`. Confirmed working with Intuit's sandbox API.
+   - **Uncategorized-line filter in Rules Engine:** the JS code now scans every Purchase's `Line[]` for at least one line where `DetailType === 'AccountBasedExpenseLineDetail'` AND `AccountBasedExpenseLineDetail.AccountRef.name === 'Uncategorized Expense'`; Purchases with no such line are skipped (`continue`). Needed because QBO QueryAPI rejects nested-property filters on the `Purchase` entity (see Known Footguns below). Date filter at query level (`TxnDate >= '2026-04-01'`) bounds the result set.
 
    **1b. Full-pipeline future production — `Rupc79GeJ8s6bbJa`** ("QBO Nightly Transaction Categorization")
    - Built April 18, 2026, **INACTIVE**, never executed.
@@ -95,6 +98,25 @@ Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
 | `/chart-of-accounts` | GET, POST | Static seeded list (QBO OAuth pending) | ✅ live |
 | `/dry-run-log` | GET, POST | In-memory (n8n calls POST when WRITE_TO_QBO=false) | ✅ live |
 | `/weekly-summary` | GET | Zoho Creator (live) + QBO (stub until FOX-112 QBO OAuth) | ✅ live |
+
+#### Known Footguns (Bookkeeping pipeline / Vercel infra)
+
+- **Vercel CLI `vercel env add` poisons env vars as `type=sensitive`.** When you `vercel env add <NAME> <env>` and pipe a value via stdin (or paste it interactively), the CLI silently creates the var with `type: "sensitive"`. Sensitive-type vars are write-only from the API: `vercel env pull` returns them as empty strings, and the Next.js runtime can sometimes read them as `undefined` even though the CLI says "Added". **Never use `vercel env add` from CLI for service-account secrets or any non-sensitive values.** Hit this bug twice on 2026-05-15: once with `BOOKKEEPING_WEBHOOK_SECRET` (FOX-112 first 401 cascade), once with `ZOHO_CREATOR_CLIENT_ID` / `ZOHO_CREATOR_CLIENT_SECRET` / `ZOHO_CREATOR_REFRESH_TOKEN` (FOX-112 503 cascade after the first fix). Use the Vercel dashboard UI or POST directly to the REST API:
+  ```
+  curl -X POST "https://api.vercel.com/v10/projects/{projectId}/env?teamId={teamId}" \
+    -H "Authorization: Bearer $VERCEL_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"key":"NAME","value":"plaintext","type":"encrypted","target":["production"]}'
+  ```
+  Encrypted-type vars ARE readable via `vercel env pull` (returns plaintext) and visible to the runtime. Recovery procedure when you find a poisoned sensitive-type var: pull the value from another scope (often Development still has the working `type=encrypted` copy via `vercel env pull --environment development`), DELETE the poisoned Production entry by id, POST a new entry with `type:"encrypted"`. Same pattern used to recover both incidents.
+
+- **QBO Query Language footgun: nested-property filters not supported on the `Purchase` entity.** `SELECT * FROM Purchase WHERE AccountRef.name = 'X'` is rejected by Intuit with `QueryValidationError: Property AccountRef.name not found for Entity Purchase` (code 4001). QBO's SQL-like dialect only allows filtering on top-level properties of an entity. On `Purchase`, the `AccountRef` field refers to the bank/cash account the Purchase was drawn from (top-level — and queryable as `AccountRef`), while the expense category lives at `Line[].AccountBasedExpenseLineDetail.AccountRef`, which is nested and NOT queryable. For Purchase queries, filter at the top level (`TxnDate`, `DocNumber`, `TotalAmt`, top-level `AccountRef = '<id>'`) and apply line-level filters in JavaScript after fetching. Same principle applies to other transaction entities that have `Line[]` collections (Bill, Invoice, JournalEntry, etc.).
+
+- **Zoho Creator returns HTTP 404 + `{"code":3100,"message":"No records found"}` for empty reports, not `200` + `{"data":[]}`.** All read-side functions in `lib/zoho-creator.ts` must treat 404 as `[]`, not throw. Pattern is documented in `getReviewQueue` and now applied to all four other read functions as of commit `6b9c0ac`. If a future engineer adds a fifth read function, copy the 404→[] guard.
+
+- **n8n public API can't read or update credential data.** `GET /api/v1/credentials/{id}` returns 403, `PATCH` doesn't exist. The only way to update a credential's stored secret is DELETE then POST a new one — which orphans existing workflow-node bindings until each workflow is re-PUT with the new credential id. When rotating an n8n credential, plan to PUT every workflow that referenced the old id.
+
+- **n8n `httpHeaderAuth` credentials require `allowedDomains`.** When creating via the public API: `POST /api/v1/credentials` body must include `data.allowedDomains` (string, comma-separated list of allowed origins) or the call returns 400 `request.body.data requires property "allowedDomains"`. UI creation handles this silently.
 
 #### Admin UI (`/portal/bookkeeping/*`)
 - `/portal/bookkeeping` — landing page with queue count, quick actions
@@ -251,7 +273,7 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - `dceYGLjOIRQAuS0p` Fox Mortgage — Daily Briefing & Alerts ✅ active
 - `CZ1zh0gKvkQuTBMc` Fox Mortgage — SMM Lead Monitor ✅ active (since 2026-04-21)
 - `Rupc79GeJ8s6bbJa` QBO Nightly Transaction Categorization (FOX-107 full pipeline, AI + review queue + weekly summary) ❌ inactive — production realm still hardcoded; needs Zoho forms + sandbox realm migration before activation
-- `Uu6fsZ2A2gTn0gBs` Bookkeeping — Nightly Transaction Categorization (FOX-112 dry-run validation cut, sandbox realm) ⚠️ inactive — service-account auth verified 2026-05-15, blocked on Zoho Creator `Master_Bookkeeping_Rules` form creation (route returns 503 ZOHO_UNAVAILABLE until form exists)
+- `Uu6fsZ2A2gTn0gBs` Bookkeeping — Nightly Transaction Categorization (FOX-112 dry-run validation cut, sandbox realm) ⚠️ inactive (workflow), but **first clean dry-run completed end-to-end on 2026-05-15 (manual execution 8247)** — every node green. FOX-114 three-night counter starts from tonight's scheduled 02:00 AM run. Activate the workflow's schedule trigger via the n8n UI before tonight if Mike wants it to auto-run.
 - `dh1qIttAuctSQ7L0` Daily Deal Briefing ✅ active (built 2026-04-07)
 
 ### Known Issues / In Progress
