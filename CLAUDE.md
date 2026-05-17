@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: May 15, 2026 (FOX-112 fully complete: 51 vendor + 15 description rules seeded, 73.3% combined coverage)
+## Last Updated: May 17, 2026 (FOX-113 D3 monthly recognition workflow built; FOX-112/FOX-438 closed)
 
 ---
 
@@ -76,8 +76,13 @@ Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
    - n8n credential **Fox Bookkeeping API** (id `6rVxjMhbq2zLOqqj`, project `JTCIC344s4l5JCyv`) is a Header Auth credential. **Name** field = `Authorization`, **Value** field = literal `Bearer <secret>` (the literal string `Bearer ` + the plaintext secret pasted directly). n8n Header Auth Value does **NOT** expand env expressions like `{{$env.FOO}}` — that pattern silently sends `{{$env.FOO}}` as the literal header value.
    - The `httpHeaderAuth` credential schema in the n8n public API requires an `allowedDomains` field. When creating via API, set it to `"https://www.foxmortgage.ca, https://foxmortgage.ca"`.
    - `middleware.ts` exempts `/api/bookkeeping/rules` and `/api/bookkeeping/dry-run-log` from Clerk's `authMiddleware` (commit `effbdb3`). Before this fix, Clerk intercepted unauthenticated service-account requests and returned `null` body 401 before the route handler's `isServiceAccount()` Bearer check could run. Any future bookkeeping route that wants service-account access must be added to `publicRoutes` alongside its own Bearer enforcement.
-2. **Monthly Deferred Recognition** (FOX-113, in progress) — 1st of each month, 3:00 AM America/Toronto
-   - Reads active Deferred_Revenue_Schedule records → creates QBO JournalEntries
+2. **Monthly Deferred Recognition** (FOX-113, in_progress) — 1st of each month, 3:00 AM America/Toronto
+   - n8n workflow ID: `1iR3tvhFATxwFnj7` ("Bookkeeping — Monthly Deferred Revenue Recognition") — built 2026-05-17, INACTIVE
+   - Cron: `0 3 1 * *`, active=false (manually enable once credential is attached)
+   - 8 nodes: Schedule Trigger → Workflow Config (WRITE_TO_QBO=false, sandbox realm 9341456901231490) → Fetch Active Deferred Schedules → Recognition Engine (straight-line / per-session / percentage-of-completion) → Check Write Mode → Write QBO Stub (disabled) / Log Dry Run to API
+   - **Credential setup required:** Attach existing "Fox Bookkeeping API" Header Auth credential (id `6rVxjMhbq2zLOqqj`) to "Fetch Active Deferred Schedules" and "Log Dry Run to API" nodes in n8n UI. This cannot be done via API (the credential was created by SDK placeholder `newCredential()`).
+   - **D2 AI Fallback deferred:** Extending `Uu6fsZ2A2gTn0gBs` with OpenRouter deferred until FOX-114 three-night counter completes (after 2026-05-18 02:00 AM run).
+   - Admin UI (D6) already live: `app/portal/bookkeeping/page.tsx`, `review-queue/page.tsx`, `projects/page.tsx`
 3. **Weekly Summary Email** (FOX-114) — Mondays 7:00 AM America/Toronto
    - Aggregates QBO stats + review queue + deferred schedules → Resend email to mfox@foxmortgage.ca
    - n8n workflow ID: TBD (pending FOX-114 completion)
