@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: May 17, 2026 (FOX-113 D3 monthly recognition workflow built; FOX-112/FOX-438 closed)
+## Last Updated: May 22, 2026 (FOX-113 D2 AI Fallback published live; FOX-114 three-night gate met)
 
 ---
 
@@ -29,11 +29,11 @@ Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
 
    **1a. FOX-112 dry-run validation cut — `Uu6fsZ2A2gTn0gBs`** ("Bookkeeping — Nightly Transaction Categorization")
    - Cron: 2:00 AM daily (`0 2 * * *`), active=false (manually triggerable via MCP)
-   - 9 nodes: Schedule trigger → Workflow Config (Set) → Load Categorization Rules → Fetch Uncategorized QBO Transactions → Rules Engine (regex only, no AI) → Check Write Mode → either httpbin stub (no auth) or Log Dry Run to API. Includes one sticky note.
+   - **16 nodes (as of 2026-05-22, D2 AI Fallback live):** Schedule trigger → Workflow Config (Set) → Load Categorization Rules → Fetch Uncategorized QBO Transactions → Rules Engine → Rule Matched? → [true] Check Write Mode → Write Stub / Log Dry Run; [false] Build AI Prompt → Call OpenRouter → Parse AI Response → AI Auto Route? / AI Review Route? → Submit to Review Queue / Skip — Low Confidence. Active version: `ee34c1f9`.
    - QBO realm: **sandbox `9341456901231490`** (correct).
    - Logs to `/api/bookkeeping/dry-run-log` when WRITE_TO_QBO=false (currently false).
    - **As of 2026-05-15: first clean dry-run end-to-end ✅.** Workflow execution `8247` (2026-05-15) ran all 7 active nodes green: Trigger → Workflow Config (`WRITE_TO_QBO=false`, `QBO_REALM_ID=9341456901231490`) → Load Categorization Rules (HTTP 200, empty `{"records":[]}`) → Fetch Uncategorized QBO Transactions (HTTP 200, 6 Purchases) → Rules Engine — Match Transactions (1 item passed the new uncategorized filter) → Check Write Mode (routed to false branch since `WRITE_TO_QBO=false`; the Write-Stub branch is intentionally idle here) → Log Dry Run to API (HTTP 200, body `{"ok":true}`). One Purchase (id `182`, DocNumber `FOX-112-DRY-RUN-SEED`, $99.99) was seeded into the sandbox via a one-off API call during validation; safe to delete once Mike confirms.
-   - **FOX-114 three-night clean-run counter starts from tonight's scheduled 02:00 AM execution** (the manual run on 2026-05-15 doesn't count). Need 3 consecutive clean nights before `WRITE_TO_QBO` can be flipped to `true`.
+   - **FOX-114 three-night gate MET (2026-05-22).** 7 consecutive clean nightly runs confirmed (2026-05-16 through 2026-05-22). Pending Mike sign-off + board approval before `WRITE_TO_QBO` can be flipped to `true`.
    - **Master_Bookkeeping_Rules form** in Zoho Creator: ✅ exists (created by Mike 2026-05-15) with the 6 required field link-names (`Vendor_Regex`, `Account_Name`, `Memo_Tag`, `Confidence`, `Active`, `Hit_Count`) and the auto-generated `All_Master_Bookkeeping_Rules` report. Form is empty (zero rules seeded). Rules engine emits `match_method: 'no_match'` for every transaction until rules are added — that's expected dry-run behavior.
    - **QBO sandbox OAuth2 credential**: `1RTFGz2TrFtUtu97` "QuickBooks Online account" (sandbox environment, realm `9341456901231490`). Bound to the "Fetch Uncategorized QBO Transactions" node via `predefinedCredentialType` + `nodeCredentialType: "quickBooksOAuth2Api"`. Confirmed working with Intuit's sandbox API.
    - **Uncategorized-line filter in Rules Engine:** the JS code now scans every Purchase's `Line[]` for at least one line where `DetailType === 'AccountBasedExpenseLineDetail'` AND `AccountBasedExpenseLineDetail.AccountRef.name === 'Uncategorized Expense'`; Purchases with no such line are skipped (`continue`). Needed because QBO QueryAPI rejects nested-property filters on the `Purchase` entity (see Known Footguns below). Date filter at query level (`TxnDate >= '2026-04-01'`) bounds the result set.
@@ -81,7 +81,7 @@ Three n8n workflows + Zoho Creator forms + Next.js proxy routes:
    - Cron: `0 3 1 * *`, active=false (manually enable once credential is attached)
    - 8 nodes: Schedule Trigger → Workflow Config (WRITE_TO_QBO=false, sandbox realm 9341456901231490) → Fetch Active Deferred Schedules → Recognition Engine (straight-line / per-session / percentage-of-completion) → Check Write Mode → Write QBO Stub (disabled) / Log Dry Run to API
    - **Credential setup required:** Attach existing "Fox Bookkeeping API" Header Auth credential (id `6rVxjMhbq2zLOqqj`) to "Fetch Active Deferred Schedules" and "Log Dry Run to API" nodes in n8n UI. This cannot be done via API (the credential was created by SDK placeholder `newCredential()`).
-   - **D2 AI Fallback deferred:** Extending `Uu6fsZ2A2gTn0gBs` with OpenRouter deferred until FOX-114 three-night counter completes (after 2026-05-18 02:00 AM run).
+   - **D2 AI Fallback live (2026-05-22):** `Uu6fsZ2A2gTn0gBs` extended to 16 nodes with OpenRouter AI fallback for unmatched transactions. Active version `ee34c1f9`. Confidence routing: ≥0.85 → dry-log, 0.50–0.84 → review queue, <0.50 → skip. WRITE_TO_QBO still false.
    - Admin UI (D6) already live: `app/portal/bookkeeping/page.tsx`, `review-queue/page.tsx`, `projects/page.tsx`
 3. **Weekly Summary Email** (FOX-114) — Mondays 7:00 AM America/Toronto
    - Aggregates QBO stats + review queue + deferred schedules → Resend email to mfox@foxmortgage.ca
@@ -286,7 +286,7 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - `dceYGLjOIRQAuS0p` Fox Mortgage — Daily Briefing & Alerts ✅ active
 - `CZ1zh0gKvkQuTBMc` Fox Mortgage — SMM Lead Monitor ✅ active (since 2026-04-21)
 - `Rupc79GeJ8s6bbJa` QBO Nightly Transaction Categorization (FOX-107 full pipeline, AI + review queue + weekly summary) ❌ inactive — production realm still hardcoded; needs Zoho forms + sandbox realm migration before activation
-- `Uu6fsZ2A2gTn0gBs` Bookkeeping — Nightly Transaction Categorization (FOX-112 dry-run validation cut, sandbox realm) ⚠️ inactive (workflow), but **first clean dry-run completed end-to-end on 2026-05-15 (manual execution 8247)** — every node green. FOX-114 three-night counter starts from tonight's scheduled 02:00 AM run. Activate the workflow's schedule trigger via the n8n UI before tonight if Mike wants it to auto-run.
+- `Uu6fsZ2A2gTn0gBs` Bookkeeping — Nightly Transaction Categorization ✅ active, 16 nodes, D2 AI Fallback live (published 2026-05-22, active version `ee34c1f9`). WRITE_TO_QBO=false. Three-night gate met; pending Mike sign-off + board approval to flip write mode.
 - `dh1qIttAuctSQ7L0` Daily Deal Briefing ✅ active (built 2026-04-07)
 
 ### Known Issues / In Progress
