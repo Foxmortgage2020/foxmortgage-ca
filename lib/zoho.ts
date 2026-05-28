@@ -2179,20 +2179,42 @@ export async function upsertSmmContactWithCasl(
 }
 
 // ─── Admin Dashboard ──────────────────────────────────────────────────────
-// Live data for app/portal/admin (replaces the old hardcoded tiles). Three
-// signals:
-//   1. partners   — grouped from listAllPartners() (shares partnersCache).
-//   2. referralsThisMonth — COUNT of Deals created this calendar month that
-//      carry a Referral_Partner link.
-//   3. attribution — all-time attributed-vs-total deal coverage.
-// The two deal aggregates run via COQL (COUNT(id)) — a single round-trip
-// each, instead of paging 200+ records through REST search. NOTE: COQL
-// addresses the deal module as "Deals"; the REST v2 builders above use the
-// same module under its API name "Potentials".
+// Live data for app/portal/admin (replaces the old hardcoded tiles). Two
+// independent sources:
+//   1. partners — grouped from listAllPartners() (shares partnersCache).
+//   2. deals    — a SINGLE paginated Potentials records pull; every
+//      deal-derived tile (funded volume, in-progress, referrals this month,
+//      attribution, recent referrals) is computed from that one fetch.
 //
-// Resilience: this function NEVER throws. Partner counts and the deal
-// aggregates fail independently — a COQL outage still renders partner tiles,
-// with the deal fields surfaced as null so the UI shows dashes.
+// Why not COQL: the COQL endpoint requires the ZohoCRM.coql.READ scope,
+// which the app's refresh token does NOT hold — so COUNT queries 401'd in
+// prod and every deal tile fell back to a dash, even though the same query
+// works through the separately-authenticated MCP connector. The records API
+// (/Potentials, same scope listAllPartners already uses) avoids the scope
+// dependency entirely. 205 deals is two pages at 200/page.
+//
+// Resilience: this function NEVER throws. Partners and deals fail
+// independently — a deal-pull failure still renders partner tiles, with
+// `deals: null` so the UI shows dashes / Coming Soon for those tiles.
+
+export interface AdminRecentReferral {
+  dealId: string
+  borrower: string            // from Deal_Name
+  partner: string | null      // Referral_Partner lookup display name
+  stage: string
+  createdTime: string | null  // ISO datetime from Zoho
+}
+
+export interface AdminDealMetrics {
+  fundedVolume: number        // sum of Amount over funded deals (dollars)
+  fundedCount: number
+  inProgress: number
+  total: number
+  referralsThisMonth: number
+  totalReferrals: number      // all-time deals with a Referral_Partner
+  attributionPct: number      // rounded whole percent of total
+  recentReferrals: AdminRecentReferral[]
+}
 
 export interface AdminDashboardPayload {
   partners: {
@@ -2205,16 +2227,25 @@ export interface AdminDashboardPayload {
       untyped: number
     }
   }
-  referralsThisMonth: number | null
-  attribution: {
-    attributed: number | null
-    total: number | null
-    pct: number | null
-  }
+  deals: AdminDealMetrics | null
   warning?: string
 }
 
 const ADMIN_DASHBOARD_TZ = 'America/Toronto'
+
+// Stage classification for deal tiles. Matched case-insensitively against
+// the trimmed Stage value so picklist casing drift doesn't silently zero a
+// tile. Funded → counts toward funded volume; in-progress → the active
+// pipeline count.
+const FUNDED_STAGES = new Set(['mortgage funded', 'funded'])
+const IN_PROGRESS_STAGES = new Set([
+  'qualification',
+  'application started',
+  'collecting documentation',
+  'conditionally approved',
+  'options',
+  'pending',
+])
 
 // Minutes the given instant is offset from UTC in the target zone (negative
 // west of UTC, e.g. EDT = -240, EST = -300). Derived from Intl so DST is
@@ -2266,59 +2297,96 @@ function startOfCurrentMonthToronto(now: Date = new Date()): string {
   return `${year}-${month}-01T00:00:00${sign}${hh}:${mm}`
 }
 
-// Run a COQL aggregate that selects a single COUNT and return the integer.
-// Returns null on any failure (token, network, non-2xx, parse) so callers
-// can degrade gracefully. The count key in Zoho's response varies by API
-// build ("count" vs "COUNT(id)"), so we read the first value of the row.
-async function coqlCount(selectQuery: string): Promise<number | null> {
-  let token: string
-  try {
-    token = await getZohoToken()
-  } catch (err) {
-    console.error('[zoho] coqlCount token error:', err)
-    return null
-  }
+// Slim deal field list for the admin aggregates — only what the tiles need.
+// Created_Time is a Zoho system field (always present on Potentials).
+const ADMIN_DEAL_FIELDS = 'Deal_Name,Stage,Amount,Referral_Partner,Created_Time'
 
-  let res: Response
-  try {
-    res = await fetch(`${ZOHO_API}/coql`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Zoho-oauthtoken ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ select_query: selectQuery }),
+// Pulls every Potentials (deal) record via the records API, paging at
+// Zoho's 200/page max, newest first. Uses the same scope/token as
+// listAllPartners — NO COQL. Throws on a hard failure so the caller can mark
+// `deals: null`; callers must wrap in try/catch.
+async function fetchAllAdminDeals(): Promise<any[]> {
+  const token = await getZohoToken()
+  const all: any[] = []
+  let page = 1
+  // Safety cap: 20 pages × 200 = 4,000 deals, well above the live ~205.
+  while (page <= 20) {
+    const url = `${ZOHO_API}/Potentials?fields=${ADMIN_DEAL_FIELDS}&per_page=200&page=${page}&sort_by=Created_Time&sort_order=desc`
+    const res = await fetch(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      cache: 'no-store',
     })
-  } catch (err) {
-    console.error('[zoho] coqlCount fetch error:', err, 'query:', selectQuery)
-    return null
+    if (res.status === 204) break
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error('[zoho] fetchAllAdminDeals error:', res.status, text.substring(0, 300))
+      throw new Error(`Zoho Potentials list failed with status ${res.status}`)
+    }
+    const data = await res.json()
+    const rows: any[] = Array.isArray(data?.data) ? data.data : []
+    all.push(...rows)
+    if (data?.info?.more_records !== true) break
+    page += 1
+  }
+  return all
+}
+
+// Referral_Partner is a lookup → { id, name } object when set, null when not.
+function referralPartnerName(raw: any): string | null {
+  if (!raw) return null
+  if (typeof raw === 'object') return raw.name ?? null
+  return typeof raw === 'string' ? raw : null
+}
+
+// Compute every deal-derived tile from one pull. now is injectable for tests.
+function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDealMetrics {
+  const monthStart = new Date(startOfCurrentMonthToronto(now)).getTime()
+
+  let fundedVolume = 0
+  let fundedCount = 0
+  let inProgress = 0
+  let totalReferrals = 0
+  let referralsThisMonth = 0
+  const referredDeals: any[] = []
+
+  for (const d of deals) {
+    const stage = String(d.Stage ?? '').trim().toLowerCase()
+    if (FUNDED_STAGES.has(stage)) {
+      fundedCount += 1
+      fundedVolume += Number(d.Amount) || 0
+    }
+    if (IN_PROGRESS_STAGES.has(stage)) inProgress += 1
+
+    if (d.Referral_Partner != null) {
+      totalReferrals += 1
+      referredDeals.push(d)
+      const created = d.Created_Time ? new Date(d.Created_Time).getTime() : NaN
+      if (Number.isFinite(created) && created >= monthStart) referralsThisMonth += 1
+    }
   }
 
-  // 204 = no rows matched the WHERE clause → a legitimate zero.
-  if (res.status === 204) return 0
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    console.error(
-      '[zoho] coqlCount non-ok:',
-      res.status,
-      'query:', selectQuery,
-      'body:', text.substring(0, 300),
-    )
-    return null
-  }
+  const total = deals.length
+  const attributionPct = total > 0 ? Math.round((totalReferrals / total) * 100) : 0
 
-  let body: any
-  try {
-    body = await res.json()
-  } catch (err) {
-    console.error('[zoho] coqlCount JSON parse error:', err)
-    return null
-  }
+  // referredDeals already newest-first (query sorted desc by Created_Time).
+  const recentReferrals: AdminRecentReferral[] = referredDeals.slice(0, 10).map(d => ({
+    dealId: d.id,
+    borrower: d.Deal_Name ?? '(untitled)',
+    partner: referralPartnerName(d.Referral_Partner),
+    stage: d.Stage ?? '',
+    createdTime: d.Created_Time ?? null,
+  }))
 
-  const row = Array.isArray(body?.data) ? body.data[0] : undefined
-  if (!row) return 0
-  const val = Number(Object.values(row)[0])
-  return Number.isFinite(val) ? val : null
+  return {
+    fundedVolume,
+    fundedCount,
+    inProgress,
+    total,
+    referralsThisMonth,
+    totalReferrals,
+    attributionPct,
+    recentReferrals,
+  }
 }
 
 // Map a raw Partner_Type picklist value onto a dashboard bucket. Unset or
@@ -2362,30 +2430,20 @@ export async function getAdminDashboardPayload(): Promise<AdminDashboardPayload>
     warning = 'partners-failed'
   }
 
-  // 2 + 3. Deal aggregates via COQL. Each returns null on failure and is
-  //    surfaced as a dash in the UI — they do not block the partner tiles.
-  const monthStart = startOfCurrentMonthToronto()
-  const [referralsThisMonth, attributed, dealTotal] = await Promise.all([
-    coqlCount(
-      `SELECT COUNT(id) FROM Deals WHERE Created_Time >= '${monthStart}' AND Referral_Partner is not null`,
-    ),
-    coqlCount(`SELECT COUNT(id) FROM Deals WHERE Referral_Partner is not null`),
-    coqlCount(`SELECT COUNT(id) FROM Deals WHERE id is not null`),
-  ])
-
-  const pct =
-    attributed !== null && dealTotal !== null && dealTotal > 0
-      ? Math.round((attributed / dealTotal) * 100)
-      : null
-
-  if (referralsThisMonth === null || attributed === null || dealTotal === null) {
+  // 2. Deals — one records pull, all deal tiles computed in code. On failure
+  //    deals=null (UI shows dashes) but partner tiles still render.
+  let deals: AdminDealMetrics | null = null
+  try {
+    const rows = await fetchAllAdminDeals()
+    deals = computeAdminDealMetrics(rows)
+  } catch (err) {
+    console.error('[zoho] getAdminDashboardPayload deals error:', err)
     warning = warning ? `${warning},deals-failed` : 'deals-failed'
   }
 
   const payload: AdminDashboardPayload = {
     partners: { total, byType },
-    referralsThisMonth,
-    attribution: { attributed, total: dealTotal, pct },
+    deals,
     ...(warning ? { warning } : {}),
   }
 

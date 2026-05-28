@@ -15,9 +15,28 @@ import {
   Activity,
 } from 'lucide-react';
 
-// Shape returned by GET /api/admin/dashboard (see getAdminDashboardPayload
-// in lib/zoho.ts). Deal aggregates are nullable — they degrade to dashes if
-// the COQL queries fail while partner counts still render.
+// Shape returned by GET /api/admin/dashboard (see getAdminDashboardPayload in
+// lib/zoho.ts). `deals` is null when the single deal pull fails — partner
+// tiles still render; deal-derived tiles fall back to dashes.
+type RecentReferral = {
+  dealId: string;
+  borrower: string;
+  partner: string | null;
+  stage: string;
+  createdTime: string | null;
+};
+
+type DealMetrics = {
+  fundedVolume: number;
+  fundedCount: number;
+  inProgress: number;
+  total: number;
+  referralsThisMonth: number;
+  totalReferrals: number;
+  attributionPct: number;
+  recentReferrals: RecentReferral[];
+};
+
 type AdminDashboard = {
   partners: {
     total: number;
@@ -29,19 +48,46 @@ type AdminDashboard = {
       untyped: number;
     };
   };
-  referralsThisMonth: number | null;
-  attribution: {
-    attributed: number | null;
-    total: number | null;
-    pct: number | null;
-  };
+  deals: DealMetrics | null;
   warning?: string;
 };
 
-// Render a number, or an em-dash when the value is unavailable (loading or
-// a failed deal aggregate). Never throws on null/undefined.
+// Render a number, or an em-dash when unavailable (loading or a failed
+// aggregate). Never throws on null/undefined.
 const dash = (n: number | null | undefined): string =>
   n === null || n === undefined ? '—' : String(n);
+
+// Compact millions, e.g. 31279738 -> "$31.3M". Dash when unavailable.
+const moneyM = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '—' : `$${(n / 1_000_000).toFixed(1)}M`;
+
+// "May 12"-style short date from a Zoho ISO datetime.
+const fmtDate = (iso: string | null): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime())
+    ? ''
+    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+// Pill color by deal stage. Funded → green, lost/cancelled → gray,
+// approved → lime, everything else → blue.
+const stageColor = (stage: string): string => {
+  const s = stage.toLowerCase();
+  if (s.includes('funded')) return 'bg-green-100 text-green-700';
+  if (s.includes('lost') || s.includes('cancel') || s.includes('declin'))
+    return 'bg-gray-100 text-gray-600';
+  if (s.includes('approved')) return 'bg-lime-100 text-lime-700';
+  return 'bg-blue-100 text-blue-700';
+};
+
+type Kpi = {
+  icon: typeof Building2;
+  value: string;
+  label: string;
+  sub: string | null;
+  comingSoon?: boolean;
+};
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -55,7 +101,7 @@ export default function AdminDashboard() {
         if (!cancelled) setData(json);
       })
       .catch(() => {
-        // Swallow — tiles fall back to dashes via the dash() helper.
+        // Swallow — tiles fall back to dashes / Coming Soon.
       });
     return () => {
       cancelled = true;
@@ -63,9 +109,9 @@ export default function AdminDashboard() {
   }, []);
 
   const byType = data?.partners.byType;
-  // Subtitle for the Active Partners KPI — real by-type breakdown that
-  // INCLUDES lawyers and investors (the old hardcoded "8 realtors, 4 FPs"
-  // omitted them).
+  const deals = data?.deals ?? null;
+
+  // Real by-type breakdown that INCLUDES lawyers and investors.
   const partnerSubtitle = byType
     ? `${byType.realtor} realtors, ${byType.lawyer} lawyers, ${byType.investor} investors, ${byType.financialPlanner} FPs`
     : 'Loading…';
@@ -77,91 +123,95 @@ export default function AdminDashboard() {
     day: 'numeric',
   });
 
-  const topKpis = [
+  // Trend badges removed — each needs a month-over-month query we have not
+  // built. Tiles with no live Zoho source are flagged comingSoon.
+  const topKpis: Kpi[] = [
     {
       icon: Building2,
-      value: '$45.2M',
+      value: moneyM(deals?.fundedVolume),
       label: 'Total Funded Volume',
-      sub: '+18% this month',
-      badge: '+18%',
-      badgeColor: 'bg-green-100 text-green-700',
+      sub: deals ? `${deals.fundedCount} funded deals` : null,
     },
     {
       icon: Users,
       value: dash(data?.partners.total),
       label: 'Active Partners',
       sub: partnerSubtitle,
-      badge: null,
-      badgeColor: '',
     },
     {
       icon: DollarSign,
-      value: '$750K',
+      value: '',
       label: 'Capital Deployed (Investors)',
-      sub: '2 active positions',
-      badge: null,
-      badgeColor: '',
+      sub: null,
+      comingSoon: true,
     },
     {
       icon: TrendingUp,
-      value: '63.2%',
+      value: '',
       label: 'Referral Close Rate',
-      sub: '-2.1% vs last month',
-      badge: '-2.1%',
-      badgeColor: 'bg-red-100 text-red-700',
+      sub: null,
+      comingSoon: true,
     },
   ];
 
-  const secondKpis = [
+  const secondKpis: Kpi[] = [
     {
       icon: FileText,
-      value: '247',
+      value: dash(deals?.totalReferrals),
       label: 'Total Referrals (All Time)',
-      sub: '+12 this month',
+      sub: deals ? `${deals.attributionPct}% of ${deals.total} deals` : null,
     },
     {
       icon: Shield,
-      value: '$128M',
+      value: '',
       label: 'Assets Under Monitoring',
-      sub: 'Across all SMM clients',
+      sub: null,
+      comingSoon: true,
     },
     {
       icon: Clock,
-      value: '3',
+      value: dash(deals?.inProgress),
       label: 'Deals In Progress',
-      sub: 'Expected close: 14 days avg',
+      sub: deals ? 'Active pipeline' : null,
     },
     {
       icon: Bell,
-      value: '5',
+      value: '',
       label: 'Pending Actions',
-      sub: 'Require your attention',
+      sub: null,
+      comingSoon: true,
     },
   ];
 
-  const recentReferrals = [
-    { name: 'Sarah Johnson', partner: 'John Smith (Realtor)', status: 'Active', statusColor: 'bg-green-100 text-green-700', date: 'Jan 15' },
-    { name: 'Michael Chen', partner: 'Jane Doe (FP)', status: 'Potential Savings', statusColor: 'bg-yellow-100 text-yellow-700', date: 'Jan 10' },
-    { name: 'Emily Rodriguez', partner: 'John Smith', status: 'Onboarding', statusColor: 'bg-blue-100 text-blue-700', date: 'Jan 8' },
-    { name: 'David Thompson', partner: 'Sarah Lee (Realtor)', status: 'Referred', statusColor: 'bg-gray-100 text-gray-600', date: 'Jan 5' },
-    { name: 'Jennifer Walsh', partner: 'John Smith', status: 'Active', statusColor: 'bg-green-100 text-green-700', date: 'Jan 2' },
-  ];
+  const recent = deals?.recentReferrals ?? [];
 
-  const investorActivity = [
-    { date: 'Apr 1, 2026', type: 'Interest Payment', amount: '$4,375', property: '142 Wellington', status: 'Scheduled', statusColor: 'bg-blue-100 text-blue-700' },
-    { date: 'Apr 1', type: 'Interest Payment', amount: '$2,708', property: '88 King', status: 'Scheduled', statusColor: 'bg-blue-100 text-blue-700' },
-    { date: 'Mar 15', type: 'Interest Payment', amount: '$4,375', property: '142 Wellington', status: 'Paid', statusColor: 'bg-green-100 text-green-700' },
-    { date: 'Mar 15', type: 'Interest Payment', amount: '$2,708', property: '88 King', status: 'Paid', statusColor: 'bg-green-100 text-green-700' },
-    { date: 'Mar 1', type: 'New Opportunity', amount: '$1.1M', property: 'BRXM-F025265', status: 'Available', statusColor: 'bg-lime-100 text-lime-700' },
-  ];
-
-  const pendingActions = [
-    { dot: 'bg-red-500', desc: 'KYC review due for Michael Fox investor account', due: 'Due Apr 30', action: 'Complete', href: '/portal/investor/profile' },
-    { dot: 'bg-yellow-500', desc: '3 new deal opportunities need to be posted', due: 'Due ASAP', action: 'Manage', href: '/portal/investor/opportunities' },
-    { dot: 'bg-yellow-500', desc: 'Renewal alert: 4 clients maturing in 60 days', due: 'Due May 1', action: 'View', href: '/portal/clients' },
-    { dot: 'bg-blue-500', desc: 'New referral submitted: David Thompson', due: 'Received Jan 5', action: 'Review', href: '/portal/clients' },
-    { dot: 'bg-blue-500', desc: 'Monthly statements ready to send', due: 'Due Apr 1', action: 'Send', href: '/portal/investor/statements' },
-  ];
+  const renderKpi = (kpi: Kpi) => {
+    const Icon = kpi.icon;
+    return (
+      <div
+        key={kpi.label}
+        className={`bg-white rounded-xl border border-gray-200 p-5 ${kpi.comingSoon ? 'opacity-60' : ''}`}
+      >
+        <div className={`rounded-lg p-2 w-fit ${kpi.comingSoon ? 'bg-gray-100' : 'bg-lime/10'}`}>
+          <Icon className={`w-5 h-5 ${kpi.comingSoon ? 'text-gray-400' : 'text-lime'}`} />
+        </div>
+        {kpi.comingSoon ? (
+          <>
+            <span className="inline-block bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full mt-3">
+              Coming Soon
+            </span>
+            <p className="text-gray-500 text-sm font-body mt-2">{kpi.label}</p>
+          </>
+        ) : (
+          <>
+            <p className="font-heading text-3xl text-navy font-bold mt-3">{kpi.value}</p>
+            <p className="text-gray-500 text-sm font-body mt-1">{kpi.label}</p>
+            {kpi.sub && <p className="text-gray-400 text-xs mt-0.5">{kpi.sub}</p>}
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 lg:p-10">
@@ -181,49 +231,12 @@ export default function AdminDashboard() {
 
       {/* 2. TOP KPI ROW */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {topKpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <div
-              key={kpi.label}
-              className="bg-white rounded-xl border border-gray-200 p-5 relative"
-            >
-              <div className="flex items-start justify-between">
-                <div className="bg-lime/10 rounded-lg p-2">
-                  <Icon className="w-5 h-5 text-lime" />
-                </div>
-                {kpi.badge && (
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${kpi.badgeColor}`}>
-                    {kpi.badge}
-                  </span>
-                )}
-              </div>
-              <p className="font-heading text-3xl text-navy font-bold mt-3">{kpi.value}</p>
-              <p className="text-gray-500 text-sm font-body mt-1">{kpi.label}</p>
-              <p className="text-gray-400 text-xs mt-0.5">{kpi.sub}</p>
-            </div>
-          );
-        })}
+        {topKpis.map(renderKpi)}
       </div>
 
       {/* 3. SECOND KPI ROW */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {secondKpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <div
-              key={kpi.label}
-              className="bg-white rounded-xl border border-gray-200 p-5"
-            >
-              <div className="bg-lime/10 rounded-lg p-2 w-fit">
-                <Icon className="w-5 h-5 text-lime" />
-              </div>
-              <p className="font-heading text-3xl text-navy font-bold mt-3">{kpi.value}</p>
-              <p className="text-gray-500 text-sm font-body mt-1">{kpi.label}</p>
-              <p className="text-gray-400 text-xs mt-0.5">{kpi.sub}</p>
-            </div>
-          );
-        })}
+        {secondKpis.map(renderKpi)}
       </div>
 
       {/* 4. PORTAL OVERVIEW TILES */}
@@ -259,13 +272,13 @@ export default function AdminDashboard() {
                 <p className="text-gray-500 text-xs">Active Investors</p>
               </div>
               <div>
-                <p className="font-heading text-navy text-xl font-bold">{dash(data?.referralsThisMonth)}</p>
+                <p className="font-heading text-navy text-xl font-bold">{dash(deals?.referralsThisMonth)}</p>
                 <p className="text-gray-500 text-xs">Referrals This Month</p>
               </div>
               <div>
                 <p className="font-heading text-navy text-xl font-bold">
-                  {data?.attribution.attributed != null && data?.attribution.total != null
-                    ? `${data.attribution.attributed} / ${data.attribution.total} (${dash(data.attribution.pct)}%)`
+                  {deals
+                    ? `${deals.totalReferrals} / ${deals.total} (${deals.attributionPct}%)`
                     : '—'}
                 </p>
                 <p className="text-gray-500 text-xs">Referral Attribution</p>
@@ -274,7 +287,8 @@ export default function AdminDashboard() {
             <p className="text-lime font-semibold text-sm mt-4">Enter Partner Portal &rarr;</p>
           </div>
 
-          {/* Investor Portal */}
+          {/* Investor Portal — only the partner count is live; position-level
+              figures await an investor data source in Zoho. */}
           <div
             onClick={() => router.push('/portal/investor/dashboard')}
             className="bg-white rounded-2xl border-2 border-gray-200 hover:border-lime cursor-pointer transition-all p-6"
@@ -287,26 +301,32 @@ export default function AdminDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-4 mt-4">
               <div>
-                <p className="font-heading text-navy text-xl font-bold">3</p>
+                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.investor)}</p>
                 <p className="text-gray-500 text-xs">Active Investors</p>
               </div>
               <div>
-                <p className="font-heading text-navy text-xl font-bold">$750K</p>
-                <p className="text-gray-500 text-xs">Capital Deployed</p>
+                <span className="inline-block bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                  Coming Soon
+                </span>
+                <p className="text-gray-500 text-xs mt-1">Capital Deployed</p>
               </div>
               <div>
-                <p className="font-heading text-navy text-xl font-bold">$52,500</p>
-                <p className="text-gray-500 text-xs">Interest Paid YTD</p>
+                <span className="inline-block bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                  Coming Soon
+                </span>
+                <p className="text-gray-500 text-xs mt-1">Interest Paid YTD</p>
               </div>
               <div>
-                <p className="font-heading text-navy text-xl font-bold">3</p>
-                <p className="text-gray-500 text-xs">New Opportunities</p>
+                <span className="inline-block bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                  Coming Soon
+                </span>
+                <p className="text-gray-500 text-xs mt-1">New Opportunities</p>
               </div>
             </div>
             <p className="text-lime font-semibold text-sm mt-4">Enter Investor Portal &rarr;</p>
           </div>
 
-          {/* SMM Dashboard */}
+          {/* SMM Dashboard — no live data source yet. */}
           <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 opacity-75 p-6">
             <div className="flex items-center gap-3">
               <div className="bg-gray-100 rounded-full p-2">
@@ -317,28 +337,13 @@ export default function AdminDashboard() {
                 <p className="text-gray-400 text-xs">Strategic Mortgage Monitoring</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">200+</p>
-                <p className="text-gray-500 text-xs">Clients Monitored</p>
-              </div>
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">$4,200</p>
-                <p className="text-gray-500 text-xs">Avg Rate Savings</p>
-              </div>
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">18</p>
-                <p className="text-gray-500 text-xs">Renewals This Quarter</p>
-              </div>
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">47</p>
-                <p className="text-gray-500 text-xs">Alerts Sent</p>
-              </div>
-            </div>
-            <div className="mt-4">
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
               <span className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">
                 Coming Soon
               </span>
+              <p className="text-gray-400 text-xs text-center">
+                Monitoring metrics not yet sourced from Zoho.
+              </p>
             </div>
           </div>
         </div>
@@ -346,7 +351,7 @@ export default function AdminDashboard() {
 
       {/* 5. RECENT ACTIVITY */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Recent Referrals */}
+        {/* Recent Referrals — live, attributed deals newest first. */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-heading text-navy font-bold text-lg">Recent Referrals</h3>
@@ -355,103 +360,82 @@ export default function AdminDashboard() {
             </Link>
           </div>
           <div>
-            {recentReferrals.map((ref, i) => (
-              <div
-                key={i}
-                className={`flex items-center justify-between py-3 ${i < recentReferrals.length - 1 ? 'border-b border-gray-100' : ''}`}
-              >
-                <div>
-                  <p className="text-sm font-body text-navy font-semibold">{ref.name}</p>
-                  <p className="text-xs text-gray-400">{ref.partner}</p>
+            {recent.length === 0 ? (
+              <p className="text-sm text-gray-400 py-3">
+                {data ? 'No attributed referrals yet.' : 'Loading…'}
+              </p>
+            ) : (
+              recent.map((ref, i) => (
+                <div
+                  key={ref.dealId}
+                  className={`flex items-center justify-between py-3 ${i < recent.length - 1 ? 'border-b border-gray-100' : ''}`}
+                >
+                  <div>
+                    <p className="text-sm font-body text-navy font-semibold">{ref.borrower}</p>
+                    <p className="text-xs text-gray-400">{ref.partner ?? 'Unknown partner'}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${stageColor(ref.stage)}`}>
+                      {ref.stage || '—'}
+                    </span>
+                    <span className="text-xs text-gray-400">{fmtDate(ref.createdTime)}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ref.statusColor}`}>
-                    {ref.status}
-                  </span>
-                  <span className="text-xs text-gray-400">{ref.date}</span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
-        {/* Investor Activity */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        {/* Investor Activity — no live data source yet. */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 opacity-75">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-heading text-navy font-bold text-lg">Investor Activity</h3>
-            <Link href="/portal/investor/dashboard" className="text-lime text-sm font-semibold">
-              View All &rarr;
-            </Link>
           </div>
-          <div>
-            {investorActivity.map((item, i) => (
-              <div
-                key={i}
-                className={`flex items-center justify-between py-3 ${i < investorActivity.length - 1 ? 'border-b border-gray-100' : ''}`}
-              >
-                <div>
-                  <p className="text-sm font-body text-navy font-semibold">{item.type}</p>
-                  <p className="text-xs text-gray-400">{item.property}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-heading text-navy font-bold">{item.amount}</span>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.statusColor}`}>
-                    {item.status}
-                  </span>
-                  <span className="text-xs text-gray-400">{item.date}</span>
-                </div>
-              </div>
-            ))}
+          <div className="flex flex-col items-center justify-center py-12 gap-2">
+            <span className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">
+              Coming Soon
+            </span>
+            <p className="text-gray-400 text-xs text-center">
+              Investor position data not yet sourced from Zoho.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* 6. PENDING ACTIONS */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+      {/* 6. PENDING ACTIONS — no live data source yet. */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8 opacity-75">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-heading text-navy font-bold text-lg">Pending Actions</h3>
-          <p className="text-gray-500 text-sm">5 items require attention</p>
         </div>
-        <div>
-          {pendingActions.map((item, i) => (
-            <div
-              key={i}
-              className={`flex items-center gap-4 py-3 ${i < pendingActions.length - 1 ? 'border-b border-gray-100' : ''}`}
-            >
-              <div className={`w-2 h-2 rounded-full ${item.dot} flex-shrink-0`} />
-              <p className="text-sm font-body text-navy flex-1">{item.desc}</p>
-              <span className="text-gray-400 text-xs whitespace-nowrap">{item.due}</span>
-              <Link href={item.href} className="text-lime text-sm font-semibold whitespace-nowrap">
-                {item.action} &rarr;
-              </Link>
-            </div>
-          ))}
+        <div className="flex flex-col items-center justify-center py-10 gap-2">
+          <span className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">
+            Coming Soon
+          </span>
+          <p className="text-gray-400 text-xs text-center">
+            Action queue not yet wired to a live source.
+          </p>
         </div>
       </div>
 
-      {/* 7. PRACTICE SUMMARY */}
+      {/* 7. PRACTICE SUMMARY — real deal-derived numbers only. */}
       <div className="bg-navy text-white rounded-xl p-6">
         <h3 className="text-lime font-heading font-bold text-lg mb-4">Practice Summary</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           <div>
-            <p className="font-heading text-2xl font-bold text-lime">$47M+</p>
-            <p className="text-gray-400 text-xs mt-1">Capital Deployed (All Time)</p>
+            <p className="font-heading text-2xl font-bold text-lime">{moneyM(deals?.fundedVolume)}</p>
+            <p className="text-gray-400 text-xs mt-1">Total Funded Volume</p>
           </div>
           <div>
-            <p className="font-heading text-2xl font-bold text-white">247</p>
-            <p className="text-gray-400 text-xs mt-1">Total Referrals</p>
+            <p className="font-heading text-2xl font-bold text-white">{dash(deals?.fundedCount)}</p>
+            <p className="text-gray-400 text-xs mt-1">Funded Deals</p>
           </div>
           <div>
-            <p className="font-heading text-2xl font-bold text-lime">11.2%</p>
-            <p className="text-gray-400 text-xs mt-1">Avg Investor Return</p>
+            <p className="font-heading text-2xl font-bold text-lime">{dash(deals?.total)}</p>
+            <p className="text-gray-400 text-xs mt-1">Total Deals</p>
           </div>
           <div>
-            <p className="font-heading text-2xl font-bold text-white">Zero</p>
-            <p className="text-gray-400 text-xs mt-1">Investor Losses</p>
-          </div>
-          <div>
-            <p className="font-heading text-2xl font-bold text-lime">200+</p>
-            <p className="text-gray-400 text-xs mt-1">Clients Monitored</p>
+            <p className="font-heading text-2xl font-bold text-white">{dash(data?.partners.total)}</p>
+            <p className="text-gray-400 text-xs mt-1">Active Partners</p>
           </div>
         </div>
       </div>
