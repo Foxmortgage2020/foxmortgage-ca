@@ -1,0 +1,37 @@
+import { NextResponse } from 'next/server'
+import { getPortalContext } from '@/lib/auth'
+import { getLawyerDashboardPayload } from '@/lib/zoho'
+
+export async function GET() {
+  try {
+    const ctx = await getPortalContext()
+    if (!ctx) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isLawyer = ctx.actor.roles.includes('lawyer')
+    const isAdmin = ctx.actor.roles.includes('admin')
+    if (!isLawyer && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // effectiveLawyerId is the impersonated partner's id when an admin is
+    // impersonating a lawyer, otherwise the actor's own lawyer_zoho_id. Null
+    // means admin not-impersonating with no linked lawyer id — nothing to fetch.
+    const lawyerZohoId = ctx.effectiveLawyerId
+    if (!lawyerZohoId) {
+      return NextResponse.json({ error: 'No Zoho Partner ID linked to account.' }, { status: 400 })
+    }
+
+    // Single minimal-field Zoho call — never throws. Always returns a valid
+    // payload so the dashboard can render its stat grid (with zeros if empty).
+    const payload = await getLawyerDashboardPayload(lawyerZohoId)
+    return NextResponse.json(payload)
+  } catch (error) {
+    console.error('[GET /api/portal/lawyer/dashboard]', new Date().toISOString(), error)
+    return NextResponse.json(
+      { error: "We couldn't load this data right now. Please try again in a moment.", code: 'ZOHO_UNAVAILABLE' },
+      { status: 503 },
+    )
+  }
+}

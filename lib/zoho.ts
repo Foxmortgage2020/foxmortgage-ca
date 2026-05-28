@@ -9,6 +9,8 @@ import { timingSafeEqual } from 'crypto'
 import {
   opportunitiesCache,
   fpMessagesCache,
+  lawyerMessagesCache,
+  realtorMessagesCache,
   partnersCache,
   getDocumentHints,
   pruneDocumentHints,
@@ -884,6 +886,38 @@ export async function getInvestorDeal(dealId: string) {
 // Field list is restricted to fields confirmed to exist on the Potentials
 // schema — unknown field names cause Zoho to return INVALID_DATA 400s.
 
+// ─── Note_Title prefix constants ──────────────────────────────────────────────
+// The Notes module is `system_hidden` on this org and silently drops any
+// custom field on write (verified 2026-05-28 via /settings/fields?module=Notes,
+// both v2 and v6). The FP/Realtor messaging workflows in n8n historically
+// included `Note_Type` on every Zoho Notes POST — Zoho ignores it, so the
+// stored notes carry no type. The only persisted, workflow-controlled signal
+// is Note_Title, which both workflows set with these exact prefixes:
+//
+//   FP per-client (1jl45sF4HfvxO5L8 "Create Client Note"):
+//     'FP Message from ' + body.fpName
+//   FP general    (1jl45sF4HfvxO5L8 "Create General Note"):
+//     'FP General Message from ' + body.fpName
+//   Realtor per-client (rd8DuOTJrcoeQ55w "Create Client Note"):
+//     'Realtor Message from ' + body.realtorName
+//   Realtor general    (rd8DuOTJrcoeQ55w "Create General Note"):
+//     'Realtor General Message from ' + body.realtorName
+//
+// Each prefix ends with " from " (trailing space) so substring collision with
+// a hand-written Michael note is essentially impossible. Filtering on these
+// constants below means a future workflow rename has ONE place to update.
+const FP_CLIENT_NOTE_TITLE_PREFIX = 'FP Message from '
+const FP_GENERAL_NOTE_TITLE_PREFIX = 'FP General Message from '
+const REALTOR_CLIENT_NOTE_TITLE_PREFIX = 'Realtor Message from '
+const REALTOR_GENERAL_NOTE_TITLE_PREFIX = 'Realtor General Message from '
+
+// Lawyer messaging — mirror of the realtor prefixes. The lawyer
+// messaging workflow does not exist yet (decision flagged in §2 of the
+// build brief); when it ships it MUST set Note_Title with these exact
+// strings so the per-client/timeline split here continues to work.
+const LAWYER_CLIENT_NOTE_TITLE_PREFIX = 'Lawyer Message from '
+const LAWYER_GENERAL_NOTE_TITLE_PREFIX = 'Lawyer General Message from '
+
 // Fields confirmed to exist on the Potentials module (verified via
 // /crm/v2/settings/fields?module=Potentials). Unknown field names cause
 // Zoho to return INVALID_DATA 400s and drop the entire response.
@@ -955,6 +989,7 @@ export interface FPNote {
   createdTime: string
   createdBy: string
   noteType: string | null
+  noteTitle: string
 }
 
 export interface FPClientDetail extends FPClient {
@@ -1062,16 +1097,22 @@ export async function getFPClientDetail(dealId: string): Promise<FPClientDetail 
         createdTime: n.Created_Time ?? '',
         createdBy: typeof n.Created_By === 'object' ? (n.Created_By?.name ?? 'Michael Fox') : (n.Created_By ?? 'Michael Fox'),
         noteType: n.Note_Type ?? null,
+        noteTitle: n.Note_Title ?? '',
       }))
     }
   } catch (err) {
     console.error('[zoho] getFPClientDetail notes error:', err)
   }
 
+  // Split notes into "Messages" (portal-written) vs. "timeline" (everything else
+  // on this Deal — Michael's hand-written notes, sync stamps, etc.) by Note_Title
+  // prefix. Note_Type is not used because the Notes module is system_hidden and
+  // silently drops custom fields on write; the workflows already write a
+  // distinctive title prefix that Zoho persists losslessly.
   return {
     ...client,
-    messages: allNotes.filter(n => n.noteType === 'FP_Message'),
-    timeline: allNotes.filter(n => n.noteType !== 'FP_Message'),
+    messages: allNotes.filter(n => n.noteTitle.startsWith(FP_CLIENT_NOTE_TITLE_PREFIX)),
+    timeline: allNotes.filter(n => !n.noteTitle.startsWith(FP_CLIENT_NOTE_TITLE_PREFIX)),
   }
 }
 
@@ -1084,6 +1125,10 @@ export async function getFPClientDetail(dealId: string): Promise<FPClientDetail 
  * Cache busting on the /api/portal/fp/message POST path is a future
  * improvement — for now a new note can be 0–120s late on the same
  * device. Acceptable for v1.
+ *
+ * Filtering uses Note_Title prefix (not Note_Type) because the Notes module
+ * is system_hidden and silently drops custom fields on write; the FP
+ * messaging workflow writes a stable title prefix that Zoho persists.
  */
 export async function getFPMessages(partnerId: string): Promise<FPNote[]> {
   const cacheKey = `fp-messages:${partnerId}`
@@ -1125,13 +1170,14 @@ export async function getFPMessages(partnerId: string): Promise<FPNote[]> {
   const notesData = await notesRes.json()
 
   const messages: FPNote[] = (notesData.data ?? [])
-    .filter((n: any) => n.Note_Type === 'FP_General_Message')
+    .filter((n: any) => (n.Note_Title ?? '').startsWith(FP_GENERAL_NOTE_TITLE_PREFIX))
     .map((n: any): FPNote => ({
       id: n.id,
       body: n.Note_Content ?? '',
       createdTime: n.Created_Time ?? '',
       createdBy: typeof n.Created_By === 'object' ? (n.Created_By?.name ?? 'Michael Fox') : (n.Created_By ?? 'Michael Fox'),
       noteType: n.Note_Type ?? null,
+      noteTitle: n.Note_Title ?? '',
     }))
 
   fpMessagesCache.set(cacheKey, messages)
@@ -1299,6 +1345,735 @@ export async function getFPDashboardPayload(fpZohoId: string): Promise<FPDashboa
 export async function getFPDashboardStats(fpZohoId: string): Promise<FPDashboardStats> {
   const payload = await getFPDashboardPayload(fpZohoId)
   return payload.stats
+}
+
+// ─── Realtor Portal — CRM API calls ───────────────────────────────────────────
+// Mirror of the FP block above, swapping the Partners lookup field from
+// Referral_Partner → Realtor (a separate Lookup-to-Partners on the Potentials
+// module, verified live by Mike on 2026-05-28). Same Potentials module, same
+// Stage picklist, same Notes pipeline. We DO NOT reuse FP types — keeping
+// RealtorClient distinct makes the call-site routing unambiguous and removes
+// the risk of a wrong-portal data leak via a shared type accidentally
+// dropping the role check.
+
+const REALTOR_DEAL_FIELDS = [
+  'Deal_Name',
+  'Contact_Name',
+  'Amount',
+  'Mortgage_Rate',
+  'Stage',
+  'Closing_Date',
+  'Modified_Time',
+  'Mortgage_Type',
+  'Application_Type',
+  'Transaction_Type',
+  'Street',
+  'City',
+  'Province',
+  'Postal_Code',
+  'Country',
+  'LTV',
+  'Total_Loan_Amount',
+  'Purchase_Price_Value',
+  'Realtor',
+].join(',')
+
+export interface RealtorClient {
+  id: string
+  dealName: string
+  contactName: string
+  amount: number | null
+  mortgageRate: number | null
+  stage: string
+  stageModifiedTime: string | null
+  city: string | null
+  province: string | null
+  location: string | null
+  mortgageType: string | null
+  type: string | null
+  termYears: string | null
+  paymentFrequency: string | null
+  closingDate: string | null
+  lastActivity: string | null
+  nextReviewDate: string | null
+  savingsIdentified: string | null
+  ltv: number | null
+  totalLoanAmount: number | null
+  purchasePriceValue: number | null
+  realtorId: string | null
+  realtorName: string | null
+  description: string | null
+}
+
+export interface RealtorNote {
+  id: string
+  body: string
+  createdTime: string
+  createdBy: string
+  noteType: string | null
+  noteTitle: string
+}
+
+export interface RealtorClientDetail extends RealtorClient {
+  messages: RealtorNote[]
+  timeline: RealtorNote[]
+}
+
+function normalizeRealtorClient(r: any): RealtorClient {
+  // Same address chain as normalizeFPClient — fields live on Potentials.
+  const street   = r.Street      || ''
+  const city     = r.City        || ''
+  const province = r.Province    || ''
+  const postal   = r.Postal_Code || ''
+  const location = [street, city, province, postal].filter(Boolean).join(', ') || null
+
+  const rawType =
+    r.Mortgage_Type ||
+    r.Application_Type ||
+    r.Transaction_Type ||
+    null
+  const type = rawType ? capitalize(String(rawType)) : null
+
+  return {
+    id: r.id,
+    dealName: r.Deal_Name ?? '',
+    contactName: typeof r.Contact_Name === 'object' ? (r.Contact_Name?.name ?? '') : (r.Contact_Name ?? ''),
+    amount: r.Amount != null ? Number(r.Amount) : null,
+    mortgageRate: r.Mortgage_Rate != null ? Number(r.Mortgage_Rate) : null,
+    stage: r.Stage ?? '',
+    stageModifiedTime: r.Modified_Time ?? null,
+    city: r.City ?? null,
+    province: r.Province ?? null,
+    location,
+    mortgageType: r.Mortgage_Type ?? null,
+    type,
+    termYears: null,
+    paymentFrequency: null,
+    closingDate: r.Closing_Date ?? null,
+    lastActivity: null,
+    nextReviewDate: null,
+    savingsIdentified: null,
+    ltv: r.LTV != null ? Number(r.LTV) : null,
+    totalLoanAmount: r.Total_Loan_Amount != null ? Number(r.Total_Loan_Amount) : null,
+    purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
+    realtorId: typeof r.Realtor === 'object' ? (r.Realtor?.id ?? null) : null,
+    realtorName: typeof r.Realtor === 'object' ? (r.Realtor?.name ?? null) : null,
+    description: null,
+  }
+}
+
+export async function getRealtorClients(realtorZohoId: string): Promise<RealtorClient[]> {
+  const token = await getZohoToken()
+  const criteria = encodeURIComponent(`(Realtor:equals:${realtorZohoId})`)
+  const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${REALTOR_DEAL_FIELDS}&per_page=200`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+  })
+  if (res.status === 204) return []
+  if (!res.ok) {
+    const text = await res.text()
+    console.error('[zoho] getRealtorClients error:', res.status, 'url:', url, 'body:', text.substring(0, 500))
+    throw new ZohoError(res.status, text)
+  }
+  const data = await res.json()
+  return (data.data ?? []).map(normalizeRealtorClient)
+}
+
+export async function getRealtorClientDetail(dealId: string): Promise<RealtorClientDetail | null> {
+  const token = await getZohoToken()
+
+  const dealRes = await fetch(`${ZOHO_API}/Potentials/${dealId}?fields=${REALTOR_DEAL_FIELDS}`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+  })
+  if (!dealRes.ok) {
+    const text = await dealRes.text()
+    console.error('[zoho] getRealtorClientDetail deal error:', dealRes.status, text.substring(0, 300))
+    return null
+  }
+  const dealData = await dealRes.json()
+  const r = dealData.data?.[0]
+  if (!r) return null
+
+  const client = normalizeRealtorClient(r)
+
+  let allNotes: RealtorNote[] = []
+  try {
+    const notesRes = await fetch(
+      `${ZOHO_API}/Potentials/${dealId}/Notes?per_page=50&sort_by=Created_Time&sort_order=asc`,
+      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+    )
+    if (notesRes.ok && notesRes.status !== 204) {
+      const notesData = await notesRes.json()
+      allNotes = (notesData.data ?? []).map((n: any): RealtorNote => ({
+        id: n.id,
+        body: n.Note_Content ?? '',
+        createdTime: n.Created_Time ?? '',
+        createdBy: typeof n.Created_By === 'object' ? (n.Created_By?.name ?? 'Michael Fox') : (n.Created_By ?? 'Michael Fox'),
+        noteType: n.Note_Type ?? null,
+        noteTitle: n.Note_Title ?? '',
+      }))
+    }
+  } catch (err) {
+    console.error('[zoho] getRealtorClientDetail notes error:', err)
+  }
+
+  // Split notes by Note_Title prefix (Note_Type is dropped on write — see the
+  // FP_*/REALTOR_* prefix constants at the top of the FP block).
+  return {
+    ...client,
+    messages: allNotes.filter(n => n.noteTitle.startsWith(REALTOR_CLIENT_NOTE_TITLE_PREFIX)),
+    timeline: allNotes.filter(n => !n.noteTitle.startsWith(REALTOR_CLIENT_NOTE_TITLE_PREFIX)),
+  }
+}
+
+/**
+ * Realtor messages thread. Single Zoho call — fetches the Notes on the
+ * realtor's Partners record directly. The FP version takes a three-call
+ * detour (Partner → Email → search Contacts → Contact.Notes) because FP
+ * general messages were originally landing on the FP's Contact record; the
+ * realtor messaging workflow (rd8DuOTJrcoeQ55w "Create General Note")
+ * writes directly to /Partners/{partnerId}/Notes, so the read path can be
+ * direct and the email/contact-search detour was a clone-from-FP oversight.
+ *
+ * Filter uses Note_Title prefix — see REALTOR_GENERAL_NOTE_TITLE_PREFIX.
+ *
+ * Cache key uses 'realtor-messages:' prefix so the FP and realtor caches
+ * cannot collide on a shared partner id.
+ */
+export async function getRealtorMessages(partnerId: string): Promise<RealtorNote[]> {
+  const cacheKey = `realtor-messages:${partnerId}`
+  const cached = realtorMessagesCache.get(cacheKey) as RealtorNote[] | undefined
+  if (cached !== undefined) return cached
+
+  const token = await getZohoToken()
+
+  const notesRes = await fetch(
+    `${ZOHO_API}/Partners/${partnerId}/Notes?per_page=50&sort_by=Created_Time&sort_order=asc`,
+    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+  )
+  if (!notesRes.ok || notesRes.status === 204) return []
+  const notesData = await notesRes.json()
+
+  const messages: RealtorNote[] = (notesData.data ?? [])
+    .filter((n: any) => (n.Note_Title ?? '').startsWith(REALTOR_GENERAL_NOTE_TITLE_PREFIX))
+    .map((n: any): RealtorNote => ({
+      id: n.id,
+      body: n.Note_Content ?? '',
+      createdTime: n.Created_Time ?? '',
+      createdBy: typeof n.Created_By === 'object' ? (n.Created_By?.name ?? 'Michael Fox') : (n.Created_By ?? 'Michael Fox'),
+      noteType: n.Note_Type ?? null,
+      noteTitle: n.Note_Title ?? '',
+    }))
+
+  realtorMessagesCache.set(cacheKey, messages)
+  return messages
+}
+
+export interface RealtorDashboardStats {
+  totalReferrals: number
+  activeMonitoring: number
+  closedMortgages: number
+  fundedVolume: number
+  leadToClose: number
+  savingsYTD: number
+  mortgagesUnderMgmt: number
+}
+
+export interface RealtorDashboardRecent {
+  client: string
+  dealId: string
+  stage: string
+  lastActivity: string | null
+  savingsIdentified: string | null
+}
+
+export interface RealtorDashboardPayload {
+  stats: RealtorDashboardStats
+  recent: RealtorDashboardRecent[]
+  warning?: string
+}
+
+const EMPTY_REALTOR_STATS: RealtorDashboardStats = {
+  totalReferrals: 0,
+  activeMonitoring: 0,
+  closedMortgages: 0,
+  fundedVolume: 0,
+  leadToClose: 0,
+  savingsYTD: 0,
+  mortgagesUnderMgmt: 0,
+}
+
+/**
+ * Dashboard data for a single realtor. Mirror of getFPDashboardPayload —
+ * single minimal-field Zoho query, never throws, returns zeros + warning on
+ * any failure so the UI keeps rendering.
+ */
+export async function getRealtorDashboardPayload(realtorZohoId: string): Promise<RealtorDashboardPayload> {
+  const criteria = encodeURIComponent(`(Realtor:equals:${realtorZohoId})`)
+  const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Realtor'
+  const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
+
+  let token: string
+  try {
+    token = await getZohoToken()
+  } catch (err) {
+    console.error('[zoho] getRealtorDashboardPayload token error:', err)
+    return { stats: EMPTY_REALTOR_STATS, recent: [], warning: 'zoho-token-failed' }
+  }
+
+  let res: Response
+  try {
+    res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+  } catch (err) {
+    console.error('[zoho] getRealtorDashboardPayload fetch error:', err, 'url:', url)
+    return { stats: EMPTY_REALTOR_STATS, recent: [], warning: 'zoho-network-error' }
+  }
+
+  if (res.status === 204) {
+    return { stats: EMPTY_REALTOR_STATS, recent: [] }
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error(
+      '[zoho] getRealtorDashboardPayload non-ok:',
+      res.status,
+      'url:', url,
+      'body:', text.substring(0, 500),
+    )
+    return {
+      stats: EMPTY_REALTOR_STATS,
+      recent: [],
+      warning: `zoho-${res.status}: ${text.substring(0, 200)}`,
+    }
+  }
+
+  let body: any
+  try {
+    body = await res.json()
+  } catch (err) {
+    console.error('[zoho] getRealtorDashboardPayload JSON parse error:', err)
+    return { stats: EMPTY_REALTOR_STATS, recent: [], warning: 'zoho-parse-error' }
+  }
+
+  const deals: any[] = Array.isArray(body?.data) ? body.data : []
+  if (deals.length === 0) {
+    return { stats: EMPTY_REALTOR_STATS, recent: [] }
+  }
+
+  const isFunded = (s: string) =>
+    s === 'Mortgage Funded' || s.toLowerCase().includes('funded')
+  const isLost = (s: string) =>
+    s === 'Mortgage Lost' ||
+    s.toLowerCase().includes('lost') ||
+    s.toLowerCase().includes('cancelled') ||
+    s.toLowerCase().includes('declined')
+
+  const funded = deals.filter(d => isFunded(d.Stage ?? ''))
+  const active = deals.filter(d => {
+    const s = d.Stage ?? ''
+    return !isFunded(s) && !isLost(s)
+  })
+
+  const totalReferredValue = deals.reduce(
+    (sum: number, d: any) => sum + (Number(d.Amount) || 0),
+    0,
+  )
+  const totalFunded = funded.reduce(
+    (sum: number, d: any) => sum + (Number(d.Amount) || 0),
+    0,
+  )
+  const leadToClose =
+    deals.length > 0 ? Math.round((funded.length / deals.length) * 1000) / 10 : 0
+
+  const stats: RealtorDashboardStats = {
+    totalReferrals: deals.length,
+    activeMonitoring: active.length,
+    closedMortgages: funded.length,
+    fundedVolume: totalFunded,
+    leadToClose,
+    savingsYTD: 0,
+    mortgagesUnderMgmt: totalReferredValue,
+  }
+
+  const recent: RealtorDashboardRecent[] = deals.slice(0, 8).map((d: any) => {
+    const contactName =
+      typeof d.Contact_Name === 'object'
+        ? (d.Contact_Name?.name ?? '')
+        : (d.Contact_Name ?? '')
+    return {
+      client: contactName || d.Deal_Name || '(untitled)',
+      dealId: d.id,
+      stage: d.Stage ?? '',
+      lastActivity: null,
+      savingsIdentified: null,
+    }
+  })
+
+  return { stats, recent }
+}
+
+// ─── Lawyer Portal — CRM API calls ───────────────────────────────────────────
+// Mirror of the Realtor block above (which is itself a mirror of FP). The
+// Potentials module exposes a `Lawyer` Lookup-to-Partners alongside
+// `Realtor` and `Referral_Partner` — verified live by Mike on 2026-05-28.
+// Same Potentials module, same Stage picklist, same Notes pipeline. We
+// keep LawyerClient distinct from RealtorClient / FPClient so call-site
+// routing is unambiguous and a shared type can never drop a role check
+// and surface the wrong portal's data.
+//
+// Lawyer messaging workflow does NOT exist yet (see build brief §2).
+// getLawyerMessages and the per-client message filter are wired against
+// LAWYER_*_NOTE_TITLE_PREFIX so when the workflow ships its Note_Title
+// values must match those constants for the read path to populate.
+
+const LAWYER_DEAL_FIELDS = [
+  'Deal_Name',
+  'Contact_Name',
+  'Amount',
+  'Mortgage_Rate',
+  'Stage',
+  'Closing_Date',
+  'Modified_Time',
+  'Mortgage_Type',
+  'Application_Type',
+  'Transaction_Type',
+  'Street',
+  'City',
+  'Province',
+  'Postal_Code',
+  'Country',
+  'LTV',
+  'Total_Loan_Amount',
+  'Purchase_Price_Value',
+  'Lawyer',
+].join(',')
+
+export interface LawyerClient {
+  id: string
+  dealName: string
+  contactName: string
+  amount: number | null
+  mortgageRate: number | null
+  stage: string
+  stageModifiedTime: string | null
+  city: string | null
+  province: string | null
+  location: string | null
+  mortgageType: string | null
+  type: string | null
+  termYears: string | null
+  paymentFrequency: string | null
+  closingDate: string | null
+  lastActivity: string | null
+  nextReviewDate: string | null
+  savingsIdentified: string | null
+  ltv: number | null
+  totalLoanAmount: number | null
+  purchasePriceValue: number | null
+  lawyerId: string | null
+  lawyerName: string | null
+  description: string | null
+}
+
+export interface LawyerNote {
+  id: string
+  body: string
+  createdTime: string
+  createdBy: string
+  noteType: string | null
+  noteTitle: string
+}
+
+export interface LawyerClientDetail extends LawyerClient {
+  messages: LawyerNote[]
+  timeline: LawyerNote[]
+}
+
+function normalizeLawyerClient(r: any): LawyerClient {
+  const street   = r.Street      || ''
+  const city     = r.City        || ''
+  const province = r.Province    || ''
+  const postal   = r.Postal_Code || ''
+  const location = [street, city, province, postal].filter(Boolean).join(', ') || null
+
+  const rawType =
+    r.Mortgage_Type ||
+    r.Application_Type ||
+    r.Transaction_Type ||
+    null
+  const type = rawType ? capitalize(String(rawType)) : null
+
+  return {
+    id: r.id,
+    dealName: r.Deal_Name ?? '',
+    contactName: typeof r.Contact_Name === 'object' ? (r.Contact_Name?.name ?? '') : (r.Contact_Name ?? ''),
+    amount: r.Amount != null ? Number(r.Amount) : null,
+    mortgageRate: r.Mortgage_Rate != null ? Number(r.Mortgage_Rate) : null,
+    stage: r.Stage ?? '',
+    stageModifiedTime: r.Modified_Time ?? null,
+    city: r.City ?? null,
+    province: r.Province ?? null,
+    location,
+    mortgageType: r.Mortgage_Type ?? null,
+    type,
+    termYears: null,
+    paymentFrequency: null,
+    closingDate: r.Closing_Date ?? null,
+    lastActivity: null,
+    nextReviewDate: null,
+    savingsIdentified: null,
+    ltv: r.LTV != null ? Number(r.LTV) : null,
+    totalLoanAmount: r.Total_Loan_Amount != null ? Number(r.Total_Loan_Amount) : null,
+    purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
+    lawyerId: typeof r.Lawyer === 'object' ? (r.Lawyer?.id ?? null) : null,
+    lawyerName: typeof r.Lawyer === 'object' ? (r.Lawyer?.name ?? null) : null,
+    description: null,
+  }
+}
+
+export async function getLawyerClients(lawyerZohoId: string): Promise<LawyerClient[]> {
+  const token = await getZohoToken()
+  const criteria = encodeURIComponent(`(Lawyer:equals:${lawyerZohoId})`)
+  const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${LAWYER_DEAL_FIELDS}&per_page=200`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+  })
+  if (res.status === 204) return []
+  if (!res.ok) {
+    const text = await res.text()
+    console.error('[zoho] getLawyerClients error:', res.status, 'url:', url, 'body:', text.substring(0, 500))
+    throw new ZohoError(res.status, text)
+  }
+  const data = await res.json()
+  return (data.data ?? []).map(normalizeLawyerClient)
+}
+
+export async function getLawyerClientDetail(dealId: string): Promise<LawyerClientDetail | null> {
+  const token = await getZohoToken()
+
+  const dealRes = await fetch(`${ZOHO_API}/Potentials/${dealId}?fields=${LAWYER_DEAL_FIELDS}`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+  })
+  if (!dealRes.ok) {
+    const text = await dealRes.text()
+    console.error('[zoho] getLawyerClientDetail deal error:', dealRes.status, text.substring(0, 300))
+    return null
+  }
+  const dealData = await dealRes.json()
+  const r = dealData.data?.[0]
+  if (!r) return null
+
+  const client = normalizeLawyerClient(r)
+
+  let allNotes: LawyerNote[] = []
+  try {
+    const notesRes = await fetch(
+      `${ZOHO_API}/Potentials/${dealId}/Notes?per_page=50&sort_by=Created_Time&sort_order=asc`,
+      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+    )
+    if (notesRes.ok && notesRes.status !== 204) {
+      const notesData = await notesRes.json()
+      allNotes = (notesData.data ?? []).map((n: any): LawyerNote => ({
+        id: n.id,
+        body: n.Note_Content ?? '',
+        createdTime: n.Created_Time ?? '',
+        createdBy: typeof n.Created_By === 'object' ? (n.Created_By?.name ?? 'Michael Fox') : (n.Created_By ?? 'Michael Fox'),
+        noteType: n.Note_Type ?? null,
+        noteTitle: n.Note_Title ?? '',
+      }))
+    }
+  } catch (err) {
+    console.error('[zoho] getLawyerClientDetail notes error:', err)
+  }
+
+  return {
+    ...client,
+    messages: allNotes.filter(n => n.noteTitle.startsWith(LAWYER_CLIENT_NOTE_TITLE_PREFIX)),
+    timeline: allNotes.filter(n => !n.noteTitle.startsWith(LAWYER_CLIENT_NOTE_TITLE_PREFIX)),
+  }
+}
+
+/**
+ * Lawyer messages thread. Direct GET against /Partners/{id}/Notes — same
+ * corrected pattern as getRealtorMessages, not the original FP detour.
+ *
+ * Caveat: the lawyer messaging n8n workflow does NOT exist yet (build
+ * brief §2 flags this as a decision: reuse the realtor workflow with a
+ * `context=lawyer` param, or build a sibling). Until that ships, this
+ * function will return [] for every lawyer — no notes are being written
+ * with the LAWYER_GENERAL prefix today. The read path is still correct
+ * and will populate the instant the workflow lands.
+ */
+export async function getLawyerMessages(partnerId: string): Promise<LawyerNote[]> {
+  const cacheKey = `lawyer-messages:${partnerId}`
+  const cached = lawyerMessagesCache.get(cacheKey) as LawyerNote[] | undefined
+  if (cached !== undefined) return cached
+
+  const token = await getZohoToken()
+
+  const notesRes = await fetch(
+    `${ZOHO_API}/Partners/${partnerId}/Notes?per_page=50&sort_by=Created_Time&sort_order=asc`,
+    { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
+  )
+  if (!notesRes.ok || notesRes.status === 204) return []
+  const notesData = await notesRes.json()
+
+  const messages: LawyerNote[] = (notesData.data ?? [])
+    .filter((n: any) => (n.Note_Title ?? '').startsWith(LAWYER_GENERAL_NOTE_TITLE_PREFIX))
+    .map((n: any): LawyerNote => ({
+      id: n.id,
+      body: n.Note_Content ?? '',
+      createdTime: n.Created_Time ?? '',
+      createdBy: typeof n.Created_By === 'object' ? (n.Created_By?.name ?? 'Michael Fox') : (n.Created_By ?? 'Michael Fox'),
+      noteType: n.Note_Type ?? null,
+      noteTitle: n.Note_Title ?? '',
+    }))
+
+  lawyerMessagesCache.set(cacheKey, messages)
+  return messages
+}
+
+export interface LawyerDashboardStats {
+  totalReferrals: number
+  activeMonitoring: number
+  closedMortgages: number
+  fundedVolume: number
+  leadToClose: number
+  savingsYTD: number
+  mortgagesUnderMgmt: number
+}
+
+export interface LawyerDashboardRecent {
+  client: string
+  dealId: string
+  stage: string
+  lastActivity: string | null
+  savingsIdentified: string | null
+}
+
+export interface LawyerDashboardPayload {
+  stats: LawyerDashboardStats
+  recent: LawyerDashboardRecent[]
+  warning?: string
+}
+
+const EMPTY_LAWYER_STATS: LawyerDashboardStats = {
+  totalReferrals: 0,
+  activeMonitoring: 0,
+  closedMortgages: 0,
+  fundedVolume: 0,
+  leadToClose: 0,
+  savingsYTD: 0,
+  mortgagesUnderMgmt: 0,
+}
+
+/**
+ * Dashboard data for a single lawyer. Mirror of getRealtorDashboardPayload —
+ * single minimal-field Zoho query, never throws, returns zeros + warning on
+ * any failure so the UI keeps rendering.
+ */
+export async function getLawyerDashboardPayload(lawyerZohoId: string): Promise<LawyerDashboardPayload> {
+  const criteria = encodeURIComponent(`(Lawyer:equals:${lawyerZohoId})`)
+  const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Lawyer'
+  const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
+
+  let token: string
+  try {
+    token = await getZohoToken()
+  } catch (err) {
+    console.error('[zoho] getLawyerDashboardPayload token error:', err)
+    return { stats: EMPTY_LAWYER_STATS, recent: [], warning: 'zoho-token-failed' }
+  }
+
+  let res: Response
+  try {
+    res = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${token}` } })
+  } catch (err) {
+    console.error('[zoho] getLawyerDashboardPayload fetch error:', err, 'url:', url)
+    return { stats: EMPTY_LAWYER_STATS, recent: [], warning: 'zoho-network-error' }
+  }
+
+  if (res.status === 204) {
+    return { stats: EMPTY_LAWYER_STATS, recent: [] }
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error(
+      '[zoho] getLawyerDashboardPayload non-ok:',
+      res.status,
+      'url:', url,
+      'body:', text.substring(0, 500),
+    )
+    return {
+      stats: EMPTY_LAWYER_STATS,
+      recent: [],
+      warning: `zoho-${res.status}: ${text.substring(0, 200)}`,
+    }
+  }
+
+  let body: any
+  try {
+    body = await res.json()
+  } catch (err) {
+    console.error('[zoho] getLawyerDashboardPayload JSON parse error:', err)
+    return { stats: EMPTY_LAWYER_STATS, recent: [], warning: 'zoho-parse-error' }
+  }
+
+  const deals: any[] = Array.isArray(body?.data) ? body.data : []
+  if (deals.length === 0) {
+    return { stats: EMPTY_LAWYER_STATS, recent: [] }
+  }
+
+  const isFunded = (s: string) =>
+    s === 'Mortgage Funded' || s.toLowerCase().includes('funded')
+  const isLost = (s: string) =>
+    s === 'Mortgage Lost' ||
+    s.toLowerCase().includes('lost') ||
+    s.toLowerCase().includes('cancelled') ||
+    s.toLowerCase().includes('declined')
+
+  const funded = deals.filter(d => isFunded(d.Stage ?? ''))
+  const active = deals.filter(d => {
+    const s = d.Stage ?? ''
+    return !isFunded(s) && !isLost(s)
+  })
+
+  const totalReferredValue = deals.reduce(
+    (sum: number, d: any) => sum + (Number(d.Amount) || 0),
+    0,
+  )
+  const totalFunded = funded.reduce(
+    (sum: number, d: any) => sum + (Number(d.Amount) || 0),
+    0,
+  )
+  const leadToClose =
+    deals.length > 0 ? Math.round((funded.length / deals.length) * 1000) / 10 : 0
+
+  const stats: LawyerDashboardStats = {
+    totalReferrals: deals.length,
+    activeMonitoring: active.length,
+    closedMortgages: funded.length,
+    fundedVolume: totalFunded,
+    leadToClose,
+    savingsYTD: 0,
+    mortgagesUnderMgmt: totalReferredValue,
+  }
+
+  const recent: LawyerDashboardRecent[] = deals.slice(0, 8).map((d: any) => {
+    const contactName =
+      typeof d.Contact_Name === 'object'
+        ? (d.Contact_Name?.name ?? '')
+        : (d.Contact_Name ?? '')
+    return {
+      client: contactName || d.Deal_Name || '(untitled)',
+      dealId: d.id,
+      stage: d.Stage ?? '',
+      lastActivity: null,
+      savingsIdentified: null,
+    }
+  })
+
+  return { stats, recent }
 }
 
 // ─── SMM Enrollment — CASL Consent Write ─────────────────────────────────────

@@ -64,6 +64,22 @@ const fpNavItems = [
   { label: 'Support', href: '/portal/fp/support', icon: HelpCircle },
 ]
 
+const realtorNavItems = [
+  { label: 'Dashboard', href: '/portal/realtor/dashboard', icon: LayoutDashboard },
+  { label: 'My Clients', href: '/portal/realtor/clients', icon: Users },
+  { label: 'Add Referral', href: '/portal/realtor/add-referral', icon: UserPlus },
+  { label: 'Messages', href: '/portal/realtor/messages', icon: MessageSquare },
+  { label: 'Support', href: '/portal/realtor/support', icon: HelpCircle },
+]
+
+const lawyerNavItems = [
+  { label: 'Dashboard', href: '/portal/lawyer/dashboard', icon: LayoutDashboard },
+  { label: 'My Clients', href: '/portal/lawyer/clients', icon: Users },
+  { label: 'Add Referral', href: '/portal/lawyer/add-referral', icon: UserPlus },
+  { label: 'Messages', href: '/portal/lawyer/messages', icon: MessageSquare },
+  { label: 'Support', href: '/portal/lawyer/support', icon: HelpCircle },
+]
+
 const partnerPageTitles: Record<string, string> = {
   '/portal/dashboard': 'Dashboard',
   '/portal/clients': 'Clients',
@@ -92,7 +108,23 @@ const fpPageTitles: Record<string, string> = {
   '/portal/fp/support': 'Support',
 }
 
-type PickerRole = 'fp' | 'investor' | 'realtor'
+const realtorPageTitles: Record<string, string> = {
+  '/portal/realtor/dashboard': 'Dashboard',
+  '/portal/realtor/clients': 'My Clients',
+  '/portal/realtor/add-referral': 'Add Referral',
+  '/portal/realtor/messages': 'Messages',
+  '/portal/realtor/support': 'Support',
+}
+
+const lawyerPageTitles: Record<string, string> = {
+  '/portal/lawyer/dashboard': 'Dashboard',
+  '/portal/lawyer/clients': 'My Clients',
+  '/portal/lawyer/add-referral': 'Add Referral',
+  '/portal/lawyer/messages': 'Messages',
+  '/portal/lawyer/support': 'Support',
+}
+
+type PickerRole = 'fp' | 'investor' | 'realtor' | 'lawyer'
 
 type Props = {
   children: React.ReactNode
@@ -109,8 +141,9 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   const [pickerOpen, setPickerOpen] = useState<PickerRole | null>(null)
   const [pickerAnchor, setPickerAnchor] = useState<HTMLElement | null>(null)
   const adminPillRef = useRef<HTMLButtonElement | null>(null)
-  const partnerPillRef = useRef<HTMLButtonElement | null>(null)
   const fpPillRef = useRef<HTMLButtonElement | null>(null)
+  const realtorPillRef = useRef<HTMLButtonElement | null>(null)
+  const lawyerPillRef = useRef<HTMLButtonElement | null>(null)
   const investorPillRef = useRef<HTMLButtonElement | null>(null)
 
   // Sign-in page and redirect hub render without sidebar
@@ -141,6 +174,8 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   const isInvestorPortal = pathname?.startsWith('/portal/investor')
   const isAdminPortal = pathname?.startsWith('/portal/admin') || pathname?.startsWith('/portal/bookkeeping')
   const isFPPortal = pathname?.startsWith('/portal/fp')
+  const isRealtorPortal = pathname?.startsWith('/portal/realtor')
+  const isLawyerPortal = pathname?.startsWith('/portal/lawyer')
   const isAdmin = userRoles.includes('admin')
   const isImpersonating = impersonation !== null
 
@@ -149,6 +184,8 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   if (isAdminPortal) navItems = adminNavItems
   else if (isInvestorPortal) navItems = investorNavItems
   else if (isFPPortal) navItems = fpNavItems
+  else if (isRealtorPortal) navItems = realtorNavItems
+  else if (isLawyerPortal) navItems = lawyerNavItems
 
   // Page title
   let pageTitle = 'Portal'
@@ -167,6 +204,12 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   } else if (isFPPortal) {
     pageTitle = fpPageTitles[pathname] || 'Portal'
     if (pathname.startsWith('/portal/fp/clients/')) pageTitle = 'Client File'
+  } else if (isRealtorPortal) {
+    pageTitle = realtorPageTitles[pathname] || 'Portal'
+    if (pathname.startsWith('/portal/realtor/clients/')) pageTitle = 'Client File'
+  } else if (isLawyerPortal) {
+    pageTitle = lawyerPageTitles[pathname] || 'Portal'
+    if (pathname.startsWith('/portal/lawyer/clients/')) pageTitle = 'Client File'
   } else {
     pageTitle = partnerPageTitles[pathname] || 'Portal'
     if (pathname.startsWith('/portal/clients/')) pageTitle = 'Client File'
@@ -184,14 +227,25 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   // Role label
   let roleLabel: string
   if (isImpersonating) {
-    roleLabel = impersonation!.role === 'fp' ? 'Financial Planner' : 'Private Investor'
+    roleLabel =
+      impersonation!.role === 'fp'
+        ? 'Financial Planner'
+        : impersonation!.role === 'realtor'
+          ? 'Realtor Partner'
+          : impersonation!.role === 'lawyer'
+            ? 'Lawyer Partner'
+            : 'Private Investor'
   } else if (isAdminPortal) {
     roleLabel = 'Admin'
   } else if (isInvestorPortal) {
     roleLabel = 'Private Investor'
+  } else if (isLawyerPortal || userRoles.includes('lawyer')) {
+    roleLabel = 'Lawyer Partner'
+  } else if (isRealtorPortal || userRoles.includes('realtor')) {
+    roleLabel = 'Realtor Partner'
   } else if (userRoles.includes('financial-planner')) {
     roleLabel = 'Financial Planner'
-  } else if (userRoles.includes('investor') && !userRoles.includes('realtor')) {
+  } else if (userRoles.includes('investor')) {
     roleLabel = 'Private Investor'
   } else {
     roleLabel = 'Realtor Partner'
@@ -235,10 +289,22 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     }
   }
 
-  function handlePartnerPillClick() {
-    // Realtor portal — picker not implemented today (no live realtor partners);
-    // keep current direct-navigation behavior.
-    router.push('/portal/dashboard')
+  function handleRealtorPillClick(e: React.MouseEvent<HTMLButtonElement>) {
+    if (isAdmin) {
+      setPickerAnchor(e.currentTarget)
+      setPickerOpen('realtor')
+    } else {
+      router.push('/portal/realtor/dashboard')
+    }
+  }
+
+  function handleLawyerPillClick(e: React.MouseEvent<HTMLButtonElement>) {
+    if (isAdmin) {
+      setPickerAnchor(e.currentTarget)
+      setPickerOpen('lawyer')
+    } else {
+      router.push('/portal/lawyer/dashboard')
+    }
   }
 
   function handleFPPillClick(e: React.MouseEvent<HTMLButtonElement>) {
@@ -351,25 +417,32 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
                 Switch to Portal
               </p>
               <button
-                onClick={() => router.push('/portal/dashboard')}
-                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
-              >
-                <Users className="w-4 h-4" />
-                Partner Portal
-              </button>
-              <button
                 onClick={() => router.push('/portal/fp/dashboard')}
                 className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
               >
                 <LayoutDashboard className="w-4 h-4" />
-                FP Portal
+                Financial Planner
+              </button>
+              <button
+                onClick={() => router.push('/portal/realtor/dashboard')}
+                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+              >
+                <Users className="w-4 h-4" />
+                Realtor
+              </button>
+              <button
+                onClick={() => router.push('/portal/lawyer/dashboard')}
+                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+              >
+                <Users className="w-4 h-4" />
+                Lawyer
               </button>
               <button
                 onClick={() => router.push('/portal/investor/dashboard')}
                 className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
               >
                 <TrendingUp className="w-4 h-4" />
-                Investor Portal
+                Investor
               </button>
             </div>
           )}
@@ -435,19 +508,6 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
                   Admin
                 </button>
               )}
-              {(isAdmin || userRoles.includes('realtor')) && (
-                <button
-                  ref={partnerPillRef}
-                  onClick={handlePartnerPillClick}
-                  className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
-                    !isInvestorPortal && !isAdminPortal && !isFPPortal
-                      ? 'bg-lime text-navy shadow-sm'
-                      : 'text-gray-500 hover:text-navy'
-                  }`}
-                >
-                  Partner
-                </button>
-              )}
               {(isAdmin || userRoles.includes('financial-planner')) && (
                 <button
                   ref={fpPillRef}
@@ -456,7 +516,29 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
                     isFPPortal ? 'bg-lime text-navy shadow-sm' : 'text-gray-500 hover:text-navy'
                   }`}
                 >
-                  FP Portal
+                  Financial Planner
+                </button>
+              )}
+              {(isAdmin || userRoles.includes('realtor')) && (
+                <button
+                  ref={realtorPillRef}
+                  onClick={handleRealtorPillClick}
+                  className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                    isRealtorPortal ? 'bg-lime text-navy shadow-sm' : 'text-gray-500 hover:text-navy'
+                  }`}
+                >
+                  Realtor
+                </button>
+              )}
+              {(isAdmin || userRoles.includes('lawyer')) && (
+                <button
+                  ref={lawyerPillRef}
+                  onClick={handleLawyerPillClick}
+                  className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                    isLawyerPortal ? 'bg-lime text-navy shadow-sm' : 'text-gray-500 hover:text-navy'
+                  }`}
+                >
+                  Lawyer
                 </button>
               )}
               <button
@@ -510,7 +592,15 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
             <span className="text-navy/60">
               👁️ Viewing as Admin &mdash;{' '}
               <span className="font-semibold text-navy">
-                {isInvestorPortal ? 'Investor Portal' : isFPPortal ? 'FP Portal' : 'Partner Portal'}
+                {isInvestorPortal
+                  ? 'Investor'
+                  : isFPPortal
+                    ? 'Financial Planner'
+                    : isRealtorPortal
+                      ? 'Realtor'
+                      : isLawyerPortal
+                        ? 'Lawyer'
+                        : 'Portal'}
               </span>
             </span>
             <button

@@ -36,7 +36,7 @@ import {
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type ImpersonationContext = {
-  role: 'fp' | 'investor'
+  role: 'fp' | 'investor' | 'realtor' | 'lawyer'
   partnerId: string
   partnerName: string
   partnerFirm?: string
@@ -51,10 +51,13 @@ export type PortalContext = {
   impersonation: ImpersonationContext | null
   // The effective ID to use when querying Zoho:
   //   - If impersonating: the impersonated partner's ID
-  //   - If not impersonating: the actor's own fp_zoho_id or zoho_partner_id
+  //   - If not impersonating: the actor's own fp_zoho_id, realtor_zoho_id,
+  //     lawyer_zoho_id, or zoho_partner_id (one per role surface)
   //   - null when neither applies
   effectiveFpId: string | null
   effectivePartnerId: string | null
+  effectiveRealtorId: string | null
+  effectiveLawyerId: string | null
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -165,7 +168,14 @@ function verifyAndDecode(cookieValue: string): ImpersonationContext | null {
   }
   if (!parsed || typeof parsed !== 'object') return null
   const p = parsed as Record<string, unknown>
-  if (p.role !== 'fp' && p.role !== 'investor') return null
+  if (
+    p.role !== 'fp' &&
+    p.role !== 'investor' &&
+    p.role !== 'realtor' &&
+    p.role !== 'lawyer'
+  ) {
+    return null
+  }
   if (typeof p.partnerId !== 'string' || p.partnerId.length === 0) return null
   if (typeof p.partnerName !== 'string' || p.partnerName.length === 0) return null
   const partnerFirm =
@@ -217,8 +227,19 @@ export async function getPortalContext(): Promise<PortalContext | null> {
     role?: string
     fp_zoho_id?: string
     zoho_partner_id?: string
+    realtor_zoho_id?: string
+    lawyer_zoho_id?: string
   }
-  const roles = metadata.roles ?? (metadata.role ? [metadata.role] : [])
+  // Normalize the three role shapes (array, single string in `roles`,
+  // legacy `role` field) — same logic the rest of the portal uses.
+  const rawRoles = metadata.roles
+  const roles: string[] = Array.isArray(rawRoles)
+    ? rawRoles
+    : typeof rawRoles === 'string'
+      ? [rawRoles]
+      : metadata.role
+        ? [metadata.role]
+        : []
   const isAdmin = roles.includes('admin')
 
   // Read impersonation cookie (always — but only honor it when actor is admin).
@@ -231,10 +252,13 @@ export async function getPortalContext(): Promise<PortalContext | null> {
   const impersonation = isAdmin ? cookieImpersonation : null
 
   // Resolve effective IDs.
-  // FP: impersonating-as-fp wins, otherwise the actor's own fp_zoho_id.
-  // Investor: impersonating-as-investor wins, otherwise the actor's own
-  // zoho_partner_id. The two channels are independent — an admin impersonating
-  // as fp still has no effectivePartnerId for the investor portal.
+  // FP:       impersonating-as-fp       → cookie.partnerId, else publicMetadata.fp_zoho_id
+  // Investor: impersonating-as-investor → cookie.partnerId, else publicMetadata.zoho_partner_id
+  // Realtor:  impersonating-as-realtor  → cookie.partnerId, else publicMetadata.realtor_zoho_id
+  // Lawyer:   impersonating-as-lawyer   → cookie.partnerId, else publicMetadata.lawyer_zoho_id
+  // The four channels are independent — an admin impersonating as fp still
+  // has no effectivePartnerId for the investor portal and no
+  // effectiveRealtorId / effectiveLawyerId for the realtor / lawyer portals.
   const effectiveFpId =
     impersonation?.role === 'fp'
       ? impersonation.partnerId
@@ -245,6 +269,16 @@ export async function getPortalContext(): Promise<PortalContext | null> {
       ? impersonation.partnerId
       : metadata.zoho_partner_id ?? null
 
+  const effectiveRealtorId =
+    impersonation?.role === 'realtor'
+      ? impersonation.partnerId
+      : metadata.realtor_zoho_id ?? null
+
+  const effectiveLawyerId =
+    impersonation?.role === 'lawyer'
+      ? impersonation.partnerId
+      : metadata.lawyer_zoho_id ?? null
+
   return {
     actor: {
       userId: user.id,
@@ -254,6 +288,8 @@ export async function getPortalContext(): Promise<PortalContext | null> {
     impersonation,
     effectiveFpId,
     effectivePartnerId,
+    effectiveRealtorId,
+    effectiveLawyerId,
   }
 }
 

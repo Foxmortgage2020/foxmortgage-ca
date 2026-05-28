@@ -21,7 +21,7 @@ interface PartnersFilterTableProps {
   partners: PartnerRow[]
 }
 
-type FilterKey = 'all' | 'investor' | 'fp' | 'realtor'
+type FilterKey = 'all' | 'investor' | 'fp' | 'realtor' | 'lawyer'
 
 // Match against the Partner_Type picklist values used in Zoho. Partner
 // Type strings are case-sensitive on the Zoho side — keep these aligned.
@@ -31,6 +31,7 @@ function matchesFilter(partner: PartnerRow, filter: FilterKey): boolean {
   if (filter === 'investor') return t.includes('investor')
   if (filter === 'fp') return t.includes('financial planner') || t.includes('planner')
   if (filter === 'realtor') return t.includes('realtor')
+  if (filter === 'lawyer') return t.includes('lawyer')
   return true
 }
 
@@ -67,6 +68,9 @@ function typeBadge(partnerType: string | null): { label: string; cls: string } {
   if (t.includes('realtor')) {
     return { label: 'Realtor', cls: 'bg-gray-700 text-white' }
   }
+  if (t.includes('lawyer')) {
+    return { label: 'Lawyer', cls: 'bg-amber-100 text-amber-900' }
+  }
   return { label: partnerType ?? '—', cls: 'bg-gray-100 text-gray-700' }
 }
 
@@ -75,6 +79,7 @@ const FILTER_PILLS: { key: FilterKey; label: string }[] = [
   { key: 'investor', label: 'Investors' },
   { key: 'fp',       label: 'Financial Planners' },
   { key: 'realtor',  label: 'Realtors' },
+  { key: 'lawyer',   label: 'Lawyers' },
 ]
 
 export default function PartnersFilterTable({ partners }: PartnersFilterTableProps) {
@@ -83,12 +88,13 @@ export default function PartnersFilterTable({ partners }: PartnersFilterTablePro
   const [search, setSearch] = useState('')
 
   const counts = useMemo(() => {
-    const c = { investor: 0, fp: 0, realtor: 0 }
+    const c = { investor: 0, fp: 0, realtor: 0, lawyer: 0 }
     for (const p of partners) {
       const t = (p.partnerType ?? '').toLowerCase()
       if (t.includes('investor')) c.investor += 1
       else if (t.includes('financial planner') || t.includes('planner')) c.fp += 1
       else if (t.includes('realtor')) c.realtor += 1
+      else if (t.includes('lawyer')) c.lawyer += 1
     }
     return c
   }, [partners])
@@ -132,7 +138,8 @@ export default function PartnersFilterTable({ partners }: PartnersFilterTablePro
       <p className="text-gray-500 text-xs font-body mb-6 px-1">
         {partners.length} total · {counts.investor} investor{counts.investor !== 1 ? 's' : ''} ·{' '}
         {counts.fp} financial planner{counts.fp !== 1 ? 's' : ''} ·{' '}
-        {counts.realtor} realtor{counts.realtor !== 1 ? 's' : ''}
+        {counts.realtor} realtor{counts.realtor !== 1 ? 's' : ''} ·{' '}
+        {counts.lawyer} lawyer{counts.lawyer !== 1 ? 's' : ''}
       </p>
 
       {/* Table */}

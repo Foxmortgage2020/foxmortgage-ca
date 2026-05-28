@@ -18,7 +18,9 @@ import {
 import DocumentUploader from '@/components/DocumentUploader'
 import ImpersonateButton from '@/components/ImpersonateButton'
 import SendOnboardingLinkButton from '@/components/SendOnboardingLinkButton'
+import SendPortalInviteButton from '@/components/SendPortalInviteButton'
 import { isMagicLinkExpired } from '@/lib/onboarding'
+import { getPartnerConfigByZohoType } from '@/lib/partner-types'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,21 +91,70 @@ export default async function AdminPartnerDetailPage({
   const partnerTypeLower = (partner.partnerType ?? '').toLowerCase()
   const isInvestor = partnerTypeLower.includes('investor')
 
-  // ── Non-investor placeholder branch ──────────────────────────────────────
+  // ── Non-investor branch (FP / Realtor / Lawyer) ──────────────────────────
   if (!isInvestor) {
+    // Resolve the per-type config so we can decide whether the partner
+    // is invite-able through the partner onboarding flow (FP / Realtor
+    // / Lawyer) or sits outside the supported set (Lender, Underwriter,
+    // Insurance Advisor — no portal today).
+    const config = getPartnerConfigByZohoType(partner.partnerType)
+    const inviteable = !!config && config.usesPartnerOnboarding
+
+    // Mirror investor stage-gate logic: show the invite button on Lead;
+    // on Invited, only show when the prior link is used or expired
+    // (so admin can resend) — otherwise hide to avoid double-issuing.
+    let inviteControl: React.ReactNode = null
+    if (inviteable) {
+      const stage = partner.onboardingStage
+      if (stage === 'Lead' || !stage) {
+        inviteControl = (
+          <SendPortalInviteButton partnerId={partnerId} label="Send Portal Invite" />
+        )
+      } else if (stage === 'Invited') {
+        const tokenStale =
+          Boolean(partner.magicLinkUsedAt) || isMagicLinkExpired(partner.magicLinkExpiresAt)
+        if (tokenStale) {
+          inviteControl = (
+            <SendPortalInviteButton partnerId={partnerId} label="Resend Portal Invite" />
+          )
+        }
+      }
+    }
+
+    // Impersonate button — only for the kinds we have impersonation
+    // wired for (fp / realtor / lawyer). If the type is unsupported,
+    // omit the button rather than showing a 400-on-click.
+    const impersonateRole: 'fp' | 'realtor' | 'lawyer' | null =
+      config?.kind === 'fp' ? 'fp'
+      : config?.kind === 'realtor' ? 'realtor'
+      : config?.kind === 'lawyer' ? 'lawyer'
+      : null
+
     return (
       <div className="max-w-3xl mx-auto">
         <Link href="/portal/admin/partners" className="inline-flex items-center gap-1.5 text-gray-400 text-sm font-body hover:text-navy mb-4">
           <ArrowLeft className="w-4 h-4" /> Partners
         </Link>
-        <h1 className="font-heading text-2xl font-bold text-navy mb-1">{partner.name ?? 'Partner'}</h1>
-        <p className="font-body text-gray-500 text-sm mb-6">
-          {partner.partnerType ?? '—'} · {partner.email ?? '—'}
-        </p>
+
+        <div className="flex justify-between items-start gap-4 mb-6">
+          <div>
+            <h1 className="font-heading text-2xl font-bold text-navy">{partner.name ?? 'Partner'}</h1>
+            <p className="font-body text-gray-500 text-sm mt-1">
+              {partner.partnerType ?? '—'} · {partner.email ?? '—'}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            {inviteControl}
+            {impersonateRole && (
+              <ImpersonateButton partnerId={partnerId} role={impersonateRole} />
+            )}
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
           <p className="font-heading text-navy text-lg font-bold mb-2">Detail view coming soon</p>
           <p className="font-body text-gray-500 text-sm mb-4 max-w-md mx-auto">
-            FP and Realtor detail pages are deferred to a future commit. For now, you can still upload and review documents via the standalone documents route.
+            Full Financial Planner / Realtor / Lawyer detail pages are deferred to a future commit. For now, you can issue portal invites above and review documents via the standalone documents route.
           </p>
           <Link
             href={`/portal/admin/partners/${partnerId}/documents`}

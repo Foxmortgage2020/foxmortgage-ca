@@ -62,6 +62,14 @@ export default async function SignInPage() {
       redirect('/portal/fp/dashboard')
     }
 
+    if (roles.includes('realtor')) {
+      redirect('/portal/realtor/dashboard')
+    }
+
+    if (roles.includes('lawyer')) {
+      redirect('/portal/lawyer/dashboard')
+    }
+
     if (roles.includes('investor')) {
       const partnerId = metadata.zoho_partner_id
       if (partnerId) {

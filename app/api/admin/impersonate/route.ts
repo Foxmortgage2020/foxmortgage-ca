@@ -95,9 +95,9 @@ export async function POST(req: Request) {
     role?: unknown
     partnerId?: unknown
   }
-  if (role !== 'fp' && role !== 'investor') {
+  if (role !== 'fp' && role !== 'investor' && role !== 'realtor' && role !== 'lawyer') {
     return NextResponse.json(
-      { error: 'BadRequest', message: "role must be 'fp' or 'investor'." },
+      { error: 'BadRequest', message: "role must be 'fp', 'investor', 'realtor', or 'lawyer'." },
       { status: 400 },
     )
   }
@@ -137,10 +137,13 @@ export async function POST(req: Request) {
 
   // 3a. Validate Partner_Type aligns with the requested role. The Partners
   // module mixes Financial Planner / Investor / Realtor / Lawyer in a single
-  // module differentiated by Partner_Type. Only FP and Investor are
-  // supported by this build — Realtor and Lawyer Partner_Type values are
-  // explicitly rejected here.
-  const expectedType = role === 'fp' ? 'Financial Planner' : 'Investor'
+  // module differentiated by Partner_Type. Lawyer was added 2026-05-28
+  // alongside the Lawyer portal.
+  const expectedType =
+    role === 'fp' ? 'Financial Planner'
+    : role === 'realtor' ? 'Realtor'
+    : role === 'lawyer' ? 'Lawyer'
+    : 'Investor'
   if (partner.type !== expectedType) {
     return NextResponse.json(
       {

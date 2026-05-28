@@ -41,6 +41,22 @@ export const fpMessagesCache = createCache<string, any[]>({
   ttlMs: 2 * 60 * 1000,
 })
 
+// Realtor messages — per-realtor key. Same TTL and shape as fpMessagesCache,
+// scoped under a different key prefix so the FP cache can never collide
+// with realtor data even if a Partners record id is shared between roles.
+export const realtorMessagesCache = createCache<string, any[]>({
+  max: 500,
+  ttlMs: 2 * 60 * 1000,
+})
+
+// Lawyer messages — per-lawyer key. Same TTL and shape as the realtor
+// cache, separate key prefix so the three partner-message caches never
+// collide on a shared Partners record id.
+export const lawyerMessagesCache = createCache<string, any[]>({
+  max: 500,
+  ttlMs: 2 * 60 * 1000,
+})
+
 // Admin partners list — shared key. 2-min TTL is short enough that any
 // new Partner Mike creates in Zoho shows up quickly when he navigates
 // to the list page, long enough to absorb tab-switch reloads. Two

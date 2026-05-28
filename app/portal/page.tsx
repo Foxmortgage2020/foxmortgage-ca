@@ -55,13 +55,28 @@ export default function PortalRedirect() {
       return
     }
 
-    // Multi-role realtor + investor — default to partner, switcher handles the rest
+    // Realtor (own dedicated portal — the legacy /portal/dashboard
+    // catchall is no longer the realtor target now that /portal/realtor
+    // exists).
+    if (roles.includes('realtor')) {
+      router.push('/portal/realtor/dashboard')
+      return
+    }
+
+    // Lawyer (own dedicated portal — mirrors the realtor branch above).
+    if (roles.includes('lawyer')) {
+      router.push('/portal/lawyer/dashboard')
+      return
+    }
+
+    // Multi-role investor (with another partner role already handled
+    // above) — default to legacy partner portal, switcher handles the rest.
     if (roles.includes('investor')) {
       router.push('/portal/dashboard')
       return
     }
 
-    // Default: realtor or anything else
+    // Default — legacy partner portal.
     router.push('/portal/dashboard')
   }, [isLoaded, user, router])
 

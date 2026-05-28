@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
 
-type Role = 'fp' | 'investor' | 'realtor'
+type Role = 'fp' | 'investor' | 'realtor' | 'lawyer'
 
 type Partner = {
   userId: string
@@ -29,9 +29,10 @@ type Props = {
 }
 
 const ROLE_LABEL: Record<Role, string> = {
-  fp: 'FP',
+  fp: 'Financial Planner',
   investor: 'investor',
   realtor: 'realtor',
+  lawyer: 'lawyer',
 }
 
 export default function PartnerPicker({ role, anchorEl, onClose, onSelect }: Props) {
