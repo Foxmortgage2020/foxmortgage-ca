@@ -67,6 +67,17 @@ export const partnersCache = createCache<string, any[]>({
   ttlMs: 2 * 60 * 1000,
 })
 
+// Admin dashboard payload — shared key ('all'). 2-min TTL mirrors
+// partnersCache: short enough that a Partner_Type change or a freshly
+// attributed deal in Zoho flows into the tiles on the next load, long
+// enough to absorb tab-switch reloads. Only the success path .set()s
+// (see getAdminDashboardPayload), so a partial/degraded payload is
+// never cached and the next call re-tries the deal aggregates.
+export const adminDashboardCache = createCache<string, any>({
+  max: 2,
+  ttlMs: 2 * 60 * 1000,
+})
+
 // Document hint cache — read-after-write workaround for Zoho's custom
 // module search index, which has 1-5 min latency on freshly-created
 // records. After an admin upload we cache the new document id keyed

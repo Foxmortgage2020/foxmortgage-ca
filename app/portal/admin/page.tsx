@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   Building2,
   Users,
@@ -14,8 +15,60 @@ import {
   Activity,
 } from 'lucide-react';
 
+// Shape returned by GET /api/admin/dashboard (see getAdminDashboardPayload
+// in lib/zoho.ts). Deal aggregates are nullable — they degrade to dashes if
+// the COQL queries fail while partner counts still render.
+type AdminDashboard = {
+  partners: {
+    total: number;
+    byType: {
+      realtor: number;
+      lawyer: number;
+      investor: number;
+      financialPlanner: number;
+      untyped: number;
+    };
+  };
+  referralsThisMonth: number | null;
+  attribution: {
+    attributed: number | null;
+    total: number | null;
+    pct: number | null;
+  };
+  warning?: string;
+};
+
+// Render a number, or an em-dash when the value is unavailable (loading or
+// a failed deal aggregate). Never throws on null/undefined.
+const dash = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '—' : String(n);
+
 export default function AdminDashboard() {
   const router = useRouter();
+  const [data, setData] = useState<AdminDashboard | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/dashboard')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled) setData(json);
+      })
+      .catch(() => {
+        // Swallow — tiles fall back to dashes via the dash() helper.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const byType = data?.partners.byType;
+  // Subtitle for the Active Partners KPI — real by-type breakdown that
+  // INCLUDES lawyers and investors (the old hardcoded "8 realtors, 4 FPs"
+  // omitted them).
+  const partnerSubtitle = byType
+    ? `${byType.realtor} realtors, ${byType.lawyer} lawyers, ${byType.investor} investors, ${byType.financialPlanner} FPs`
+    : 'Loading…';
 
   const todayFormatted = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -35,9 +88,9 @@ export default function AdminDashboard() {
     },
     {
       icon: Users,
-      value: '12',
+      value: dash(data?.partners.total),
       label: 'Active Partners',
-      sub: '8 realtors, 4 FPs',
+      sub: partnerSubtitle,
       badge: null,
       badgeColor: '',
     },
@@ -190,20 +243,32 @@ export default function AdminDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-4 mt-4">
               <div>
-                <p className="font-heading text-navy text-xl font-bold">8</p>
+                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.realtor)}</p>
                 <p className="text-gray-500 text-xs">Active Realtors</p>
               </div>
               <div>
-                <p className="font-heading text-navy text-xl font-bold">4</p>
+                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.financialPlanner)}</p>
                 <p className="text-gray-500 text-xs">Active FPs</p>
               </div>
               <div>
-                <p className="font-heading text-navy text-xl font-bold">23</p>
+                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.lawyer)}</p>
+                <p className="text-gray-500 text-xs">Active Lawyers</p>
+              </div>
+              <div>
+                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.investor)}</p>
+                <p className="text-gray-500 text-xs">Active Investors</p>
+              </div>
+              <div>
+                <p className="font-heading text-navy text-xl font-bold">{dash(data?.referralsThisMonth)}</p>
                 <p className="text-gray-500 text-xs">Referrals This Month</p>
               </div>
               <div>
-                <p className="font-heading text-navy text-xl font-bold">2</p>
-                <p className="text-gray-500 text-xs">Pending Reviews</p>
+                <p className="font-heading text-navy text-xl font-bold">
+                  {data?.attribution.attributed != null && data?.attribution.total != null
+                    ? `${data.attribution.attributed} / ${data.attribution.total} (${dash(data.attribution.pct)}%)`
+                    : '—'}
+                </p>
+                <p className="text-gray-500 text-xs">Referral Attribution</p>
               </div>
             </div>
             <p className="text-lime font-semibold text-sm mt-4">Enter Partner Portal &rarr;</p>

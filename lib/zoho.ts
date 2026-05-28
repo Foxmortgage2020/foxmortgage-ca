@@ -12,6 +12,7 @@ import {
   lawyerMessagesCache,
   realtorMessagesCache,
   partnersCache,
+  adminDashboardCache,
   getDocumentHints,
   pruneDocumentHints,
   rememberMagicLink,
@@ -2175,4 +2176,222 @@ export async function upsertSmmContactWithCasl(
     console.error('[zoho] upsertSmmContactWithCasl create error:', err)
     return { action: 'error' }
   }
+}
+
+// ─── Admin Dashboard ──────────────────────────────────────────────────────
+// Live data for app/portal/admin (replaces the old hardcoded tiles). Three
+// signals:
+//   1. partners   — grouped from listAllPartners() (shares partnersCache).
+//   2. referralsThisMonth — COUNT of Deals created this calendar month that
+//      carry a Referral_Partner link.
+//   3. attribution — all-time attributed-vs-total deal coverage.
+// The two deal aggregates run via COQL (COUNT(id)) — a single round-trip
+// each, instead of paging 200+ records through REST search. NOTE: COQL
+// addresses the deal module as "Deals"; the REST v2 builders above use the
+// same module under its API name "Potentials".
+//
+// Resilience: this function NEVER throws. Partner counts and the deal
+// aggregates fail independently — a COQL outage still renders partner tiles,
+// with the deal fields surfaced as null so the UI shows dashes.
+
+export interface AdminDashboardPayload {
+  partners: {
+    total: number
+    byType: {
+      realtor: number
+      lawyer: number
+      investor: number
+      financialPlanner: number
+      untyped: number
+    }
+  }
+  referralsThisMonth: number | null
+  attribution: {
+    attributed: number | null
+    total: number | null
+    pct: number | null
+  }
+  warning?: string
+}
+
+const ADMIN_DASHBOARD_TZ = 'America/Toronto'
+
+// Minutes the given instant is offset from UTC in the target zone (negative
+// west of UTC, e.g. EDT = -240, EST = -300). Derived from Intl so DST is
+// handled by the platform tz database, not a hardcoded offset.
+function zoneOffsetMinutes(date: Date, timeZone: string): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+  const map: Record<string, string> = {}
+  for (const p of dtf.formatToParts(date)) map[p.type] = p.value
+  const hour = map.hour === '24' ? '00' : map.hour
+  const asUTC = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(hour),
+    Number(map.minute),
+    Number(map.second),
+  )
+  return (asUTC - date.getTime()) / 60000
+}
+
+// ISO-8601 start-of-current-month in America/Toronto with the correct DST
+// offset for that month (e.g. "2026-05-01T00:00:00-04:00" during EDT). The
+// offset is probed at noon UTC on the 1st — safely inside the month's DST
+// period — so it reflects EDT vs EST dynamically rather than a frozen value.
+function startOfCurrentMonthToronto(now: Date = new Date()): string {
+  const ymParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ADMIN_DASHBOARD_TZ,
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(now)
+  const year = ymParts.find(p => p.type === 'year')!.value
+  const month = ymParts.find(p => p.type === 'month')!.value
+
+  const probe = new Date(Date.UTC(Number(year), Number(month) - 1, 1, 12, 0, 0))
+  const offsetMin = zoneOffsetMinutes(probe, ADMIN_DASHBOARD_TZ)
+  const sign = offsetMin <= 0 ? '-' : '+'
+  const abs = Math.abs(offsetMin)
+  const hh = String(Math.floor(abs / 60)).padStart(2, '0')
+  const mm = String(abs % 60).padStart(2, '0')
+  return `${year}-${month}-01T00:00:00${sign}${hh}:${mm}`
+}
+
+// Run a COQL aggregate that selects a single COUNT and return the integer.
+// Returns null on any failure (token, network, non-2xx, parse) so callers
+// can degrade gracefully. The count key in Zoho's response varies by API
+// build ("count" vs "COUNT(id)"), so we read the first value of the row.
+async function coqlCount(selectQuery: string): Promise<number | null> {
+  let token: string
+  try {
+    token = await getZohoToken()
+  } catch (err) {
+    console.error('[zoho] coqlCount token error:', err)
+    return null
+  }
+
+  let res: Response
+  try {
+    res = await fetch(`${ZOHO_API}/coql`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Zoho-oauthtoken ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ select_query: selectQuery }),
+    })
+  } catch (err) {
+    console.error('[zoho] coqlCount fetch error:', err, 'query:', selectQuery)
+    return null
+  }
+
+  // 204 = no rows matched the WHERE clause → a legitimate zero.
+  if (res.status === 204) return 0
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error(
+      '[zoho] coqlCount non-ok:',
+      res.status,
+      'query:', selectQuery,
+      'body:', text.substring(0, 300),
+    )
+    return null
+  }
+
+  let body: any
+  try {
+    body = await res.json()
+  } catch (err) {
+    console.error('[zoho] coqlCount JSON parse error:', err)
+    return null
+  }
+
+  const row = Array.isArray(body?.data) ? body.data[0] : undefined
+  if (!row) return 0
+  const val = Number(Object.values(row)[0])
+  return Number.isFinite(val) ? val : null
+}
+
+// Map a raw Partner_Type picklist value onto a dashboard bucket. Unset or
+// unrecognized types fall into 'untyped'. Substring match (case-insensitive)
+// so picklist label drift like "Financial Planner (FP)" still classifies.
+function classifyPartnerType(
+  raw: string | null,
+): keyof AdminDashboardPayload['partners']['byType'] {
+  if (!raw) return 'untyped'
+  const s = raw.toLowerCase()
+  if (s.includes('realtor')) return 'realtor'
+  if (s.includes('lawyer')) return 'lawyer'
+  if (s.includes('financial')) return 'financialPlanner'
+  if (s.includes('investor')) return 'investor'
+  return 'untyped'
+}
+
+export async function getAdminDashboardPayload(): Promise<AdminDashboardPayload> {
+  const cacheKey = 'all'
+  const cached = adminDashboardCache.get(cacheKey) as AdminDashboardPayload | undefined
+  if (cached !== undefined) return cached
+
+  let warning: string | undefined
+
+  // 1. Partners — grouped from the shared partner list cache. If this fails
+  //    we still return a payload (zeros) so the route never 500s.
+  const byType = {
+    realtor: 0,
+    lawyer: 0,
+    investor: 0,
+    financialPlanner: 0,
+    untyped: 0,
+  }
+  let total = 0
+  try {
+    const partners = await listAllPartners()
+    total = partners.length
+    for (const p of partners) byType[classifyPartnerType(p.partnerType)] += 1
+  } catch (err) {
+    console.error('[zoho] getAdminDashboardPayload partners error:', err)
+    warning = 'partners-failed'
+  }
+
+  // 2 + 3. Deal aggregates via COQL. Each returns null on failure and is
+  //    surfaced as a dash in the UI — they do not block the partner tiles.
+  const monthStart = startOfCurrentMonthToronto()
+  const [referralsThisMonth, attributed, dealTotal] = await Promise.all([
+    coqlCount(
+      `SELECT COUNT(id) FROM Deals WHERE Created_Time >= '${monthStart}' AND Referral_Partner is not null`,
+    ),
+    coqlCount(`SELECT COUNT(id) FROM Deals WHERE Referral_Partner is not null`),
+    coqlCount(`SELECT COUNT(id) FROM Deals WHERE id is not null`),
+  ])
+
+  const pct =
+    attributed !== null && dealTotal !== null && dealTotal > 0
+      ? Math.round((attributed / dealTotal) * 100)
+      : null
+
+  if (referralsThisMonth === null || attributed === null || dealTotal === null) {
+    warning = warning ? `${warning},deals-failed` : 'deals-failed'
+  }
+
+  const payload: AdminDashboardPayload = {
+    partners: { total, byType },
+    referralsThisMonth,
+    attribution: { attributed, total: dealTotal, pct },
+    ...(warning ? { warning } : {}),
+  }
+
+  // Only cache fully-successful payloads — a degraded one would otherwise
+  // freeze the failure for the full TTL (mirrors the .set()-on-success rule
+  // the rest of lib/cache.ts follows).
+  if (!warning) adminDashboardCache.set(cacheKey, payload)
+  return payload
 }
