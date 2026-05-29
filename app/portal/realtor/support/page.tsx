@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Phone, Mail, Calendar, MessageSquare } from 'lucide-react'
+import { CONTACT } from '@/lib/contact'
 
 export default function RealtorSupportPage() {
   return (
@@ -13,7 +14,7 @@ export default function RealtorSupportPage() {
       {/* Contact cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <a
-          href="tel:+14165550100"
+          href={CONTACT.phone.href}
           className="bg-white border border-gray-100 rounded-xl p-5 flex items-center gap-4 hover:shadow-md transition-shadow group"
         >
           <div className="w-11 h-11 rounded-full bg-lime/15 flex items-center justify-center group-hover:bg-lime/25 transition-colors">
@@ -21,12 +22,12 @@ export default function RealtorSupportPage() {
           </div>
           <div>
             <div className="font-heading font-semibold text-navy text-sm">Call Michael</div>
-            <div className="font-body text-xs text-gray-500">416-555-0100</div>
+            <div className="font-body text-xs text-gray-500">{CONTACT.phone.display}</div>
           </div>
         </a>
 
         <a
-          href="mailto:michael@foxmortgage.ca"
+          href={CONTACT.email.href}
           className="bg-white border border-gray-100 rounded-xl p-5 flex items-center gap-4 hover:shadow-md transition-shadow group"
         >
           <div className="w-11 h-11 rounded-full bg-lime/15 flex items-center justify-center group-hover:bg-lime/25 transition-colors">
@@ -34,24 +35,39 @@ export default function RealtorSupportPage() {
           </div>
           <div>
             <div className="font-heading font-semibold text-navy text-sm">Email Michael</div>
-            <div className="font-body text-xs text-gray-500">michael@foxmortgage.ca</div>
+            <div className="font-body text-xs text-gray-500">{CONTACT.email.address}</div>
           </div>
         </a>
 
-        <a
-          href="https://calendly.com/foxmortgage"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-white border border-gray-100 rounded-xl p-5 flex items-center gap-4 hover:shadow-md transition-shadow group"
-        >
-          <div className="w-11 h-11 rounded-full bg-lime/15 flex items-center justify-center group-hover:bg-lime/25 transition-colors">
-            <Calendar className="w-5 h-5 text-navy" />
-          </div>
-          <div>
-            <div className="font-heading font-semibold text-navy text-sm">Book a Call</div>
-            <div className="font-body text-xs text-gray-500">Schedule time via Calendly</div>
-          </div>
-        </a>
+        {CONTACT.bookingUrl ? (
+          <a
+            href={CONTACT.bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-white border border-gray-100 rounded-xl p-5 flex items-center gap-4 hover:shadow-md transition-shadow group"
+          >
+            <div className="w-11 h-11 rounded-full bg-lime/15 flex items-center justify-center group-hover:bg-lime/25 transition-colors">
+              <Calendar className="w-5 h-5 text-navy" />
+            </div>
+            <div>
+              <div className="font-heading font-semibold text-navy text-sm">Book a Call</div>
+              <div className="font-body text-xs text-gray-500">Schedule time via Zoho Bookings</div>
+            </div>
+          </a>
+        ) : (
+          <Link
+            href="/portal/realtor/messages"
+            className="bg-white border border-gray-100 rounded-xl p-5 flex items-center gap-4 hover:shadow-md transition-shadow group"
+          >
+            <div className="w-11 h-11 rounded-full bg-lime/15 flex items-center justify-center group-hover:bg-lime/25 transition-colors">
+              <Calendar className="w-5 h-5 text-navy" />
+            </div>
+            <div>
+              <div className="font-heading font-semibold text-navy text-sm">Book a Call</div>
+              <div className="font-body text-xs text-gray-500">Request a time with Michael</div>
+            </div>
+          </Link>
+        )}
 
         <Link
           href="/portal/realtor/messages"

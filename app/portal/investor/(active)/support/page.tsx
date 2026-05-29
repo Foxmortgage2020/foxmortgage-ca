@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import { Phone, Mail } from 'lucide-react';
+import { CONTACT } from '@/lib/contact';
 
 export default function SupportPage() {
   const { user } = useUser();
@@ -22,7 +22,7 @@ export default function SupportPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const mailtoUrl = `mailto:mfox@foxmortgage.ca?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`From: ${name} (${email})\n\nSubject: ${subject}\n\n${message}`)}`;
+    const mailtoUrl = `mailto:${CONTACT.email.address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`From: ${name} (${email})\n\nSubject: ${subject}\n\n${message}`)}`;
     window.location.href = mailtoUrl;
     setSubmitted(true);
   };
@@ -89,23 +89,30 @@ export default function SupportPage() {
 
           <div className="mt-4 space-y-2 w-full text-left">
             <div className="flex items-center gap-2 font-body text-sm text-navy">
-              <Phone className="w-4 h-4 text-lime" /> (519) 654-8173
+              <Phone className="w-4 h-4 text-lime" /> {CONTACT.phone.display}
             </div>
             <div className="flex items-center gap-2 font-body text-sm text-navy">
-              <Mail className="w-4 h-4 text-lime" /> mfox@foxmortgage.ca
+              <Mail className="w-4 h-4 text-lime" /> {CONTACT.email.address}
             </div>
           </div>
 
           <div className="mt-4 space-y-2 w-full">
-            <Link href="https://calendly.com" target="_blank"
-              className="block bg-lime text-navy w-full py-3 rounded-lg font-heading font-bold text-sm text-center hover:opacity-90 transition-opacity">
-              📅 Book a Call
-            </Link>
-            <a href="tel:5196548173"
+            {CONTACT.bookingUrl ? (
+              <a href={CONTACT.bookingUrl} target="_blank" rel="noopener noreferrer"
+                className="block bg-lime text-navy w-full py-3 rounded-lg font-heading font-bold text-sm text-center hover:opacity-90 transition-opacity">
+                📅 Book a Call
+              </a>
+            ) : (
+              <a href="#contact-form"
+                className="block bg-lime text-navy w-full py-3 rounded-lg font-heading font-bold text-sm text-center hover:opacity-90 transition-opacity">
+                📅 Book a Call
+              </a>
+            )}
+            <a href={CONTACT.phone.href}
               className="block border border-navy text-navy w-full py-3 rounded-lg font-heading font-bold text-sm text-center hover:bg-navy/5 transition-colors">
               📞 Call Now
             </a>
-            <a href="mailto:mfox@foxmortgage.ca"
+            <a href={CONTACT.email.href}
               className="block border border-navy text-navy w-full py-3 rounded-lg font-heading font-bold text-sm text-center hover:bg-navy/5 transition-colors">
               ✉️ Send Email
             </a>
@@ -113,7 +120,7 @@ export default function SupportPage() {
         </div>
 
         {/* Send a Message */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div id="contact-form" className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-6">
           <h2 className="font-heading text-lg font-bold text-navy mb-4">Send a Message</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">

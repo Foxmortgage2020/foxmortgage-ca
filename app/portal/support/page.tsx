@@ -13,6 +13,7 @@ import {
   Activity,
   Send,
 } from 'lucide-react'
+import { CONTACT } from '@/lib/contact'
 
 export default function SupportPage() {
   const [form, setForm] = useState({
@@ -65,24 +66,46 @@ export default function SupportPage() {
             </div>
           </div>
           <div className="space-y-3 mb-6">
-            <div className="flex items-center gap-3">
+            <a href={CONTACT.phone.href} className="flex items-center gap-3 group">
               <Phone className="w-4 h-4 text-gray-400" />
-              <span className="font-body text-sm text-gray-700">(416) 555-0199</span>
-            </div>
-            <div className="flex items-center gap-3">
+              <span className="font-body text-sm text-gray-700 group-hover:text-navy transition-colors">
+                {CONTACT.phone.display}
+              </span>
+            </a>
+            <a href={CONTACT.email.href} className="flex items-center gap-3 group">
               <Mail className="w-4 h-4 text-gray-400" />
-              <span className="font-body text-sm text-gray-700">michael@foxmortgage.ca</span>
-            </div>
+              <span className="font-body text-sm text-gray-700 group-hover:text-navy transition-colors">
+                {CONTACT.email.address}
+              </span>
+            </a>
           </div>
           <div className="space-y-2">
-            <button className="w-full flex items-center justify-center gap-2 bg-lime text-navy font-heading font-bold text-sm px-4 py-3 rounded-lg hover:bg-lime-dark transition-colors">
-              <Calendar className="w-4 h-4" />
-              Book a Strategy Call
-            </button>
-            <button className="w-full flex items-center justify-center gap-2 bg-navy text-white font-heading font-semibold text-sm px-4 py-3 rounded-lg hover:bg-navy/90 transition-colors">
+            {CONTACT.bookingUrl ? (
+              <a
+                href={CONTACT.bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 bg-lime text-navy font-heading font-bold text-sm px-4 py-3 rounded-lg hover:bg-lime-dark transition-colors"
+              >
+                <Calendar className="w-4 h-4" />
+                Book a Strategy Call
+              </a>
+            ) : (
+              <a
+                href="#help-form"
+                className="w-full flex items-center justify-center gap-2 bg-lime text-navy font-heading font-bold text-sm px-4 py-3 rounded-lg hover:bg-lime-dark transition-colors"
+              >
+                <Calendar className="w-4 h-4" />
+                Book a Strategy Call
+              </a>
+            )}
+            <a
+              href="#help-form"
+              className="w-full flex items-center justify-center gap-2 bg-navy text-white font-heading font-semibold text-sm px-4 py-3 rounded-lg hover:bg-navy/90 transition-colors"
+            >
               <MessageSquare className="w-4 h-4" />
               Send a Message
-            </button>
+            </a>
             <button className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 font-body text-sm px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors">
               <Video className="w-4 h-4" />
               Schedule Video Call
@@ -91,7 +114,7 @@ export default function SupportPage() {
         </div>
 
         {/* Help Form */}
-        <div className="bg-white border border-gray-100 rounded-xl p-6">
+        <div id="help-form" className="bg-white border border-gray-100 rounded-xl p-6 scroll-mt-6">
           <h3 className="font-heading font-semibold text-navy text-base mb-4">Need Help?</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
