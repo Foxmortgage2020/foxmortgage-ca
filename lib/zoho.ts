@@ -19,6 +19,7 @@ import {
   forgetMagicLink,
   lookupMagicLink,
 } from '@/lib/cache'
+import { getPartnerConfigByKind } from '@/lib/partner-types'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
@@ -1465,7 +1466,11 @@ function normalizeRealtorClient(r: any): RealtorClient {
 
 export async function getRealtorClients(realtorZohoId: string): Promise<RealtorClient[]> {
   const token = await getZohoToken()
-  const criteria = encodeURIComponent(`(Realtor:equals:${realtorZohoId})`)
+  // Filter on the configured deal-lookup field (Referral_Partner) — the
+  // field that actually carries referral attribution. See lib/partner-types.
+  const criteria = encodeURIComponent(
+    `(${getPartnerConfigByKind('realtor').dealLookupField}:equals:${realtorZohoId})`,
+  )
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${REALTOR_DEAL_FIELDS}&per_page=200`
   const res = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
@@ -1610,7 +1615,11 @@ const EMPTY_REALTOR_STATS: RealtorDashboardStats = {
  * any failure so the UI keeps rendering.
  */
 export async function getRealtorDashboardPayload(realtorZohoId: string): Promise<RealtorDashboardPayload> {
-  const criteria = encodeURIComponent(`(Realtor:equals:${realtorZohoId})`)
+  // Filter on the configured deal-lookup field (Referral_Partner) — the
+  // field that actually carries referral attribution. See lib/partner-types.
+  const criteria = encodeURIComponent(
+    `(${getPartnerConfigByKind('realtor').dealLookupField}:equals:${realtorZohoId})`,
+  )
   const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Realtor'
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
 
@@ -1834,7 +1843,11 @@ function normalizeLawyerClient(r: any): LawyerClient {
 
 export async function getLawyerClients(lawyerZohoId: string): Promise<LawyerClient[]> {
   const token = await getZohoToken()
-  const criteria = encodeURIComponent(`(Lawyer:equals:${lawyerZohoId})`)
+  // Filter on the configured deal-lookup field (Referral_Partner) — see
+  // lib/partner-types; lawyers are attributed via Referral_Partner too.
+  const criteria = encodeURIComponent(
+    `(${getPartnerConfigByKind('lawyer').dealLookupField}:equals:${lawyerZohoId})`,
+  )
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${LAWYER_DEAL_FIELDS}&per_page=200`
   const res = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
@@ -1974,7 +1987,11 @@ const EMPTY_LAWYER_STATS: LawyerDashboardStats = {
  * any failure so the UI keeps rendering.
  */
 export async function getLawyerDashboardPayload(lawyerZohoId: string): Promise<LawyerDashboardPayload> {
-  const criteria = encodeURIComponent(`(Lawyer:equals:${lawyerZohoId})`)
+  // Filter on the configured deal-lookup field (Referral_Partner) — see
+  // lib/partner-types; lawyers are attributed via Referral_Partner too.
+  const criteria = encodeURIComponent(
+    `(${getPartnerConfigByKind('lawyer').dealLookupField}:equals:${lawyerZohoId})`,
+  )
   const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Lawyer'
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
 

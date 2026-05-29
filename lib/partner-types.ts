@@ -82,7 +82,12 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     zohoProspectType: 'Realtor Prospect',
     clerkMetadataKey: 'realtor_zoho_id',
     clerkRole: 'realtor',
-    dealLookupField: 'Realtor',
+    // All referring partners (realtor/lawyer/FP) are attributed via the
+    // single Referral_Partner lookup in Zoho; the type-specific Realtor /
+    // Lawyer lookups are never populated for referral attribution, so the
+    // portal filters on Referral_Partner like the FP portal does. Portal
+    // type is still decided by Partner_Type / Clerk role, not this field.
+    dealLookupField: 'Referral_Partner',
     portalDashboard: '/portal/realtor/dashboard',
     usesPartnerOnboarding: true,
   },
@@ -91,7 +96,9 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     zohoPartnerType: 'Lawyer',
     clerkMetadataKey: 'lawyer_zoho_id',
     clerkRole: 'lawyer',
-    dealLookupField: 'Lawyer',
+    // See realtor note — filters on Referral_Partner, the field that
+    // actually carries referral attribution for every partner type.
+    dealLookupField: 'Referral_Partner',
     portalDashboard: '/portal/lawyer/dashboard',
     usesPartnerOnboarding: true,
   },
