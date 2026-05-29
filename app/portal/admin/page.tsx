@@ -243,9 +243,11 @@ export default function AdminDashboard() {
       <div className="mb-8">
         <h2 className="font-heading text-navy text-xl font-bold mb-4">Portal Activity</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Partner Portal */}
+          {/* Partner Portal — enters the realtor portal as the representative
+              partner view (mirrors the sidebar "Switch to Portal → Realtor").
+              The retired /portal/dashboard catch-all would no-op for admins. */}
           <div
-            onClick={() => router.push('/portal/dashboard')}
+            onClick={() => router.push('/portal/realtor/dashboard')}
             className="bg-white rounded-2xl border-2 border-gray-200 hover:border-lime cursor-pointer transition-all p-6"
           >
             <div className="flex items-center gap-3">

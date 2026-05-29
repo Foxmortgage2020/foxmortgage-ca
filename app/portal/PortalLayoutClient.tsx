@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import type { ImpersonationContext } from '@/lib/auth'
 import PartnerPicker from '@/components/PartnerPicker'
+import { PortalImpersonationProvider } from '@/lib/portal-impersonation'
 
 const partnerNavItems = [
   { label: 'Dashboard', href: '/portal/dashboard', icon: LayoutDashboard },
@@ -343,11 +344,16 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
       console.error('[impersonate] error', err)
       return
     }
-    const dest =
-      partner.role === 'fp' ? '/portal/fp/dashboard'
-        : partner.role === 'investor' ? '/portal/investor/dashboard'
-        : '/portal/dashboard'
-    router.push(dest)
+    // Land the admin on the impersonated partner's own dashboard. Every
+    // picker role now has a dedicated live-data dashboard — realtor and
+    // lawyer used to fall through to the retired /portal/dashboard seed page.
+    const destByRole: Record<PickerRole, string> = {
+      fp: '/portal/fp/dashboard',
+      investor: '/portal/investor/dashboard',
+      realtor: '/portal/realtor/dashboard',
+      lawyer: '/portal/lawyer/dashboard',
+    }
+    router.push(destByRole[partner.role])
     router.refresh()
   }
 
@@ -612,8 +618,13 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
           </div>
         )}
 
-        {/* Page content */}
-        <main className="flex-1 p-8">{children}</main>
+        {/* Page content. Provider lets pages greet the impersonated partner
+            by name (the impersonation cookie is server-only). */}
+        <main className="flex-1 p-8">
+          <PortalImpersonationProvider value={impersonation}>
+            {children}
+          </PortalImpersonationProvider>
+        </main>
       </div>
 
       {/* Partner Picker popover (admin only) */}

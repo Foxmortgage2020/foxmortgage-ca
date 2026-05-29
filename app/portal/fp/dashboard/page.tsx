@@ -1,6 +1,7 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
+import { useGreetingFirstName } from '@/lib/portal-impersonation'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import {
@@ -83,7 +84,10 @@ const quickActions = [
 
 export default function FPDashboardPage() {
   const { user } = useUser()
-  const firstName = user?.firstName || 'there'
+  // Greets the impersonated partner by name when an admin is viewing as them,
+  // otherwise the signed-in planner's own first name. (Presentation only —
+  // FP data logic is unchanged.)
+  const firstName = useGreetingFirstName(user?.firstName)
 
   const EMPTY_STATS: DashboardStats = {
     totalReferrals: 0,
