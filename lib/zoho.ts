@@ -945,6 +945,7 @@ const FP_DEAL_FIELDS = [
   'LTV',
   'Total_Loan_Amount',
   'Purchase_Price_Value',
+  'Maturity_Date',
   'Referral_Partner',
 ].join(',')
 
@@ -970,6 +971,7 @@ export interface FPClient {
   ltv: number | null
   totalLoanAmount: number | null
   purchasePriceValue: number | null
+  maturityDate: string | null
   referralPartnerId: string | null
   referralPartnerName: string | null
   description: string | null
@@ -1043,6 +1045,7 @@ function normalizeFPClient(r: any): FPClient {
     ltv: r.LTV != null ? Number(r.LTV) : null,
     totalLoanAmount: r.Total_Loan_Amount != null ? Number(r.Total_Loan_Amount) : null,
     purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
+    maturityDate: r.Maturity_Date ?? null,
     referralPartnerId: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.id ?? null) : null,
     referralPartnerName: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.name ?? null) : null,
     description: null,
@@ -1377,6 +1380,7 @@ const REALTOR_DEAL_FIELDS = [
   'LTV',
   'Total_Loan_Amount',
   'Purchase_Price_Value',
+  'Maturity_Date',
   'Realtor',
   'Referral_Partner',
 ].join(',')
@@ -1407,6 +1411,7 @@ export interface RealtorClient {
   realtorName: string | null
   referralPartnerId: string | null
   referralPartnerName: string | null
+  maturityDate: string | null
   description: string | null
 }
 
@@ -1471,6 +1476,7 @@ function normalizeRealtorClient(r: any): RealtorClient {
     realtorName: typeof r.Realtor === 'object' ? (r.Realtor?.name ?? null) : null,
     referralPartnerId: referralLookup?.id ?? null,
     referralPartnerName: referralLookup?.name ?? null,
+    maturityDate: r.Maturity_Date ?? null,
     description: null,
   }
 }
@@ -1766,6 +1772,7 @@ const LAWYER_DEAL_FIELDS = [
   'LTV',
   'Total_Loan_Amount',
   'Purchase_Price_Value',
+  'Maturity_Date',
   'Lawyer',
   'Referral_Partner',
 ].join(',')
@@ -1796,6 +1803,7 @@ export interface LawyerClient {
   lawyerName: string | null
   referralPartnerId: string | null
   referralPartnerName: string | null
+  maturityDate: string | null
   description: string | null
 }
 
@@ -1859,6 +1867,7 @@ function normalizeLawyerClient(r: any): LawyerClient {
     lawyerName: typeof r.Lawyer === 'object' ? (r.Lawyer?.name ?? null) : null,
     referralPartnerId: referralLookup?.id ?? null,
     referralPartnerName: referralLookup?.name ?? null,
+    maturityDate: r.Maturity_Date ?? null,
     description: null,
   }
 }

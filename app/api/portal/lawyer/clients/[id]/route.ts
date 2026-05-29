@@ -41,7 +41,12 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({ client })
+    // Surface whether the partner message write-path is live so the client
+    // file can render a real send box vs a read-only "Message Michael" state.
+    // Server-derived from the existing webhook env var — no client-readable env.
+    const messagingEnabled = !!process.env.LAWYER_MESSAGE_WEBHOOK_URL
+
+    return NextResponse.json({ client, messagingEnabled })
   } catch (error) {
     console.error('[GET /api/portal/lawyer/clients/[id]]', error)
     return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 })
