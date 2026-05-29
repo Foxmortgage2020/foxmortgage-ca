@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPortalContext } from '@/lib/auth'
-import { getRealtorClientDetail } from '@/lib/zoho'
+import { getRealtorClientDetail, relationshipTagFor } from '@/lib/zoho'
 
 export async function GET(
   _req: NextRequest,
@@ -29,16 +29,18 @@ export async function GET(
     }
 
     // Ownership check — the requested deal must be attributed to the actor's
-    // effective realtor id on EITHER the Realtor lookup (they're the attached
-    // realtor on the deal) OR Referral_Partner (they referred it) — the same
-    // union the client list query matches on. The `!!effectiveRealtorId` guard
-    // denies a non-impersonating admin (no realtor_zoho_id → null), who must
-    // impersonate to view a specific realtor's client, and prevents a null
-    // effective id from matching a deal that happens to have neither field set.
+    // effective realtor id on the Realtor lookup (attached as buyer's realtor),
+    // Seller_s_Realtor (attached as seller's realtor), OR Referral_Partner (they
+    // referred it) — the same union the client list query matches on. The
+    // `!!effectiveRealtorId` guard denies a non-impersonating admin (no
+    // realtor_zoho_id → null), who must impersonate to view a specific realtor's
+    // client, and prevents a null effective id from matching a deal that happens
+    // to have none of these fields set.
     const effectiveRealtorId = ctx.effectiveRealtorId
     const ownsClient =
       !!effectiveRealtorId &&
       (client.realtorId === effectiveRealtorId ||
+        client.sellerRealtorId === effectiveRealtorId ||
         client.referralPartnerId === effectiveRealtorId)
     if (!ownsClient) {
       return NextResponse.json(
@@ -46,6 +48,11 @@ export async function GET(
         { status: 403 },
       )
     }
+
+    // Attach the per-deal relationship tag for this viewer (buyer's realtor,
+    // seller's realtor, referrer, or both) so the client file renders the same
+    // chip the list shows. Computed server-side from the effective id.
+    client.relationshipTag = relationshipTagFor(client, effectiveRealtorId)
 
     // Surface whether the partner message write-path is live so the client
     // file can render a real send box vs a read-only "Message Michael" state.

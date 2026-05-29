@@ -49,6 +49,7 @@ interface LawyerClient {
   stage: string
   nextReviewDate: string | null
   savingsIdentified: string | null
+  relationshipTag?: string | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -200,6 +201,11 @@ export default function LawyerClientsPage() {
                       >
                         {client.displayName}
                       </Link>
+                      {client.relationshipTag && (
+                        <span className="block w-fit mt-1 font-body text-[10px] font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
+                          {client.relationshipTag}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3">
                       <span

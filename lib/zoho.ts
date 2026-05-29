@@ -994,6 +994,9 @@ export interface FPClient {
   referralPartnerId: string | null
   referralPartnerName: string | null
   description: string | null
+  // Per-deal relationship tag for the viewing partner (see relationshipTagFor).
+  // Null until the list/detail layer attaches it with the effective viewer id.
+  relationshipTag: string | null
 }
 
 export class ZohoError extends Error {
@@ -1078,6 +1081,7 @@ function normalizeFPClient(r: any): FPClient {
     referralPartnerId: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.id ?? null) : null,
     referralPartnerName: typeof r.Referral_Partner === 'object' ? (r.Referral_Partner?.name ?? null) : null,
     description: null,
+    relationshipTag: null,
   }
 }
 
@@ -1095,7 +1099,13 @@ export async function getFPClients(fpZohoId: string): Promise<FPClient[]> {
     throw new ZohoError(res.status, text)
   }
   const data = await res.json()
-  return (data.data ?? []).map(normalizeFPClient)
+  // FPs attribute via Referral_Partner only, so the tag is always "Referred by
+  // you" — relationshipTagFor still resolves it from the matched field so the
+  // chip stays consistent with the other portals and reuses one code path.
+  return (data.data ?? []).map(normalizeFPClient).map((c: FPClient) => ({
+    ...c,
+    relationshipTag: relationshipTagFor(c, fpZohoId),
+  }))
 }
 
 // Resolve a lender's A/B/Private classification from the linked Vendors record.
@@ -1440,6 +1450,58 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
   })
 }
 
+/**
+ * Per-deal relationship tag shown to the VIEWING partner, derived from which
+ * Deal lookup field carries the viewer's Zoho id:
+ *   Referral_Partner == viewer → referrer
+ *   Realtor          == viewer → buyer's realtor
+ *   Seller_s_Realtor == viewer → seller's realtor
+ *   Lawyer           == viewer → lawyer
+ * A deal can carry the viewer in more than one field (e.g. they referred it
+ * AND are the attached realtor) — referrer + any role collapses to a single
+ * "Referred · your client" tag. The strings live in one map so they are
+ * trivial to reword later without touching the resolver logic.
+ */
+export const RELATIONSHIP_TAG_TEXT = {
+  referredAndRole: 'Referred · your client',
+  referrer: 'Referred by you',
+  buyerRealtor: 'Your client',
+  sellerRealtor: "Seller's side",
+  lawyer: 'Your file',
+} as const
+
+interface DealPartnerFields {
+  referralPartnerId?: string | null
+  realtorId?: string | null
+  sellerRealtorId?: string | null
+  lawyerId?: string | null
+}
+
+/**
+ * Resolve the relationship tag for a single deal as seen by `viewerId` (the
+ * impersonation-aware effective Zoho id of the partner viewing the portal).
+ * Returns null when no field matches or the viewer id is unknown — the UI
+ * renders no chip in that case. Computed server-side because the client
+ * components never receive the effective (impersonation-aware) Zoho id.
+ */
+export function relationshipTagFor(
+  fields: DealPartnerFields,
+  viewerId: string | null | undefined,
+): string | null {
+  if (!viewerId) return null
+  const isReferrer = fields.referralPartnerId === viewerId
+  const isBuyerRealtor = fields.realtorId === viewerId
+  const isSellerRealtor = fields.sellerRealtorId === viewerId
+  const isLawyer = fields.lawyerId === viewerId
+  const hasRole = isBuyerRealtor || isSellerRealtor || isLawyer
+  if (isReferrer && hasRole) return RELATIONSHIP_TAG_TEXT.referredAndRole
+  if (isReferrer) return RELATIONSHIP_TAG_TEXT.referrer
+  if (isBuyerRealtor) return RELATIONSHIP_TAG_TEXT.buyerRealtor
+  if (isSellerRealtor) return RELATIONSHIP_TAG_TEXT.sellerRealtor
+  if (isLawyer) return RELATIONSHIP_TAG_TEXT.lawyer
+  return null
+}
+
 // ─── Realtor Portal — CRM API calls ───────────────────────────────────────────
 // Mirror of the FP block above, swapping the Partners lookup field from
 // Referral_Partner → Realtor (a separate Lookup-to-Partners on the Potentials
@@ -1479,6 +1541,7 @@ const REALTOR_DEAL_FIELDS = [
   'Term_Years',
   'Amortization_Years',
   'Realtor',
+  'Seller_s_Realtor',
   'Referral_Partner',
 ].join(',')
 
@@ -1516,10 +1579,15 @@ export interface RealtorClient {
   purchasePriceValue: number | null
   realtorId: string | null
   realtorName: string | null
+  sellerRealtorId: string | null
+  sellerRealtorName: string | null
   referralPartnerId: string | null
   referralPartnerName: string | null
   maturityDate: string | null
   description: string | null
+  // Per-deal relationship tag for the viewing partner (see relationshipTagFor).
+  // Null until the list/detail layer attaches it with the effective viewer id.
+  relationshipTag: string | null
 }
 
 export interface RealtorNote {
@@ -1592,10 +1660,13 @@ function normalizeRealtorClient(r: any): RealtorClient {
     purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
     realtorId: typeof r.Realtor === 'object' ? (r.Realtor?.id ?? null) : null,
     realtorName: typeof r.Realtor === 'object' ? (r.Realtor?.name ?? null) : null,
+    sellerRealtorId: typeof r.Seller_s_Realtor === 'object' ? (r.Seller_s_Realtor?.id ?? null) : null,
+    sellerRealtorName: typeof r.Seller_s_Realtor === 'object' ? (r.Seller_s_Realtor?.name ?? null) : null,
     referralPartnerId: referralLookup?.id ?? null,
     referralPartnerName: referralLookup?.name ?? null,
     maturityDate: r.Maturity_Date ?? null,
     description: null,
+    relationshipTag: null,
   }
 }
 
@@ -1620,7 +1691,16 @@ export async function getRealtorClients(
     throw new ZohoError(res.status, text)
   }
   const data = await res.json()
-  return dedupeById((data.data ?? []).map(normalizeRealtorClient))
+  // Attach the per-deal relationship tag from the viewer's id. For a realtor
+  // this resolves to "Your client" (Realtor), "Seller's side" (Seller_s_Realtor),
+  // "Referred by you" (Referral_Partner only), or "Referred · your client"
+  // (both). When called via the mortgage-agent delegation the matched field is
+  // Referral_Partner only, so it resolves to "Referred by you".
+  const clients: RealtorClient[] = dedupeById((data.data ?? []).map(normalizeRealtorClient))
+  return clients.map((c) => ({
+    ...c,
+    relationshipTag: relationshipTagFor(c, realtorZohoId),
+  }))
 }
 
 export async function getRealtorClientDetail(dealId: string): Promise<RealtorClientDetail | null> {
@@ -1720,6 +1800,12 @@ export async function getRealtorMessages(partnerId: string): Promise<RealtorNote
 
 export interface RealtorDashboardStats {
   totalReferrals: number
+  // Split of totalReferrals into two honest numbers: deals the realtor REFERRED
+  // (Referral_Partner) vs. deals where they are the attached role (Realtor or
+  // Seller_s_Realtor). A deal that is both counts in both — they are not a
+  // partition of totalReferrals.
+  referralsSent: number
+  clientsOnFile: number
   activeMonitoring: number
   closedMortgages: number
   fundedVolume: number
@@ -1744,6 +1830,8 @@ export interface RealtorDashboardPayload {
 
 const EMPTY_REALTOR_STATS: RealtorDashboardStats = {
   totalReferrals: 0,
+  referralsSent: 0,
+  clientsOnFile: 0,
   activeMonitoring: 0,
   closedMortgages: 0,
   fundedVolume: 0,
@@ -1766,7 +1854,9 @@ export async function getRealtorDashboardPayload(
   // deals they're attached to. The matchFields param lets the mortgage-agent
   // delegation narrow this to Referral_Partner only. See lib/partner-types.
   const criteria = encodeURIComponent(partnerDealCriteria(matchFields, realtorZohoId))
-  const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Realtor'
+  // Seller_s_Realtor + Referral_Partner are needed to split the count into
+  // "Referrals sent" vs. "Clients on file" (see stats computation below).
+  const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Realtor,Seller_s_Realtor,Referral_Partner'
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
 
   let token: string
@@ -1842,8 +1932,19 @@ export async function getRealtorDashboardPayload(
   const leadToClose =
     deals.length > 0 ? Math.round((funded.length / deals.length) * 1000) / 10 : 0
 
+  // Split the single count: deals REFERRED (Referral_Partner) vs. deals where
+  // the realtor is the attached role (Realtor buyer-side OR Seller_s_Realtor
+  // seller-side). A deal that is both counts in both — not a partition.
+  const idOf = (v: any): string | null => (v && typeof v === 'object' ? (v.id ?? null) : null)
+  const referralsSent = deals.filter((d) => idOf(d.Referral_Partner) === realtorZohoId).length
+  const clientsOnFile = deals.filter(
+    (d) => idOf(d.Realtor) === realtorZohoId || idOf(d.Seller_s_Realtor) === realtorZohoId,
+  ).length
+
   const stats: RealtorDashboardStats = {
     totalReferrals: deals.length,
+    referralsSent,
+    clientsOnFile,
     activeMonitoring: active.length,
     closedMortgages: funded.length,
     fundedVolume: totalFunded,
@@ -1998,6 +2099,9 @@ export interface LawyerClient {
   referralPartnerName: string | null
   maturityDate: string | null
   description: string | null
+  // Per-deal relationship tag for the viewing partner (see relationshipTagFor).
+  // Null until the list/detail layer attaches it with the effective viewer id.
+  relationshipTag: string | null
 }
 
 export interface LawyerNote {
@@ -2073,6 +2177,7 @@ function normalizeLawyerClient(r: any): LawyerClient {
     referralPartnerName: referralLookup?.name ?? null,
     maturityDate: r.Maturity_Date ?? null,
     description: null,
+    relationshipTag: null,
   }
 }
 
@@ -2095,7 +2200,14 @@ export async function getLawyerClients(lawyerZohoId: string): Promise<LawyerClie
     throw new ZohoError(res.status, text)
   }
   const data = await res.json()
-  return dedupeById((data.data ?? []).map(normalizeLawyerClient))
+  // Attach the per-deal relationship tag from the viewer's id: "Your file"
+  // (Lawyer), "Referred by you" (Referral_Partner only), or "Referred · your
+  // client" (both).
+  const clients: LawyerClient[] = dedupeById((data.data ?? []).map(normalizeLawyerClient))
+  return clients.map((c) => ({
+    ...c,
+    relationshipTag: relationshipTagFor(c, lawyerZohoId),
+  }))
 }
 
 export async function getLawyerClientDetail(dealId: string): Promise<LawyerClientDetail | null> {
@@ -2190,6 +2302,11 @@ export async function getLawyerMessages(partnerId: string): Promise<LawyerNote[]
 
 export interface LawyerDashboardStats {
   totalReferrals: number
+  // Split of totalReferrals into two honest numbers: deals the lawyer REFERRED
+  // (Referral_Partner) vs. deals where they are the attached Lawyer. A deal
+  // that is both counts in both — they are not a partition of totalReferrals.
+  referralsSent: number
+  clientsOnFile: number
   activeMonitoring: number
   closedMortgages: number
   fundedVolume: number
@@ -2214,6 +2331,8 @@ export interface LawyerDashboardPayload {
 
 const EMPTY_LAWYER_STATS: LawyerDashboardStats = {
   totalReferrals: 0,
+  referralsSent: 0,
+  clientsOnFile: 0,
   activeMonitoring: 0,
   closedMortgages: 0,
   fundedVolume: 0,
@@ -2234,7 +2353,9 @@ export async function getLawyerDashboardPayload(lawyerZohoId: string): Promise<L
   const criteria = encodeURIComponent(
     partnerDealCriteria(getPartnerConfigByKind('lawyer').dealMatchFields, lawyerZohoId),
   )
-  const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Lawyer'
+  // Referral_Partner is needed to split the count into "Referrals sent" vs.
+  // "Clients on file" (see stats computation below).
+  const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Lawyer,Referral_Partner'
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
 
   let token: string
@@ -2310,8 +2431,16 @@ export async function getLawyerDashboardPayload(lawyerZohoId: string): Promise<L
   const leadToClose =
     deals.length > 0 ? Math.round((funded.length / deals.length) * 1000) / 10 : 0
 
+  // Split the single count: deals REFERRED (Referral_Partner) vs. deals where
+  // the lawyer is the attached Lawyer. A deal that is both counts in both.
+  const idOf = (v: any): string | null => (v && typeof v === 'object' ? (v.id ?? null) : null)
+  const referralsSent = deals.filter((d) => idOf(d.Referral_Partner) === lawyerZohoId).length
+  const clientsOnFile = deals.filter((d) => idOf(d.Lawyer) === lawyerZohoId).length
+
   const stats: LawyerDashboardStats = {
     totalReferrals: deals.length,
+    referralsSent,
+    clientsOnFile,
     activeMonitoring: active.length,
     closedMortgages: funded.length,
     fundedVolume: totalFunded,

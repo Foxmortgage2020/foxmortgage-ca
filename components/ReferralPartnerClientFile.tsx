@@ -210,6 +210,7 @@ interface ClientDetail {
   totalLoanAmount: number | null
   purchasePriceValue: number | null
   description: string | null
+  relationshipTag?: string | null
   messages: Note[]
 }
 
@@ -435,6 +436,11 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
             >
               {status}
             </span>
+            {client.relationshipTag && (
+              <span className="inline-block font-body text-xs font-semibold px-3 py-1 rounded-full bg-navy/5 text-navy border border-navy/10">
+                {client.relationshipTag}
+              </span>
+            )}
             {client.location && (
               <span className="font-body text-xs text-gray-500">{client.location}</span>
             )}

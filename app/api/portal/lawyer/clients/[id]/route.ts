@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPortalContext } from '@/lib/auth'
-import { getLawyerClientDetail } from '@/lib/zoho'
+import { getLawyerClientDetail, relationshipTagFor } from '@/lib/zoho'
 
 export async function GET(
   _req: NextRequest,
@@ -46,6 +46,11 @@ export async function GET(
         { status: 403 },
       )
     }
+
+    // Attach the per-deal relationship tag for this viewer (attached lawyer,
+    // referrer, or both) so the client file renders the same chip the list
+    // shows. Computed server-side from the effective id.
+    client.relationshipTag = relationshipTagFor(client, effectiveLawyerId)
 
     // Surface whether the partner message write-path is live so the client
     // file can render a real send box vs a read-only "Message Michael" state.

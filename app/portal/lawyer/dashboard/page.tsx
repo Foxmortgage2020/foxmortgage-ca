@@ -22,6 +22,8 @@ import {
 
 interface DashboardStats {
   totalReferrals: number
+  referralsSent: number
+  clientsOnFile: number
   activeMonitoring: number
   closedMortgages: number
   fundedVolume: number
@@ -90,6 +92,8 @@ export default function LawyerDashboardPage() {
 
   const EMPTY_STATS: DashboardStats = {
     totalReferrals: 0,
+    referralsSent: 0,
+    clientsOnFile: 0,
     activeMonitoring: 0,
     closedMortgages: 0,
     fundedVolume: 0,
@@ -116,7 +120,8 @@ export default function LawyerDashboardPage() {
   }, [])
 
   const statCards = [
-    { label: 'Total Clients', value: String(stats.totalReferrals), icon: Users, up: true },
+    { label: 'Referrals sent', value: String(stats.referralsSent), icon: UserPlus, up: true },
+    { label: 'Clients on file', value: String(stats.clientsOnFile), icon: Users, up: true },
     { label: 'Files In Progress', value: String(stats.activeMonitoring), icon: Target, up: true },
     { label: 'Funded Mortgages', value: String(stats.closedMortgages), icon: CheckCircle2, up: true },
     { label: 'Total Funded', value: formatCurrency(stats.fundedVolume), icon: DollarSign, up: true },
@@ -165,7 +170,7 @@ export default function LawyerDashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {loading ? (
-          Array.from({ length: 7 }).map((_, i) => (
+          Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="bg-white border border-gray-100 rounded-xl p-4 animate-pulse">
               <div className="h-4 w-4 bg-gray-200 rounded mb-3" />
               <div className="h-6 w-16 bg-gray-200 rounded mb-2" />

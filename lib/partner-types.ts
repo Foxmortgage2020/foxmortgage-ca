@@ -92,12 +92,13 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     zohoProspectType: 'Realtor Prospect',
     clerkMetadataKey: 'realtor_zoho_id',
     clerkRole: 'realtor',
-    // A realtor sees a deal whether they referred it (Referral_Partner) or
-    // are the attached realtor on it (Realtor lookup). Deals routinely carry
-    // a different referrer than the attached realtor — e.g. an FP refers the
-    // deal and a realtor is attached — so we match the UNION of both fields.
-    // Portal type is still decided by Partner_Type / Clerk role, not these.
-    dealMatchFields: ['Realtor', 'Referral_Partner'],
+    // A realtor sees a deal whether they referred it (Referral_Partner) or are
+    // attached on it as the buyer's realtor (Realtor) or the seller's realtor
+    // (Seller_s_Realtor). Deals routinely carry a different referrer than the
+    // attached realtor — e.g. an FP refers the deal and a realtor is attached —
+    // so we match the UNION of all three fields. Portal type is still decided
+    // by Partner_Type / Clerk role, not these.
+    dealMatchFields: ['Realtor', 'Seller_s_Realtor', 'Referral_Partner'],
     portalDashboard: '/portal/realtor/dashboard',
     usesPartnerOnboarding: true,
   },

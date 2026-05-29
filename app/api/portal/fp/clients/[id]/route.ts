@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPortalContext } from '@/lib/auth'
-import { getFPClientDetail } from '@/lib/zoho'
+import { getFPClientDetail, relationshipTagFor } from '@/lib/zoho'
 
 export async function GET(
   _req: NextRequest,
@@ -38,6 +38,10 @@ export async function GET(
         { status: 403 },
       )
     }
+
+    // Attach the per-deal relationship tag ("Referred by you") so the client
+    // file renders the same chip the list shows. Computed server-side.
+    client.relationshipTag = relationshipTagFor(client, ctx.effectiveFpId)
 
     // Surface whether the partner message write-path is live so the client
     // file can render a real send box vs a read-only "Message Michael" state.
