@@ -29,12 +29,18 @@ export async function GET(
     }
 
     // Ownership check — the requested deal must be attributed to the actor's
-    // effective lawyer id via Referral_Partner (the same field the client list
-    // query filters on). The legacy Lawyer lookup is never populated, so gating
-    // on it 403'd every real deal. For a non-impersonating admin (no
-    // lawyer_zoho_id), effectiveLawyerId is null and the check correctly fails
-    // — admins should impersonate to view a specific lawyer's client.
-    if (client.referralPartnerId !== ctx.effectiveLawyerId) {
+    // effective lawyer id on EITHER the Lawyer lookup (they're the attached
+    // lawyer on the deal) OR Referral_Partner (they referred it) — the same
+    // union the client list query matches on. The `!!effectiveLawyerId` guard
+    // denies a non-impersonating admin (no lawyer_zoho_id → null), who must
+    // impersonate to view a specific lawyer's client, and prevents a null
+    // effective id from matching a deal that happens to have neither field set.
+    const effectiveLawyerId = ctx.effectiveLawyerId
+    const ownsClient =
+      !!effectiveLawyerId &&
+      (client.lawyerId === effectiveLawyerId ||
+        client.referralPartnerId === effectiveLawyerId)
+    if (!ownsClient) {
       return NextResponse.json(
         { error: 'Forbidden', message: 'You do not have access to this client.' },
         { status: 403 },

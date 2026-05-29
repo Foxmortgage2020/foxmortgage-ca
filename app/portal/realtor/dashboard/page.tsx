@@ -116,7 +116,7 @@ export default function RealtorDashboardPage() {
   }, [])
 
   const statCards = [
-    { label: 'Total Referrals', value: String(stats.totalReferrals), icon: Users, up: true },
+    { label: 'Total Clients', value: String(stats.totalReferrals), icon: Users, up: true },
     { label: 'Files In Progress', value: String(stats.activeMonitoring), icon: Target, up: true },
     { label: 'Funded Mortgages', value: String(stats.closedMortgages), icon: CheckCircle2, up: true },
     { label: 'Total Funded', value: formatCurrency(stats.fundedVolume), icon: DollarSign, up: true },
@@ -127,7 +127,7 @@ export default function RealtorDashboardPage() {
       icon: DollarSign,
       up: true,
     },
-    { label: 'Total Referred Value', value: formatCurrency(stats.mortgagesUnderMgmt), icon: Briefcase, up: true },
+    { label: 'Total Client Value', value: formatCurrency(stats.mortgagesUnderMgmt), icon: Briefcase, up: true },
   ]
 
   const upcomingRenewals = recent.filter(r => r.savingsIdentified).length

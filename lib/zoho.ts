@@ -1406,6 +1406,40 @@ export async function getFPDashboardStats(fpZohoId: string): Promise<FPDashboard
   return payload.stats
 }
 
+// ─── Partner deal attribution — shared union helpers ──────────────────────────
+// A partner's deals are matched on the UNION of their configured
+// dealMatchFields (see lib/partner-types): a realtor matches on the Realtor
+// lookup OR Referral_Partner, a lawyer on Lawyer OR Referral_Partner, and FP /
+// mortgage agent on Referral_Partner alone. A single deal commonly carries a
+// different referrer than the attached realtor/lawyer, so the partner must see
+// it from either side. These helpers build the Zoho records-API criteria for
+// that union and dedupe by deal id (a deal matching on two fields is counted
+// and shown once).
+
+/**
+ * Build a Zoho `criteria` string matching a partner's id in ANY of the given
+ * lookup fields. Returns the RAW (un-encoded) criteria — callers must
+ * encodeURIComponent it before putting it on the query string.
+ *   1 field   → `(Field:equals:ID)`
+ *   2+ fields → `((F1:equals:ID)or(F2:equals:ID))`
+ */
+function partnerDealCriteria(matchFields: string[], zohoId: string): string {
+  const clauses = matchFields.map((f) => `(${f}:equals:${zohoId})`)
+  if (clauses.length === 0) return ''
+  if (clauses.length === 1) return clauses[0]
+  return `(${clauses.join('or')})`
+}
+
+/** De-duplicate records by Zoho `id`, preserving first-seen order. */
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>()
+  return items.filter((it) => {
+    if (seen.has(it.id)) return false
+    seen.add(it.id)
+    return true
+  })
+}
+
 // ─── Realtor Portal — CRM API calls ───────────────────────────────────────────
 // Mirror of the FP block above, swapping the Partners lookup field from
 // Referral_Partner → Realtor (a separate Lookup-to-Partners on the Potentials
@@ -1517,11 +1551,12 @@ function normalizeRealtorClient(r: any): RealtorClient {
     null
   const type = rawType ? capitalize(String(rawType)) : null
 
-  // Referral attribution lives on the configured deal-lookup field
-  // (Referral_Partner) — the same field the list query filters on and the
-  // detail ownership gate authorizes against. See lib/partner-types.
-  const lookupField = getPartnerConfigByKind('realtor').dealLookupField
-  const referralLookup = typeof r[lookupField] === 'object' ? r[lookupField] : null
+  // referralPartnerId means specifically the REFERRER (Referral_Partner),
+  // distinct from realtorId (the attached Realtor lookup). The list/dashboard
+  // queries now match the UNION of both fields, but this normalized value is
+  // still the referrer alone — the detail ownership gate authorizes against
+  // realtorId OR referralPartnerId. See lib/partner-types dealMatchFields.
+  const referralLookup = typeof r.Referral_Partner === 'object' ? r.Referral_Partner : null
 
   return {
     id: r.id,
@@ -1564,13 +1599,16 @@ function normalizeRealtorClient(r: any): RealtorClient {
   }
 }
 
-export async function getRealtorClients(realtorZohoId: string): Promise<RealtorClient[]> {
+export async function getRealtorClients(
+  realtorZohoId: string,
+  matchFields: string[] = getPartnerConfigByKind('realtor').dealMatchFields,
+): Promise<RealtorClient[]> {
   const token = await getZohoToken()
-  // Filter on the configured deal-lookup field (Referral_Partner) — the
-  // field that actually carries referral attribution. See lib/partner-types.
-  const criteria = encodeURIComponent(
-    `(${getPartnerConfigByKind('realtor').dealLookupField}:equals:${realtorZohoId})`,
-  )
+  // Match the UNION of the partner's deal fields (realtor: Realtor OR
+  // Referral_Partner) so a realtor sees deals they referred AND deals they're
+  // attached to as the realtor. The matchFields param lets the mortgage-agent
+  // delegation narrow this to Referral_Partner only. See lib/partner-types.
+  const criteria = encodeURIComponent(partnerDealCriteria(matchFields, realtorZohoId))
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${REALTOR_DEAL_FIELDS}&per_page=200`
   const res = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
@@ -1582,7 +1620,7 @@ export async function getRealtorClients(realtorZohoId: string): Promise<RealtorC
     throw new ZohoError(res.status, text)
   }
   const data = await res.json()
-  return (data.data ?? []).map(normalizeRealtorClient)
+  return dedupeById((data.data ?? []).map(normalizeRealtorClient))
 }
 
 export async function getRealtorClientDetail(dealId: string): Promise<RealtorClientDetail | null> {
@@ -1719,12 +1757,15 @@ const EMPTY_REALTOR_STATS: RealtorDashboardStats = {
  * single minimal-field Zoho query, never throws, returns zeros + warning on
  * any failure so the UI keeps rendering.
  */
-export async function getRealtorDashboardPayload(realtorZohoId: string): Promise<RealtorDashboardPayload> {
-  // Filter on the configured deal-lookup field (Referral_Partner) — the
-  // field that actually carries referral attribution. See lib/partner-types.
-  const criteria = encodeURIComponent(
-    `(${getPartnerConfigByKind('realtor').dealLookupField}:equals:${realtorZohoId})`,
-  )
+export async function getRealtorDashboardPayload(
+  realtorZohoId: string,
+  matchFields: string[] = getPartnerConfigByKind('realtor').dealMatchFields,
+): Promise<RealtorDashboardPayload> {
+  // Match the UNION of the partner's deal fields (realtor: Realtor OR
+  // Referral_Partner) so the stat cards count deals the realtor referred AND
+  // deals they're attached to. The matchFields param lets the mortgage-agent
+  // delegation narrow this to Referral_Partner only. See lib/partner-types.
+  const criteria = encodeURIComponent(partnerDealCriteria(matchFields, realtorZohoId))
   const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Realtor'
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
 
@@ -1770,7 +1811,8 @@ export async function getRealtorDashboardPayload(realtorZohoId: string): Promise
     return { stats: EMPTY_REALTOR_STATS, recent: [], warning: 'zoho-parse-error' }
   }
 
-  const deals: any[] = Array.isArray(body?.data) ? body.data : []
+  // Dedupe by id — a deal matching on two union fields must count once.
+  const deals: any[] = dedupeById(Array.isArray(body?.data) ? body.data : [])
   if (deals.length === 0) {
     return { stats: EMPTY_REALTOR_STATS, recent: [] }
   }
@@ -1839,8 +1881,12 @@ export async function getRealtorDashboardPayload(realtorZohoId: string): Promise
 // So rather than clone the realtor functions (and inherit clone drift), the
 // Mortgage Agent data layer DELEGATES to the realtor implementations. Safe
 // because:
-//   - Both resolve dealLookupField to 'Referral_Partner', so the Potentials
-//     filter is byte-identical regardless of which config is read internally.
+//   - The data shape is identical (same Potentials module, fields, and Notes
+//     pipeline). The ONE difference is the deal-match union: a realtor matches
+//     Realtor OR Referral_Partner, but a mortgage agent has no Deals lookup and
+//     must match Referral_Partner ONLY — so the clients/dashboard delegations
+//     pass mortgage_agent's dealMatchFields explicitly (below) instead of
+//     inheriting the realtor default.
 //   - Partner record ids are globally unique across Partner_Type values (one
 //     Partners module), so the shared 'realtor-messages:' cache namespace can
 //     never collide a mortgage-agent thread with a realtor one.
@@ -1856,10 +1902,16 @@ export type MortgageAgentNote = RealtorNote
 export type MortgageAgentClientDetail = RealtorClientDetail
 export type MortgageAgentDashboardPayload = RealtorDashboardPayload
 
-export const getMortgageAgentClients = getRealtorClients
+// clients + dashboard pass mortgage_agent's dealMatchFields (Referral_Partner
+// only) so they do NOT inherit the realtor union's Realtor field. detail +
+// messages take no match fields — detail fetches by id and the route ownership
+// gate enforces Referral_Partner — so they delegate directly.
+export const getMortgageAgentClients = (mortgageAgentZohoId: string) =>
+  getRealtorClients(mortgageAgentZohoId, getPartnerConfigByKind('mortgage_agent').dealMatchFields)
 export const getMortgageAgentClientDetail = getRealtorClientDetail
 export const getMortgageAgentMessages = getRealtorMessages
-export const getMortgageAgentDashboardPayload = getRealtorDashboardPayload
+export const getMortgageAgentDashboardPayload = (mortgageAgentZohoId: string) =>
+  getRealtorDashboardPayload(mortgageAgentZohoId, getPartnerConfigByKind('mortgage_agent').dealMatchFields)
 
 // ─── Lawyer Portal — CRM API calls ───────────────────────────────────────────
 // Mirror of the Realtor block above (which is itself a mirror of FP). The
@@ -1976,11 +2028,12 @@ function normalizeLawyerClient(r: any): LawyerClient {
     null
   const type = rawType ? capitalize(String(rawType)) : null
 
-  // Referral attribution lives on the configured deal-lookup field
-  // (Referral_Partner) — the same field the list query filters on and the
-  // detail ownership gate authorizes against. See lib/partner-types.
-  const lookupField = getPartnerConfigByKind('lawyer').dealLookupField
-  const referralLookup = typeof r[lookupField] === 'object' ? r[lookupField] : null
+  // referralPartnerId means specifically the REFERRER (Referral_Partner),
+  // distinct from lawyerId (the attached Lawyer lookup). The list/dashboard
+  // queries now match the UNION of both fields, but this normalized value is
+  // still the referrer alone — the detail ownership gate authorizes against
+  // lawyerId OR referralPartnerId. See lib/partner-types dealMatchFields.
+  const referralLookup = typeof r.Referral_Partner === 'object' ? r.Referral_Partner : null
 
   return {
     id: r.id,
@@ -2025,10 +2078,11 @@ function normalizeLawyerClient(r: any): LawyerClient {
 
 export async function getLawyerClients(lawyerZohoId: string): Promise<LawyerClient[]> {
   const token = await getZohoToken()
-  // Filter on the configured deal-lookup field (Referral_Partner) — see
-  // lib/partner-types; lawyers are attributed via Referral_Partner too.
+  // Match the UNION of the lawyer's deal fields (Lawyer OR Referral_Partner) so
+  // a lawyer sees deals they referred AND deals they're attached to as the
+  // lawyer. See lib/partner-types.
   const criteria = encodeURIComponent(
-    `(${getPartnerConfigByKind('lawyer').dealLookupField}:equals:${lawyerZohoId})`,
+    partnerDealCriteria(getPartnerConfigByKind('lawyer').dealMatchFields, lawyerZohoId),
   )
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${LAWYER_DEAL_FIELDS}&per_page=200`
   const res = await fetch(url, {
@@ -2041,7 +2095,7 @@ export async function getLawyerClients(lawyerZohoId: string): Promise<LawyerClie
     throw new ZohoError(res.status, text)
   }
   const data = await res.json()
-  return (data.data ?? []).map(normalizeLawyerClient)
+  return dedupeById((data.data ?? []).map(normalizeLawyerClient))
 }
 
 export async function getLawyerClientDetail(dealId: string): Promise<LawyerClientDetail | null> {
@@ -2174,10 +2228,11 @@ const EMPTY_LAWYER_STATS: LawyerDashboardStats = {
  * any failure so the UI keeps rendering.
  */
 export async function getLawyerDashboardPayload(lawyerZohoId: string): Promise<LawyerDashboardPayload> {
-  // Filter on the configured deal-lookup field (Referral_Partner) — see
-  // lib/partner-types; lawyers are attributed via Referral_Partner too.
+  // Match the UNION of the lawyer's deal fields (Lawyer OR Referral_Partner) so
+  // the stat cards count deals the lawyer referred AND deals they're attached
+  // to. See lib/partner-types.
   const criteria = encodeURIComponent(
-    `(${getPartnerConfigByKind('lawyer').dealLookupField}:equals:${lawyerZohoId})`,
+    partnerDealCriteria(getPartnerConfigByKind('lawyer').dealMatchFields, lawyerZohoId),
   )
   const fields = 'Deal_Name,Contact_Name,Amount,Stage,Closing_Date,Lawyer'
   const url = `${ZOHO_API}/Potentials/search?criteria=${criteria}&fields=${fields}&per_page=200`
@@ -2224,7 +2279,8 @@ export async function getLawyerDashboardPayload(lawyerZohoId: string): Promise<L
     return { stats: EMPTY_LAWYER_STATS, recent: [], warning: 'zoho-parse-error' }
   }
 
-  const deals: any[] = Array.isArray(body?.data) ? body.data : []
+  // Dedupe by id — a deal matching on two union fields must count once.
+  const deals: any[] = dedupeById(Array.isArray(body?.data) ? body.data : [])
   if (deals.length === 0) {
     return { stats: EMPTY_LAWYER_STATS, recent: [] }
   }

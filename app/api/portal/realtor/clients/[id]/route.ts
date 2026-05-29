@@ -29,12 +29,18 @@ export async function GET(
     }
 
     // Ownership check — the requested deal must be attributed to the actor's
-    // effective realtor id via Referral_Partner (the same field the client
-    // list query filters on). The legacy Realtor lookup is never populated, so
-    // gating on it 403'd every real deal. For a non-impersonating admin (no
-    // realtor_zoho_id), effectiveRealtorId is null and the check correctly
-    // fails — admins should impersonate to view a specific realtor's client.
-    if (client.referralPartnerId !== ctx.effectiveRealtorId) {
+    // effective realtor id on EITHER the Realtor lookup (they're the attached
+    // realtor on the deal) OR Referral_Partner (they referred it) — the same
+    // union the client list query matches on. The `!!effectiveRealtorId` guard
+    // denies a non-impersonating admin (no realtor_zoho_id → null), who must
+    // impersonate to view a specific realtor's client, and prevents a null
+    // effective id from matching a deal that happens to have neither field set.
+    const effectiveRealtorId = ctx.effectiveRealtorId
+    const ownsClient =
+      !!effectiveRealtorId &&
+      (client.realtorId === effectiveRealtorId ||
+        client.referralPartnerId === effectiveRealtorId)
+    if (!ownsClient) {
       return NextResponse.json(
         { error: 'Forbidden', message: 'You do not have access to this client.' },
         { status: 403 },

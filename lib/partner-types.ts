@@ -47,11 +47,19 @@ export interface PartnerTypeConfig {
   clerkRole: string
 
   /**
-   * Zoho Deals (Potentials) lookup field that links a Deal to this
-   * partner type. Used by the per-portal client list query
-   * (`criteria=({field}:equals:{partnerId})`).
+   * Zoho Deals (Potentials) lookup fields that attribute a Deal to this
+   * partner. The per-portal client list / dashboard / detail queries match
+   * a deal when the partner's Zoho id appears in ANY of these fields (an OR
+   * union), e.g. `((Realtor:equals:{id})or(Referral_Partner:equals:{id}))`.
+   *
+   * Deals carry more than one partner at once: a referrer (Referral_Partner)
+   * plus the professional attached in their role (Realtor / Lawyer). A
+   * partner should see a file whether they referred it OR are attached to it
+   * in their professional role — so realtor/lawyer match BOTH their role
+   * field and Referral_Partner. FP and mortgage agent have no dedicated
+   * Deals lookup and attribute through Referral_Partner only.
    */
-  dealLookupField: string
+  dealMatchFields: string[]
 
   /** Post-signup redirect / "your portal" URL for this kind. */
   portalDashboard: string
@@ -72,7 +80,9 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     zohoProspectType: 'Financial Planner Prospect',
     clerkMetadataKey: 'fp_zoho_id',
     clerkRole: 'financial-planner',
-    dealLookupField: 'Referral_Partner',
+    // No dedicated Financial_Planner lookup on Deals — FPs attribute via
+    // Referral_Partner only.
+    dealMatchFields: ['Referral_Partner'],
     portalDashboard: '/portal/fp/dashboard',
     usesPartnerOnboarding: true,
   },
@@ -82,12 +92,12 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     zohoProspectType: 'Realtor Prospect',
     clerkMetadataKey: 'realtor_zoho_id',
     clerkRole: 'realtor',
-    // All referring partners (realtor/lawyer/FP) are attributed via the
-    // single Referral_Partner lookup in Zoho; the type-specific Realtor /
-    // Lawyer lookups are never populated for referral attribution, so the
-    // portal filters on Referral_Partner like the FP portal does. Portal
-    // type is still decided by Partner_Type / Clerk role, not this field.
-    dealLookupField: 'Referral_Partner',
+    // A realtor sees a deal whether they referred it (Referral_Partner) or
+    // are the attached realtor on it (Realtor lookup). Deals routinely carry
+    // a different referrer than the attached realtor — e.g. an FP refers the
+    // deal and a realtor is attached — so we match the UNION of both fields.
+    // Portal type is still decided by Partner_Type / Clerk role, not these.
+    dealMatchFields: ['Realtor', 'Referral_Partner'],
     portalDashboard: '/portal/realtor/dashboard',
     usesPartnerOnboarding: true,
   },
@@ -96,9 +106,9 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     zohoPartnerType: 'Lawyer',
     clerkMetadataKey: 'lawyer_zoho_id',
     clerkRole: 'lawyer',
-    // See realtor note — filters on Referral_Partner, the field that
-    // actually carries referral attribution for every partner type.
-    dealLookupField: 'Referral_Partner',
+    // See realtor note — a lawyer sees a deal whether they referred it
+    // (Referral_Partner) or are the attached lawyer on it (Lawyer lookup).
+    dealMatchFields: ['Lawyer', 'Referral_Partner'],
     portalDashboard: '/portal/lawyer/dashboard',
     usesPartnerOnboarding: true,
   },
@@ -107,11 +117,11 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     zohoPartnerType: 'Mortgage Agent',
     clerkMetadataKey: 'mortgage_agent_zoho_id',
     clerkRole: 'mortgage_agent',
-    // Same referral-partner attribution as realtor/lawyer/FP — see realtor
-    // note. All referring partners are linked to Deals via the single
-    // Referral_Partner lookup; portal type is decided by Partner_Type /
-    // Clerk role, not this field.
-    dealLookupField: 'Referral_Partner',
+    // No dedicated Mortgage_Agent lookup on Deals — mortgage agents attribute
+    // via Referral_Partner only (same as FP). Note: the mortgage-agent data
+    // layer delegates to the realtor functions, so these match fields are
+    // passed explicitly to keep it from inheriting the Realtor field.
+    dealMatchFields: ['Referral_Partner'],
     portalDashboard: '/portal/mortgage-agent/dashboard',
     usesPartnerOnboarding: true,
   },
@@ -120,11 +130,11 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     zohoPartnerType: 'Investor',
     clerkMetadataKey: 'zoho_partner_id',
     clerkRole: 'investor',
-    // Investors don't appear on a Deal lookup — they hold positions,
-    // not borrower relationships. dealLookupField is intentionally a
-    // sentinel that would never match a real deal field; callers
-    // checking `usesPartnerOnboarding` should never reach this.
-    dealLookupField: '__investor_no_deal_lookup__',
+    // Investors don't appear on a Deal lookup — they hold positions, not
+    // borrower relationships. No deal-match fields; the investor portal
+    // resolves positions via a separate code path and never calls the
+    // partner deal-union queries.
+    dealMatchFields: [],
     portalDashboard: '/portal/investor/dashboard',
     usesPartnerOnboarding: false,
   },
