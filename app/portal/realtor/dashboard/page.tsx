@@ -201,21 +201,45 @@ export default function RealtorDashboardPage() {
       {/* Quick Actions */}
       <h3 className="font-heading font-bold text-navy text-lg mb-4">Quick Actions</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {quickActions.map((action) => (
-          <Link
-            key={action.title}
-            href={action.href}
-            className="bg-white border border-gray-100 rounded-xl p-5 flex items-center gap-4 hover:shadow-md transition-shadow group"
-          >
-            <div className="w-11 h-11 rounded-full bg-lime/15 flex items-center justify-center group-hover:bg-lime/25 transition-colors">
-              <action.icon className="w-5 h-5 text-navy" />
-            </div>
-            <div>
-              <div className="font-heading font-semibold text-navy text-sm">{action.title}</div>
-              <div className="font-body text-xs text-gray-500">{action.description}</div>
-            </div>
-          </Link>
-        ))}
+        {quickActions.map((action) => {
+          // "Add Referral" is the hero action — a solid brand-lime card so
+          // partners can't miss the thing we most want them to do. The other
+          // two stay plain white. Lime #95D600, navy #032133; hover darkens
+          // the lime to #86C200 with a subtle lift (no heavy shadow).
+          if (action.title === 'Add Referral') {
+            return (
+              <Link
+                key={action.title}
+                href={action.href}
+                className="bg-lime rounded-xl p-5 flex items-center gap-4 transition-all hover:-translate-y-0.5 hover:bg-[#86C200]"
+              >
+                <div className="w-11 h-11 rounded-full bg-white/55 flex items-center justify-center shrink-0">
+                  <action.icon className="w-5 h-5 text-navy" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-heading font-medium text-navy text-sm">{action.title}</div>
+                  <div className="font-body text-xs text-navy/75">{action.description}</div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-navy shrink-0" />
+              </Link>
+            )
+          }
+          return (
+            <Link
+              key={action.title}
+              href={action.href}
+              className="bg-white border border-gray-100 rounded-xl p-5 flex items-center gap-4 hover:shadow-md transition-shadow group"
+            >
+              <div className="w-11 h-11 rounded-full bg-lime/15 flex items-center justify-center group-hover:bg-lime/25 transition-colors">
+                <action.icon className="w-5 h-5 text-navy" />
+              </div>
+              <div>
+                <div className="font-heading font-semibold text-navy text-sm">{action.title}</div>
+                <div className="font-body text-xs text-gray-500">{action.description}</div>
+              </div>
+            </Link>
+          )
+        })}
       </div>
 
       {/* Recent Activity */}
