@@ -1378,6 +1378,7 @@ const REALTOR_DEAL_FIELDS = [
   'Total_Loan_Amount',
   'Purchase_Price_Value',
   'Realtor',
+  'Referral_Partner',
 ].join(',')
 
 export interface RealtorClient {
@@ -1404,6 +1405,8 @@ export interface RealtorClient {
   purchasePriceValue: number | null
   realtorId: string | null
   realtorName: string | null
+  referralPartnerId: string | null
+  referralPartnerName: string | null
   description: string | null
 }
 
@@ -1436,6 +1439,12 @@ function normalizeRealtorClient(r: any): RealtorClient {
     null
   const type = rawType ? capitalize(String(rawType)) : null
 
+  // Referral attribution lives on the configured deal-lookup field
+  // (Referral_Partner) — the same field the list query filters on and the
+  // detail ownership gate authorizes against. See lib/partner-types.
+  const lookupField = getPartnerConfigByKind('realtor').dealLookupField
+  const referralLookup = typeof r[lookupField] === 'object' ? r[lookupField] : null
+
   return {
     id: r.id,
     dealName: r.Deal_Name ?? '',
@@ -1460,6 +1469,8 @@ function normalizeRealtorClient(r: any): RealtorClient {
     purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
     realtorId: typeof r.Realtor === 'object' ? (r.Realtor?.id ?? null) : null,
     realtorName: typeof r.Realtor === 'object' ? (r.Realtor?.name ?? null) : null,
+    referralPartnerId: referralLookup?.id ?? null,
+    referralPartnerName: referralLookup?.name ?? null,
     description: null,
   }
 }
@@ -1756,6 +1767,7 @@ const LAWYER_DEAL_FIELDS = [
   'Total_Loan_Amount',
   'Purchase_Price_Value',
   'Lawyer',
+  'Referral_Partner',
 ].join(',')
 
 export interface LawyerClient {
@@ -1782,6 +1794,8 @@ export interface LawyerClient {
   purchasePriceValue: number | null
   lawyerId: string | null
   lawyerName: string | null
+  referralPartnerId: string | null
+  referralPartnerName: string | null
   description: string | null
 }
 
@@ -1813,6 +1827,12 @@ function normalizeLawyerClient(r: any): LawyerClient {
     null
   const type = rawType ? capitalize(String(rawType)) : null
 
+  // Referral attribution lives on the configured deal-lookup field
+  // (Referral_Partner) — the same field the list query filters on and the
+  // detail ownership gate authorizes against. See lib/partner-types.
+  const lookupField = getPartnerConfigByKind('lawyer').dealLookupField
+  const referralLookup = typeof r[lookupField] === 'object' ? r[lookupField] : null
+
   return {
     id: r.id,
     dealName: r.Deal_Name ?? '',
@@ -1837,6 +1857,8 @@ function normalizeLawyerClient(r: any): LawyerClient {
     purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
     lawyerId: typeof r.Lawyer === 'object' ? (r.Lawyer?.id ?? null) : null,
     lawyerName: typeof r.Lawyer === 'object' ? (r.Lawyer?.name ?? null) : null,
+    referralPartnerId: referralLookup?.id ?? null,
+    referralPartnerName: referralLookup?.name ?? null,
     description: null,
   }
 }

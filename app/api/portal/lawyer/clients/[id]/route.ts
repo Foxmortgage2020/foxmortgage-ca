@@ -28,11 +28,13 @@ export async function GET(
       return NextResponse.json({ error: 'Client not found.' }, { status: 404 })
     }
 
-    // Ownership check — the requested client must be linked to the actor's
-    // effective lawyer id. For a non-impersonating admin (no lawyer_zoho_id),
-    // effectiveLawyerId is null and the check correctly fails — admins should
-    // impersonate to view a specific lawyer's client.
-    if (client.lawyerId !== ctx.effectiveLawyerId) {
+    // Ownership check — the requested deal must be attributed to the actor's
+    // effective lawyer id via Referral_Partner (the same field the client list
+    // query filters on). The legacy Lawyer lookup is never populated, so gating
+    // on it 403'd every real deal. For a non-impersonating admin (no
+    // lawyer_zoho_id), effectiveLawyerId is null and the check correctly fails
+    // — admins should impersonate to view a specific lawyer's client.
+    if (client.referralPartnerId !== ctx.effectiveLawyerId) {
       return NextResponse.json(
         { error: 'Forbidden', message: 'You do not have access to this client.' },
         { status: 403 },
