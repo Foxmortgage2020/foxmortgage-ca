@@ -946,6 +946,15 @@ const FP_DEAL_FIELDS = [
   'Total_Loan_Amount',
   'Purchase_Price_Value',
   'Maturity_Date',
+  'Lender_Name',
+  'Rate_Type',
+  'Payment_Amount',
+  'Payment_Frequency',
+  'Down_Payment',
+  'First_Payment_Date',
+  'Term_Type',
+  'Term_Years',
+  'Amortization_Years',
   'Referral_Partner',
 ].join(',')
 
@@ -962,8 +971,18 @@ export interface FPClient {
   location: string | null
   mortgageType: string | null
   type: string | null
-  termYears: string | null
+  termYears: number | null
   paymentFrequency: string | null
+  lenderName: string | null
+  lenderId: string | null
+  lenderClassification: string | null
+  rateType: string | null
+  paymentAmount: number | null
+  downPayment: number | null
+  firstPaymentDate: string | null
+  termType: string | null
+  amortizationYears: number | null
+  transactionType: string | null
   closingDate: string | null
   lastActivity: string | null
   nextReviewDate: string | null
@@ -1036,8 +1055,18 @@ function normalizeFPClient(r: any): FPClient {
     location,
     mortgageType: r.Mortgage_Type ?? null,
     type,
-    termYears: null,
-    paymentFrequency: null,
+    termYears: r.Term_Years != null ? Number(r.Term_Years) : null,
+    paymentFrequency: r.Payment_Frequency ?? null,
+    lenderName: typeof r.Lender_Name === 'object' ? (r.Lender_Name?.name ?? null) : (r.Lender_Name ?? null),
+    lenderId: typeof r.Lender_Name === 'object' ? (r.Lender_Name?.id ?? null) : null,
+    lenderClassification: null,
+    rateType: r.Rate_Type ?? null,
+    paymentAmount: r.Payment_Amount != null ? Number(r.Payment_Amount) : null,
+    downPayment: r.Down_Payment != null ? Number(r.Down_Payment) : null,
+    firstPaymentDate: r.First_Payment_Date ?? null,
+    termType: r.Term_Type ?? null,
+    amortizationYears: r.Amortization_Years != null ? Number(r.Amortization_Years) : null,
+    transactionType: r.Transaction_Type ?? null,
     closingDate: r.Closing_Date ?? null,
     lastActivity: null,
     nextReviewDate: null,
@@ -1069,6 +1098,26 @@ export async function getFPClients(fpZohoId: string): Promise<FPClient[]> {
   return (data.data ?? []).map(normalizeFPClient)
 }
 
+// Resolve a lender's A/B/Private classification from the linked Vendors record.
+// Lender_Name is a Vendors lookup; the deal-level Lender_Classification field is
+// unused, so the source of truth is Vendors.BRX_Classification. Read-only — a
+// missing lender or classification simply yields null (no badge is rendered).
+async function getVendorClassification(token: string, vendorId: string | null): Promise<string | null> {
+  if (!vendorId) return null
+  try {
+    const res = await fetch(`${ZOHO_API}/Vendors/${vendorId}?fields=BRX_Classification`, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    })
+    if (!res.ok || res.status === 204) return null
+    const data = await res.json()
+    const v = data?.data?.[0]?.BRX_Classification
+    return v ? String(v) : null
+  } catch (err) {
+    console.error('[zoho] getVendorClassification error:', err)
+    return null
+  }
+}
+
 export async function getFPClientDetail(dealId: string): Promise<FPClientDetail | null> {
   const token = await getZohoToken()
 
@@ -1086,6 +1135,11 @@ export async function getFPClientDetail(dealId: string): Promise<FPClientDetail 
   if (!r) return null
 
   const client = normalizeFPClient(r)
+
+  // Resolve the lender's A/B/Private classification (Vendors.BRX_Classification).
+  if (client.lenderId) {
+    client.lenderClassification = await getVendorClassification(token, client.lenderId)
+  }
 
   // Fetch related Notes (sorted oldest→newest for timeline display)
   let allNotes: FPNote[] = []
@@ -1381,6 +1435,15 @@ const REALTOR_DEAL_FIELDS = [
   'Total_Loan_Amount',
   'Purchase_Price_Value',
   'Maturity_Date',
+  'Lender_Name',
+  'Rate_Type',
+  'Payment_Amount',
+  'Payment_Frequency',
+  'Down_Payment',
+  'First_Payment_Date',
+  'Term_Type',
+  'Term_Years',
+  'Amortization_Years',
   'Realtor',
   'Referral_Partner',
 ].join(',')
@@ -1398,8 +1461,18 @@ export interface RealtorClient {
   location: string | null
   mortgageType: string | null
   type: string | null
-  termYears: string | null
+  termYears: number | null
   paymentFrequency: string | null
+  lenderName: string | null
+  lenderId: string | null
+  lenderClassification: string | null
+  rateType: string | null
+  paymentAmount: number | null
+  downPayment: number | null
+  firstPaymentDate: string | null
+  termType: string | null
+  amortizationYears: number | null
+  transactionType: string | null
   closingDate: string | null
   lastActivity: string | null
   nextReviewDate: string | null
@@ -1463,8 +1536,18 @@ function normalizeRealtorClient(r: any): RealtorClient {
     location,
     mortgageType: r.Mortgage_Type ?? null,
     type,
-    termYears: null,
-    paymentFrequency: null,
+    termYears: r.Term_Years != null ? Number(r.Term_Years) : null,
+    paymentFrequency: r.Payment_Frequency ?? null,
+    lenderName: typeof r.Lender_Name === 'object' ? (r.Lender_Name?.name ?? null) : (r.Lender_Name ?? null),
+    lenderId: typeof r.Lender_Name === 'object' ? (r.Lender_Name?.id ?? null) : null,
+    lenderClassification: null,
+    rateType: r.Rate_Type ?? null,
+    paymentAmount: r.Payment_Amount != null ? Number(r.Payment_Amount) : null,
+    downPayment: r.Down_Payment != null ? Number(r.Down_Payment) : null,
+    firstPaymentDate: r.First_Payment_Date ?? null,
+    termType: r.Term_Type ?? null,
+    amortizationYears: r.Amortization_Years != null ? Number(r.Amortization_Years) : null,
+    transactionType: r.Transaction_Type ?? null,
     closingDate: r.Closing_Date ?? null,
     lastActivity: null,
     nextReviewDate: null,
@@ -1518,6 +1601,11 @@ export async function getRealtorClientDetail(dealId: string): Promise<RealtorCli
   if (!r) return null
 
   const client = normalizeRealtorClient(r)
+
+  // Resolve the lender's A/B/Private classification (Vendors.BRX_Classification).
+  if (client.lenderId) {
+    client.lenderClassification = await getVendorClassification(token, client.lenderId)
+  }
 
   let allNotes: RealtorNote[] = []
   try {
@@ -1773,6 +1861,15 @@ const LAWYER_DEAL_FIELDS = [
   'Total_Loan_Amount',
   'Purchase_Price_Value',
   'Maturity_Date',
+  'Lender_Name',
+  'Rate_Type',
+  'Payment_Amount',
+  'Payment_Frequency',
+  'Down_Payment',
+  'First_Payment_Date',
+  'Term_Type',
+  'Term_Years',
+  'Amortization_Years',
   'Lawyer',
   'Referral_Partner',
 ].join(',')
@@ -1790,8 +1887,18 @@ export interface LawyerClient {
   location: string | null
   mortgageType: string | null
   type: string | null
-  termYears: string | null
+  termYears: number | null
   paymentFrequency: string | null
+  lenderName: string | null
+  lenderId: string | null
+  lenderClassification: string | null
+  rateType: string | null
+  paymentAmount: number | null
+  downPayment: number | null
+  firstPaymentDate: string | null
+  termType: string | null
+  amortizationYears: number | null
+  transactionType: string | null
   closingDate: string | null
   lastActivity: string | null
   nextReviewDate: string | null
@@ -1854,8 +1961,18 @@ function normalizeLawyerClient(r: any): LawyerClient {
     location,
     mortgageType: r.Mortgage_Type ?? null,
     type,
-    termYears: null,
-    paymentFrequency: null,
+    termYears: r.Term_Years != null ? Number(r.Term_Years) : null,
+    paymentFrequency: r.Payment_Frequency ?? null,
+    lenderName: typeof r.Lender_Name === 'object' ? (r.Lender_Name?.name ?? null) : (r.Lender_Name ?? null),
+    lenderId: typeof r.Lender_Name === 'object' ? (r.Lender_Name?.id ?? null) : null,
+    lenderClassification: null,
+    rateType: r.Rate_Type ?? null,
+    paymentAmount: r.Payment_Amount != null ? Number(r.Payment_Amount) : null,
+    downPayment: r.Down_Payment != null ? Number(r.Down_Payment) : null,
+    firstPaymentDate: r.First_Payment_Date ?? null,
+    termType: r.Term_Type ?? null,
+    amortizationYears: r.Amortization_Years != null ? Number(r.Amortization_Years) : null,
+    transactionType: r.Transaction_Type ?? null,
     closingDate: r.Closing_Date ?? null,
     lastActivity: null,
     nextReviewDate: null,
@@ -1909,6 +2026,11 @@ export async function getLawyerClientDetail(dealId: string): Promise<LawyerClien
   if (!r) return null
 
   const client = normalizeLawyerClient(r)
+
+  // Resolve the lender's A/B/Private classification (Vendors.BRX_Classification).
+  if (client.lenderId) {
+    client.lenderClassification = await getVendorClassification(token, client.lenderId)
+  }
 
   let allNotes: LawyerNote[] = []
   try {

@@ -96,16 +96,41 @@ function formatRate(rate: number | null | undefined): string | null {
   return rate.toFixed(2) + '%'
 }
 
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
+function capitalize(s: string | null | undefined): string | null {
+  if (!s) return null
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// Term_Years / Amortization_Years store MONTHS on existing records (60 → 5yr,
+// 300 → 25yr) but YEARS on some. Guard per the brief: values > 40 are months
+// (÷12); values ≤ 40 are already years.
+function toYears(raw: number | null | undefined): number | null {
+  if (raw == null || isNaN(raw) || raw <= 0) return null
+  return raw > 40 ? Math.round(raw / 12) : Math.round(raw)
+}
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Zoho returns date-only fields (Closing_Date, Maturity_Date, First_Payment_Date)
+// as bare "YYYY-MM-DD" with no timezone. `new Date("2021-10-06")` parses that as
+// UTC midnight, which renders as the prior day in Eastern time ("Oct 5"). Format
+// date-only values from their literal components so the stored calendar day shows.
+// Datetime values (message timestamps) carry an explicit offset and parse safely.
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (dateOnly) {
+    const [, y, m, d] = dateOnly
+    return `${MONTHS_SHORT[Number(m) - 1]} ${Number(d)}, ${y}`
+  }
   try {
-    return new Date(iso).toLocaleDateString('en-CA', {
+    return new Date(value).toLocaleDateString('en-CA', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     })
   } catch {
-    return iso
+    return value
   }
 }
 
@@ -159,8 +184,18 @@ interface ClientDetail {
   province: string | null
   location: string | null
   mortgageType: string | null
+  transactionType: string | null
   type: string | null
-  termYears: string | null
+  termYears: number | null
+  amortizationYears: number | null
+  termType: string | null
+  rateType: string | null
+  paymentAmount: number | null
+  paymentFrequency: string | null
+  downPayment: number | null
+  firstPaymentDate: string | null
+  lenderName: string | null
+  lenderClassification: string | null
   closingDate: string | null
   maturityDate: string | null
   nextReviewDate: string | null
@@ -273,8 +308,29 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
   const isFunded = currentStage === 9
   const displayName = client.contactName || client.dealName
 
-  const typeLabel = client.type || client.mortgageType || null
+  // Transaction_Type (Purchase) and Mortgage_Type (First) are distinct facts —
+  // the "Type" pill reflects the transaction, not the charge position.
+  const transactionLabel = capitalize(client.transactionType)
+  const mortgageTypeLabel = capitalize(client.mortgageType)
+  const typeLabel = transactionLabel || mortgageTypeLabel || client.type || null
+
   const rateLabel = formatRate(client.mortgageRate)
+  const rateWithType = rateLabel
+    ? client.rateType ? `${rateLabel} ${client.rateType}` : rateLabel
+    : null
+
+  // Payment keeps cents and lower-cases the frequency: "$3,544.72 monthly".
+  const paymentLabel =
+    client.paymentAmount != null && client.paymentAmount > 0
+      ? `$${client.paymentAmount.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` +
+        (client.paymentFrequency ? ' ' + client.paymentFrequency.toLowerCase() : '')
+      : null
+
+  const termN = toYears(client.termYears)
+  const termLabel =
+    termN != null ? `${termN} year term${client.termType ? ` (${client.termType})` : ''}` : null
+  const amortN = toYears(client.amortizationYears)
+  const amortizationLabel = amortN != null ? `${amortN} year amortization` : null
 
   const todayIso = new Date().toISOString()
   const daysToClose = daysBetween(todayIso, client.closingDate)
@@ -290,15 +346,25 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
   if (client.totalLoanAmount != null && client.totalLoanAmount > 0) {
     metrics.push({ label: 'Total Loan Amount', value: formatAmount(client.totalLoanAmount) })
   }
+  if (client.downPayment != null && client.downPayment > 0) {
+    metrics.push({ label: 'Down Payment', value: formatAmount(client.downPayment) })
+  }
   if (client.purchasePriceValue != null && client.purchasePriceValue > 0) {
     metrics.push({ label: 'Purchase Price', value: formatAmount(client.purchasePriceValue) })
   }
 
-  // Mortgage Overview — only show populated rows
-  const overview: { label: string; value: string }[] = []
+  // Mortgage Overview — only show populated rows. The lender carries an optional
+  // A/B/Private classification badge (Vendors.BRX_Classification, resolved server-side).
+  const overview: { label: string; value: string; badge?: string | null }[] = []
+  if (client.lenderName) overview.push({ label: 'Lender', value: client.lenderName, badge: client.lenderClassification })
+  if (transactionLabel) overview.push({ label: 'Transaction Type', value: transactionLabel })
+  if (mortgageTypeLabel) overview.push({ label: 'Mortgage Type', value: mortgageTypeLabel })
+  if (rateWithType) overview.push({ label: 'Rate', value: rateWithType })
+  if (paymentLabel) overview.push({ label: 'Payment', value: paymentLabel })
+  if (termLabel) overview.push({ label: 'Term', value: termLabel })
+  if (amortizationLabel) overview.push({ label: 'Amortization', value: amortizationLabel })
+  if (client.firstPaymentDate) overview.push({ label: 'First Payment', value: formatDate(client.firstPaymentDate) })
   if (client.amount != null) overview.push({ label: 'Loan Amount', value: formatAmount(client.amount) })
-  if (typeLabel) overview.push({ label: 'Transaction Type', value: typeLabel })
-  if (rateLabel) overview.push({ label: 'Current Rate', value: rateLabel })
   if (client.closingDate) overview.push({ label: isFunded ? 'Funded Date' : 'Closing Date', value: formatDate(client.closingDate) })
   if (client.maturityDate) overview.push({ label: 'Maturity Date', value: formatDate(client.maturityDate) })
   if (client.location) overview.push({ label: 'Location', value: client.location })
@@ -510,10 +576,17 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
             <p className="font-body text-sm text-gray-400">No mortgage details on file.</p>
           ) : (
             <dl className="space-y-3">
-              {overview.map(({ label, value }) => (
+              {overview.map(({ label, value, badge }) => (
                 <div key={label} className="flex items-start justify-between gap-4">
                   <dt className="font-body text-xs text-gray-500 w-36 flex-shrink-0">{label}</dt>
-                  <dd className="font-body text-xs font-semibold text-navy text-right">{value}</dd>
+                  <dd className="font-body text-xs font-semibold text-navy text-right flex items-center justify-end gap-2 flex-wrap">
+                    <span>{value}</span>
+                    {badge && (
+                      <span className="inline-flex items-center rounded-full bg-navy/5 border border-navy/10 px-2 py-0.5 text-[10px] font-bold text-navy uppercase tracking-wide">
+                        {badge}
+                      </span>
+                    )}
+                  </dd>
                 </div>
               ))}
             </dl>
