@@ -27,7 +27,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
-export type PartnerKind = 'realtor' | 'lawyer' | 'fp'
+export type PartnerKind = 'realtor' | 'lawyer' | 'fp' | 'mortgage-agent'
 
 // ─── 9-stage mortgage progress tracker ───────────────────────────────────────
 // Labels match Zoho Potentials Stage picklist exactly (1:1 with stageToMilestone).

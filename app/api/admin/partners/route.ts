@@ -1,11 +1,12 @@
-// GET /api/admin/partners?role=<fp|investor|realtor|lawyer>
+// GET /api/admin/partners?role=<fp|investor|realtor|lawyer|mortgage_agent>
 //
 // Admin-only. Backs the PartnerPicker popover. Lists Clerk users whose
 // publicMetadata.roles[] matches the requested role AND who have the
 // corresponding Zoho id populated (fp_zoho_id for FP, realtor_zoho_id
-// for realtor, lawyer_zoho_id for lawyer, zoho_partner_id for investor)
-// — so the picker only shows partners that will actually resolve once
-// the impersonation cookie is set.
+// for realtor, lawyer_zoho_id for lawyer, mortgage_agent_zoho_id for
+// mortgage agent, zoho_partner_id for investor) — so the picker only
+// shows partners that will actually resolve once the impersonation
+// cookie is set.
 //
 // Fetches the full user list from Clerk and filters in memory. At our
 // scale (≪ 200 users) this is fine; if user count ever grows we can
@@ -14,7 +15,7 @@
 import { NextResponse } from 'next/server'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 
-type Role = 'fp' | 'investor' | 'realtor' | 'lawyer'
+type Role = 'fp' | 'investor' | 'realtor' | 'lawyer' | 'mortgage_agent'
 
 type Partner = {
   userId: string
@@ -29,7 +30,8 @@ function isRole(value: string): value is Role {
     value === 'fp' ||
     value === 'investor' ||
     value === 'realtor' ||
-    value === 'lawyer'
+    value === 'lawyer' ||
+    value === 'mortgage_agent'
   )
 }
 
@@ -48,7 +50,7 @@ export async function GET(req: Request) {
   const role = searchParams.get('role') ?? ''
   if (!isRole(role)) {
     return NextResponse.json(
-      { error: 'BadRequest', message: "role must be 'fp', 'investor', 'realtor', or 'lawyer'." },
+      { error: 'BadRequest', message: "role must be 'fp', 'investor', 'realtor', 'lawyer', or 'mortgage_agent'." },
       { status: 400 },
     )
   }
@@ -57,25 +59,29 @@ export async function GET(req: Request) {
   // field — this prevents an investor row from accidentally surfacing
   // in the realtor picker (and vice-versa) when a single human happens
   // to hold both Clerk roles.
-  //   fp       → fp_zoho_id        / fp_name      / fp_firm
-  //   realtor  → realtor_zoho_id   / realtor_name / realtor_firm
-  //   lawyer   → lawyer_zoho_id    / lawyer_name  / lawyer_firm
-  //   investor → zoho_partner_id   / (no display fields — pulled from Clerk)
+  //   fp             → fp_zoho_id             / fp_name             / fp_firm
+  //   realtor        → realtor_zoho_id        / realtor_name        / realtor_firm
+  //   lawyer         → lawyer_zoho_id         / lawyer_name         / lawyer_firm
+  //   mortgage_agent → mortgage_agent_zoho_id / mortgage_agent_name / mortgage_agent_firm
+  //   investor       → zoho_partner_id        / (no display fields — pulled from Clerk)
   const clerkRoleTag = role === 'fp' ? 'financial-planner' : role
   const zohoIdKey =
     role === 'fp' ? 'fp_zoho_id'
     : role === 'realtor' ? 'realtor_zoho_id'
     : role === 'lawyer' ? 'lawyer_zoho_id'
+    : role === 'mortgage_agent' ? 'mortgage_agent_zoho_id'
     : 'zoho_partner_id'
   const nameKey =
     role === 'fp' ? 'fp_name'
     : role === 'realtor' ? 'realtor_name'
     : role === 'lawyer' ? 'lawyer_name'
+    : role === 'mortgage_agent' ? 'mortgage_agent_name'
     : null
   const firmKey =
     role === 'fp' ? 'fp_firm'
     : role === 'realtor' ? 'realtor_firm'
     : role === 'lawyer' ? 'lawyer_firm'
+    : role === 'mortgage_agent' ? 'mortgage_agent_firm'
     : null
 
   // Paginate through Clerk users. At our scale a single page is plenty,

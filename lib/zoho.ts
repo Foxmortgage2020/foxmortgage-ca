@@ -1827,6 +1827,40 @@ export async function getRealtorDashboardPayload(realtorZohoId: string): Promise
   return { stats, recent }
 }
 
+// ─── Mortgage Agent Portal — CRM API calls ───────────────────────────────────
+// A Mortgage Agent is a referral partner attributed through the SAME
+// Referral_Partner lookup as realtor / lawyer / FP (see lib/partner-types).
+// Its data set is identical to the realtor portal in every respect — same
+// Potentials query, same Notes pipeline, same dashboard math, same direct
+// /Partners/{id}/Notes message read. The brief is explicit: "Mirror the
+// existing referral-partner type exactly, do not fork ... share the same data
+// set, no field gating."
+//
+// So rather than clone the realtor functions (and inherit clone drift), the
+// Mortgage Agent data layer DELEGATES to the realtor implementations. Safe
+// because:
+//   - Both resolve dealLookupField to 'Referral_Partner', so the Potentials
+//     filter is byte-identical regardless of which config is read internally.
+//   - Partner record ids are globally unique across Partner_Type values (one
+//     Partners module), so the shared 'realtor-messages:' cache namespace can
+//     never collide a mortgage-agent thread with a realtor one.
+//   - Portal/data ISOLATION is enforced at the route layer (role gate +
+//     ctx.effectiveMortgageAgentId + the detail-route ownership check), not at
+//     the type layer — the same place every other portal enforces it.
+//
+// (Contrast the Lawyer block below, which predates config-driven
+// Referral_Partner attribution and keeps distinct types for historical
+// reasons. New referral-partner types should follow this delegation pattern.)
+export type MortgageAgentClient = RealtorClient
+export type MortgageAgentNote = RealtorNote
+export type MortgageAgentClientDetail = RealtorClientDetail
+export type MortgageAgentDashboardPayload = RealtorDashboardPayload
+
+export const getMortgageAgentClients = getRealtorClients
+export const getMortgageAgentClientDetail = getRealtorClientDetail
+export const getMortgageAgentMessages = getRealtorMessages
+export const getMortgageAgentDashboardPayload = getRealtorDashboardPayload
+
 // ─── Lawyer Portal — CRM API calls ───────────────────────────────────────────
 // Mirror of the Realtor block above (which is itself a mirror of FP). The
 // Potentials module exposes a `Lawyer` Lookup-to-Partners alongside

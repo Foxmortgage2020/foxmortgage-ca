@@ -36,7 +36,7 @@ import {
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type ImpersonationContext = {
-  role: 'fp' | 'investor' | 'realtor' | 'lawyer'
+  role: 'fp' | 'investor' | 'realtor' | 'lawyer' | 'mortgage_agent'
   partnerId: string
   partnerName: string
   partnerFirm?: string
@@ -58,6 +58,7 @@ export type PortalContext = {
   effectivePartnerId: string | null
   effectiveRealtorId: string | null
   effectiveLawyerId: string | null
+  effectiveMortgageAgentId: string | null
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -172,7 +173,8 @@ function verifyAndDecode(cookieValue: string): ImpersonationContext | null {
     p.role !== 'fp' &&
     p.role !== 'investor' &&
     p.role !== 'realtor' &&
-    p.role !== 'lawyer'
+    p.role !== 'lawyer' &&
+    p.role !== 'mortgage_agent'
   ) {
     return null
   }
@@ -229,6 +231,7 @@ export async function getPortalContext(): Promise<PortalContext | null> {
     zoho_partner_id?: string
     realtor_zoho_id?: string
     lawyer_zoho_id?: string
+    mortgage_agent_zoho_id?: string
   }
   // Normalize the three role shapes (array, single string in `roles`,
   // legacy `role` field) — same logic the rest of the portal uses.
@@ -256,9 +259,11 @@ export async function getPortalContext(): Promise<PortalContext | null> {
   // Investor: impersonating-as-investor → cookie.partnerId, else publicMetadata.zoho_partner_id
   // Realtor:  impersonating-as-realtor  → cookie.partnerId, else publicMetadata.realtor_zoho_id
   // Lawyer:   impersonating-as-lawyer   → cookie.partnerId, else publicMetadata.lawyer_zoho_id
-  // The four channels are independent — an admin impersonating as fp still
+  // MtgAgent: impersonating-as-mortgage_agent → cookie.partnerId, else publicMetadata.mortgage_agent_zoho_id
+  // The five channels are independent — an admin impersonating as fp still
   // has no effectivePartnerId for the investor portal and no
-  // effectiveRealtorId / effectiveLawyerId for the realtor / lawyer portals.
+  // effectiveRealtorId / effectiveLawyerId / effectiveMortgageAgentId for the
+  // realtor / lawyer / mortgage-agent portals.
   const effectiveFpId =
     impersonation?.role === 'fp'
       ? impersonation.partnerId
@@ -279,6 +284,11 @@ export async function getPortalContext(): Promise<PortalContext | null> {
       ? impersonation.partnerId
       : metadata.lawyer_zoho_id ?? null
 
+  const effectiveMortgageAgentId =
+    impersonation?.role === 'mortgage_agent'
+      ? impersonation.partnerId
+      : metadata.mortgage_agent_zoho_id ?? null
+
   return {
     actor: {
       userId: user.id,
@@ -290,6 +300,7 @@ export async function getPortalContext(): Promise<PortalContext | null> {
     effectivePartnerId,
     effectiveRealtorId,
     effectiveLawyerId,
+    effectiveMortgageAgentId,
   }
 }
 

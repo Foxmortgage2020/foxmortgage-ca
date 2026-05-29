@@ -69,6 +69,13 @@ export default function PortalRedirect() {
       return
     }
 
+    // Mortgage Agent (own dedicated portal — mirrors the realtor/lawyer
+    // branches; a referral partner attributed via Referral_Partner).
+    if (roles.includes('mortgage_agent')) {
+      router.push('/portal/mortgage-agent/dashboard')
+      return
+    }
+
     // Multi-role investor (with another partner role already handled
     // above) — default to legacy partner portal, switcher handles the rest.
     if (roles.includes('investor')) {

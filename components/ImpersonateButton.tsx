@@ -6,7 +6,7 @@ import { UserCog, Loader2 } from 'lucide-react'
 
 interface ImpersonateButtonProps {
   partnerId: string
-  role: 'investor' | 'fp' | 'realtor' | 'lawyer'
+  role: 'investor' | 'fp' | 'realtor' | 'lawyer' | 'mortgage_agent'
   /** Default redirect lands the admin on the impersonated user's home. */
   redirectTo?: string
 }
@@ -39,6 +39,7 @@ export default function ImpersonateButton({ partnerId, role, redirectTo }: Imper
         fp: '/portal/fp/dashboard',
         realtor: '/portal/realtor/dashboard',
         lawyer: '/portal/lawyer/dashboard',
+        mortgage_agent: '/portal/mortgage-agent/dashboard',
       }
       const target = redirectTo ?? defaultByRole[role]
       router.push(target)

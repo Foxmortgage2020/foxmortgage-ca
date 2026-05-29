@@ -81,6 +81,14 @@ const lawyerNavItems = [
   { label: 'Support', href: '/portal/lawyer/support', icon: HelpCircle },
 ]
 
+const mortgageAgentNavItems = [
+  { label: 'Dashboard', href: '/portal/mortgage-agent/dashboard', icon: LayoutDashboard },
+  { label: 'My Clients', href: '/portal/mortgage-agent/clients', icon: Users },
+  { label: 'Add Referral', href: '/portal/mortgage-agent/add-referral', icon: UserPlus },
+  { label: 'Messages', href: '/portal/mortgage-agent/messages', icon: MessageSquare },
+  { label: 'Support', href: '/portal/mortgage-agent/support', icon: HelpCircle },
+]
+
 const partnerPageTitles: Record<string, string> = {
   '/portal/dashboard': 'Dashboard',
   '/portal/clients': 'Clients',
@@ -125,7 +133,15 @@ const lawyerPageTitles: Record<string, string> = {
   '/portal/lawyer/support': 'Support',
 }
 
-type PickerRole = 'fp' | 'investor' | 'realtor' | 'lawyer'
+const mortgageAgentPageTitles: Record<string, string> = {
+  '/portal/mortgage-agent/dashboard': 'Dashboard',
+  '/portal/mortgage-agent/clients': 'My Clients',
+  '/portal/mortgage-agent/add-referral': 'Add Referral',
+  '/portal/mortgage-agent/messages': 'Messages',
+  '/portal/mortgage-agent/support': 'Support',
+}
+
+type PickerRole = 'fp' | 'investor' | 'realtor' | 'lawyer' | 'mortgage_agent'
 
 type Props = {
   children: React.ReactNode
@@ -145,6 +161,7 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   const fpPillRef = useRef<HTMLButtonElement | null>(null)
   const realtorPillRef = useRef<HTMLButtonElement | null>(null)
   const lawyerPillRef = useRef<HTMLButtonElement | null>(null)
+  const mortgageAgentPillRef = useRef<HTMLButtonElement | null>(null)
   const investorPillRef = useRef<HTMLButtonElement | null>(null)
 
   // Sign-in page and redirect hub render without sidebar
@@ -177,6 +194,7 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   const isFPPortal = pathname?.startsWith('/portal/fp')
   const isRealtorPortal = pathname?.startsWith('/portal/realtor')
   const isLawyerPortal = pathname?.startsWith('/portal/lawyer')
+  const isMortgageAgentPortal = pathname?.startsWith('/portal/mortgage-agent')
   const isAdmin = userRoles.includes('admin')
   const isImpersonating = impersonation !== null
 
@@ -187,6 +205,7 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   else if (isFPPortal) navItems = fpNavItems
   else if (isRealtorPortal) navItems = realtorNavItems
   else if (isLawyerPortal) navItems = lawyerNavItems
+  else if (isMortgageAgentPortal) navItems = mortgageAgentNavItems
 
   // Page title
   let pageTitle = 'Portal'
@@ -211,6 +230,9 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   } else if (isLawyerPortal) {
     pageTitle = lawyerPageTitles[pathname] || 'Portal'
     if (pathname.startsWith('/portal/lawyer/clients/')) pageTitle = 'Client File'
+  } else if (isMortgageAgentPortal) {
+    pageTitle = mortgageAgentPageTitles[pathname] || 'Portal'
+    if (pathname.startsWith('/portal/mortgage-agent/clients/')) pageTitle = 'Client File'
   } else {
     pageTitle = partnerPageTitles[pathname] || 'Portal'
     if (pathname.startsWith('/portal/clients/')) pageTitle = 'Client File'
@@ -235,7 +257,9 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
           ? 'Realtor Partner'
           : impersonation!.role === 'lawyer'
             ? 'Lawyer Partner'
-            : 'Private Investor'
+            : impersonation!.role === 'mortgage_agent'
+              ? 'Mortgage Agent'
+              : 'Private Investor'
   } else if (isAdminPortal) {
     roleLabel = 'Admin'
   } else if (isInvestorPortal) {
@@ -244,6 +268,8 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     roleLabel = 'Lawyer Partner'
   } else if (isRealtorPortal || userRoles.includes('realtor')) {
     roleLabel = 'Realtor Partner'
+  } else if (isMortgageAgentPortal || userRoles.includes('mortgage_agent')) {
+    roleLabel = 'Mortgage Agent'
   } else if (userRoles.includes('financial-planner')) {
     roleLabel = 'Financial Planner'
   } else if (userRoles.includes('investor')) {
@@ -256,7 +282,8 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   const showSwitcher =
     isAdmin ||
     (userRoles.includes('realtor') && userRoles.includes('investor')) ||
-    (userRoles.includes('financial-planner') && userRoles.includes('investor'))
+    (userRoles.includes('financial-planner') && userRoles.includes('investor')) ||
+    (userRoles.includes('mortgage_agent') && userRoles.includes('investor'))
 
   // Banners:
   //  - Impersonation banner: amber, partner identity, Exit button
@@ -308,6 +335,15 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     }
   }
 
+  function handleMortgageAgentPillClick(e: React.MouseEvent<HTMLButtonElement>) {
+    if (isAdmin) {
+      setPickerAnchor(e.currentTarget)
+      setPickerOpen('mortgage_agent')
+    } else {
+      router.push('/portal/mortgage-agent/dashboard')
+    }
+  }
+
   function handleFPPillClick(e: React.MouseEvent<HTMLButtonElement>) {
     if (isAdmin) {
       setPickerAnchor(e.currentTarget)
@@ -352,6 +388,7 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
       investor: '/portal/investor/dashboard',
       realtor: '/portal/realtor/dashboard',
       lawyer: '/portal/lawyer/dashboard',
+      mortgage_agent: '/portal/mortgage-agent/dashboard',
     }
     router.push(destByRole[partner.role])
     router.refresh()
@@ -442,6 +479,13 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
               >
                 <Users className="w-4 h-4" />
                 Lawyer
+              </button>
+              <button
+                onClick={() => router.push('/portal/mortgage-agent/dashboard')}
+                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+              >
+                <Users className="w-4 h-4" />
+                Mortgage Agent
               </button>
               <button
                 onClick={() => router.push('/portal/investor/dashboard')}
@@ -547,6 +591,17 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
                   Lawyer
                 </button>
               )}
+              {(isAdmin || userRoles.includes('mortgage_agent')) && (
+                <button
+                  ref={mortgageAgentPillRef}
+                  onClick={handleMortgageAgentPillClick}
+                  className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                    isMortgageAgentPortal ? 'bg-lime text-navy shadow-sm' : 'text-gray-500 hover:text-navy'
+                  }`}
+                >
+                  Mortgage Agent
+                </button>
+              )}
               <button
                 ref={investorPillRef}
                 onClick={handleInvestorPillClick}
@@ -606,7 +661,9 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
                       ? 'Realtor'
                       : isLawyerPortal
                         ? 'Lawyer'
-                        : 'Portal'}
+                        : isMortgageAgentPortal
+                          ? 'Mortgage Agent'
+                          : 'Portal'}
               </span>
             </span>
             <button

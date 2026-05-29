@@ -11,7 +11,7 @@
 // to act on investor records and routes the admin to the existing
 // investor route instead.
 
-export type PartnerKind = 'fp' | 'realtor' | 'lawyer' | 'investor'
+export type PartnerKind = 'fp' | 'realtor' | 'lawyer' | 'mortgage_agent' | 'investor'
 
 export interface PartnerTypeConfig {
   /** Internal kind tag — used as the discriminator in code. */
@@ -100,6 +100,19 @@ export const PARTNER_TYPE_CONFIGS: Record<PartnerKind, PartnerTypeConfig> = {
     // actually carries referral attribution for every partner type.
     dealLookupField: 'Referral_Partner',
     portalDashboard: '/portal/lawyer/dashboard',
+    usesPartnerOnboarding: true,
+  },
+  mortgage_agent: {
+    kind: 'mortgage_agent',
+    zohoPartnerType: 'Mortgage Agent',
+    clerkMetadataKey: 'mortgage_agent_zoho_id',
+    clerkRole: 'mortgage_agent',
+    // Same referral-partner attribution as realtor/lawyer/FP — see realtor
+    // note. All referring partners are linked to Deals via the single
+    // Referral_Partner lookup; portal type is decided by Partner_Type /
+    // Clerk role, not this field.
+    dealLookupField: 'Referral_Partner',
+    portalDashboard: '/portal/mortgage-agent/dashboard',
     usesPartnerOnboarding: true,
   },
   investor: {

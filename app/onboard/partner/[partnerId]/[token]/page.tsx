@@ -81,6 +81,7 @@ export default async function OnboardingPartnerWelcomePage({
     config.kind === 'fp' ? 'Financial Planner'
     : config.kind === 'realtor' ? 'Realtor'
     : config.kind === 'lawyer' ? 'Lawyer'
+    : config.kind === 'mortgage_agent' ? 'Mortgage Agent'
     : 'Partner'
 
   return (

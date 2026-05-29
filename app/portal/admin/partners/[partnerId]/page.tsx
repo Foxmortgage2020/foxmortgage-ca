@@ -122,12 +122,13 @@ export default async function AdminPartnerDetailPage({
     }
 
     // Impersonate button — only for the kinds we have impersonation
-    // wired for (fp / realtor / lawyer). If the type is unsupported,
-    // omit the button rather than showing a 400-on-click.
-    const impersonateRole: 'fp' | 'realtor' | 'lawyer' | null =
+    // wired for (fp / realtor / lawyer / mortgage agent). If the type is
+    // unsupported, omit the button rather than showing a 400-on-click.
+    const impersonateRole: 'fp' | 'realtor' | 'lawyer' | 'mortgage_agent' | null =
       config?.kind === 'fp' ? 'fp'
       : config?.kind === 'realtor' ? 'realtor'
       : config?.kind === 'lawyer' ? 'lawyer'
+      : config?.kind === 'mortgage_agent' ? 'mortgage_agent'
       : null
 
     return (

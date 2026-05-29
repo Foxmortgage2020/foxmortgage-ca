@@ -95,9 +95,15 @@ export async function POST(req: Request) {
     role?: unknown
     partnerId?: unknown
   }
-  if (role !== 'fp' && role !== 'investor' && role !== 'realtor' && role !== 'lawyer') {
+  if (
+    role !== 'fp' &&
+    role !== 'investor' &&
+    role !== 'realtor' &&
+    role !== 'lawyer' &&
+    role !== 'mortgage_agent'
+  ) {
     return NextResponse.json(
-      { error: 'BadRequest', message: "role must be 'fp', 'investor', 'realtor', or 'lawyer'." },
+      { error: 'BadRequest', message: "role must be 'fp', 'investor', 'realtor', 'lawyer', or 'mortgage_agent'." },
       { status: 400 },
     )
   }
@@ -136,13 +142,14 @@ export async function POST(req: Request) {
   }
 
   // 3a. Validate Partner_Type aligns with the requested role. The Partners
-  // module mixes Financial Planner / Investor / Realtor / Lawyer in a single
-  // module differentiated by Partner_Type. Lawyer was added 2026-05-28
-  // alongside the Lawyer portal.
+  // module mixes Financial Planner / Investor / Realtor / Lawyer / Mortgage
+  // Agent in a single module differentiated by Partner_Type. Lawyer was added
+  // 2026-05-28 alongside the Lawyer portal; Mortgage Agent 2026-05-29.
   const expectedType =
     role === 'fp' ? 'Financial Planner'
     : role === 'realtor' ? 'Realtor'
     : role === 'lawyer' ? 'Lawyer'
+    : role === 'mortgage_agent' ? 'Mortgage Agent'
     : 'Investor'
   if (partner.type !== expectedType) {
     return NextResponse.json(

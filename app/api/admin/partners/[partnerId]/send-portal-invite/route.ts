@@ -70,7 +70,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: 'UnsupportedPartnerType',
-          message: `No portal exists for Partner_Type '${partner.partnerType ?? '<unset>'}'. Set the Partner_Type in Zoho to a supported value (Financial Planner, Realtor, Lawyer) before inviting.`,
+          message: `No portal exists for Partner_Type '${partner.partnerType ?? '<unset>'}'. Set the Partner_Type in Zoho to a supported value (Financial Planner, Realtor, Lawyer, Mortgage Agent) before inviting.`,
         },
         { status: 400 },
       )
@@ -125,6 +125,7 @@ export async function POST(
       config.kind === 'fp' ? 'Financial Planner'
       : config.kind === 'realtor' ? 'Realtor'
       : config.kind === 'lawyer' ? 'Lawyer'
+      : config.kind === 'mortgage_agent' ? 'Mortgage Agent'
       : 'Partner'
 
     try {
