@@ -14,6 +14,18 @@ import {
   Bell,
   Activity,
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+  Label,
+} from 'recharts';
 
 // Shape returned by GET /api/admin/dashboard (see getAdminDashboardPayload in
 // lib/zoho.ts). `deals` is null when the single deal pull fails — partner
@@ -26,6 +38,12 @@ type RecentReferral = {
   createdTime: string | null;
 };
 
+type FundedYear = {
+  year: number;
+  volume: number;
+  count: number;
+};
+
 type DealMetrics = {
   fundedVolume: number;
   fundedCount: number;
@@ -35,6 +53,7 @@ type DealMetrics = {
   totalReferrals: number;
   attributionPct: number;
   recentReferrals: RecentReferral[];
+  fundedByYear: FundedYear[];
 };
 
 type AdminDashboard = {
@@ -80,6 +99,58 @@ const stageColor = (stage: string): string => {
   if (s.includes('approved')) return 'bg-lime-100 text-lime-700';
   return 'bg-blue-100 text-blue-700';
 };
+
+// ─── Practice History (funded volume by year) ────────────────────────────────
+// Brand palette (tailwind: navy / lime).
+const NAVY = '#032133';
+const LIME = '#95D600';
+// Partial (current/YTD) year bar — a faded lime so it never reads as a decline.
+const LIME_FADED = '#CFEB95';
+
+// First calendar year with funded production. Bars run from here to the
+// current year; also the fallback when the deal pull is unavailable.
+const FIRST_FUNDED_YEAR = 2021;
+
+// Vertical event marker on the by-year chart. Year + label are constants so
+// they move in a single edit as the timeline advances.
+const MILESTONE_YEAR = 2026;
+const MILESTONE_LABEL = 'Systems + AI live';
+
+// "$31.3M" / "$590K" — compact, $-prefixed to match the existing tiles.
+const moneyShort = (n: number | null | undefined): string => {
+  if (n === null || n === undefined) return '—';
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${Math.round(n)}`;
+};
+
+// "$6,231,323" — full dollars with thousands separators (chart tooltip).
+const moneyFull = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '—' : `$${Math.round(n).toLocaleString('en-US')}`;
+
+type ChartYear = {
+  year: string;
+  volume: number;
+  count: number;
+  isCurrent: boolean;
+};
+
+// Tooltip for the by-year bars: year, full funded volume, funded count.
+function VolumeTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const d = payload[0].payload as ChartYear;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2">
+      <p className="font-heading text-navy text-sm font-bold">
+        {d.isCurrent ? `${d.year} (YTD)` : d.year}
+      </p>
+      <p className="font-body text-xs text-gray-600 mt-0.5">{moneyFull(d.volume)}</p>
+      <p className="font-body text-xs text-gray-400">
+        {d.count} funded {d.count === 1 ? 'deal' : 'deals'}
+      </p>
+    </div>
+  );
+}
 
 type Kpi = {
   icon: typeof Building2;
@@ -184,6 +255,43 @@ export default function AdminDashboard() {
   ];
 
   const recent = deals?.recentReferrals ?? [];
+
+  // ─── Practice History derived data ─────────────────────────────────────────
+  const currentYear = new Date().getFullYear();
+  const byYear = deals?.fundedByYear ?? [];
+  const firstFundedYear = byYear.length ? byYear[0].year : FIRST_FUNDED_YEAR;
+
+  // One bar per calendar year, first funded year → current year. Years with no
+  // funded deals fill in at zero so the axis reads continuously.
+  const byYearMap = new Map(byYear.map((y) => [y.year, y]));
+  const chartData: ChartYear[] = [];
+  for (let y = firstFundedYear; y <= currentYear; y++) {
+    const rec = byYearMap.get(y);
+    chartData.push({
+      year: String(y),
+      volume: rec?.volume ?? 0,
+      count: rec?.count ?? 0,
+      isCurrent: y === currentYear,
+    });
+  }
+
+  // 5-yr avg reference: mean of the COMPLETE (non-current) years only, so the
+  // partial current year never drags the baseline down. Label is derived from
+  // the count of complete years, so it stays correct in future years.
+  const completeYears = chartData.filter((d) => !d.isCurrent);
+  const avgComplete =
+    completeYears.length > 0
+      ? completeYears.reduce((s, d) => s + d.volume, 0) / completeYears.length
+      : 0;
+  const avgLabel = `${completeYears.length}-yr avg`;
+  const showMilestone =
+    MILESTONE_YEAR >= firstFundedYear && MILESTONE_YEAR <= currentYear;
+
+  // Summary-strip figures (all-time funded volume/count come straight from the
+  // same metrics that back the existing $31M card — not recomputed here).
+  const avgDeal =
+    deals && deals.fundedCount > 0 ? deals.fundedVolume / deals.fundedCount : null;
+  const yearsActive = deals ? currentYear - firstFundedYear + 1 : null;
 
   const renderKpi = (kpi: Kpi) => {
     const Icon = kpi.icon;
@@ -438,6 +546,141 @@ export default function AdminDashboard() {
           <div>
             <p className="font-heading text-2xl font-bold text-white">{dash(data?.partners.total)}</p>
             <p className="text-gray-400 text-xs mt-1">Active Partners</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 8. PRACTICE HISTORY — funded production over time (admin only). Sits
+          at the bottom; the all-time tiles above are untouched. */}
+      <div className="mt-8">
+        <h2 className="font-heading text-navy text-xl font-bold mb-1">Practice History</h2>
+        <p className="text-gray-500 font-body text-sm mb-4">
+          Funded production since {firstFundedYear}.
+        </p>
+
+        {/* Summary strip */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="font-heading text-2xl text-navy font-bold">{moneyM(deals?.fundedVolume)}</p>
+            <p className="text-gray-500 text-sm font-body mt-1">Total Funded Volume</p>
+            <p className="text-gray-400 text-xs mt-0.5">All time</p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="font-heading text-2xl text-navy font-bold">{dash(deals?.fundedCount)}</p>
+            <p className="text-gray-500 text-sm font-body mt-1">Funded Deals</p>
+            <p className="text-gray-400 text-xs mt-0.5">All time</p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="font-heading text-2xl text-navy font-bold">{moneyShort(avgDeal)}</p>
+            <p className="text-gray-500 text-sm font-body mt-1">Avg Deal Size</p>
+            <p className="text-gray-400 text-xs mt-0.5">Volume &divide; funded deals</p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="font-heading text-2xl text-navy font-bold">
+              {yearsActive === null ? '—' : yearsActive}
+            </p>
+            <p className="text-gray-500 text-sm font-body mt-1">Years Active</p>
+            <p className="text-gray-400 text-xs mt-0.5">
+              {deals ? `${firstFundedYear}–${currentYear}` : ''}
+            </p>
+          </div>
+          {/* Active partners slot — reserved, sourced in a later pass. */}
+          <div className="bg-white rounded-xl border border-dashed border-gray-200 p-5 opacity-60">
+            <p className="font-heading text-2xl text-gray-300 font-bold">—</p>
+            <p className="text-gray-500 text-sm font-body mt-1">Active Partners</p>
+            <p className="text-gray-400 text-xs mt-0.5">Coming soon</p>
+          </div>
+        </div>
+
+        {/* Volume by Year */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-heading text-navy font-bold text-lg">Funded Volume by Year</h3>
+            <span className="text-xs text-gray-400 font-body">
+              Actuals &middot; {firstFundedYear}&ndash;{currentYear}
+            </span>
+          </div>
+          <div className="w-full" style={{ height: 320 }}>
+            {!deals ? (
+              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                Loading&hellip;
+              </div>
+            ) : chartData.every((d) => d.volume === 0) ? (
+              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                No funded deals yet.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 28, right: 16, left: 8, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f2" />
+                  <XAxis
+                    dataKey="year"
+                    tickFormatter={(y) => (Number(y) === currentYear ? `${y} YTD` : y)}
+                    tick={{ fontSize: 12, fill: '#6b7280' }}
+                    axisLine={{ stroke: '#e5e7eb' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => moneyShort(v)}
+                    tick={{ fontSize: 12, fill: '#6b7280' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={56}
+                  />
+                  <Tooltip content={<VolumeTooltip />} cursor={{ fill: 'rgba(3,33,51,0.04)' }} />
+                  <Bar dataKey="volume" radius={[6, 6, 0, 0]} maxBarSize={64} isAnimationActive={false}>
+                    {chartData.map((d) => (
+                      <Cell key={d.year} fill={d.isCurrent ? LIME_FADED : LIME} />
+                    ))}
+                  </Bar>
+                  {avgComplete > 0 && (
+                    <ReferenceLine y={avgComplete} stroke={NAVY} strokeOpacity={0.55} strokeDasharray="5 4">
+                      <Label
+                        content={(p: any) => {
+                          const vb = p?.viewBox;
+                          if (!vb) return null;
+                          return (
+                            <text
+                              x={vb.x + 8}
+                              y={vb.y - 6}
+                              textAnchor="start"
+                              fill={NAVY}
+                              fillOpacity={0.75}
+                              fontSize={11}
+                              fontWeight={600}
+                            >
+                              {avgLabel}
+                            </text>
+                          );
+                        }}
+                      />
+                    </ReferenceLine>
+                  )}
+                  {showMilestone && (
+                    <ReferenceLine x={String(MILESTONE_YEAR)} stroke={NAVY} strokeWidth={1.5} strokeDasharray="4 3">
+                      <Label
+                        content={(p: any) => {
+                          const vb = p?.viewBox;
+                          if (!vb) return null;
+                          return (
+                            <text
+                              x={vb.x - 6}
+                              y={vb.y - 8}
+                              textAnchor="end"
+                              fill={NAVY}
+                              fontSize={11}
+                              fontWeight={600}
+                            >
+                              {MILESTONE_LABEL}
+                            </text>
+                          );
+                        }}
+                      />
+                    </ReferenceLine>
+                  )}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

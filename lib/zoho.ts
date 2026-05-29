@@ -2375,6 +2375,15 @@ export interface AdminRecentReferral {
   createdTime: string | null  // ISO datetime from Zoho
 }
 
+// One calendar year of funded production, derived from Closing_Date. Feeds
+// the admin "Practice History" volume-by-year chart. Same funded definition
+// and Amount source as fundedVolume, so the years sum to the all-time total.
+export interface AdminFundedByYear {
+  year: number                // calendar year of Closing_Date (date-only)
+  volume: number              // sum of Amount for funded deals closing that year
+  count: number               // funded deal count for that year
+}
+
 export interface AdminDealMetrics {
   fundedVolume: number        // sum of Amount over funded deals (dollars)
   fundedCount: number
@@ -2384,6 +2393,7 @@ export interface AdminDealMetrics {
   totalReferrals: number      // all-time deals with a Referral_Partner
   attributionPct: number      // rounded whole percent of total
   recentReferrals: AdminRecentReferral[]
+  fundedByYear: AdminFundedByYear[]  // funded volume/count per close-year, ascending
 }
 
 export interface AdminDashboardPayload {
@@ -2469,7 +2479,8 @@ function startOfCurrentMonthToronto(now: Date = new Date()): string {
 
 // Slim deal field list for the admin aggregates — only what the tiles need.
 // Created_Time is a Zoho system field (always present on Potentials).
-const ADMIN_DEAL_FIELDS = 'Deal_Name,Stage,Amount,Referral_Partner,Created_Time'
+// Closing_Date drives the funded-volume-by-year chart (date-only year parse).
+const ADMIN_DEAL_FIELDS = 'Deal_Name,Stage,Amount,Referral_Partner,Created_Time,Closing_Date'
 
 // Pulls every Potentials (deal) record via the records API, paging at
 // Zoho's 200/page max, newest first. Uses the same scope/token as
@@ -2508,6 +2519,15 @@ function referralPartnerName(raw: any): string | null {
   return typeof raw === 'string' ? raw : null
 }
 
+// Calendar year from a Zoho date(-time) value, read from the literal Y-M-D
+// prefix so a date-only field never shifts a year across the UTC boundary
+// (a Jan 1 close parsed as UTC midnight would otherwise roll to Dec 31 in ET).
+function closingYear(raw: any): number | null {
+  if (typeof raw !== 'string') return null
+  const m = raw.match(/^(\d{4})-\d{2}-\d{2}/)
+  return m ? Number(m[1]) : null
+}
+
 // Compute every deal-derived tile from one pull. now is injectable for tests.
 function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDealMetrics {
   const monthStart = new Date(startOfCurrentMonthToronto(now)).getTime()
@@ -2518,12 +2538,22 @@ function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDea
   let totalReferrals = 0
   let referralsThisMonth = 0
   const referredDeals: any[] = []
+  // year -> running funded volume/count, bucketed on Closing_Date.
+  const byYear = new Map<number, { volume: number; count: number }>()
 
   for (const d of deals) {
     const stage = String(d.Stage ?? '').trim().toLowerCase()
     if (FUNDED_STAGES.has(stage)) {
       fundedCount += 1
-      fundedVolume += Number(d.Amount) || 0
+      const amount = Number(d.Amount) || 0
+      fundedVolume += amount
+      const yr = closingYear(d.Closing_Date)
+      if (yr !== null) {
+        const acc = byYear.get(yr) ?? { volume: 0, count: 0 }
+        acc.volume += amount
+        acc.count += 1
+        byYear.set(yr, acc)
+      }
     }
     if (IN_PROGRESS_STAGES.has(stage)) inProgress += 1
 
@@ -2547,6 +2577,10 @@ function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDea
     createdTime: d.Created_Time ?? null,
   }))
 
+  const fundedByYear: AdminFundedByYear[] = Array.from(byYear.entries())
+    .map(([year, v]) => ({ year, volume: v.volume, count: v.count }))
+    .sort((a, b) => a.year - b.year)
+
   return {
     fundedVolume,
     fundedCount,
@@ -2556,6 +2590,7 @@ function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDea
     totalReferrals,
     attributionPct,
     recentReferrals,
+    fundedByYear,
   }
 }
 
