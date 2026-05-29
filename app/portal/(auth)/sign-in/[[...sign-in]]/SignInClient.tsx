@@ -4,37 +4,56 @@ import { useClerk, useSignIn, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
+import { PARTNER_TYPE_CONFIGS } from '@/lib/partner-types'
 
 // Role-based destination resolver. Used both by the pre-check redirect
 // (when a Clerk session already exists for this browser) and by the
-// sign-in form's success path. Priority: admin first (privileged role),
-// then financial-planner, then investor. Anything else → null, which
-// means "no recognized role" and the caller signs the user out.
+// sign-in form's success path.
+//
+// Covers EVERY portal role: admin, financial planner, realtor, lawyer,
+// mortgage agent, and investor. Partner dashboard paths come straight
+// from PARTNER_TYPE_CONFIGS so they can never drift from
+// lib/partner-types.ts. A previous version omitted realtor / lawyer /
+// mortgage_agent, so those partners resolved to `null` here; the
+// pre-check below then called signOut(), and Clerk's default
+// afterSignOutUrl ('/') bounced a freshly signed-in realtor to the
+// public marketing home. That was the "flicker then bounce" bug.
+//
+// Returns null ONLY for a genuinely unrecognized / role-less account.
+// The caller must treat null as "access pending" — never as a reason to
+// dump the user on the public site.
 //
 // Mirrors the 3-shape role normalization used elsewhere in the portal:
 // publicMetadata.roles can be an array, a single string, or a single-role
 // `role` field (legacy).
 function getRoleDestination(metadata: unknown): string | null {
   const m = (metadata ?? {}) as { roles?: unknown; role?: unknown }
+  // Copy the array so the push() below never mutates user.publicMetadata.
   const roles: string[] = Array.isArray(m.roles)
-    ? (m.roles as string[])
+    ? [...(m.roles as string[])]
     : typeof m.roles === 'string'
       ? [m.roles]
       : []
-  const role = typeof m.role === 'string' ? m.role : ''
+  if (typeof m.role === 'string' && m.role) roles.push(m.role)
 
-  if (roles.includes('admin') || role === 'admin') return '/portal/admin'
-  if (
-    roles.includes('financial-planner') ||
-    role === 'financial-planner' ||
-    roles.includes('fp') ||
-    role === 'fp'
-  ) {
-    return '/portal/fp/dashboard'
+  // Admin first (privileged role, not a partner kind).
+  if (roles.includes('admin')) return '/portal/admin'
+
+  // Financial planner takes priority over investor for dual-role
+  // accounts, matching the server pre-check and the /portal role ladder.
+  if (roles.includes('financial-planner') || roles.includes('fp')) {
+    return PARTNER_TYPE_CONFIGS.fp.portalDashboard
   }
-  if (roles.includes('investor') || role === 'investor') {
-    return '/onboard/investor/hub'
+  if (roles.includes('realtor')) return PARTNER_TYPE_CONFIGS.realtor.portalDashboard
+  if (roles.includes('lawyer')) return PARTNER_TYPE_CONFIGS.lawyer.portalDashboard
+  if (roles.includes('mortgage_agent')) {
+    return PARTNER_TYPE_CONFIGS.mortgage_agent.portalDashboard
   }
+
+  // Investor: the hub self-routes by onboarding stage (the client can't
+  // do the Zoho stage lookup that the server pre-check performs).
+  if (roles.includes('investor')) return '/onboard/investor/hub'
+
   return null
 }
 
@@ -78,6 +97,12 @@ export default function SignInClient() {
   // of leaking the raw Clerk error to the user.
   const [sessionExistsRecovery, setSessionExistsRecovery] = useState(false)
 
+  // Set when a signed-in user has no recognized partner role. We render
+  // an "access pending" card instead of signing them out and letting
+  // Clerk's default afterSignOutUrl ('/') dump them on the public
+  // marketing home. A valid partner must never land on the public site.
+  const [accessPending, setAccessPending] = useState(false)
+
   // Pre-check: if a Clerk session already exists for this browser,
   // route to the appropriate destination instead of showing the form.
   // Handles the "Abigail returns after closing the tab" case directly.
@@ -93,18 +118,19 @@ export default function SignInClient() {
 
     const dest = getRoleDestination(user.publicMetadata)
     if (dest === null) {
-      // Session exists but the user has no recognized role. Sign out
-      // so they can re-authenticate fresh; the form will then render
-      // because isSignedIn flips false.
-      signOut().catch(() => {
-        // Swallow — worst case the form renders alongside the stale
-        // session; the user's next sign-in attempt will sign-out-then-sign-in
-        // via handleSubmit's recovery path.
-      })
+      // Signed in but no recognized partner role. Do NOT signOut here —
+      // Clerk's default afterSignOutUrl is '/', which would dump the user
+      // on the public marketing home (the old bounce bug). Show an
+      // "access pending" card instead, and log why for support triage.
+      console.warn(
+        '[portal/sign-in] signed-in user has no recognized partner role — showing access-pending',
+        { userId: user.id, publicMetadata: user.publicMetadata },
+      )
+      setAccessPending(true)
       return
     }
     router.replace(dest)
-  }, [userLoaded, isSignedIn, user, router, searchParams, signOut])
+  }, [userLoaded, isSignedIn, user, router, searchParams])
 
   // Compute the destination for "Continue to portal" in the graceful
   // fallback CTA. Same logic as the pre-check redirect.
@@ -287,6 +313,46 @@ export default function SignInClient() {
     } finally {
       setResetLoading(false)
     }
+  }
+
+  // Signed-in user with no recognized partner role. Rather than bounce
+  // them to the public site, explain the state and offer a manual sign-out
+  // so they can retry with a different account. (Takes precedence over the
+  // loading guard below, which would otherwise spin forever since
+  // isSignedIn is true here.)
+  if (accessPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
+        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-8 text-center shadow-sm">
+          <div className="flex items-center justify-center gap-1 mb-6">
+            <span className="font-heading font-bold text-navy text-xl">Fox</span>
+            <span className="font-heading font-bold text-lime text-xl">Mortgage</span>
+          </div>
+          <h2 className="font-heading text-navy text-2xl font-bold mb-3">Access pending</h2>
+          <p className="font-body text-gray-600 text-sm leading-relaxed mb-6">
+            You&apos;re signed in, but your account isn&apos;t linked to a partner
+            portal yet. This usually means your access is still being set up. If
+            you think this is a mistake, contact Michael — or sign out and try a
+            different account.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => {
+                signOut()
+                  .then(() => setAccessPending(false))
+                  .catch(() => setAccessPending(false))
+              }}
+              className="w-full bg-lime text-navy py-3 rounded-xl font-heading font-bold text-sm tracking-wide hover:bg-lime/90 transition-all"
+            >
+              Sign out and try again
+            </button>
+            <Link href="/contact" className="font-body text-sm text-gray-500 hover:text-navy">
+              Contact Michael for access →
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Don't flash the sign-in form while we're loading user state OR

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { currentUser } from '@clerk/nextjs/server'
 import { getPartner } from '@/lib/zoho'
 import { computeInvestorDestination } from '@/lib/onboarding'
+import { PARTNER_TYPE_CONFIGS } from '@/lib/partner-types'
 import SignInClient from './SignInClient'
 
 // Sign-in route — Server Component wrapper.
@@ -21,9 +22,10 @@ import SignInClient from './SignInClient'
 //     which routes Active/Review Due → /portal/investor (which
 //     itself redirects to /portal/investor/dashboard), Inactive →
 //     /portal/investor/inactive, and everything else → the hub.
-//   - Signed in, no recognized role → render the form anyway and
-//     let the client's useEffect handle the signOut + re-auth path
-//     (server can't signOut from a Server Component).
+//   - Signed in, no recognized role → render the client component,
+//     which shows an "access pending" card (it does NOT bounce them to
+//     the public home). The server can't signOut from a Server
+//     Component, so this safe-fallback decision lives client-side.
 //
 // Performance: only the investor branch incurs a Zoho roundtrip
 // (one getPartner call). Sign-in is infrequent enough that this is
@@ -55,19 +57,22 @@ export default async function SignInPage() {
       redirect('/portal/admin')
     }
 
-    if (
-      roles.includes('financial-planner') ||
-      roles.includes('fp')
-    ) {
-      redirect('/portal/fp/dashboard')
+    // Partner dashboard paths come from PARTNER_TYPE_CONFIGS so this
+    // server gate can never drift from lib/partner-types.ts.
+    if (roles.includes('financial-planner') || roles.includes('fp')) {
+      redirect(PARTNER_TYPE_CONFIGS.fp.portalDashboard)
     }
 
     if (roles.includes('realtor')) {
-      redirect('/portal/realtor/dashboard')
+      redirect(PARTNER_TYPE_CONFIGS.realtor.portalDashboard)
     }
 
     if (roles.includes('lawyer')) {
-      redirect('/portal/lawyer/dashboard')
+      redirect(PARTNER_TYPE_CONFIGS.lawyer.portalDashboard)
+    }
+
+    if (roles.includes('mortgage_agent')) {
+      redirect(PARTNER_TYPE_CONFIGS.mortgage_agent.portalDashboard)
     }
 
     if (roles.includes('investor')) {
@@ -85,10 +90,12 @@ export default async function SignInPage() {
       redirect('/onboard/investor/hub')
     }
 
-    // Signed in but no recognized role. Fall through to the client
-    // form; its useEffect pre-check calls signOut() so the user can
-    // re-authenticate fresh. (Server Components can't trigger
-    // signOut on the user's behalf.)
+    // Signed in but no recognized partner role. Fall through to the
+    // client component, whose useEffect pre-check renders an "access
+    // pending" card (with a manual sign-out option) instead of bouncing
+    // the user to the public home. A valid partner is matched by one of
+    // the role checks above, so reaching here means the account genuinely
+    // has no portal role yet.
   }
 
   return <SignInClient />
