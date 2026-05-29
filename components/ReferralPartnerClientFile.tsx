@@ -44,6 +44,12 @@ const STAGES = [
   { id: 9, label: 'Mortgage Funded' },
 ]
 
+// Display-only 10th node, appended after the 9 Zoho stages. "Strategic Monitoring"
+// is NOT a Zoho Stage picklist value — it represents the post-funding monitoring
+// state and is purely presentational (see `displayStage`). Never written back.
+const MONITORING_STAGE = { id: 10, label: 'Strategic Monitoring' }
+const TRACKER_STAGES = [...STAGES, MONITORING_STAGE]
+
 const stageToMilestone: Record<string, number> = {
   'Lead':                     1,
   'Application Started':      2,
@@ -306,6 +312,10 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
   const currentStage = stageToProgress(client.stage)
   const status = stageToStatus(client.stage)
   const isFunded = currentStage === 9
+  // Display-only: once funded, stages 1–9 read complete and the 10th node
+  // ("Strategic Monitoring") becomes the active stage. Purely presentational —
+  // the underlying Zoho Stage value is never changed.
+  const displayStage = isFunded ? 10 : currentStage
   const displayName = client.contactName || client.dealName
 
   // Transaction_Type (Purchase) and Mortgage_Type (First) are distinct facts —
@@ -455,9 +465,18 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
             </div>
           </div>
           <p className="font-body text-xs text-emerald-800/80 mt-3 leading-relaxed">
-            Fox Mortgage is monitoring this mortgage and will reach out ahead of renewal to
-            review options and identify savings.
+            This mortgage is enrolled in Strategic Mortgage Monitoring. We check it against
+            the market every day, watch the renewal window, and reach out before renewal when
+            there&apos;s a real chance to save. Your client gets a monthly report in between.
           </p>
+          <a
+            href="https://www.foxmortgage.ca/smm"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 mt-2 font-body text-xs font-semibold text-emerald-700 hover:text-emerald-900 hover:underline transition-colors"
+          >
+            See how Strategic Mortgage Monitoring works →
+          </a>
         </div>
       )}
 
@@ -492,15 +511,16 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-heading font-bold text-navy text-sm">Mortgage Progress</h3>
             <span className="font-body text-xs text-gray-400">
-              Stage {currentStage} of 9
+              Stage {displayStage} of 10
             </span>
           </div>
 
           {/* Steps */}
           <div className="flex items-start gap-0 overflow-x-auto pb-2">
-            {STAGES.map((stage, idx) => {
-              const done = stage.id < currentStage
-              const current = stage.id === currentStage
+            {TRACKER_STAGES.map((stage, idx) => {
+              const done = stage.id < displayStage
+              const current = stage.id === displayStage
+              const isMonitoring = stage.id === 10
               return (
                 <div key={stage.id} className="flex items-start min-w-0 flex-1">
                   <div className="flex flex-col items-center min-w-0 flex-1">
@@ -509,14 +529,20 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
                         done
                           ? 'bg-lime text-navy'
                           : current
-                          ? 'bg-navy text-white ring-4 ring-navy/10'
+                          ? isMonitoring
+                            ? 'bg-emerald-500 text-white ring-4 ring-emerald-200 animate-pulse'
+                            : 'bg-navy text-white ring-4 ring-navy/10'
                           : 'bg-gray-100 text-gray-400'
                       }`}
                     >
                       {done ? (
                         <CheckCircle2 className="w-4 h-4" />
                       ) : current ? (
-                        <Clock className="w-4 h-4" />
+                        isMonitoring ? (
+                          <ShieldCheck className="w-4 h-4" />
+                        ) : (
+                          <Clock className="w-4 h-4" />
+                        )
                       ) : (
                         <span className="text-xs font-heading font-bold">{stage.id}</span>
                       )}
@@ -532,11 +558,16 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
                     >
                       {stage.label}
                     </div>
-                    {/* Funded milestone shows the funded DATE; in-progress stages
-                        show days-in-current-stage. */}
-                    {current && stage.id === 9 && client.closingDate ? (
+                    {/* Mortgage Funded keeps its funded DATE even once it reads
+                        complete (funded files); the monitoring node shows "Active";
+                        in-progress stages show days-in-current-stage. */}
+                    {stage.id === 9 && (done || current) && client.closingDate ? (
                       <div className="text-[10px] font-body text-emerald-600 font-semibold mt-0.5">
                         {formatDate(client.closingDate)}
+                      </div>
+                    ) : isMonitoring && current ? (
+                      <div className="text-[10px] font-body text-emerald-600 font-semibold mt-0.5">
+                        Active
                       </div>
                     ) : current && daysInStage != null && daysInStage >= 0 ? (
                       <div className="text-[10px] font-body text-lime-dark font-semibold mt-0.5">
@@ -544,10 +575,10 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
                       </div>
                     ) : null}
                   </div>
-                  {idx < STAGES.length - 1 && (
+                  {idx < TRACKER_STAGES.length - 1 && (
                     <div
                       className={`h-0.5 flex-1 mx-1 mt-4 flex-shrink ${
-                        stage.id < currentStage ? 'bg-lime' : 'bg-gray-200'
+                        stage.id < displayStage ? 'bg-lime' : 'bg-gray-200'
                       }`}
                     />
                   )}
