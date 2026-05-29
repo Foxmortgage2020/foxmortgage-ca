@@ -943,6 +943,7 @@ const FP_DEAL_FIELDS = [
   'Postal_Code',
   'Country',
   'LTV',
+  'Finmo_Calculated_LTV',
   'Total_Loan_Amount',
   'Purchase_Price_Value',
   'Maturity_Date',
@@ -987,6 +988,7 @@ export interface FPClient {
   lastActivity: string | null
   nextReviewDate: string | null
   savingsIdentified: string | null
+  finmoCalculatedLtv: number | null
   ltv: number | null
   totalLoanAmount: number | null
   purchasePriceValue: number | null
@@ -1075,6 +1077,7 @@ function normalizeFPClient(r: any): FPClient {
     nextReviewDate: null,
     savingsIdentified: null,
     ltv: r.LTV != null ? Number(r.LTV) : null,
+    finmoCalculatedLtv: r.Finmo_Calculated_LTV != null ? Number(r.Finmo_Calculated_LTV) : null,
     totalLoanAmount: r.Total_Loan_Amount != null ? Number(r.Total_Loan_Amount) : null,
     purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
     maturityDate: r.Maturity_Date ?? null,
@@ -1528,6 +1531,7 @@ const REALTOR_DEAL_FIELDS = [
   'Postal_Code',
   'Country',
   'LTV',
+  'Finmo_Calculated_LTV',
   'Total_Loan_Amount',
   'Purchase_Price_Value',
   'Maturity_Date',
@@ -1574,6 +1578,7 @@ export interface RealtorClient {
   lastActivity: string | null
   nextReviewDate: string | null
   savingsIdentified: string | null
+  finmoCalculatedLtv: number | null
   ltv: number | null
   totalLoanAmount: number | null
   purchasePriceValue: number | null
@@ -1656,6 +1661,7 @@ function normalizeRealtorClient(r: any): RealtorClient {
     nextReviewDate: null,
     savingsIdentified: null,
     ltv: r.LTV != null ? Number(r.LTV) : null,
+    finmoCalculatedLtv: r.Finmo_Calculated_LTV != null ? Number(r.Finmo_Calculated_LTV) : null,
     totalLoanAmount: r.Total_Loan_Amount != null ? Number(r.Total_Loan_Amount) : null,
     purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
     realtorId: typeof r.Realtor === 'object' ? (r.Realtor?.id ?? null) : null,
@@ -2045,6 +2051,7 @@ const LAWYER_DEAL_FIELDS = [
   'Postal_Code',
   'Country',
   'LTV',
+  'Finmo_Calculated_LTV',
   'Total_Loan_Amount',
   'Purchase_Price_Value',
   'Maturity_Date',
@@ -2090,6 +2097,7 @@ export interface LawyerClient {
   lastActivity: string | null
   nextReviewDate: string | null
   savingsIdentified: string | null
+  finmoCalculatedLtv: number | null
   ltv: number | null
   totalLoanAmount: number | null
   purchasePriceValue: number | null
@@ -2169,6 +2177,7 @@ function normalizeLawyerClient(r: any): LawyerClient {
     nextReviewDate: null,
     savingsIdentified: null,
     ltv: r.LTV != null ? Number(r.LTV) : null,
+    finmoCalculatedLtv: r.Finmo_Calculated_LTV != null ? Number(r.Finmo_Calculated_LTV) : null,
     totalLoanAmount: r.Total_Loan_Amount != null ? Number(r.Total_Loan_Amount) : null,
     purchasePriceValue: r.Purchase_Price_Value != null ? Number(r.Purchase_Price_Value) : null,
     lawyerId: typeof r.Lawyer === 'object' ? (r.Lawyer?.id ?? null) : null,

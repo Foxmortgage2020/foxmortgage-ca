@@ -152,21 +152,22 @@ function daysBetween(fromIso: string | null | undefined, toIso: string | null | 
   }
 }
 
-// LTV is shown consistently on every file. Prefer the lender's stored LTV
-// (balance ÷ value) — Zoho stores it as a fraction (0.66), so normalize to a
-// percent. When it's absent (common on purchase files), fall back to
-// loan ÷ purchase price. Always ×100 and rounded; never a bare ratio.
-function computeLtv(c: ClientDetail): { pct: number; basis: string } | null {
-  if (c.ltv != null && c.ltv > 0) {
-    const pct = c.ltv <= 1.5 ? c.ltv * 100 : c.ltv
-    if (pct > 0 && pct < 250) return { pct: Math.round(pct), basis: 'balance ÷ value' }
+// LTV shown on every file comes straight from Finmo's calculated value as
+// synced into Zoho (Finmo_Calculated_LTV), already expressed as a percent
+// (e.g. 94.55 → "94.55%") — so render it as-is, never ×100. We deliberately do
+// NOT compute LTV from loan ÷ purchase price: on insured deals the loan amount
+// includes the rolled-in insurance premium, which inflates the ratio to a false
+// ~98–99%. Fallback order: Finmo's percent, then the manual LTV field (stored
+// as a fraction like 0.66, so normalize), else hide the line entirely.
+function formatLtv(c: ClientDetail): string | null {
+  let pct: number | null = null
+  if (c.finmoCalculatedLtv != null && c.finmoCalculatedLtv > 0) {
+    pct = c.finmoCalculatedLtv               // already a percent — do NOT ×100
+  } else if (c.ltv != null && c.ltv > 0) {
+    pct = c.ltv <= 1.5 ? c.ltv * 100 : c.ltv // manual fallback; fraction → percent
   }
-  const loan = c.totalLoanAmount ?? c.amount
-  if (loan != null && loan > 0 && c.purchasePriceValue != null && c.purchasePriceValue > 0) {
-    const pct = (loan / c.purchasePriceValue) * 100
-    if (pct > 0 && pct < 250) return { pct: Math.round(pct), basis: 'loan ÷ purchase price' }
-  }
-  return null
+  if (pct == null || pct <= 0) return null
+  return `${parseFloat(pct.toFixed(2))}%`    // ≤2 decimals, trailing zeros trimmed
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -206,6 +207,7 @@ interface ClientDetail {
   maturityDate: string | null
   nextReviewDate: string | null
   savingsIdentified: string | null
+  finmoCalculatedLtv: number | null
   ltv: number | null
   totalLoanAmount: number | null
   purchasePriceValue: number | null
@@ -349,11 +351,11 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
   const daysToRenewal = daysBetween(todayIso, client.maturityDate)
 
   const nextStage = nextStageLabel(currentStage)
-  const ltv = computeLtv(client)
+  const ltv = formatLtv(client)
 
   // Key metrics — only include rows that have meaningful data
   const metrics: { label: string; value: string; hint?: string }[] = []
-  if (ltv) metrics.push({ label: 'LTV', value: ltv.pct + '%', hint: ltv.basis })
+  if (ltv) metrics.push({ label: 'LTV', value: ltv })
   if (client.totalLoanAmount != null && client.totalLoanAmount > 0) {
     metrics.push({ label: 'Total Loan Amount', value: formatAmount(client.totalLoanAmount) })
   }
