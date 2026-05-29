@@ -2418,6 +2418,16 @@ export interface AdminFundedByYear {
   count: number               // funded deal count for that year
 }
 
+// Forward-looking pipeline for the current calendar year only. Feeds the
+// light-blue segment stacked on top of the current-year funded bar. Kept
+// strictly separate from fundedVolume/fundedByYear so it NEVER inflates the
+// all-time or per-year funded actuals — it surfaces solely on that one bar.
+export interface AdminPipelineSummary {
+  year: number                // calendar year this pipeline applies to (Toronto "now")
+  volume: number              // sum of Amount for active-funnel deals (see PIPELINE_STAGES)
+  count: number               // active-funnel deal count
+}
+
 export interface AdminDealMetrics {
   fundedVolume: number        // sum of Amount over funded deals (dollars)
   fundedCount: number
@@ -2428,6 +2438,7 @@ export interface AdminDealMetrics {
   attributionPct: number      // rounded whole percent of total
   recentReferrals: AdminRecentReferral[]
   fundedByYear: AdminFundedByYear[]  // funded volume/count per close-year, ascending
+  currentYearPipeline: AdminPipelineSummary  // current-year active funnel (chart segment only)
 }
 
 export interface AdminDashboardPayload {
@@ -2459,6 +2470,18 @@ const IN_PROGRESS_STAGES = new Set([
   'conditionally approved',
   'options',
   'pending',
+])
+
+// Active-funnel stages that count toward the current-year *pipeline* segment
+// on the volume-by-year chart. A deliberate SUBSET of IN_PROGRESS_STAGES: the
+// legacy 'options'/'pending' (and 'closed') stages are excluded so retired
+// funnel states don't inflate forward-looking potential. Funded, lost,
+// cancelled, and archived deals are likewise out (only these four count in).
+const PIPELINE_STAGES = new Set([
+  'application started',
+  'collecting documentation',
+  'conditionally approved',
+  'qualification',
 ])
 
 // Minutes the given instant is offset from UTC in the target zone (negative
@@ -2565,12 +2588,19 @@ function closingYear(raw: any): number | null {
 // Compute every deal-derived tile from one pull. now is injectable for tests.
 function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDealMetrics {
   const monthStart = new Date(startOfCurrentMonthToronto(now)).getTime()
+  // Current calendar year in Toronto — matches the close-year buckets (which
+  // parse the literal Y-M-D) and the admin's browser-local "current year".
+  const currentYear = Number(
+    new Intl.DateTimeFormat('en-CA', { timeZone: ADMIN_DASHBOARD_TZ, year: 'numeric' }).format(now),
+  )
 
   let fundedVolume = 0
   let fundedCount = 0
   let inProgress = 0
   let totalReferrals = 0
   let referralsThisMonth = 0
+  let pipelineVolume = 0
+  let pipelineCount = 0
   const referredDeals: any[] = []
   // year -> running funded volume/count, bucketed on Closing_Date.
   const byYear = new Map<number, { volume: number; count: number }>()
@@ -2590,6 +2620,18 @@ function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDea
       }
     }
     if (IN_PROGRESS_STAGES.has(stage)) inProgress += 1
+
+    // Current-year pipeline: active-funnel stages whose Closing_Date falls in
+    // the current year OR is not yet set (null/unparseable → undated active
+    // deal). Funded/lost/cancelled/archived/legacy stages are already excluded
+    // by PIPELINE_STAGES. This feeds ONLY the chart's stacked segment.
+    if (PIPELINE_STAGES.has(stage)) {
+      const yr = closingYear(d.Closing_Date)
+      if (yr === null || yr === currentYear) {
+        pipelineVolume += Number(d.Amount) || 0
+        pipelineCount += 1
+      }
+    }
 
     if (d.Referral_Partner != null) {
       totalReferrals += 1
@@ -2625,6 +2667,7 @@ function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDea
     attributionPct,
     recentReferrals,
     fundedByYear,
+    currentYearPipeline: { year: currentYear, volume: pipelineVolume, count: pipelineCount },
   }
 }
 

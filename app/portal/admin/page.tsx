@@ -54,6 +54,7 @@ type DealMetrics = {
   attributionPct: number;
   recentReferrals: RecentReferral[];
   fundedByYear: FundedYear[];
+  currentYearPipeline: { year: number; volume: number; count: number };
 };
 
 type AdminDashboard = {
@@ -106,6 +107,9 @@ const NAVY = '#032133';
 const LIME = '#95D600';
 // Partial (current/YTD) year bar — a faded lime so it never reads as a decline.
 const LIME_FADED = '#CFEB95';
+// Current-year pipeline segment, stacked above funded. Light blue reads as
+// "forward-looking / not yet booked" against the lime funded actuals.
+const PIPELINE_BLUE = '#6BB1E8';
 
 // First calendar year with funded production. Bars run from here to the
 // current year; also the fallback when the deal pull is unavailable.
@@ -133,21 +137,44 @@ type ChartYear = {
   volume: number;
   count: number;
   isCurrent: boolean;
+  // Current-year only: forward-looking pipeline stacked above funded. null on
+  // every prior year so Recharts draws no segment there.
+  pipeline: number | null;
+  pipelineCount: number;
 };
 
-// Tooltip for the by-year bars: year, full funded volume, funded count.
+// Tooltip for the by-year bars. Prior years: funded volume + count. Current
+// year: funded, pipeline, and a combined "Potential" total (funded + pipeline).
 function VolumeTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0].payload as ChartYear;
+  const hasPipeline = d.isCurrent && (d.pipeline ?? 0) > 0;
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2">
       <p className="font-heading text-navy text-sm font-bold">
         {d.isCurrent ? `${d.year} (YTD)` : d.year}
       </p>
-      <p className="font-body text-xs text-gray-600 mt-0.5">{moneyFull(d.volume)}</p>
-      <p className="font-body text-xs text-gray-400">
-        {d.count} funded {d.count === 1 ? 'deal' : 'deals'}
+      <p className="font-body text-xs text-gray-600 mt-1 flex items-center gap-1.5">
+        <span className="inline-block w-2 h-2 rounded-sm" style={{ background: LIME }} />
+        Funded {moneyFull(d.volume)}
+        <span className="text-gray-400">
+          ({d.count} {d.count === 1 ? 'deal' : 'deals'})
+        </span>
       </p>
+      {hasPipeline && (
+        <>
+          <p className="font-body text-xs text-gray-600 mt-0.5 flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-sm" style={{ background: PIPELINE_BLUE }} />
+            Pipeline {moneyFull(d.pipeline)}
+            <span className="text-gray-400">
+              ({d.pipelineCount} {d.pipelineCount === 1 ? 'deal' : 'deals'})
+            </span>
+          </p>
+          <p className="font-heading text-navy text-xs font-bold mt-1 pt-1 border-t border-gray-100">
+            Potential {moneyFull(d.volume + (d.pipeline ?? 0))}
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -263,15 +290,24 @@ export default function AdminDashboard() {
 
   // One bar per calendar year, first funded year → current year. Years with no
   // funded deals fill in at zero so the axis reads continuously.
+  //
+  // Pipeline is stacked above funded on the current-year bar ONLY. It's keyed
+  // to the backend's pipeline year (Toronto "now") rather than the browser
+  // year, so a New-Year's-Eve tz skew can't land it on the wrong column; all
+  // other years carry pipeline:null so Recharts draws no segment.
+  const pipeline = deals?.currentYearPipeline ?? null;
   const byYearMap = new Map(byYear.map((y) => [y.year, y]));
   const chartData: ChartYear[] = [];
   for (let y = firstFundedYear; y <= currentYear; y++) {
     const rec = byYearMap.get(y);
+    const isPipelineYear = pipeline != null && y === pipeline.year;
     chartData.push({
       year: String(y),
       volume: rec?.volume ?? 0,
       count: rec?.count ?? 0,
       isCurrent: y === currentYear,
+      pipeline: isPipelineYear && pipeline.volume > 0 ? pipeline.volume : null,
+      pipelineCount: isPipelineYear ? pipeline.count : 0,
     });
   }
 
@@ -597,7 +633,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-heading text-navy font-bold text-lg">Funded Volume by Year</h3>
             <span className="text-xs text-gray-400 font-body">
-              Actuals &middot; {firstFundedYear}&ndash;{currentYear}
+              Actuals + current pipeline &middot; {firstFundedYear}&ndash;{currentYear}
             </span>
           </div>
           <div className="w-full" style={{ height: 320 }}>
@@ -605,7 +641,7 @@ export default function AdminDashboard() {
               <div className="flex h-full items-center justify-center text-sm text-gray-400">
                 Loading&hellip;
               </div>
-            ) : chartData.every((d) => d.volume === 0) ? (
+            ) : chartData.every((d) => d.volume === 0 && !d.pipeline) ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-400">
                 No funded deals yet.
               </div>
@@ -628,11 +664,23 @@ export default function AdminDashboard() {
                     width={56}
                   />
                   <Tooltip content={<VolumeTooltip />} cursor={{ fill: 'rgba(3,33,51,0.04)' }} />
-                  <Bar dataKey="volume" radius={[6, 6, 0, 0]} maxBarSize={64} isAnimationActive={false}>
+                  {/* Funded actuals — bottom of the stack. Faded lime for the
+                      current (partial) year, solid lime for complete years. */}
+                  <Bar dataKey="volume" stackId="vol" radius={[6, 6, 0, 0]} maxBarSize={64} isAnimationActive={false}>
                     {chartData.map((d) => (
                       <Cell key={d.year} fill={d.isCurrent ? LIME_FADED : LIME} />
                     ))}
                   </Bar>
+                  {/* Current-year pipeline — stacked above funded (shared stackId).
+                      null on every prior year, so it shows only on the current bar. */}
+                  <Bar
+                    dataKey="pipeline"
+                    stackId="vol"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={64}
+                    fill={PIPELINE_BLUE}
+                    isAnimationActive={false}
+                  />
                   {avgComplete > 0 && (
                     <ReferenceLine y={avgComplete} stroke={NAVY} strokeOpacity={0.55} strokeDasharray="5 4">
                       <Label
