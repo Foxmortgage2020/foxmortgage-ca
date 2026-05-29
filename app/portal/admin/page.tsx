@@ -17,7 +17,6 @@ import {
 import {
   BarChart,
   Bar,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -105,11 +104,10 @@ const stageColor = (stage: string): string => {
 // Brand palette (tailwind: navy / lime).
 const NAVY = '#032133';
 const LIME = '#95D600';
-// Partial (current/YTD) year bar — a faded lime so it never reads as a decline.
-const LIME_FADED = '#CFEB95';
-// Current-year pipeline segment, stacked above funded. Light blue reads as
-// "forward-looking / not yet booked" against the lime funded actuals.
-const PIPELINE_BLUE = '#6BB1E8';
+// Current-year pipeline segment, stacked above funded. Brand navy at reduced
+// opacity reads as the lighter "in progress / not yet booked" treatment. Funded
+// stays solid lime in every year (closed deals are firm — never faded).
+const PIPELINE_FILL = 'rgba(3,33,51,0.6)';
 
 // First calendar year with funded production. Bars run from here to the
 // current year; also the fallback when the deal pull is unavailable.
@@ -143,6 +141,42 @@ type ChartYear = {
   pipelineCount: number;
 };
 
+// Rounded-top rectangle: rounded top-left/top-right corners (radius r), square
+// bottom. r=0 yields a plain rect. Drives the stacked-bar shapes so only the
+// very top of the whole stack is rounded.
+function topRoundedRectPath(x: number, y: number, width: number, height: number, r: number): string {
+  const rr = Math.max(0, Math.min(r, width / 2, height));
+  if (rr === 0) {
+    return `M${x},${y} h${width} v${height} h${-width} Z`;
+  }
+  return (
+    `M${x},${y + rr} ` +
+    `a${rr},${rr} 0 0 1 ${rr},${-rr} ` +
+    `h${width - 2 * rr} ` +
+    `a${rr},${rr} 0 0 1 ${rr},${rr} ` +
+    `v${height - rr} h${-width} Z`
+  );
+}
+
+// Funded (lower) segment — solid lime in every year. Rounded top ONLY when it
+// is the top of the stack (prior years, no pipeline above); flat when pipeline
+// stacks above (current year), so green flows straight into the pipeline colour
+// with no rounded cap mid-bar. Fill-only path → no border between segments.
+function FundedBar(props: any) {
+  const { x, y, width, height, payload } = props;
+  if (!(height > 0) || !(width > 0)) return null;
+  const hasPipelineAbove = (payload?.pipeline ?? null) !== null && payload.pipeline > 0;
+  return <path d={topRoundedRectPath(x, y, width, height, hasPipelineAbove ? 0 : 6)} fill={LIME} />;
+}
+
+// Pipeline (upper) segment — current year only, always the very top of the
+// stack, so it carries the rounded top. Brand navy at reduced opacity, no border.
+function PipelineBar(props: any) {
+  const { x, y, width, height } = props;
+  if (!(height > 0) || !(width > 0)) return null;
+  return <path d={topRoundedRectPath(x, y, width, height, 6)} fill={PIPELINE_FILL} />;
+}
+
 // Tooltip for the by-year bars. Prior years: funded volume + count. Current
 // year: funded, pipeline, and a combined "Potential" total (funded + pipeline).
 function VolumeTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
@@ -164,7 +198,7 @@ function VolumeTooltip({ active, payload }: { active?: boolean; payload?: any[] 
       {hasPipeline && (
         <>
           <p className="font-body text-xs text-gray-600 mt-0.5 flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-sm" style={{ background: PIPELINE_BLUE }} />
+            <span className="inline-block w-2 h-2 rounded-sm" style={{ background: PIPELINE_FILL }} />
             Pipeline {moneyFull(d.pipeline)}
             <span className="text-gray-400">
               ({d.pipelineCount} {d.pipelineCount === 1 ? 'deal' : 'deals'})
@@ -664,23 +698,15 @@ export default function AdminDashboard() {
                     width={56}
                   />
                   <Tooltip content={<VolumeTooltip />} cursor={{ fill: 'rgba(3,33,51,0.04)' }} />
-                  {/* Funded actuals — bottom of the stack. Faded lime for the
-                      current (partial) year, solid lime for complete years. */}
-                  <Bar dataKey="volume" stackId="vol" radius={[6, 6, 0, 0]} maxBarSize={64} isAnimationActive={false}>
-                    {chartData.map((d) => (
-                      <Cell key={d.year} fill={d.isCurrent ? LIME_FADED : LIME} />
-                    ))}
-                  </Bar>
-                  {/* Current-year pipeline — stacked above funded (shared stackId).
-                      null on every prior year, so it shows only on the current bar. */}
-                  <Bar
-                    dataKey="pipeline"
-                    stackId="vol"
-                    radius={[6, 6, 0, 0]}
-                    maxBarSize={64}
-                    fill={PIPELINE_BLUE}
-                    isAnimationActive={false}
-                  />
+                  {/* Funded actuals — solid lime in every year, bottom of the
+                      stack. Custom shape rounds the top only when there's no
+                      pipeline above (prior years); flat under the current-year
+                      pipeline so the stack reads as one continuous bar. */}
+                  <Bar dataKey="volume" stackId="vol" maxBarSize={64} isAnimationActive={false} shape={<FundedBar />} />
+                  {/* Current-year pipeline — brand navy at reduced opacity,
+                      stacked above funded (shared stackId). null on prior years,
+                      so it shows only on the current bar; carries the rounded top. */}
+                  <Bar dataKey="pipeline" stackId="vol" maxBarSize={64} isAnimationActive={false} shape={<PipelineBar />} />
                   {avgComplete > 0 && (
                     <ReferenceLine y={avgComplete} stroke={NAVY} strokeOpacity={0.55} strokeDasharray="5 4">
                       <Label
