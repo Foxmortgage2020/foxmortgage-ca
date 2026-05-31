@@ -11,6 +11,16 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Public demo portal must never be indexed (sandboxed sample data).
+        source: '/demo/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
     ];
   },
 };
