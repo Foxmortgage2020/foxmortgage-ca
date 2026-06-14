@@ -19,6 +19,11 @@ const TOOLS: { title: string; description: string; href: string }[] = [
     href: '/tools/purchase-calculator',
   },
   {
+    title: 'Purchase Compare',
+    description: 'Compare two to four purchase options side by side on payment, interest, debt service, and cash to close.',
+    href: '/tools/purchase-compare',
+  },
+  {
     title: 'Refinance Analyzer',
     description: 'Compare your current mortgage against a refinance, including penalty and break-even.',
     href: '/refinance',

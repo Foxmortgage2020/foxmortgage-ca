@@ -13,11 +13,13 @@ import {
 
 import {
   computeLandTransfer,
+  foreignBuyerSurcharge,
   pstRateOnInsurance,
   sumAncillary,
   type Ancillary,
   type Location,
   type LttResult,
+  type SurchargeLine,
 } from './land-transfer-engine';
 
 // 5% on the first $500k, 10% on $500k to $1.5M, 20% at $1.5M and up (uninsurable above $1.5M).
@@ -52,6 +54,7 @@ export interface PurchaseInput {
   paymentIncrease: number; // pay-faster: extra dollars per scheduled payment (0 if off)
   ftb: boolean;
   newBuild: boolean;
+  foreignBuyer: boolean;   // non-resident speculation tax surcharge at closing
   // home expenses (monthly)
   propertyTaxMonthly: number;
   condoMonthly: number;
@@ -77,14 +80,16 @@ export interface PurchaseResult {
   balanceEndOfTerm: number;
   totalMonthlyCost: number;   // payment-as-monthly + expenses, less rental if applied
   landTransfer: LttResult;
+  surchargeLines: SurchargeLine[]; // foreign-buyer surcharge, empty when off
+  surchargeTotal: number;
   pstOnPremium: number;
   ancillaryTotal: number;
-  totalEstimatedCost: number; // landTransfer.total + pstOnPremium + ancillaryTotal
+  totalEstimatedCost: number; // landTransfer.total + surchargeTotal + pstOnPremium + ancillaryTotal
   warnings: string[];
 }
 
 export function computePurchase(input: PurchaseInput): PurchaseResult {
-  const { price, downPayment, location, rate, amortYears, amortMonths, termYears, frequency, ftb, newBuild } = input;
+  const { price, downPayment, location, rate, amortYears, amortMonths, termYears, frequency, ftb, newBuild, foreignBuyer } = input;
   const warnings: string[] = [];
 
   const minimumDown = minimumDownPayment(price);
@@ -148,9 +153,13 @@ export function computePurchase(input: PurchaseInput): PurchaseResult {
   const totalMonthlyCost = monthlyEquivalent + expenses - (input.applyRental ? input.rentalIncomeMonthly : 0);
 
   const landTransfer = computeLandTransfer(location, price, insuredMortgage, ftb, newBuild);
+  // Foreign-buyer surcharge is payable at closing and never financed, so it adds to the
+  // closing total like PST does, not to the mortgage amount.
+  const surchargeLines = foreignBuyerSurcharge(location, price, foreignBuyer);
+  const surchargeTotal = surchargeLines.reduce((s, l) => s + l.amount, 0);
   const pstOnPremium = insured ? premium * pstRateOnInsurance(location) : 0;
   const ancillaryTotal = sumAncillary(input.ancillary);
-  const totalEstimatedCost = landTransfer.total + pstOnPremium + ancillaryTotal;
+  const totalEstimatedCost = landTransfer.total + surchargeTotal + pstOnPremium + ancillaryTotal;
 
   return {
     minimumDown,
@@ -167,6 +176,8 @@ export function computePurchase(input: PurchaseInput): PurchaseResult {
     balanceEndOfTerm,
     totalMonthlyCost,
     landTransfer,
+    surchargeLines,
+    surchargeTotal,
     pstOnPremium,
     ancillaryTotal,
     totalEstimatedCost,

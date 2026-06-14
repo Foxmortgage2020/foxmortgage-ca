@@ -61,6 +61,7 @@ export default function PurchaseCalculator() {
   const [frequency, setFrequency] = useState<Frequency>('monthly')
   const [ftb, setFtb] = useState(false)
   const [newBuild, setNewBuild] = useState(false)
+  const [foreignBuyer, setForeignBuyer] = useState(false)
 
   /* Mortgage */
   const [rate, setRate] = useState('6.29')
@@ -103,6 +104,7 @@ export default function PurchaseCalculator() {
       paymentIncrease: payFaster ? num(paymentIncrease) : 0,
       ftb,
       newBuild,
+      foreignBuyer,
       propertyTaxMonthly: num(propertyTax),
       condoMonthly: num(condo),
       heatMonthly: num(heat),
@@ -122,7 +124,7 @@ export default function PurchaseCalculator() {
     }),
     [
       price, downPayment, location, rate, amortYears, amortMonthsSel, termYears, frequency,
-      payFaster, paymentIncrease, ftb, newBuild, propertyTax, condo, heat, other, rentalIncome,
+      payFaster, paymentIncrease, ftb, newBuild, foreignBuyer, propertyTax, condo, heat, other, rentalIncome,
       applyRental, appraisal, inspection, legal, title, moving, adjustments, lenderFee, brokerageFee,
     ],
   )
@@ -196,7 +198,14 @@ export default function PurchaseCalculator() {
               </Field>
               <Checkbox checked={ftb} onChange={setFtb} label="First time buyer" />
               <Checkbox checked={newBuild} onChange={setNewBuild} label="Newly built home" />
+              <Checkbox checked={foreignBuyer} onChange={setForeignBuyer} label="Foreign buyer / non-resident" />
             </div>
+            {foreignBuyer && (
+              <p className="font-body text-xs text-gray-500 mt-3 leading-relaxed">
+                A federal ban on non-Canadian buyers is also in effect through 2026, with exceptions. This
+                estimate covers the provincial surcharge only.
+              </p>
+            )}
           </Card>
 
           {/* Mortgage */}
@@ -350,6 +359,9 @@ export default function PurchaseCalculator() {
                   <Row label="Land Transfer" value={fmtMoney2(result.landTransfer.total)} bold />
                   {result.landTransfer.lines.map((line, idx) => (
                     <Row key={idx} label={line.label} value={signedMoney2(line.amount)} indent />
+                  ))}
+                  {result.surchargeLines.map((line, idx) => (
+                    <Row key={`s${idx}`} label={line.label} value={signedMoney2(line.amount)} indent />
                   ))}
                   {result.pstOnPremium > 0 && (
                     <Row label="PST on Mortgage Insurance" value={fmtMoney2(result.pstOnPremium)} />

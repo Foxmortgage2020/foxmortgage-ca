@@ -106,3 +106,19 @@ export interface Ancillary {
 export function sumAncillary(a: Ancillary): number {
   return a.appraisal + a.inspection + a.legal + a.title + a.moving + a.adjustments + a.lenderFee + a.brokerageFee;
 }
+
+// Foreign-buyer surcharge (Non-Resident Speculation Tax). Payable at closing, not financed.
+// Ontario 25% province-wide, plus Toronto municipal 10%. BC 20%, which in reality applies only
+// in designated regions; the location selector has no sub-regions, so it is applied province-wide.
+// Other provinces have no foreign-buyer land transfer surcharge in this tool.
+export interface SurchargeLine { label: string; amount: number; }
+export function foreignBuyerSurcharge(loc: Location, price: number, foreignBuyer: boolean): SurchargeLine[] {
+  if (!foreignBuyer) return [];
+  if (loc === 'on' || loc === 'on-toronto') {
+    const lines: SurchargeLine[] = [{ label: 'Ontario non-resident speculation tax (25%)', amount: price * 0.25 }];
+    if (loc === 'on-toronto') lines.push({ label: 'Toronto municipal NRST (10%)', amount: price * 0.10 });
+    return lines;
+  }
+  if (loc === 'bc') return [{ label: 'BC additional property transfer tax (20%)', amount: price * 0.20 }];
+  return [];
+}
