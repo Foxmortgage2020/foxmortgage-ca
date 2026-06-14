@@ -7,7 +7,8 @@ import {
   calculateFixed,
   calculateVariable,
   type PenaltyResult,
-} from './calculations'
+} from '@/lib/penalty-engine'
+import { fetchBoCRate } from '@/lib/boc-rate'
 
 type MortgageType = 'fixed' | 'variable' | 'adjustable'
 type LookupTone = 'success' | 'error' | 'info'
@@ -21,25 +22,6 @@ const fmtCurrency = (n: number) =>
 
 const fmtPct = (n: number) =>
   (n >= 0 ? '' : '−') + Math.abs(n).toFixed(2) + '%'
-
-async function fetchBoCRate(targetDate: string): Promise<{ rate: number; date: string } | null> {
-  const d = new Date(targetDate)
-  const start = new Date(d); start.setDate(start.getDate() - 14)
-  const end = new Date(d); end.setDate(end.getDate() + 14)
-  const fmtDate = (x: Date) => x.toISOString().slice(0, 10)
-  const url = `https://www.bankofcanada.ca/valet/observations/V80691335/json?start_date=${fmtDate(start)}&end_date=${fmtDate(end)}`
-  const res = await fetch(url)
-  const data = await res.json()
-  const obs = (data?.observations ?? []) as Array<{ d: string; V80691335: { v: string } }>
-  if (obs.length === 0) return null
-  let closest = obs[0]
-  let minDiff = Math.abs(new Date(obs[0].d).getTime() - d.getTime())
-  for (const o of obs) {
-    const diff = Math.abs(new Date(o.d).getTime() - d.getTime())
-    if (diff < minDiff) { minDiff = diff; closest = o }
-  }
-  return { rate: parseFloat(closest.V80691335.v), date: closest.d }
-}
 
 export default function PenaltyCalculator() {
   const lenders = useMemo(() => getActiveLenders(), [])
