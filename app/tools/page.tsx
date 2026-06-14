@@ -23,6 +23,26 @@ const TOOLS: { title: string; description: string; href: string }[] = [
     description: 'Compare your current mortgage against a refinance, including penalty and break-even.',
     href: '/refinance',
   },
+  {
+    title: 'Debt Service',
+    description: 'See your GDS and TDS ratios against the stress test for a given mortgage and income.',
+    href: '/tools/debt-service',
+  },
+  {
+    title: 'Maximum Mortgage',
+    description: 'Find the largest mortgage your income supports under the stress test.',
+    href: '/tools/maximum-mortgage',
+  },
+  {
+    title: 'Required Income',
+    description: 'Find the income needed to carry a given mortgage under the stress test.',
+    href: '/tools/required-income',
+  },
+  {
+    title: 'Prepayment Penalty',
+    description: 'Estimate the cost to break your mortgage early, the greater of three months interest or the interest rate differential.',
+    href: '/tools/prepayment-penalty',
+  },
 ]
 
 export default function ToolsPage() {
