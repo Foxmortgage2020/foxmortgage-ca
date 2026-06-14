@@ -1,12 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { getActiveLenders } from '@/lib/lenders'
 import { fetchBoCRate } from '@/lib/boc-rate'
 import {
   analyzeRefinance,
   calculatePenalty,
   monthlyPayment,
+  type Debt,
   type RefiRateType,
 } from '@/lib/refinance-engine'
 
@@ -43,6 +44,14 @@ const inputClass =
 type PenaltyMode = 'manual' | 'estimate'
 type LookupTone = 'success' | 'error' | 'info'
 type LookupNote = { msg: string; tone: LookupTone }
+type DebtRow = {
+  id: string
+  label: string
+  balance: string
+  rate: string
+  payment: string
+  consolidate: boolean
+}
 
 export default function RefinanceAnalyzer() {
   const lenders = useMemo(() => getActiveLenders(), [])
@@ -70,6 +79,18 @@ export default function RefinanceAnalyzer() {
   const [otherCosts, setOtherCosts] = useState('0')
   const [lenderCredit, setLenderCredit] = useState('0')
   const [rollIntoMortgage, setRollIntoMortgage] = useState(false)
+
+  /* Current debts (optional, additive). */
+  const idRef = useRef(0)
+  const [debts, setDebts] = useState<DebtRow[]>([])
+  const addDebt = () =>
+    setDebts((prev) => [
+      ...prev,
+      { id: 'd' + ++idRef.current, label: '', balance: '', rate: '', payment: '', consolidate: true },
+    ])
+  const removeDebt = (id: string) => setDebts((prev) => prev.filter((d) => d.id !== id))
+  const updateDebt = (id: string, patch: Partial<DebtRow>) =>
+    setDebts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)))
 
   /* Penalty. */
   const [penaltyMode, setPenaltyMode] = useState<PenaltyMode>('manual')
@@ -112,6 +133,19 @@ export default function RefinanceAnalyzer() {
   const penaltyValue =
     penaltyMode === 'manual' ? num(manualPenalty) : penaltyEstimate?.totalPenalty ?? 0
 
+  const debtPayload = useMemo<Debt[]>(
+    () =>
+      debts.map((d) => ({
+        id: d.id,
+        label: d.label,
+        balance: num(d.balance),
+        rate: num(d.rate),
+        payment: num(d.payment),
+        consolidate: d.consolidate,
+      })),
+    [debts],
+  )
+
   const result = useMemo(
     () =>
       analyzeRefinance({
@@ -133,16 +167,15 @@ export default function RefinanceAnalyzer() {
         otherCosts: num(otherCosts),
         lenderCredit: num(lenderCredit),
         rollIntoMortgage,
+        debts: debtPayload,
       }),
     [
       propertyValueN, currentBalanceN, currentRate, currentRateType, effectiveCurrentPayment,
       currentAmortMonths, newRate, newRateType, newAmortMonths, termMonths, equityTakeout,
       penaltyValue, legalFee, dischargeFee, appraisalFee, otherCosts, lenderCredit, rollIntoMortgage,
+      debtPayload,
     ],
   )
-
-  const saving = result.monthlySaving
-  const isWin = saving > 0
 
   /* ---------- BoC lookups (estimate mode) ---------- */
 
@@ -203,7 +236,7 @@ export default function RefinanceAnalyzer() {
       </div>
 
       {/* ===== Results summary ===== */}
-      <ResultsSummary result={result} isWin={isWin} />
+      <ResultsSummary result={result} />
 
       {/* ===== Inputs (hidden when printing the client report) ===== */}
       <div className="print:hidden space-y-6">
@@ -494,7 +527,17 @@ export default function RefinanceAnalyzer() {
             <MiniStat label="Rolled into mortgage" value={money0(result.financedCosts)} />
           </div>
         </Card>
+
+        {/* Current Debts */}
+        <Card title="Current debts" subtitle="Add high-interest debts to find what folding them in does.">
+          <DebtsPanel debts={debts} addDebt={addDebt} removeDebt={removeDebt} updateDebt={updateDebt} />
+        </Card>
       </div>
+
+      {/* ===== Consolidation results + honest caveat (shown in the report too) ===== */}
+      {result.consolidation?.hasConsolidation && (
+        <ConsolidationResults result={result} />
+      )}
 
       {/* ===== Break-even chart ===== */}
       <Card title="When you break even" subtitle="The month your savings pay back the cost.">
@@ -557,13 +600,10 @@ export default function RefinanceAnalyzer() {
 
 /* ---------- result blocks ---------- */
 
-function ResultsSummary({
-  result,
-  isWin,
-}: {
-  result: ReturnType<typeof analyzeRefinance>
-  isWin: boolean
-}) {
+function ResultsSummary({ result }: { result: ReturnType<typeof analyzeRefinance> }) {
+  const consolidating = !!result.consolidation?.hasConsolidation
+  const eff = result.effectiveMonthlySaving
+  const isWin = eff > 0
   return (
     <div className="rounded-2xl border-2 border-[#032133] bg-[#032133] p-6">
       <div className="font-body text-xs uppercase tracking-wider text-[#95D600] font-medium mb-4">
@@ -571,17 +611,26 @@ function ResultsSummary({
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         <SummaryStat
-          label={isWin ? 'Monthly savings' : 'Monthly increase'}
-          value={money0(Math.abs(result.monthlySaving))}
+          label={consolidating ? 'Monthly cash freed up' : isWin ? 'Monthly savings' : 'Monthly increase'}
+          value={money0(Math.abs(eff))}
           accent
         />
         <SummaryStat
           label="Break even"
           value={result.breakEvenMonths == null ? 'No break even' : monthsToYM(result.breakEvenMonths)}
         />
-        <SummaryStat label="Net benefit over term" value={signedMoney0(result.netBenefitOverTerm)} />
+        {consolidating && result.consolidation ? (
+          <SummaryStat label="Debt rolled in" value={money0(result.consolidation.consolidatedBalance)} />
+        ) : (
+          <SummaryStat label="Net benefit over term" value={signedMoney0(result.netBenefitOverTerm)} />
+        )}
         <SummaryStat label="Balance at end of term" value={money0(result.newBalanceAtTermEnd)} />
       </div>
+      {consolidating && (
+        <p className="font-body text-xs text-white/70 mt-3">
+          That&rsquo;s your mortgage payment change plus the debt payments that go away.
+        </p>
+      )}
     </div>
   )
 }
@@ -818,5 +867,146 @@ function DiffCard({ label, value, good, note }: { label: string; value: string; 
       <div className={`font-heading text-xl tabular-nums ${good ? 'text-[#032133]' : 'text-gray-700'}`}>{value}</div>
       <div className="font-body text-[11px] text-gray-500 mt-1.5 leading-snug">{note}</div>
     </div>
+  )
+}
+
+function DebtLabel({ children }: { children: React.ReactNode }) {
+  return <div className="font-body text-[11px] text-gray-500 mb-1">{children}</div>
+}
+
+function DebtsPanel({
+  debts,
+  addDebt,
+  removeDebt,
+  updateDebt,
+}: {
+  debts: DebtRow[]
+  addDebt: () => void
+  removeDebt: (id: string) => void
+  updateDebt: (id: string, patch: Partial<DebtRow>) => void
+}) {
+  return (
+    <div>
+      {debts.length === 0 ? (
+        <p className="font-body text-sm text-gray-500">No debts added.</p>
+      ) : (
+        <div className="space-y-3">
+          {debts.map((d) => (
+            <div key={d.id} className="rounded-lg border border-gray-200 p-3">
+              <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                <div className="col-span-2 sm:col-span-3">
+                  <DebtLabel>Label</DebtLabel>
+                  <input
+                    type="text"
+                    value={d.label}
+                    placeholder="Visa"
+                    onChange={(e) => updateDebt(d.id, { label: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <DebtLabel>Balance</DebtLabel>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input
+                      type="number"
+                      value={d.balance}
+                      onChange={(e) => updateDebt(d.id, { balance: e.target.value })}
+                      className={`${inputClass} pl-7`}
+                    />
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <DebtLabel>Rate</DebtLabel>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={d.rate}
+                      onChange={(e) => updateDebt(d.id, { rate: e.target.value })}
+                      className={`${inputClass} pr-7`}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <DebtLabel>Payment</DebtLabel>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input
+                      type="number"
+                      value={d.payment}
+                      onChange={(e) => updateDebt(d.id, { payment: e.target.value })}
+                      className={`${inputClass} pl-7`}
+                    />
+                  </div>
+                </div>
+                <div className="col-span-2 sm:col-span-2 flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 font-body text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={d.consolidate}
+                      onChange={(e) => updateDebt(d.id, { consolidate: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-[#032133] focus:ring-[#032133]/30"
+                    />
+                    Fold in
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => removeDebt(d.id)}
+                    aria-label="Remove debt"
+                    className="text-gray-400 hover:text-red-600 transition text-xl leading-none px-1"
+                  >
+                    &times;
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={addDebt}
+        className="mt-3 px-4 py-2 rounded-lg font-body text-sm font-medium text-[#032133] border border-[#032133]/20 hover:bg-[#032133]/5 transition"
+      >
+        + Add debt
+      </button>
+    </div>
+  )
+}
+
+function ConsolidationResults({ result }: { result: ReturnType<typeof analyzeRefinance> }) {
+  const c = result.consolidation
+  if (!c || !c.hasConsolidation) return null
+  const eff = money0(result.effectiveMonthlySaving)
+  const bal = money0(c.consolidatedBalance)
+  const delta = money0(c.lifetimeInterestDelta)
+  const longest = Math.round(c.longestStandalonePayoffMonths)
+  return (
+    <Card title="Debt consolidation" subtitle="What folding your debt into the mortgage does.">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <MiniStat label="Monthly cash freed up" value={eff} />
+        <MiniStat label="Debt rolled into mortgage" value={bal} />
+        <MiniStat label="Mortgage payment rises by" value={money0(c.mortgagePaymentIncreaseFromDebt)} />
+      </div>
+      {c.lifetimeInterestDelta > 0 ? (
+        <div className="rounded-lg border-l-4 border-[#95D600] bg-[#95D600]/10 px-4 py-3 mt-4">
+          <p className="font-body text-sm text-[#032133] leading-relaxed">
+            This frees up about {eff} a month. Keep in mind you&rsquo;re moving {bal} of debt onto the
+            mortgage. On its own it would be paid off in about {longest} months. Spreading it over the
+            full amortization adds about {delta} in interest over time, unless you keep paying that
+            amount down faster.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border-l-4 border-[#95D600] bg-[#95D600]/10 px-4 py-3 mt-4">
+          <p className="font-body text-sm text-[#032133] leading-relaxed">
+            This frees up about {eff} a month, and folding it in costs you less interest over the long
+            run, not more.
+          </p>
+        </div>
+      )}
+    </Card>
   )
 }

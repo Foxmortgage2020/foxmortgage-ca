@@ -62,6 +62,53 @@ export interface RefinanceInput {
   lenderCredit: number
   /** When true, net costs are added to the new principal instead of paid in cash. */
   rollIntoMortgage: boolean
+
+  /**
+   * Consumer debts the borrower may fold into the new mortgage. Optional and
+   * additive: when absent or empty, every output is identical to a plain
+   * refinance. Each debt carries its own Consolidate toggle.
+   */
+  debts?: Debt[]
+}
+
+/** A consumer debt that can optionally be rolled into the mortgage. */
+export interface Debt {
+  id?: string
+  label: string
+  /** Outstanding balance. */
+  balance: number
+  /** Annual rate, e.g. 19.99 */
+  rate: number
+  /** Current monthly payment the borrower makes on this debt. */
+  payment: number
+  /** When true, this debt is folded into the new mortgage. */
+  consolidate: boolean
+}
+
+/**
+ * Debt-consolidation breakdown. Two separate lenses, never added together:
+ *   - effectiveMonthlySaving is the cash-flow win (payments that go away).
+ *   - lifetimeInterestDelta is the long-run interest cost of spreading the
+ *     debt over the full amortization instead of paying it off fast.
+ */
+export interface ConsolidationResult {
+  hasConsolidation: boolean
+  /** Sum of the balances being folded in. */
+  consolidatedBalance: number
+  /** (current mortgage payment + freed debt payments) - new mortgage payment. */
+  effectiveMonthlySaving: number
+  /** How much the mortgage payment rises from folding the debt in. */
+  mortgagePaymentIncreaseFromDebt: number
+  /** Interest on the consolidated debts over the term, serviced standalone. */
+  consolidatedDebtInterestOverTerm: number
+  /** Total interest to clear those debts standalone, over their full life. */
+  standaloneInterest: number
+  /** Interest on the consolidated balance spread over the new amortization. */
+  consolidatedIntoMortgageInterest: number
+  /** Long-run interest added by consolidating (consolidated minus standalone). */
+  lifetimeInterestDelta: number
+  /** Longest standalone payoff among the consolidated debts, in months. */
+  longestStandalonePayoffMonths: number
 }
 
 export interface ScheduleRow {
@@ -82,6 +129,12 @@ export interface RefinanceResult {
   newPayment: number
   monthlyPaymentChange: number // newPayment - currentPayment (negative = lower)
   monthlySaving: number // currentPayment - newPayment (positive = saving)
+  /**
+   * Blended monthly saving used for break-even and the schedule. Equals the
+   * mortgage-only monthlySaving when no debts are consolidated; otherwise it is
+   * the mortgage change plus the debt payments that disappear.
+   */
+  effectiveMonthlySaving: number
 
   // New loan / costs
   newPrincipal: number
@@ -107,6 +160,9 @@ export interface RefinanceResult {
   payoffMonthsNewAtCurrentPayment: number
   timeToMortgageFreeSavedMonths: number
 
+  /** Debt-consolidation breakdown, or null when no debts are entered. */
+  consolidation: ConsolidationResult | null
+
   schedule: ScheduleRow[]
 }
 
@@ -120,18 +176,152 @@ export function effectiveMonthlyRate(annualPct: number): number {
 }
 
 /**
+ * Compounding convention. Canadian mortgages compound semi-annually; revolving
+ * consumer debt (credit cards, lines of credit) compounds monthly.
+ */
+export type Compounding = 'semiannual' | 'monthly'
+
+/** Effective per-month rate for a given compounding convention. */
+function periodicRate(annualPct: number, comp: Compounding): number {
+  if (annualPct <= 0) return 0
+  return comp === 'monthly' ? annualPct / 1200 : effectiveMonthlyRate(annualPct)
+}
+
+/**
  * Level monthly payment that amortizes `principal` over `amortMonths` at the
- * given annual rate (semi-annual compounding).
+ * given annual rate. Defaults to semi-annual compounding, so existing callers
+ * are unchanged; pass 'monthly' for consumer debt.
  */
 export function monthlyPayment(
   principal: number,
   annualPct: number,
   amortMonths: number,
+  comp: Compounding = 'semiannual',
 ): number {
   if (principal <= 0 || amortMonths <= 0) return 0
-  const i = effectiveMonthlyRate(annualPct)
+  const i = periodicRate(annualPct, comp)
   if (i === 0) return principal / amortMonths
   return (principal * i) / (1 - Math.pow(1 + i, -amortMonths))
+}
+
+/**
+ * Whole months to clear `principal` at `payment`, for a given compounding.
+ * Returns Infinity when the payment never covers the interest.
+ */
+export function payoffMonths(
+  principal: number,
+  annualPct: number,
+  payment: number,
+  comp: Compounding,
+): number {
+  if (principal <= 0) return 0
+  const i = periodicRate(annualPct, comp)
+  if (i === 0) return Math.ceil(principal / payment)
+  if (payment <= principal * i) return Infinity
+  return Math.ceil(-Math.log(1 - (i * principal) / payment) / Math.log(1 + i))
+}
+
+/**
+ * Amortize `principal` for up to `months`, returning the interest and total
+ * paid and the ending balance. Stops early once the balance reaches zero.
+ */
+export function amortize(
+  principal: number,
+  annualPct: number,
+  payment: number,
+  months: number,
+  comp: Compounding,
+): { interestPaid: number; totalPaid: number; endingBalance: number; paidOffMonth: number | null } {
+  const i = periodicRate(annualPct, comp)
+  let balance = principal
+  let interestPaid = 0
+  let totalPaid = 0
+  let paidOffMonth: number | null = null
+  for (let m = 1; m <= months; m++) {
+    if (balance <= 0) break
+    const interest = balance * i
+    const due = balance + interest
+    const pay = Math.min(payment, due)
+    interestPaid += interest
+    totalPaid += pay
+    balance = due - pay
+    if (balance <= 1e-6 && paidOffMonth === null) {
+      paidOffMonth = m
+      balance = 0
+    }
+  }
+  return { interestPaid, totalPaid, endingBalance: Math.max(0, balance), paidOffMonth }
+}
+
+/**
+ * Debt-consolidation math. Pure helper: given the debts and the new mortgage
+ * payment, it works out the cash-flow saving and the long-run interest cost.
+ * Debts compound monthly; the mortgage slice uses the mortgage compounding.
+ */
+export function computeConsolidation(
+  debts: Debt[],
+  currentMortgagePayment: number,
+  newMortgagePayment: number,
+  newRate: number,
+  newAmortizationMonths: number,
+  termMonths: number,
+  mortgageComp: Compounding,
+): ConsolidationResult {
+  const DEBT_COMP: Compounding = 'monthly'
+  const consolidated = (debts || []).filter((d) => d.consolidate)
+  const hasConsolidation = consolidated.length > 0
+
+  const consolidatedBalance = consolidated.reduce((s, d) => s + d.balance, 0)
+
+  // Cash freed up each month: the mortgage payment change plus the debt
+  // payments the borrower no longer makes.
+  const freedDebtPayments = consolidated.reduce((s, d) => s + d.payment, 0)
+  const effectiveMonthlySaving =
+    currentMortgagePayment + freedDebtPayments - newMortgagePayment
+
+  // Interest the borrower currently pays on these debts across the term window.
+  const consolidatedDebtInterestOverTerm = consolidated.reduce(
+    (s, d) => s + amortize(d.balance, d.rate, d.payment, termMonths, DEBT_COMP).interestPaid,
+    0,
+  )
+
+  // Total interest to clear those debts on their own, over their full life.
+  const standaloneInterest = consolidated.reduce((s, d) => {
+    const months = payoffMonths(d.balance, d.rate, d.payment, DEBT_COMP)
+    const horizon = isFinite(months) ? months : 1200
+    return s + amortize(d.balance, d.rate, d.payment, horizon, DEBT_COMP).interestPaid
+  }, 0)
+
+  // The marginal mortgage payment and interest from the consolidated balance,
+  // spread over the full new amortization. Payment is linear in principal, so
+  // this is exactly the amount the mortgage payment rises.
+  const slicePayment = monthlyPayment(
+    consolidatedBalance,
+    newRate,
+    newAmortizationMonths,
+    mortgageComp,
+  )
+  const consolidatedIntoMortgageInterest =
+    slicePayment * newAmortizationMonths - consolidatedBalance
+
+  const lifetimeInterestDelta = consolidatedIntoMortgageInterest - standaloneInterest
+
+  const longestStandalonePayoffMonths = consolidated.reduce((mx, d) => {
+    const months = payoffMonths(d.balance, d.rate, d.payment, DEBT_COMP)
+    return Math.max(mx, isFinite(months) ? months : 0)
+  }, 0)
+
+  return {
+    hasConsolidation,
+    consolidatedBalance,
+    effectiveMonthlySaving,
+    mortgagePaymentIncreaseFromDebt: slicePayment,
+    consolidatedDebtInterestOverTerm,
+    standaloneInterest,
+    consolidatedIntoMortgageInterest,
+    lifetimeInterestDelta,
+    longestStandalonePayoffMonths,
+  }
 }
 
 /**
@@ -206,11 +396,39 @@ export function analyzeRefinance(input: RefinanceInput): RefinanceResult {
   const financedCosts = rollIntoMortgage ? Math.max(0, netCosts) : 0
   const outOfPocket = rollIntoMortgage ? 0 : Math.max(0, netCosts)
 
-  const newPrincipal = currentBalance + equityTakeout + financedCosts
+  // Debt consolidation: fold the balances of the selected debts into the new
+  // principal, alongside any equity takeout and rolled-in fees.
+  const consolidatedBalance = (input.debts || [])
+    .filter((d) => d.consolidate)
+    .reduce((s, d) => s + d.balance, 0)
+
+  const newPrincipal = currentBalance + equityTakeout + financedCosts + consolidatedBalance
   const newPayment = monthlyPayment(newPrincipal, newRate, newAmortizationMonths)
 
   const monthlySaving = currentPayment - newPayment
   const monthlyPaymentChange = newPayment - currentPayment
+
+  // Mortgages compound semi-annually.
+  const newComp: Compounding = 'semiannual'
+  const consolidation =
+    input.debts && input.debts.length > 0
+      ? computeConsolidation(
+          input.debts,
+          currentPayment,
+          newPayment,
+          newRate,
+          newAmortizationMonths,
+          termMonths,
+          newComp,
+        )
+      : null
+
+  // Blended saving: when debts are folded in, the cash-flow win is the mortgage
+  // change plus the debt payments that disappear. Otherwise it is the
+  // mortgage-only saving, so a plain refinance is unchanged.
+  const effectiveMonthlySaving = consolidation?.hasConsolidation
+    ? consolidation.effectiveMonthlySaving
+    : monthlySaving
 
   // Simulate both mortgages across the comparison window.
   const cur = simulate(currentBalance, currentRate, currentPayment, termMonths)
@@ -232,7 +450,12 @@ export function analyzeRefinance(input: RefinanceInput): RefinanceResult {
     payTotalCurrent += c.payment
     payTotalNew += n.payment
 
-    const saving = c.payment - n.payment
+    // When consolidating, the saving is the level blended figure (a cash-flow
+    // view). Without consolidation this is exactly the mortgage-only difference,
+    // so the schedule and break-even match a plain refinance precisely.
+    const saving = consolidation?.hasConsolidation
+      ? effectiveMonthlySaving
+      : c.payment - n.payment
     cumulativeSaving += saving
     const netPosition = cumulativeSaving - outOfPocket
     if (breakEvenMonths === null && netPosition >= 0) {
@@ -254,6 +477,11 @@ export function analyzeRefinance(input: RefinanceInput): RefinanceResult {
   const currentBalanceAtTermEnd = cur[termMonths - 1]?.balance ?? currentBalance
   const newBalanceAtTermEnd = next[termMonths - 1]?.balance ?? newPrincipal
   const balanceDifferenceAtTermEnd = currentBalanceAtTermEnd - newBalanceAtTermEnd
+  // The debts the borrower currently services are part of today's interest cost,
+  // so credit that interest to the "current" side of the comparison.
+  if (consolidation?.hasConsolidation) {
+    interestCurrent += consolidation.consolidatedDebtInterestOverTerm
+  }
   const interestSavedOverTerm = interestCurrent - interestNew
 
   // Holistic net benefit over the window: payment savings + ending-balance
@@ -281,6 +509,7 @@ export function analyzeRefinance(input: RefinanceInput): RefinanceResult {
     newPayment,
     monthlyPaymentChange,
     monthlySaving,
+    effectiveMonthlySaving,
 
     newPrincipal,
     newLtv: propertyValue > 0 ? (newPrincipal / propertyValue) * 100 : 0,
@@ -302,6 +531,8 @@ export function analyzeRefinance(input: RefinanceInput): RefinanceResult {
     payoffMonthsCurrent,
     payoffMonthsNewAtCurrentPayment,
     timeToMortgageFreeSavedMonths,
+
+    consolidation,
 
     schedule,
   }
