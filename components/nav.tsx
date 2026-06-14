@@ -37,6 +37,9 @@ export default function Nav() {
             <Link href="/services" className="font-body text-sm font-medium text-navy hover:text-lime transition-colors">
               Services
             </Link>
+            <Link href="/tools" className="font-body text-sm font-medium text-navy hover:text-lime transition-colors">
+              Tools
+            </Link>
             <Link href="/smm" className="font-body text-sm font-medium text-navy hover:text-lime transition-colors">
               Monitoring
             </Link>
@@ -84,6 +87,7 @@ export default function Nav() {
             { href: '/', label: 'Home' },
             { href: '/about', label: 'About' },
             { href: '/services', label: 'Services' },
+            { href: '/tools', label: 'Tools' },
             { href: '/smm', label: 'Monitoring' },
             { href: '/contact', label: 'Contact' },
             { href: '/private-lending', label: 'Private Lending' },

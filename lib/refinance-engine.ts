@@ -244,6 +244,44 @@ function periodicRate(annualPct: number, comp: Compounding): number {
 }
 
 /**
+ * Generalized Canadian compounding core, shared with the mortgage calculator.
+ *
+ * This module already has a 2-value `Compounding` ('semiannual' | 'monthly') and
+ * a private `periodicRate`, both load-bearing for the refinance engine. To add
+ * the generalized helpers additively, without touching either, the new public
+ * type and functions use distinct names. The mortgage engine imports them under
+ * the brief's names ('Compounding', 'periodicRate') via alias.
+ *
+ * periodicRateForFrequency(rate, 'semi-annually', 12) equals the existing
+ * semi-annual monthly rate, so this is consistent with current behavior, just
+ * generalized for compounding choice and payment frequency.
+ */
+export type CompoundingFreq = 'annually' | 'semi-annually' | 'quarterly' | 'monthly'
+
+const COMPOUNDS_PER_YEAR: Record<CompoundingFreq, number> = {
+  annually: 1,
+  'semi-annually': 2,
+  quarterly: 4,
+  monthly: 12,
+}
+
+/** Effective annual rate for a Canadian nominal rate at the given compounding frequency. */
+export function effectiveAnnualRate(annualRatePct: number, compounding: CompoundingFreq): number {
+  const r = annualRatePct / 100
+  const n = COMPOUNDS_PER_YEAR[compounding]
+  return Math.pow(1 + r / n, n) - 1
+}
+
+/** Periodic rate for `periodsPerYear` payments, derived from the effective annual rate. */
+export function periodicRateForFrequency(
+  annualRatePct: number,
+  compounding: CompoundingFreq,
+  periodsPerYear: number,
+): number {
+  return Math.pow(1 + effectiveAnnualRate(annualRatePct, compounding), 1 / periodsPerYear) - 1
+}
+
+/**
  * Level monthly payment that amortizes `principal` over `amortMonths` at the
  * given annual rate. Defaults to semi-annual compounding, so existing callers
  * are unchanged; pass 'monthly' for consumer debt.

@@ -16,6 +16,8 @@ export default authMiddleware({
     '/private-lending/apply',
     '/penalty',
     '/refinance',
+    '/tools',
+    '/tools/(.*)',
     '/portal/sign-in',
     '/portal/sign-in/(.*)',
     // Public demo FP portal (Build B lead-gen): sandboxed, read-only sample
