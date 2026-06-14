@@ -36,6 +36,12 @@ const num = (s: string) => {
   return isFinite(v) ? v : 0
 }
 
+// Picks favorable vs unfavorable wording from the value's sign, so labels never
+// read backwards. Pass the value with the sign convention that makes >= 0 the
+// favorable direction for that card.
+const directionLabel = (value: number, favorable: string, unfavorable: string) =>
+  value >= 0 ? favorable : unfavorable
+
 const inputClass =
   'w-full px-3 py-2 border border-gray-300 rounded-md font-body text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-[#032133]/20 focus:border-[#032133]'
 
@@ -582,13 +588,26 @@ export default function RefinanceAnalyzer() {
         <BreakEvenChart result={result} />
       </Card>
 
-      {/* ===== Four difference cards ===== */}
+      {/* ===== Four difference cards (mortgage-only) ===== */}
+      {result.consolidation?.hasConsolidation && (
+        <div>
+          <h3 className="font-heading text-base text-[#032133]">Your mortgage, side by side</h3>
+          <p className="font-body text-xs text-gray-500 mt-0.5">
+            These four cards compare your mortgage today against the new mortgage with the debt folded
+            in. The cash you free up each month is in the consolidation section above.
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <DiffCard
           label="Interest over the term"
           value={signedMoney0(result.interestSavedOverTerm)}
           good={result.interestSavedOverTerm >= 0}
-          note="Less interest paid across the comparison window."
+          note={directionLabel(
+            result.interestSavedOverTerm,
+            'Less interest paid across the comparison window.',
+            'More interest paid across the comparison window.',
+          )}
         />
         <DiffCard
           label="Monthly payment"
@@ -600,13 +619,24 @@ export default function RefinanceAnalyzer() {
           label="Balance at end of term"
           value={signedMoney0(result.balanceDifferenceAtTermEnd)}
           good={result.balanceDifferenceAtTermEnd >= 0}
-          note="How much less you owe at the end."
+          note={directionLabel(
+            result.balanceDifferenceAtTermEnd,
+            'How much less you owe at the end.',
+            'How much more you owe at the end.',
+          )}
         />
         <DiffCard
           label="Time to mortgage free"
-          value={monthsToYM(result.timeToMortgageFreeSavedMonths) + ' sooner'}
+          value={
+            monthsToYM(Math.abs(result.timeToMortgageFreeSavedMonths)) +
+            (result.timeToMortgageFreeSavedMonths >= 0 ? ' sooner' : ' later')
+          }
           good={result.timeToMortgageFreeSavedMonths >= 0}
-          note="If you keep paying your current payment."
+          note={
+            result.consolidation?.hasConsolidation
+              ? 'If you keep paying your current mortgage payment.'
+              : 'If you keep paying your current payment.'
+          }
         />
       </div>
 
@@ -649,7 +679,13 @@ function ResultsSummary({ result }: { result: ReturnType<typeof analyzeRefinance
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         <SummaryStat
-          label={consolidating ? 'Monthly cash freed up' : isWin ? 'Monthly savings' : 'Monthly increase'}
+          label={
+            !isWin
+              ? 'Your payment goes up by'
+              : consolidating
+                ? 'Monthly cash freed up'
+                : 'Monthly savings'
+          }
           value={money0(Math.abs(eff))}
           accent
         />
@@ -1029,7 +1065,8 @@ function DebtsPanel({
 function ConsolidationResults({ result }: { result: ReturnType<typeof analyzeRefinance> }) {
   const c = result.consolidation
   if (!c || !c.hasConsolidation) return null
-  const eff = money0(result.effectiveMonthlySaving)
+  const effNum = result.effectiveMonthlySaving
+  const eff = money0(Math.abs(effNum))
   const bal = money0(c.consolidatedBalance)
   const rise = money0(c.mortgagePaymentIncreaseFromDebt)
   const saves = money0(Math.abs(c.longRunInterestDelta))
@@ -1042,7 +1079,7 @@ function ConsolidationResults({ result }: { result: ReturnType<typeof analyzeRef
       <Card title="Debt consolidation" subtitle="Fold the debt in, free up cash, and clear it for good.">
         {/* Headline: the cash-flow win and the debt is gone */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <MiniStat label="Monthly cash freed up" value={eff} />
+          <MiniStat label={directionLabel(effNum, 'Monthly cash freed up', 'Monthly payment increase')} value={eff} />
           <MiniStat label="Debt eliminated" value={bal} />
           <MiniStat label="Mortgage payment rises by" value={rise} />
         </div>
@@ -1050,8 +1087,10 @@ function ConsolidationResults({ result }: { result: ReturnType<typeof analyzeRef
         {/* Expected mechanics, stated plainly */}
         <p className="font-body text-sm text-gray-600 leading-relaxed mt-4">
           Folding {bal} of debt into the mortgage is the trade. Your mortgage balance goes up by that
-          much, so the payment rises about {rise} a month. In return the debt is gone and you free up
-          about {eff} a month.
+          much, so the payment rises about {rise} a month.{' '}
+          {effNum >= 0
+            ? `In return the debt is gone and you free up about ${eff} a month.`
+            : `In return the debt is gone, though your total monthly payment goes up about ${eff} a month.`}
         </p>
 
         {/* Long-run interest on a realistic basis */}

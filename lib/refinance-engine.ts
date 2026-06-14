@@ -637,11 +637,9 @@ export function analyzeRefinance(input: RefinanceInput): RefinanceResult {
   const currentBalanceAtTermEnd = cur[termMonths - 1]?.balance ?? currentBalance
   const newBalanceAtTermEnd = next[termMonths - 1]?.balance ?? newPrincipal
   const balanceDifferenceAtTermEnd = currentBalanceAtTermEnd - newBalanceAtTermEnd
-  // The debts the borrower currently services are part of today's interest cost,
-  // so credit that interest to the "current" side of the comparison.
-  if (consolidation?.hasConsolidation) {
-    interestCurrent += consolidation.consolidatedDebtInterestOverTerm
-  }
+  // Mortgage interest only. The debt-interest story is carried separately by the
+  // consolidation long-run callout on the realistic basis, so the four summary
+  // cards stay a clean mortgage-versus-mortgage comparison.
   const interestSavedOverTerm = interestCurrent - interestNew
 
   // Holistic net benefit over the window: payment savings + ending-balance
