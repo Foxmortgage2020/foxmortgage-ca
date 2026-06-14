@@ -14,6 +14,11 @@ const TOOLS: { title: string; description: string; href: string }[] = [
     href: '/tools/mortgage-calculator',
   },
   {
+    title: 'Purchase Calculator',
+    description: 'Full purchase run with down payment, CMHC insurance, land transfer tax, and closing costs in one report.',
+    href: '/tools/purchase-calculator',
+  },
+  {
     title: 'Refinance Analyzer',
     description: 'Compare your current mortgage against a refinance, including penalty and break-even.',
     href: '/refinance',
