@@ -44,13 +44,40 @@ const inputClass =
 type PenaltyMode = 'manual' | 'estimate'
 type LookupTone = 'success' | 'error' | 'info'
 type LookupNote = { msg: string; tone: LookupTone }
+type DebtType =
+  | 'credit-card'
+  | 'line-of-credit'
+  | 'other-revolving'
+  | 'auto-loan'
+  | 'personal-loan'
+  | 'other-installment'
 type DebtRow = {
   id: string
   label: string
+  type: DebtType
   balance: string
   rate: string
   payment: string
   consolidate: boolean
+}
+
+// Revolving types carry at the shrinking minimum payment; installment types at a
+// level payment. This only drives the long-run baseline, not the cash-flow math.
+const DEBT_TYPES: { value: DebtType; label: string; basis: 'minimum' | 'fixed' }[] = [
+  { value: 'credit-card', label: 'Credit card', basis: 'minimum' },
+  { value: 'line-of-credit', label: 'Line of credit', basis: 'minimum' },
+  { value: 'other-revolving', label: 'Other revolving', basis: 'minimum' },
+  { value: 'auto-loan', label: 'Auto loan', basis: 'fixed' },
+  { value: 'personal-loan', label: 'Personal loan', basis: 'fixed' },
+  { value: 'other-installment', label: 'Other installment', basis: 'fixed' },
+]
+const basisForType = (t: DebtType): 'minimum' | 'fixed' =>
+  DEBT_TYPES.find((x) => x.value === t)?.basis ?? 'minimum'
+
+const yearsLabel = (months: number) => {
+  const y = Math.round((months / 12) * 10) / 10
+  const shown = Number.isInteger(y) ? y.toFixed(0) : y.toFixed(1)
+  return `${shown} ${y === 1 ? 'year' : 'years'}`
 }
 
 export default function RefinanceAnalyzer() {
@@ -86,7 +113,15 @@ export default function RefinanceAnalyzer() {
   const addDebt = () =>
     setDebts((prev) => [
       ...prev,
-      { id: 'd' + ++idRef.current, label: '', balance: '', rate: '', payment: '', consolidate: true },
+      {
+        id: 'd' + ++idRef.current,
+        label: '',
+        type: 'credit-card',
+        balance: '',
+        rate: '',
+        payment: '',
+        consolidate: true,
+      },
     ])
   const removeDebt = (id: string) => setDebts((prev) => prev.filter((d) => d.id !== id))
   const updateDebt = (id: string, patch: Partial<DebtRow>) =>
@@ -142,6 +177,9 @@ export default function RefinanceAnalyzer() {
         rate: num(d.rate),
         payment: num(d.payment),
         consolidate: d.consolidate,
+        basis: basisForType(d.type),
+        minPercent: 3,
+        minFloor: 10,
       })),
     [debts],
   )
@@ -620,7 +658,7 @@ function ResultsSummary({ result }: { result: ReturnType<typeof analyzeRefinance
           value={result.breakEvenMonths == null ? 'No break even' : monthsToYM(result.breakEvenMonths)}
         />
         {consolidating && result.consolidation ? (
-          <SummaryStat label="Debt rolled in" value={money0(result.consolidation.consolidatedBalance)} />
+          <SummaryStat label="Debt eliminated" value={money0(result.consolidation.consolidatedBalance)} />
         ) : (
           <SummaryStat label="Net benefit over term" value={signedMoney0(result.netBenefitOverTerm)} />
         )}
@@ -892,7 +930,7 @@ function DebtsPanel({
       ) : (
         <div className="space-y-3">
           {debts.map((d) => (
-            <div key={d.id} className="rounded-lg border border-gray-200 p-3">
+            <div key={d.id} className="rounded-lg border border-gray-200 p-3 space-y-2">
               <div className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
                 <div className="col-span-2 sm:col-span-3">
                   <DebtLabel>Label</DebtLabel>
@@ -904,7 +942,19 @@ function DebtsPanel({
                     className={inputClass}
                   />
                 </div>
-                <div className="sm:col-span-3">
+                <div className="col-span-2 sm:col-span-3">
+                  <DebtLabel>Type</DebtLabel>
+                  <select
+                    value={d.type}
+                    onChange={(e) => updateDebt(d.id, { type: e.target.value as DebtType })}
+                    className={`${inputClass} bg-white`}
+                  >
+                    {DEBT_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
                   <DebtLabel>Balance</DebtLabel>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
@@ -941,25 +991,25 @@ function DebtsPanel({
                     />
                   </div>
                 </div>
-                <div className="col-span-2 sm:col-span-2 flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 font-body text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={d.consolidate}
-                      onChange={(e) => updateDebt(d.id, { consolidate: e.target.checked })}
-                      className="h-4 w-4 rounded border-gray-300 text-[#032133] focus:ring-[#032133]/30"
-                    />
-                    Fold in
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => removeDebt(d.id)}
-                    aria-label="Remove debt"
-                    className="text-gray-400 hover:text-red-600 transition text-xl leading-none px-1"
-                  >
-                    &times;
-                  </button>
-                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <label className="flex items-center gap-2 font-body text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={d.consolidate}
+                    onChange={(e) => updateDebt(d.id, { consolidate: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-[#032133] focus:ring-[#032133]/30"
+                  />
+                  Fold into the mortgage
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeDebt(d.id)}
+                  aria-label="Remove debt"
+                  className="font-body text-xs text-gray-400 hover:text-red-600 transition"
+                >
+                  Remove
+                </button>
               </div>
             </div>
           ))}
@@ -981,32 +1031,97 @@ function ConsolidationResults({ result }: { result: ReturnType<typeof analyzeRef
   if (!c || !c.hasConsolidation) return null
   const eff = money0(result.effectiveMonthlySaving)
   const bal = money0(c.consolidatedBalance)
-  const delta = money0(c.lifetimeInterestDelta)
-  const longest = Math.round(c.longestStandalonePayoffMonths)
+  const rise = money0(c.mortgagePaymentIncreaseFromDebt)
+  const saves = money0(Math.abs(c.longRunInterestDelta))
+  const adds = money0(c.longRunInterestDelta)
+  const standalone = money0(c.standaloneInterestRealistic)
+  const intoMortgage = money0(c.consolidatedDebtInterestLifetime)
+  const payoff = yearsLabel(c.longestStandalonePayoffMonths)
   return (
-    <Card title="Debt consolidation" subtitle="What folding your debt into the mortgage does.">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <MiniStat label="Monthly cash freed up" value={eff} />
-        <MiniStat label="Debt rolled into mortgage" value={bal} />
-        <MiniStat label="Mortgage payment rises by" value={money0(c.mortgagePaymentIncreaseFromDebt)} />
+    <>
+      <Card title="Debt consolidation" subtitle="Fold the debt in, free up cash, and clear it for good.">
+        {/* Headline: the cash-flow win and the debt is gone */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <MiniStat label="Monthly cash freed up" value={eff} />
+          <MiniStat label="Debt eliminated" value={bal} />
+          <MiniStat label="Mortgage payment rises by" value={rise} />
+        </div>
+
+        {/* Expected mechanics, stated plainly */}
+        <p className="font-body text-sm text-gray-600 leading-relaxed mt-4">
+          Folding {bal} of debt into the mortgage is the trade. Your mortgage balance goes up by that
+          much, so the payment rises about {rise} a month. In return the debt is gone and you free up
+          about {eff} a month.
+        </p>
+
+        {/* Long-run interest on a realistic basis */}
+        {!c.allDebtsClear ? (
+          <div className="rounded-lg border-l-4 border-[#95D600] bg-[#95D600]/10 px-4 py-3 mt-4">
+            <p className="font-body text-sm text-[#032133] leading-relaxed">
+              At that payment, this debt barely shrinks on its own, so it would take a very long time
+              to clear. Folding it into the mortgage clearly comes out ahead on interest too.
+            </p>
+          </div>
+        ) : c.longRunInterestDelta < 0 ? (
+          <div className="rounded-lg border-l-4 border-[#95D600] bg-[#95D600]/10 px-4 py-3 mt-4">
+            <p className="font-body text-sm text-[#032133] leading-relaxed">
+              {c.allRevolving ? 'On the minimum payment, this' : 'Carried on its own, this'} debt would
+              take about {payoff} to clear and cost about {standalone} in interest. Folded into the
+              mortgage it costs about {intoMortgage}. So consolidating also saves you roughly {saves} in
+              interest over time.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-lg border-l-4 border-[#95D600] bg-[#95D600]/10 px-4 py-3 mt-4">
+            <p className="font-body text-sm text-[#032133] leading-relaxed">
+              Folding this in adds about {adds} in interest over time, unless you keep your payment.
+              {result.acceleration?.available && <> See &ldquo;Keep your payment&rdquo; below.</>}
+            </p>
+          </div>
+        )}
+      </Card>
+
+      {result.acceleration?.available && <StrategicDirections result={result} />}
+    </>
+  )
+}
+
+function StrategicDirections({ result }: { result: ReturnType<typeof analyzeRefinance> }) {
+  const a = result.acceleration
+  if (!a || !a.available) return null
+  const freed = money0(a.freedCashFlow)
+  const keep = money0(a.keepPaymentAmount)
+  const sooner = yearsLabel(a.monthsSaved)
+  const interestSaved = money0(a.interestSaved)
+  return (
+    <Card title="Two ways to play it" subtitle="Pick the direction that fits your goals.">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <div className="font-body text-[11px] uppercase tracking-wider text-gray-500 font-medium mb-1">
+            Free up cash
+          </div>
+          <div className="font-heading text-2xl text-[#032133] tabular-nums">
+            {freed}
+            <span className="text-base text-gray-500">/mo</span>
+          </div>
+          <p className="font-body text-sm text-gray-600 leading-relaxed mt-2">
+            Pocket about {freed} a month. Room to breathe now.
+          </p>
+        </div>
+        <div className="rounded-xl border-2 border-[#95D600] bg-[#95D600]/10 p-5">
+          <div className="font-body text-[11px] uppercase tracking-wider text-[#032133]/70 font-medium mb-1">
+            Keep your payment
+          </div>
+          <div className="font-heading text-2xl text-[#032133] tabular-nums">
+            {keep}
+            <span className="text-base text-gray-500">/mo</span>
+          </div>
+          <p className="font-body text-sm text-[#032133] leading-relaxed mt-2">
+            Hold your payment at about {keep} a month on the new mortgage. The debt is gone, and
+            you&rsquo;d be mortgage free about {sooner} sooner, saving about {interestSaved} in interest.
+          </p>
+        </div>
       </div>
-      {c.lifetimeInterestDelta > 0 ? (
-        <div className="rounded-lg border-l-4 border-[#95D600] bg-[#95D600]/10 px-4 py-3 mt-4">
-          <p className="font-body text-sm text-[#032133] leading-relaxed">
-            This frees up about {eff} a month. Keep in mind you&rsquo;re moving {bal} of debt onto the
-            mortgage. On its own it would be paid off in about {longest} months. Spreading it over the
-            full amortization adds about {delta} in interest over time, unless you keep paying that
-            amount down faster.
-          </p>
-        </div>
-      ) : (
-        <div className="rounded-lg border-l-4 border-[#95D600] bg-[#95D600]/10 px-4 py-3 mt-4">
-          <p className="font-body text-sm text-[#032133] leading-relaxed">
-            This frees up about {eff} a month, and folding it in costs you less interest over the long
-            run, not more.
-          </p>
-        </div>
-      )}
     </Card>
   )
 }

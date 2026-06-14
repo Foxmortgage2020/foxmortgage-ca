@@ -72,6 +72,9 @@ export interface RefinanceInput {
 }
 
 /** A consumer debt that can optionally be rolled into the mortgage. */
+/** How a debt is carried for the long-run baseline. */
+export type DebtBasis = 'minimum' | 'fixed'
+
 export interface Debt {
   id?: string
   label: string
@@ -79,36 +82,86 @@ export interface Debt {
   balance: number
   /** Annual rate, e.g. 19.99 */
   rate: number
-  /** Current monthly payment the borrower makes on this debt. */
+  /** Current monthly payment the borrower makes on this debt (cash-flow basis). */
   payment: number
   /** When true, this debt is folded into the new mortgage. */
   consolidate: boolean
+  /**
+   * How the debt would otherwise be carried, for the long-run baseline only.
+   * 'minimum' = revolving credit paid at the shrinking minimum (the realistic
+   * way cards get carried). 'fixed' = installment loan paid at a level payment.
+   */
+  basis: DebtBasis
+  /** Minimum payment percent of balance (revolving only). Defaults to 3. */
+  minPercent?: number
+  /** Minimum payment dollar floor (revolving only). Defaults to 10. */
+  minFloor?: number
 }
 
 /**
- * Debt-consolidation breakdown. Two separate lenses, never added together:
+ * Debt-consolidation breakdown. Three separate lenses, never added together:
  *   - effectiveMonthlySaving is the cash-flow win (payments that go away).
- *   - lifetimeInterestDelta is the long-run interest cost of spreading the
- *     debt over the full amortization instead of paying it off fast.
+ *   - longRunInterestDelta is the long-run interest difference on a realistic
+ *     baseline. Negative means consolidating also saves interest.
+ *   - the keep-payment acceleration scenario lives in AccelerationScenario.
  */
 export interface ConsolidationResult {
   hasConsolidation: boolean
   /** Sum of the balances being folded in. */
   consolidatedBalance: number
-  /** (current mortgage payment + freed debt payments) - new mortgage payment. */
+  /** (current mortgage payment + removed debt payments) - new mortgage payment. */
   effectiveMonthlySaving: number
+  /** Sum of the current monthly payments on the consolidated debts. */
+  removedDebtPayments: number
   /** How much the mortgage payment rises from folding the debt in. */
   mortgagePaymentIncreaseFromDebt: number
-  /** Interest on the consolidated debts over the term, serviced standalone. */
+  /** Interest on the consolidated debts over the term, on the realistic basis. */
   consolidatedDebtInterestOverTerm: number
-  /** Total interest to clear those debts standalone, over their full life. */
-  standaloneInterest: number
-  /** Interest on the consolidated balance spread over the new amortization. */
-  consolidatedIntoMortgageInterest: number
-  /** Long-run interest added by consolidating (consolidated minus standalone). */
-  lifetimeInterestDelta: number
-  /** Longest standalone payoff among the consolidated debts, in months. */
+  /**
+   * Interest to clear the consolidated debts standalone on their realistic
+   * basis (minimum payments for revolving, level payments for installment).
+   */
+  standaloneInterestRealistic: number
+  /** Interest on the consolidated balance spread over the full new amortization. */
+  consolidatedDebtInterestLifetime: number
+  /**
+   * consolidatedDebtInterestLifetime - standaloneInterestRealistic. Negative
+   * means folding the debt into the mortgage also costs less interest long run.
+   */
+  longRunInterestDelta: number
+  /** Longest realistic standalone payoff among the consolidated debts, in months. */
   longestStandalonePayoffMonths: number
+  /**
+   * True only when every consolidated debt actually clears on its realistic
+   * basis within the cap. When false, the standalone interest and payoff figures
+   * are not meaningful (a payment that never covers interest), so the UI shows a
+   * qualitative long-run message instead of dollar amounts.
+   */
+  allDebtsClear: boolean
+  /** True when every consolidated debt is revolving (minimum-payment basis). */
+  allRevolving: boolean
+}
+
+/**
+ * The "keep your payment" strategy: instead of pocketing the freed cash, the
+ * borrower holds their current total outlay on the new (larger) mortgage and is
+ * mortgage-free sooner.
+ */
+export interface AccelerationScenario {
+  /** True when keeping the payment actually accelerates payoff. */
+  available: boolean
+  /** Cash that could be pocketed each month instead (the freed-cash direction). */
+  freedCashFlow: number
+  /** Current mortgage payment plus the removed debt payments. */
+  keepPaymentAmount: number
+  /** Months to clear the new mortgage at keepPaymentAmount. */
+  payoffMonths: number
+  /** Months to clear the new mortgage at its normal payment (the amortization). */
+  baselinePayoffMonths: number
+  /** Months shaved off by keeping the payment. */
+  monthsSaved: number
+  /** Mortgage interest saved by keeping the payment. */
+  interestSaved: number
 }
 
 export interface ScheduleRow {
@@ -162,6 +215,9 @@ export interface RefinanceResult {
 
   /** Debt-consolidation breakdown, or null when no debts are entered. */
   consolidation: ConsolidationResult | null
+
+  /** Keep-your-payment acceleration scenario, or null when no consolidation. */
+  acceleration: AccelerationScenario | null
 
   schedule: ScheduleRow[]
 }
@@ -254,8 +310,52 @@ export function amortize(
 }
 
 /**
- * Debt-consolidation math. Pure helper: given the debts and the new mortgage
- * payment, it works out the cash-flow saving and the long-run interest cost.
+ * Project how a debt is carried standalone, on its realistic basis, for up to
+ * `maxMonths`. Revolving debt is paid at the shrinking minimum (the greater of a
+ * percent of the balance and a dollar floor), which is why cards take so long to
+ * clear. Installment debt is paid at its level payment. Returns interest, total
+ * paid, the months to clear (capped at maxMonths), and any ending balance.
+ */
+export function projectStandaloneDebt(
+  debt: Debt,
+  comp: Compounding,
+  maxMonths: number,
+): { months: number; interest: number; totalPaid: number; endingBalance: number; cleared: boolean } {
+  const i = periodicRate(debt.rate, comp)
+  const minPct = (debt.minPercent ?? 3) / 100
+  const minFloor = debt.minFloor ?? 10
+  let balance = debt.balance
+  let interest = 0
+  let totalPaid = 0
+  let months = 0
+  let cleared = balance <= 0
+  for (let m = 1; m <= maxMonths; m++) {
+    if (balance <= 0) break
+    const it = balance * i
+    const scheduled =
+      debt.basis === 'minimum' ? Math.max(minFloor, minPct * balance) : debt.payment
+    // The payment never covers the interest, so the balance does not shrink and
+    // the debt never clears. Stop here instead of compounding to the cap and
+    // returning a nonsensical interest figure. `cleared` stays false.
+    if (scheduled <= it) break
+    const due = balance + it
+    const pay = Math.min(scheduled, due)
+    interest += it
+    totalPaid += pay
+    balance = due - pay
+    months = m
+    if (balance <= 1e-6) {
+      balance = 0
+      cleared = true
+      break
+    }
+  }
+  return { months, interest, totalPaid, endingBalance: Math.max(0, balance), cleared }
+}
+
+/**
+ * Debt-consolidation math (v2). The cash-flow saving uses the entered current
+ * payments; the long-run comparison uses each debt's realistic carrying basis.
  * Debts compound monthly; the mortgage slice uses the mortgage compounding.
  */
 export function computeConsolidation(
@@ -268,29 +368,33 @@ export function computeConsolidation(
   mortgageComp: Compounding,
 ): ConsolidationResult {
   const DEBT_COMP: Compounding = 'monthly'
+  const LIFETIME_CAP = 1200
   const consolidated = (debts || []).filter((d) => d.consolidate)
   const hasConsolidation = consolidated.length > 0
 
   const consolidatedBalance = consolidated.reduce((s, d) => s + d.balance, 0)
 
-  // Cash freed up each month: the mortgage payment change plus the debt
-  // payments the borrower no longer makes.
-  const freedDebtPayments = consolidated.reduce((s, d) => s + d.payment, 0)
+  // Cash freed up each month: the mortgage payment change plus the debt payments
+  // the borrower no longer makes. Uses the entered current payments.
+  const removedDebtPayments = consolidated.reduce((s, d) => s + d.payment, 0)
   const effectiveMonthlySaving =
-    currentMortgagePayment + freedDebtPayments - newMortgagePayment
+    currentMortgagePayment + removedDebtPayments - newMortgagePayment
 
-  // Interest the borrower currently pays on these debts across the term window.
+  // Interest the borrower would pay on these debts across the term window, on
+  // their realistic basis.
   const consolidatedDebtInterestOverTerm = consolidated.reduce(
-    (s, d) => s + amortize(d.balance, d.rate, d.payment, termMonths, DEBT_COMP).interestPaid,
+    (s, d) => s + projectStandaloneDebt(d, DEBT_COMP, termMonths).interest,
     0,
   )
 
-  // Total interest to clear those debts on their own, over their full life.
-  const standaloneInterest = consolidated.reduce((s, d) => {
-    const months = payoffMonths(d.balance, d.rate, d.payment, DEBT_COMP)
-    const horizon = isFinite(months) ? months : 1200
-    return s + amortize(d.balance, d.rate, d.payment, horizon, DEBT_COMP).interestPaid
-  }, 0)
+  // Realistic interest to clear those debts on their own, over their full life.
+  const lifetimeProjections = consolidated.map((d) => projectStandaloneDebt(d, DEBT_COMP, LIFETIME_CAP))
+  // Whether every consolidated debt actually clears on its realistic basis. When
+  // a payment never covers the interest, the standalone figures are not
+  // meaningful and the UI shows a qualitative message instead of dollar amounts.
+  const allDebtsClear = hasConsolidation && lifetimeProjections.every((p) => p.cleared)
+  const allRevolving = hasConsolidation && consolidated.every((d) => d.basis === 'minimum')
+  const standaloneInterestRealistic = lifetimeProjections.reduce((s, p) => s + p.interest, 0)
 
   // The marginal mortgage payment and interest from the consolidated balance,
   // spread over the full new amortization. Payment is linear in principal, so
@@ -301,26 +405,69 @@ export function computeConsolidation(
     newAmortizationMonths,
     mortgageComp,
   )
-  const consolidatedIntoMortgageInterest =
+  const consolidatedDebtInterestLifetime =
     slicePayment * newAmortizationMonths - consolidatedBalance
 
-  const lifetimeInterestDelta = consolidatedIntoMortgageInterest - standaloneInterest
+  // Negative means consolidating also saves interest over the long run.
+  const longRunInterestDelta =
+    consolidatedDebtInterestLifetime - standaloneInterestRealistic
 
-  const longestStandalonePayoffMonths = consolidated.reduce((mx, d) => {
-    const months = payoffMonths(d.balance, d.rate, d.payment, DEBT_COMP)
-    return Math.max(mx, isFinite(months) ? months : 0)
-  }, 0)
+  const longestStandalonePayoffMonths = lifetimeProjections.reduce((mx, p) => Math.max(mx, p.months), 0)
 
   return {
     hasConsolidation,
     consolidatedBalance,
     effectiveMonthlySaving,
+    removedDebtPayments,
     mortgagePaymentIncreaseFromDebt: slicePayment,
     consolidatedDebtInterestOverTerm,
-    standaloneInterest,
-    consolidatedIntoMortgageInterest,
-    lifetimeInterestDelta,
+    standaloneInterestRealistic,
+    consolidatedDebtInterestLifetime,
+    longRunInterestDelta,
     longestStandalonePayoffMonths,
+    allDebtsClear,
+    allRevolving,
+  }
+}
+
+/**
+ * The keep-your-payment acceleration scenario. If the borrower holds their
+ * current total outlay (mortgage payment plus the removed debt payments) on the
+ * new mortgage, how much sooner is it paid off and how much interest is saved.
+ */
+export function computeAcceleration(
+  newPrincipal: number,
+  newRate: number,
+  newAmortizationMonths: number,
+  currentMortgagePayment: number,
+  removedDebtPayments: number,
+  newPayment: number,
+  comp: Compounding,
+): AccelerationScenario {
+  const keepPaymentAmount = currentMortgagePayment + removedDebtPayments
+  const freedCashFlow = currentMortgagePayment + removedDebtPayments - newPayment
+  const available = removedDebtPayments > 0 && keepPaymentAmount > newPayment + 1e-9
+
+  const baselinePayoffMonths = newAmortizationMonths
+  const rawPayoff = payoffMonths(newPrincipal, newRate, keepPaymentAmount, comp)
+  const payoff = available && isFinite(rawPayoff) ? rawPayoff : baselinePayoffMonths
+  const monthsSaved = Math.max(0, baselinePayoffMonths - payoff)
+
+  // Interest on the new mortgage at its normal payment versus the kept payment.
+  const baselineInterest = newPayment * newAmortizationMonths - newPrincipal
+  const keepInterest = available
+    ? amortize(newPrincipal, newRate, keepPaymentAmount, payoff, comp).interestPaid
+    : baselineInterest
+  const interestSaved = baselineInterest - keepInterest
+
+  return {
+    available,
+    freedCashFlow,
+    keepPaymentAmount,
+    payoffMonths: payoff,
+    baselinePayoffMonths,
+    monthsSaved,
+    interestSaved,
   }
 }
 
@@ -430,6 +577,19 @@ export function analyzeRefinance(input: RefinanceInput): RefinanceResult {
     ? consolidation.effectiveMonthlySaving
     : monthlySaving
 
+  // Keep-your-payment acceleration: only when debts are folded in.
+  const acceleration = consolidation?.hasConsolidation
+    ? computeAcceleration(
+        newPrincipal,
+        newRate,
+        newAmortizationMonths,
+        currentPayment,
+        consolidation.removedDebtPayments,
+        newPayment,
+        newComp,
+      )
+    : null
+
   // Simulate both mortgages across the comparison window.
   const cur = simulate(currentBalance, currentRate, currentPayment, termMonths)
   const next = simulate(newPrincipal, newRate, newPayment, termMonths)
@@ -533,6 +693,7 @@ export function analyzeRefinance(input: RefinanceInput): RefinanceResult {
     timeToMortgageFreeSavedMonths,
 
     consolidation,
+    acceleration,
 
     schedule,
   }
