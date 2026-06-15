@@ -24,6 +24,11 @@ const TOOLS: { title: string; description: string; href: string }[] = [
     href: '/tools/purchase-compare',
   },
   {
+    title: 'Renewal Compare',
+    description: 'Project your balance to maturity and compare renewal options side by side.',
+    href: '/tools/renewal-compare',
+  },
+  {
     title: 'Refinance Analyzer',
     description: 'Compare your current mortgage against a refinance, including penalty and break-even.',
     href: '/refinance',
