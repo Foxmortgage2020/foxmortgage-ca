@@ -42,3 +42,4 @@ next-env.d.ts
 # local artifacts (not part of the project)
 {app/
 Russell Brunson/
+.playwright-mcp/

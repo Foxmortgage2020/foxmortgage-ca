@@ -1,6 +1,90 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: May 22, 2026 (FOX-113 D2 AI Fallback published live; FOX-114 three-night gate met)
+## Last Updated: July 9, 2026 (Admin Command Center Session 1 shipped; repo audit in docs/portal-audit-2026-07.md)
+
+NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
+is the corrected baseline for routes, env vars, and module names as of July 2026.
+
+---
+
+## Admin Command Center (Session 1 shipped 2026-07-09)
+
+### Three-layer architecture
+- Zoho CRM: system of record for relationships, stages, tasks.
+- fox-underwriting (separate repo + Supabase project `rnupbdmpxfwsowiqhcqv`): system of
+  record for underwriting truth (evidence, calcs, conditions, flags, reviews, audit log).
+- This portal: system of engagement. Reads both; writes to neither until Session 3,
+  when workbench write actions arrive via the fox-underwriting gates API. Never
+  re-implement workbench logic here.
+
+### Read-only workbench posture
+- `lib/underwriting.ts` is the ONLY module touching the UW Supabase project. Its whole
+  query surface is one GET-based PostgREST select wrapper: no insert/update/upsert/
+  delete/rpc calls exist anywhere in this repo. Temporary posture: Session 2 replaces
+  the service key with a database-enforced read-only role.
+- Env vars (server-only, never NEXT_PUBLIC): `UW_SUPABASE_URL`,
+  `UW_SUPABASE_SERVICE_ROLE_KEY`. Missing vars produce `{ configured: false }` and quiet
+  "Workbench not connected" UI states, never crashes. CAUTION: the service key was
+  created type=sensitive in Vercel; if production reads it as undefined, recreate it as
+  encrypted (documented sensitive-type footgun below).
+- Never log workbench payloads (counts and durations only). Render masked values
+  exactly as stored. Every fetcher takes `agentId` (tenant scoping); Michael's agent
+  row is resolved by email (`config/targets.ts WORKBENCH_AGENT_EMAIL`) and cached.
+
+### Authority matrix contract
+- `config/authority.ts` holds ROLES ('admin' | 'ops' | 'underwriting-reviewer' |
+  'agent') and PERMISSIONS. Key names are a CONTRACT with the Session 2 gates API:
+  additive changes only; renames require a note here. Session 1 added admin-only view
+  keys: approvals.view, rates.view, intel.view, knowledge.view, revenue.view,
+  status.view (also ops), bookkeeping.view, roadmap.view (all roles).
+- `lib/authz.ts` exposes `can(user, permission)` and `requirePermission()`; both read
+  Clerk roles via currentUser() (never auth()) and normalize the three metadata shapes
+  (roles array, roles string, legacy role string). Unknown roles degrade to no access.
+- Settings renders the matrix read-only.
+
+### Nav IA (names are stable; renames need a note here)
+Home (live) | Deals (S3) | Approvals (S3, live counts now) | Rates (S4) | Intel (S4) |
+Knowledge (S4) | Compliance (S5) | Revenue (S6) | Partners (live, existing pages) |
+Bookkeeping (nav link to existing /portal/bookkeeping, pages untouched) | Audit Log (S3) |
+Status (live) | Settings (live) | Roadmap (live). Config: `config/admin-nav.ts`.
+
+### Shell and gating
+- `/portal/admin/*` renders in its own responsive shell (`app/portal/admin/layout.tsx`
+  plus `components/admin/AdminShell.tsx`): server-gated (unauthenticated to sign-in,
+  unauthorized to /portal), mobile drawer + desktop sidebar, nav filtered through
+  can(). PortalLayoutClient steps aside for /portal/admin paths (one early return);
+  /portal/bookkeeping keeps the legacy shell and those pages are untouched.
+
+### Pipeline + pacing decisions (verified against live Zoho 2026-07-09)
+- One Zoho module: `Deals` is canonical (COQL-valid); `Potentials` is a REST-only alias
+  this codebase uses widely. The two older sections of this file that disagreed were
+  describing the same module. Details: docs/portal-audit-2026-07.md section 4.
+- Funded volume field: `Amount` (fallback Total_Loan_Amount). 2026 fundings carry
+  Stage 'Funded'; pre-2026 carry 'Mortgage Funded'; both count as funded.
+- Terminal stages = the Daily Deal Briefing set (Archive, Closed, Lost, Mortgage
+  Funded, Mortgage Lost) PLUS 'Funded' and 'Cancelled', so funded volume never
+  double-counts as open pipeline. Additional Properties is a summary bucket, never
+  pipeline or weighting. Config: `config/pipeline.ts`.
+- Stage weights seeded per the Session 1 brief plus additive mappings for live stages
+  the seed vocabulary predates (Pending .05, Qualification .05, Options .30,
+  Approved .75).
+- Goal pacing math is pure and unit-tested (`lib/pacing.ts`, tests/pacing.test.ts,
+  `npm test` runs vitest). Annual target: `config/targets.ts` (12,000,000).
+- Zoho reads use the records API only; the production refresh token has NO
+  ZohoCRM.coql.READ scope (COQL 401s in prod). Zoho Tasks search rejects not_equal on
+  Status; `lib/zoho-admin.ts getTasksDue` filters by Due_Date and drops Completed
+  client-side.
+
+### Status page sources
+- Workbench reachability + intake freshness (lib/underwriting.ts).
+- Zoho ping: token refresh + 1-record Potentials read (lib/zoho-admin.ts).
+- n8n: `N8N_API_URL` + `N8N_API_KEY` (added to Vercel 2026-07-09 via REST API,
+  encrypted, production+preview; same API key the Paperclip agents use). Known
+  workflow registry: `config/n8n-workflows.ts`.
+- Bookkeeping: live WRITE_TO_QBO read from workflow Uu6fsZ2A2gTn0gBs config node, plus
+  the dry-run log via `lib/bookkeeping-dry-run-store.ts` (extracted from the route;
+  route behavior unchanged).
+- Deploy: VERCEL_GIT_* env plus BUILD_TIME (baked in next.config.js).
 
 ---
 
@@ -287,12 +371,16 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - `CZ1zh0gKvkQuTBMc` Fox Mortgage — SMM Lead Monitor ✅ active (since 2026-04-21)
 - `Rupc79GeJ8s6bbJa` QBO Nightly Transaction Categorization (FOX-107 full pipeline, AI + review queue + weekly summary) ❌ inactive — production realm still hardcoded; needs Zoho forms + sandbox realm migration before activation
 - `Uu6fsZ2A2gTn0gBs` Bookkeeping — Nightly Transaction Categorization ✅ active, 16 nodes, D2 AI Fallback live (published 2026-05-22, active version `ee34c1f9`). WRITE_TO_QBO=false. Three-night gate met; pending Mike sign-off + board approval to flip write mode.
-- `dh1qIttAuctSQ7L0` Daily Deal Briefing ✅ active (built 2026-04-07)
+- `dh1qIttAuctSQ7L0` Daily Deal Briefing ❌ inactive as of 2026-07-09 live check (this file previously said active; n8n reports active=false with no recorded executions)
+- Fuller live picture as of 2026-07-09 (incl. the newer UW bridges): config/n8n-workflows.ts + /portal/admin/status
 
 ### Known Issues / In Progress
-- Investor dashboard crashes on load — API fix in progress (use currentUser() not auth())
+- (fixed 2026-07-09 audit) Investor dashboard crash: resolved. Zero auth() call sites remain; everything reads publicMetadata via currentUser()/getPortalContext.
+- Bookkeeping nightly workflow Uu6fsZ2A2gTn0gBs last execution FAILED (error at 2026-07-09T06:00Z, 02:00 Toronto). Regression since the May clean-run streak; triage before any WRITE_TO_QBO decision.
+- Realtor/lawyer/mortgage-agent webhook env vars (REALTOR_/LAWYER_/MORTGAGE_AGENT_ REFERRAL/MESSAGE_WEBHOOK_URL) are referenced in code but absent from Vercel; those referral and message POSTs likely fail in production.
+- Public form APIs /api/contact, /api/investor-inquiry, /api/portal/add-referral are console.log stubs; submissions are lost.
 - Paperclip DB missing `pg_trgm` PostgreSQL extension — Paperclip API write operations (PATCH/POST) return 500. Read-only works. Needs Paperclip infrastructure fix.
-- Zoho credential leak: .env.local.save was accidentally committed and removed. Consider rotating ZOHO_REFRESH_TOKEN.
+- Zoho credential leak: .env.local.save was accidentally committed and removed 2026-03-27. ZOHO_REFRESH_TOKEN still NOT rotated (Vercel records date from the incident day; verified 2026-07-09). Rotate it.
 - CLAUDE.md needs update after each session
 
 ### API Route Pattern
@@ -604,3 +692,31 @@ Savings_Identified, Last_Activity_Time, Term_Years
 3. Set publicMetadata with roles, fp_name, fp_firm, fp_zoho_id
 4. Link their referred mortgage files via Referral_Partner field in Zoho
 5. Send portal invite email
+
+---
+
+## Session Ledger
+
+### 2026-07-09 — Admin Command Center Session 1 (foundation)
+- Shipped: repo audit (docs/portal-audit-2026-07.md), 14-section admin nav with its
+  own responsive shell, exception-first Home (Needs Attention rail, pipeline by stage,
+  tasks due, goal pacing, rates tile, closings strip), Status page (workbench / Zoho /
+  n8n / bookkeeping / deploy), authority matrix (config/authority.ts + can()),
+  read-only workbench wiring (lib/underwriting.ts), Settings matrix view, Roadmap
+  page, styled stubs for Deals/Approvals/Rates/Intel/Knowledge/Compliance/Revenue/
+  Audit with session tags. Approvals stub shows live pending counts.
+- Guardrails held: no workbench writes (select-only wrapper), no new Zoho writes,
+  partner portals and bookkeeping pages untouched (one early-return added to
+  PortalLayoutClient for /portal/admin paths only), middleware publicRoutes untouched,
+  @clerk/nextjs unchanged.
+- Infra: N8N_API_URL + N8N_API_KEY added to Vercel (REST API, encrypted). vitest added
+  as the test runner (npm test). BUILD_TIME baked via next.config.js.
+- Resolved during audit: Deals vs Potentials (same module; Deals canonical),
+  funded-volume field (Amount), funded-stage duality (Funded + Mortgage Funded),
+  investor crash confirmed fixed, ZOHO_REFRESH_TOKEN confirmed NOT rotated.
+- New findings logged, not fixed: bookkeeping nightly errored 2026-07-09 02:00
+  Toronto; six partner webhook env vars missing from Vercel; three console.log stub
+  APIs losing submissions; Daily Deal Briefing workflow inactive.
+- Next: Session 2 in fox-underwriting (gates API + read-only DB role). Its CLAUDE.md
+  records the amended guardrail 8: dependency points one direction only
+  (foxmortgage-ca depends on fox-underwriting, never the reverse).
