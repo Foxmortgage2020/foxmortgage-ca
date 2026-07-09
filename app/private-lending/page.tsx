@@ -503,10 +503,12 @@ function FAQ() {
 function InvestorForm() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSubmitting(true)
+    setError(null)
     const fd = new FormData(e.currentTarget)
     try {
       const res = await fetch('/api/investor-inquiry', {
@@ -521,10 +523,19 @@ function InvestorForm() {
           position: fd.get('position'),
           vehicle: fd.get('vehicle'),
           message: fd.get('message'),
+          // Honeypot field: hidden from people, filled only by bots.
+          company: fd.get('company'),
         }),
       })
-      if (res.ok) setSubmitted(true)
-    } catch { /* ignore */ } finally {
+      if (res.ok) {
+        setSubmitted(true)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || "We couldn't send your inquiry. Please try again or email mfox@foxmortgage.ca.")
+      }
+    } catch {
+      setError("We couldn't send your inquiry. Please try again or email mfox@foxmortgage.ca.")
+    } finally {
       setSubmitting(false)
     }
   }
@@ -579,6 +590,11 @@ function InvestorForm() {
             <option>Not sure &mdash; I&apos;d like guidance</option>
           </select>
           <textarea name="message" rows={4} placeholder="Anything else we should know?" className={inputCls} />
+          {/* Honeypot: hidden from people, filled only by bots. */}
+          <div className="hidden" aria-hidden="true">
+            <input name="company" type="text" tabIndex={-1} autoComplete="off" />
+          </div>
+          {error && <p className="font-body text-sm text-red-300">{error}</p>}
           <button type="submit" disabled={submitting} className="w-full bg-lime text-navy font-heading font-bold text-lg py-4 rounded-lg hover:bg-lime-dark transition-colors disabled:opacity-60">
             {submitting ? 'Sending...' : 'Schedule Your Investor Call \u2192'}
           </button>

@@ -19,9 +19,9 @@ data" means the wiring is present in source, not that every path was executed.
 | `/`, `/about`, `/services`, `/apply`, `/smm`, `/privacy-policy`, `/terms-of-service`, `/legal/bookkeeping-agent-privacy` | works (static copy) |
 | `/refinance`, `/penalty` | works (client calculators, lib engines + Bank of Canada rate) |
 | `/smm/enroll` | live data (Zoho upsert + n8n + Resend) |
-| `/private-lending` | suspect broken: inquiry form posts to `/api/investor-inquiry`, which is a console.log stub; submissions are lost |
+| `/private-lending` | RESOLVED 2026-07-09 hotfix: inquiry form was a console.log stub losing submissions; now persist-first (form_submissions table + Zoho Lead + email) |
 | `/private-lending/apply` | live data (createPartner + Resend) |
-| `/contact` | suspect broken: posts to `/api/contact`, also a console.log stub; submissions are lost |
+| `/contact` | RESOLVED 2026-07-09 hotfix: was a console.log stub losing submissions; now persist-first (form_submissions table + Zoho Lead + email) |
 
 ### /tools (9 routes)
 `/tools`, `mortgage-calculator`, `debt-service`, `maximum-mortgage`, `prepayment-penalty`,
@@ -38,7 +38,7 @@ client-side compute only.
 | `/portal/bookkeeping` + `review-queue` + `projects` | live data (Zoho Creator) |
 | `/portal/dashboard` | works (retired mock, now a role-dispatch redirect) |
 | Legacy top-level pages: `/portal/clients` (+`[id]`), `/portal/reports` | mock data, orphaned from nav (see section 8) |
-| Legacy `/portal/add-referral` | suspect broken: posts to the `/api/portal/add-referral` console.log stub |
+| Legacy `/portal/add-referral` | RESOLVED 2026-07-09 hotfix: now an authenticated, attributed persist-first intake |
 | `/portal/training`, `/portal/assets`, `/portal/compliance`, `/portal/support` | works (static, legacy realtor surface) |
 
 ### API routes
@@ -48,6 +48,16 @@ client-side compute only.
 - `portal/investor/*` (7 routes): live Zoho via getPortalContext().
 - `onboard/*` (5 routes): live (magic-link onboarding).
 - Console.log stubs that lose submissions: `contact`, `investor-inquiry`, `portal/add-referral`.
+  RESOLVED by the 2026-07-09 form-intake hotfix: all three now persist to the
+  form_submissions table (foxmortgage-ca Supabase project skfeivzhqvrefnkqjwtj)
+  before creating a Zoho Lead and emailing Michael, and return success only when
+  the submission is durably held. The referral handler now also requires a
+  signed-in partner session and records the partner's Zoho id.
+  NEW FINDING from the same hotfix: the Leads module has NO FP_Name / FP_Firm /
+  FP_Email / Referral_Goal / Referral_Partner fields (live fields API check;
+  47 fields total). The FP referral n8n workflow (j17v139rGek6tjAC) POSTs those
+  fields and Zoho silently drops them, so FP attribution on webhook-created
+  leads has never been stored on the record. Logged, not fixed here.
 
 ## 2. Investor dashboard crash
 
@@ -168,7 +178,7 @@ Recommendation stands: rotate it. Report only; nothing was rotated in this sessi
 - The old admin dashboard's "View All" pointed at the mock `/portal/clients`; resolved
   incidentally by this session's Home rebuild.
 - Submission-losing stub APIs (see section 1): `contact`, `investor-inquiry`,
-  `portal/add-referral`.
+  `portal/add-referral`. RESOLVED by the 2026-07-09 form-intake hotfix.
 - `/portal/investor/(active)/opportunities/[id]` renders a hardcoded documents array.
 - `.claude/worktrees/angry-brahmagupta-e098d4/` holds a full stale duplicate of the
   tree (Claude Code worktree artifact); untracked, ignorable.

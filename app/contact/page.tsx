@@ -7,20 +7,29 @@ import { useState } from 'react'
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', interest: 'General Inquiry' })
+  const [error, setError] = useState<string | null>(null)
+  // "company" is a honeypot: hidden from people, tempting for bots. The API
+  // silently drops any submission that fills it.
+  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', interest: 'General Inquiry', company: '' })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+    setError(null)
     try {
-      await fetch('/api/contact', {
+      const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      setSubmitted(true)
+      if (res.ok) {
+        setSubmitted(true)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || "We couldn't send your message. Please try again or email mfox@foxmortgage.ca.")
+      }
     } catch {
-      setSubmitted(true)
+      setError("We couldn't send your message. Please try again or email mfox@foxmortgage.ca.")
     } finally {
       setLoading(false)
     }
@@ -87,6 +96,11 @@ export default function Contact() {
                       <label className="font-body text-sm font-medium text-navy block mb-2">Message</label>
                       <textarea value={form.message} onChange={update('message')} rows={4} placeholder="Tell me a bit about your situation..." className="w-full px-4 py-3 rounded-xl border border-gray-200 font-body text-navy placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lime resize-none" />
                     </div>
+                    {/* Honeypot: hidden from people, filled only by bots. */}
+                    <div className="hidden" aria-hidden="true">
+                      <label>Company<input type="text" tabIndex={-1} autoComplete="off" value={form.company} onChange={update('company')} /></label>
+                    </div>
+                    {error && <p className="font-body text-sm text-red-600">{error}</p>}
                     <button type="submit" disabled={loading} className="w-full bg-lime text-navy font-heading font-bold py-4 rounded-xl hover:bg-lime-dark transition-colors disabled:opacity-60">
                       {loading ? 'Sending…' : 'Send Message'}
                     </button>

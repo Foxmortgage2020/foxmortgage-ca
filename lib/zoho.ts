@@ -76,6 +76,7 @@ export async function getZohoToken(): Promise<string> {
 
 export interface ZohoLeadPayload {
   Last_Name: string
+  First_Name?: string
   Email: string
   Phone?: string
   Lead_Source?: string

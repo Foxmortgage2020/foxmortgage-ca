@@ -90,6 +90,47 @@ Status (live) | Settings (live) | Roadmap (live). Config: `config/admin-nav.ts`.
 
 ---
 
+## Form Intake Pipeline (hotfix shipped 2026-07-09)
+
+Three endpoints run a persist-first pipeline (`lib/form-intake.ts`):
+`POST /api/contact` (public), `POST /api/investor-inquiry` (public),
+`POST /api/portal/add-referral` (handler-enforced partner auth; middleware
+posture unchanged).
+
+Order is fixed and load-bearing:
+1. Raw submission lands in `form_submissions` (foxmortgage-ca Supabase
+   project `skfeivzhqvrefnkqjwtj`, created for this hotfix, us-east-1,
+   $10/month). Migration: supabase/migrations/20260709220000_form_submissions.sql.
+2. Zoho Lead created via the existing `createZohoLead` (Leads module;
+   Lead_Source = Website / Private Lending Page / Partner Referral). Outcome
+   stamped on the row through the security-definer function
+   `mark_form_submission` (the app role is insert-only on the table; a plain
+   RLS + column-grant PATCH silently matched zero rows, hence the function).
+3. Resend email to mfox@foxmortgage.ca from noreply@app.foxmortgage.ca, with
+   the Resend message id stamped on the row. Email failures are logged, never
+   fatal.
+4. Success returns ONLY if the row or the Zoho record exists. Total failure
+   returns 503 and the front ends show the error (all three forms now check
+   res.ok; the contact form used to show success even on failure).
+
+Env vars (server-only): `FOXCA_SUPABASE_URL`, `FOXCA_SUPABASE_KEY` (anon key;
+RLS limits it to insert + the marker function, no reads). Set in all three
+Vercel targets and .env.local on 2026-07-09.
+
+Abuse protection on the public pair: server-side validation plus a hidden
+"company" honeypot field on both forms (filled honeypot = fake success, no
+store). No CAPTCHA, no rate limiting, by design.
+
+Referral attribution: the Leads module has NO Referral_Partner or FP_* fields
+(verified live), so attribution rides the lead Description plus
+partner_zoho_id / partner_role / clerk_user_id columns on form_submissions.
+Michael links Referral_Partner on the Potentials record at conversion, same
+as the FP webhook flow. Referral intake may later migrate to the n8n webhook
+path once the partner webhook workflows and their *_WEBHOOK_URL env vars
+exist; the direct path works without them.
+
+---
+
 ## Current Status (April 18, 2026)
 
 ### Financial Planner Portal
@@ -380,7 +421,8 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - (fixed 2026-07-09 audit) Investor dashboard crash: resolved. Zero auth() call sites remain; everything reads publicMetadata via currentUser()/getPortalContext.
 - Bookkeeping nightly workflow Uu6fsZ2A2gTn0gBs last execution FAILED (error at 2026-07-09T06:00Z, 02:00 Toronto). Regression since the May clean-run streak; triage before any WRITE_TO_QBO decision.
 - Realtor/lawyer/mortgage-agent webhook env vars (REALTOR_/LAWYER_/MORTGAGE_AGENT_ REFERRAL/MESSAGE_WEBHOOK_URL) are referenced in code but absent from Vercel; those referral and message POSTs likely fail in production.
-- Public form APIs /api/contact, /api/investor-inquiry, /api/portal/add-referral are console.log stubs; submissions are lost.
+- (fixed 2026-07-09 hotfix) /api/contact, /api/investor-inquiry, /api/portal/add-referral were console.log stubs losing every submission; all three now run the persist-first form intake pipeline (see the Form Intake Pipeline section).
+- FP referral n8n workflow (j17v139rGek6tjAC) POSTs FP_Name / FP_Firm / FP_Email / Referral_Goal to the Leads module, but NONE of those fields exist on Leads (live fields check 2026-07-09; Zoho silently drops unknown fields). FP attribution has never been stored on webhook-created leads; only the notification emails carried it. Fix the workflow or add the fields in Zoho.
 - Paperclip DB missing `pg_trgm` PostgreSQL extension — Paperclip API write operations (PATCH/POST) return 500. Read-only works. Needs Paperclip infrastructure fix.
 - Zoho credential leak: .env.local.save was accidentally committed and removed 2026-03-27. ZOHO_REFRESH_TOKEN still NOT rotated (Vercel records date from the incident day; verified 2026-07-09). Rotate it.
 - CLAUDE.md needs update after each session
@@ -722,3 +764,21 @@ Savings_Identified, Last_Activity_Time, Term_Years
 - Next: Session 2 in fox-underwriting (gates API + read-only DB role). Its CLAUDE.md
   records the amended guardrail 8: dependency points one direction only
   (foxmortgage-ca depends on fox-underwriting, never the reverse).
+
+### 2026-07-09 — Hotfix: public forms were dropping submissions
+- Fixed the three console.log stub endpoints (contact, investor-inquiry,
+  portal/add-referral) with the persist-first form intake pipeline (see the
+  Form Intake Pipeline section): Supabase capture first, then Zoho Lead, then
+  Resend email to Michael, then an honest response. Honeypot + validation on
+  the public pair; handler-enforced partner auth and attribution on the
+  referral endpoint. Front ends now show errors instead of false success.
+- Infra: created the foxmortgage-ca Supabase project (skfeivzhqvrefnkqjwtj,
+  us-east-1, $10/month) with the form_submissions table and the
+  mark_form_submission security-definer function. Added FOXCA_SUPABASE_URL
+  and FOXCA_SUPABASE_KEY to Vercel (REST API, encrypted, all targets).
+- Verified end to end: live test submissions on all three endpoints (rows +
+  Zoho leads + Resend ids), a simulated Zoho outage (row zoho_failed, email
+  still sent, 200 because the row exists), and a total-outage test (503, no
+  false success). Test leads in Zoho are marked TEST, safe to delete.
+- New finding logged: the FP referral webhook writes FP_* fields that do not
+  exist on Leads; Zoho drops them silently (see Known Issues).

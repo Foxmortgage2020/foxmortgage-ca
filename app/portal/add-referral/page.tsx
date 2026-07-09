@@ -6,6 +6,7 @@ import { CheckCircle2, Send } from 'lucide-react'
 export default function AddReferralPage() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
     clientName: '',
     clientEmail: '',
@@ -26,15 +27,21 @@ export default function AddReferralPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError(null)
     try {
-      await fetch('/api/portal/add-referral', {
+      const res = await fetch('/api/portal/add-referral', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      setSubmitted(true)
+      if (res.ok) {
+        setSubmitted(true)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || "We couldn't submit the referral. Please try again or email mfox@foxmortgage.ca.")
+      }
     } catch {
-      alert('Something went wrong. Please try again.')
+      setError("We couldn't submit the referral. Please try again or email mfox@foxmortgage.ca.")
     } finally {
       setLoading(false)
     }
@@ -227,6 +234,7 @@ export default function AddReferralPage() {
         </div>
 
         {/* Submit */}
+        {error && <p className="font-body text-sm text-red-600">{error}</p>}
         <div className="flex justify-end">
           <button
             type="submit"
