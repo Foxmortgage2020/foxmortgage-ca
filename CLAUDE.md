@@ -24,9 +24,11 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
   the service key with a database-enforced read-only role.
 - Env vars (server-only, never NEXT_PUBLIC): `UW_SUPABASE_URL`,
   `UW_SUPABASE_SERVICE_ROLE_KEY`. Missing vars produce `{ configured: false }` and quiet
-  "Workbench not connected" UI states, never crashes. CAUTION: the service key was
-  created type=sensitive in Vercel; if production reads it as undefined, recreate it as
-  encrypted (documented sensitive-type footgun below).
+  "Workbench not connected" UI states, never crashes. The service key is type=sensitive
+  in Vercel: confirmed runtime-readable in production (2026-07-09), but `vercel env
+  pull` returns it empty, so local dev shows not-connected unless the key is pasted
+  into .env.local by hand. The URL accepts the bare project URL or a pasted
+  .../rest/v1 form (wrapper normalizes both).
 - Never log workbench payloads (counts and durations only). Render masked values
   exactly as stored. Every fetcher takes `agentId` (tenant scoping); Michael's agent
   row is resolved by email (`config/targets.ts WORKBENCH_AGENT_EMAIL`) and cached.

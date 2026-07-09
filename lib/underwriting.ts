@@ -29,10 +29,14 @@ export type UwResult<T> =
   | { configured: true; ok: false; error: string }
 
 function uwEnv(): { url: string; key: string } | null {
-  const url = process.env.UW_SUPABASE_URL
+  const rawUrl = process.env.UW_SUPABASE_URL
   const key = process.env.UW_SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return null
-  return { url: url.replace(/\/$/, ''), key }
+  if (!rawUrl || !key) return null
+  // Accept both the bare project URL and a pasted REST base: strip trailing
+  // slashes and a trailing /rest/v1 so uwSelect's own /rest/v1/{table}
+  // never doubles the path (this exact paste happened on 2026-07-09).
+  const url = rawUrl.replace(/\/+$/, '').replace(/\/rest\/v1$/, '')
+  return { url, key }
 }
 
 export function workbenchConfigured(): boolean {

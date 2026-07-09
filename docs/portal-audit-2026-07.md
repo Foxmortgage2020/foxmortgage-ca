@@ -121,12 +121,18 @@ Added to Vercel during this session (REST API, type encrypted, production+previe
 `N8N_API_URL`, `N8N_API_KEY` (values from the existing Paperclip agent config) so the
 new Status page can report workflow health.
 
-Env var type caution: `UW_SUPABASE_SERVICE_ROLE_KEY` was created as type=sensitive
-(verified via the Vercel REST API: `"type":"sensitive"`). `UW_SUPABASE_URL` is
-encrypted. Vercel documents sensitive vars as runtime-readable, but this repo's
-2026-05-15 incident history (CLAUDE.md footguns) records sensitive-type vars reading
-as undefined. If the production Status page shows "workbench not answering," recreate
-the key as encrypted in the dashboard.
+Env var findings, resolved live on 2026-07-09 after the deploy:
+- `UW_SUPABASE_SERVICE_ROLE_KEY` is type=sensitive (verified via the Vercel REST
+  API). Empirically it IS runtime-readable in production: the deployed Status page
+  reached PostgREST past the API-key gateway check. The 2026-05-15 sensitive-type
+  footgun (CLAUDE.md) remains real for `vercel env pull` visibility, which returns
+  it empty, but production reads worked here.
+- `UW_SUPABASE_URL` had been entered WITH the REST path
+  (`https://rnupbdmpxfwsowiqhcqv.supabase.co/rest/v1/`), which doubled the path in
+  the read wrapper and produced HTTP 404 on first production contact. Fixed two
+  ways the same day: the env var was upserted to the bare project URL via the
+  Vercel REST API, and lib/underwriting.ts now strips a trailing `/rest/v1` so
+  either form works.
 
 ## 6. ZOHO_REFRESH_TOKEN rotation status
 
