@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    // Baked at build time; the admin Status page shows it as the deploy's
+    // build timestamp (Vercel exposes no deploy-time env var).
+    BUILD_TIME: new Date().toISOString(),
+  },
   async headers() {
     return [
       {

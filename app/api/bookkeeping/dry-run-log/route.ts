@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { addDryRunEntry, listDryRunEntries } from '@/lib/bookkeeping-dry-run-store'
 
-// In-memory log store for dry-run entries (persists per serverless instance lifetime).
-// Suitable for low-volume admin use; replace with Zoho Creator form or KV if needed.
-const dryRunLog: Array<{
-  timestamp: string
-  transaction_id: string
-  vendor_name: string
-  amount: number
-  intended_account: string
-  memo_tag: string
-  confidence: number
-  match_method: string
-  would_write: boolean
-}> = []
+// Store lives in lib/bookkeeping-dry-run-store.ts (module-scope, per
+// serverless instance, last 500 entries) so the admin Status page can read
+// the same log this route writes. Behavior of both handlers is unchanged.
 
 function adminOnly(roles: string[]): boolean {
   return roles.includes('admin')
@@ -28,7 +19,7 @@ export async function GET(req: NextRequest) {
     if (!adminOnly(roles)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '100', 10)
-    return NextResponse.json({ records: dryRunLog.slice(-limit).reverse() })
+    return NextResponse.json({ records: listDryRunEntries(limit) })
   } catch (err) {
     console.error('[GET /api/bookkeeping/dry-run-log]', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Server error' }, { status: 500 })
@@ -48,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const entry = {
+    addDryRunEntry({
       timestamp: new Date().toISOString(),
       transaction_id: body.transaction_id || '',
       vendor_name: body.vendor_name || '',
@@ -58,11 +49,7 @@ export async function POST(req: NextRequest) {
       confidence: Number(body.confidence) || 0,
       match_method: body.match_method || 'unknown',
       would_write: Boolean(body.would_write),
-    }
-
-    dryRunLog.push(entry)
-    // Keep last 500 entries
-    if (dryRunLog.length > 500) dryRunLog.splice(0, dryRunLog.length - 500)
+    })
 
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err) {

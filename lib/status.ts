@@ -1,0 +1,232 @@
+// Health checks for /portal/admin/status. Read-only against every system.
+// Each check returns an explicit configured/ok shape so the page can render
+// honest "not configured" panels instead of fake green.
+
+import {
+  BOOKKEEPING_NIGHTLY_WORKFLOW_ID,
+  KNOWN_N8N_WORKFLOWS,
+} from '@/config/n8n-workflows'
+import { listDryRunEntries, type DryRunEntry } from '@/lib/bookkeeping-dry-run-store'
+
+// ─── n8n ────────────────────────────────────────────────────────────────────
+
+function n8nEnv(): { base: string; key: string } | null {
+  const url = process.env.N8N_API_URL
+  const key = process.env.N8N_API_KEY
+  if (!url || !key) return null
+  return { base: url.replace(/\/$/, ''), key }
+}
+
+export function n8nConfigured(): boolean {
+  return n8nEnv() !== null
+}
+
+export interface WorkflowStatusRow {
+  id: string
+  name: string
+  area: string
+  active: boolean | null
+  lastExecStatus: string | null
+  lastExecAt: string | null
+  error: string | null
+}
+
+async function fetchWorkflowRow(
+  base: string,
+  key: string,
+  id: string,
+  label: string,
+  area: string,
+): Promise<WorkflowStatusRow> {
+  const headers = { 'X-N8N-API-KEY': key }
+  try {
+    const [wfRes, exRes] = await Promise.all([
+      fetch(`${base}/api/v1/workflows/${id}`, { headers, cache: 'no-store' }),
+      fetch(`${base}/api/v1/executions?workflowId=${id}&limit=1`, {
+        headers,
+        cache: 'no-store',
+      }),
+    ])
+    if (!wfRes.ok) {
+      return {
+        id,
+        name: label,
+        area,
+        active: null,
+        lastExecStatus: null,
+        lastExecAt: null,
+        error: `HTTP ${wfRes.status}`,
+      }
+    }
+    const wf = await wfRes.json()
+    let lastExecStatus: string | null = null
+    let lastExecAt: string | null = null
+    if (exRes.ok) {
+      const ex = await exRes.json()
+      const e0 = (ex?.data ?? [])[0]
+      if (e0) {
+        lastExecStatus = e0.status ?? null
+        lastExecAt = e0.startedAt ?? null
+      }
+    }
+    return {
+      id,
+      name: wf.name ?? label,
+      area,
+      active: Boolean(wf.active),
+      lastExecStatus,
+      lastExecAt,
+      error: null,
+    }
+  } catch {
+    return {
+      id,
+      name: label,
+      area,
+      active: null,
+      lastExecStatus: null,
+      lastExecAt: null,
+      error: 'unreachable',
+    }
+  }
+}
+
+export type N8nStatus =
+  | { configured: false }
+  | { configured: true; rows: WorkflowStatusRow[] }
+
+export async function getN8nStatus(): Promise<N8nStatus> {
+  const env = n8nEnv()
+  if (!env) return { configured: false }
+  const rows = await Promise.all(
+    KNOWN_N8N_WORKFLOWS.map(w => fetchWorkflowRow(env.base, env.key, w.id, w.label, w.area)),
+  )
+  return { configured: true, rows }
+}
+
+// ─── Bookkeeping pipeline ───────────────────────────────────────────────────
+
+export interface BookkeepingStatus {
+  // Live WRITE_TO_QBO read from the nightly workflow's config node when the
+  // n8n API is configured; null when it is not reachable.
+  writeToQbo: boolean | null
+  realmId: string | null
+  workflowActive: boolean | null
+  lastExecStatus: string | null
+  lastExecAt: string | null
+  n8nConfigured: boolean
+  error: string | null
+  // In-memory dry-run log (resets on deploy or idle instance recycle).
+  dryRunEntries: DryRunEntry[]
+}
+
+export async function getBookkeepingStatus(): Promise<BookkeepingStatus> {
+  const dryRunEntries = listDryRunEntries(5)
+  const env = n8nEnv()
+  if (!env) {
+    return {
+      writeToQbo: null,
+      realmId: null,
+      workflowActive: null,
+      lastExecStatus: null,
+      lastExecAt: null,
+      n8nConfigured: false,
+      error: null,
+      dryRunEntries,
+    }
+  }
+  try {
+    const headers = { 'X-N8N-API-KEY': env.key }
+    const [wfRes, exRes] = await Promise.all([
+      fetch(`${env.base}/api/v1/workflows/${BOOKKEEPING_NIGHTLY_WORKFLOW_ID}`, {
+        headers,
+        cache: 'no-store',
+      }),
+      fetch(
+        `${env.base}/api/v1/executions?workflowId=${BOOKKEEPING_NIGHTLY_WORKFLOW_ID}&limit=1`,
+        { headers, cache: 'no-store' },
+      ),
+    ])
+    if (!wfRes.ok) {
+      return {
+        writeToQbo: null,
+        realmId: null,
+        workflowActive: null,
+        lastExecStatus: null,
+        lastExecAt: null,
+        n8nConfigured: true,
+        error: `n8n workflow read failed (HTTP ${wfRes.status})`,
+        dryRunEntries,
+      }
+    }
+    const wf = await wfRes.json()
+    // The Workflow Config node is a Set node; support both parameter shapes
+    // (assignments for current n8n, values.string for legacy exports).
+    let writeToQbo: boolean | null = null
+    let realmId: string | null = null
+    const cfgNode = (wf.nodes ?? []).find((n: any) => /workflow config/i.test(n.name ?? ''))
+    if (cfgNode) {
+      const assigns: any[] =
+        cfgNode.parameters?.assignments?.assignments ??
+        cfgNode.parameters?.values?.string ??
+        []
+      for (const a of assigns) {
+        if (a.name === 'WRITE_TO_QBO') writeToQbo = String(a.value) === 'true'
+        if (a.name === 'QBO_REALM_ID') realmId = String(a.value)
+      }
+    }
+    let lastExecStatus: string | null = null
+    let lastExecAt: string | null = null
+    if (exRes.ok) {
+      const ex = await exRes.json()
+      const e0 = (ex?.data ?? [])[0]
+      if (e0) {
+        lastExecStatus = e0.status ?? null
+        lastExecAt = e0.startedAt ?? null
+      }
+    }
+    return {
+      writeToQbo,
+      realmId,
+      workflowActive: Boolean(wf.active),
+      lastExecStatus,
+      lastExecAt,
+      n8nConfigured: true,
+      error: null,
+      dryRunEntries,
+    }
+  } catch {
+    return {
+      writeToQbo: null,
+      realmId: null,
+      workflowActive: null,
+      lastExecStatus: null,
+      lastExecAt: null,
+      n8nConfigured: true,
+      error: 'n8n unreachable',
+      dryRunEntries,
+    }
+  }
+}
+
+// ─── Deploy info ────────────────────────────────────────────────────────────
+
+export interface DeployInfo {
+  sha: string | null
+  ref: string | null
+  message: string | null
+  env: string | null
+  buildTime: string | null
+  region: string | null
+}
+
+export function getDeployInfo(): DeployInfo {
+  return {
+    sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+    ref: process.env.VERCEL_GIT_COMMIT_REF ?? null,
+    message: process.env.VERCEL_GIT_COMMIT_MESSAGE ?? null,
+    env: process.env.VERCEL_ENV ?? (process.env.NODE_ENV === 'production' ? 'production' : 'development'),
+    buildTime: process.env.BUILD_TIME ?? null,
+    region: process.env.VERCEL_REGION ?? null,
+  }
+}

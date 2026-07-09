@@ -169,6 +169,14 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     return <>{children}</>
   }
 
+  // The admin command center (/portal/admin/*) brings its own responsive
+  // shell (app/portal/admin/layout.tsx + components/admin/AdminShell), so
+  // this legacy chrome steps aside there. /portal/bookkeeping deliberately
+  // KEEPS this shell — those pages are unchanged.
+  if (pathname?.startsWith('/portal/admin')) {
+    return <>{children}</>
+  }
+
   // Derive roles from Clerk user metadata. Three shapes exist in production
   // and all three must normalize to a string[]:
   //   1. `roles: ['financial-planner']`  (plural array)

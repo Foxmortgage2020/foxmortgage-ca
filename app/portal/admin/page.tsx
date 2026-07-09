@@ -1,763 +1,677 @@
-'use client';
+// Home: the daily command center. Exception-first: the top of the page is
+// what needs Michael, not vanity metrics. Server component; every data pull
+// degrades independently to an honest unavailable state.
+//
+// Replaced the previous KPI dashboard (client component fetching
+// /api/admin/dashboard) in Session 1. What was dropped and why is recorded
+// in docs/portal-audit-2026-07.md.
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import Link from 'next/link'
+import { requirePermission } from '@/lib/authz'
 import {
-  Building2,
-  Users,
-  DollarSign,
-  TrendingUp,
-  FileText,
-  Shield,
-  Clock,
-  Bell,
-  Activity,
-} from 'lucide-react';
+  ANNUAL_FUNDED_TARGET,
+  CLOSINGS_ATTENTION_DAYS,
+  CLOSINGS_STRIP_DAYS,
+  CONDITIONS_DUE_SOON_DAYS,
+  INTAKE_STALE_HOURS,
+  WORKBENCH_AGENT_EMAIL,
+} from '@/config/targets'
+import { STAGE_WEIGHTS } from '@/config/pipeline'
+import { computePacing, weightedPipelineVolume } from '@/lib/pacing'
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-  ResponsiveContainer,
-  Label,
-} from 'recharts';
+  computeClosings,
+  computeFundedYTD,
+  computePipeline,
+  getAllDealsSlim,
+  getTasksDue,
+  pipelineStageVolumes,
+  type OpenTask,
+  type SlimDeal,
+} from '@/lib/zoho-admin'
+import {
+  getAgentIdByEmail,
+  getConditionsDue,
+  getDealsSummary,
+  getIntakeFreshness,
+  getOpenConditionCounts,
+  getOpenFlags,
+  getPendingSheetReviews,
+  getPendingStatementReviews,
+  getRateQuoteStats,
+  getShadowTally,
+  type UwResult,
+} from '@/lib/underwriting'
+import {
+  fmtMoney,
+  fmtMoneyCompact,
+  fmtShortDate,
+  hoursSince,
+  torontoAsOfDate,
+  torontoTodayYMD,
+} from '@/lib/dates'
 
-// Shape returned by GET /api/admin/dashboard (see getAdminDashboardPayload in
-// lib/zoho.ts). `deals` is null when the single deal pull fails — partner
-// tiles still render; deal-derived tiles fall back to dashes.
-type RecentReferral = {
-  dealId: string;
-  borrower: string;
-  partner: string | null;
-  stage: string;
-  createdTime: string | null;
-};
+export const dynamic = 'force-dynamic'
 
-type FundedYear = {
-  year: number;
-  volume: number;
-  count: number;
-};
+const zohoTaskUrl = (id: string) => `https://crm.zoho.com/crm/org906105026/tab/Tasks/${id}`
 
-type DealMetrics = {
-  fundedVolume: number;
-  fundedCount: number;
-  inProgress: number;
-  total: number;
-  referralsThisMonth: number;
-  totalReferrals: number;
-  attributionPct: number;
-  recentReferrals: RecentReferral[];
-  fundedByYear: FundedYear[];
-  currentYearPipeline: { year: number; volume: number; count: number };
-};
+function val<T>(r: UwResult<T> | null): T | null {
+  return r && r.configured && r.ok ? r.data : null
+}
 
-type AdminDashboard = {
-  partners: {
-    total: number;
-    byType: {
-      realtor: number;
-      lawyer: number;
-      investor: number;
-      financialPlanner: number;
-      untyped: number;
-    };
-  };
-  deals: DealMetrics | null;
-  warning?: string;
-};
+// ─── Small presentational pieces (server-rendered) ──────────────────────────
 
-// Render a number, or an em-dash when unavailable (loading or a failed
-// aggregate). Never throws on null/undefined.
-const dash = (n: number | null | undefined): string =>
-  n === null || n === undefined ? '—' : String(n);
+type Tone = 'red' | 'amber' | 'gray'
 
-// Compact millions, e.g. 31279738 -> "$31.3M". Dash when unavailable.
-const moneyM = (n: number | null | undefined): string =>
-  n === null || n === undefined ? '—' : `$${(n / 1_000_000).toFixed(1)}M`;
+const TONE_STYLES: Record<Tone, string> = {
+  red: 'bg-red-50 border-red-200',
+  amber: 'bg-amber-50 border-amber-200',
+  gray: 'bg-white border-gray-200',
+}
 
-// "May 12"-style short date from a Zoho ISO datetime.
-const fmtDate = (iso: string | null): string => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return isNaN(d.getTime())
-    ? ''
-    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
-// Pill color by deal stage. Funded → green, lost/cancelled → gray,
-// approved → lime, everything else → blue.
-const stageColor = (stage: string): string => {
-  const s = stage.toLowerCase();
-  if (s.includes('funded')) return 'bg-green-100 text-green-700';
-  if (s.includes('lost') || s.includes('cancel') || s.includes('declin'))
-    return 'bg-gray-100 text-gray-600';
-  if (s.includes('approved')) return 'bg-lime-100 text-lime-700';
-  return 'bg-blue-100 text-blue-700';
-};
-
-// ─── Practice History (funded volume by year) ────────────────────────────────
-// Brand palette (tailwind: navy / lime).
-const NAVY = '#032133';
-const LIME = '#95D600';
-// Current-year pipeline segment, stacked above funded. Brand navy at reduced
-// opacity reads as the lighter "in progress / not yet booked" treatment. Funded
-// stays solid lime in every year (closed deals are firm — never faded).
-const PIPELINE_FILL = 'rgba(3,33,51,0.6)';
-
-// First calendar year with funded production. Bars run from here to the
-// current year; also the fallback when the deal pull is unavailable.
-const FIRST_FUNDED_YEAR = 2021;
-
-// Vertical event marker on the by-year chart. Year + label are constants so
-// they move in a single edit as the timeline advances.
-const MILESTONE_YEAR = 2026;
-const MILESTONE_LABEL = 'Systems + AI live';
-
-// "$31.3M" / "$590K" — compact, $-prefixed to match the existing tiles.
-const moneyShort = (n: number | null | undefined): string => {
-  if (n === null || n === undefined) return '—';
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
-  return `$${Math.round(n)}`;
-};
-
-// "$6,231,323" — full dollars with thousands separators (chart tooltip).
-const moneyFull = (n: number | null | undefined): string =>
-  n === null || n === undefined ? '—' : `$${Math.round(n).toLocaleString('en-US')}`;
-
-type ChartYear = {
-  year: string;
-  volume: number;
-  count: number;
-  isCurrent: boolean;
-  // Current-year only: forward-looking pipeline stacked above funded. null on
-  // every prior year so Recharts draws no segment there.
-  pipeline: number | null;
-  pipelineCount: number;
-};
-
-// Rounded-top rectangle: rounded top-left/top-right corners (radius r), square
-// bottom. r=0 yields a plain rect. Drives the stacked-bar shapes so only the
-// very top of the whole stack is rounded.
-function topRoundedRectPath(x: number, y: number, width: number, height: number, r: number): string {
-  const rr = Math.max(0, Math.min(r, width / 2, height));
-  if (rr === 0) {
-    return `M${x},${y} h${width} v${height} h${-width} Z`;
-  }
+function AttentionCard({
+  tone,
+  title,
+  count,
+  href,
+  children,
+}: {
+  tone: Tone
+  title: string
+  count?: number
+  href: string
+  children?: React.ReactNode
+}) {
   return (
-    `M${x},${y + rr} ` +
-    `a${rr},${rr} 0 0 1 ${rr},${-rr} ` +
-    `h${width - 2 * rr} ` +
-    `a${rr},${rr} 0 0 1 ${rr},${rr} ` +
-    `v${height - rr} h${-width} Z`
-  );
-}
-
-// Funded (lower) segment — solid lime in every year. Rounded top ONLY when it
-// is the top of the stack (prior years, no pipeline above); flat when pipeline
-// stacks above (current year), so green flows straight into the pipeline colour
-// with no rounded cap mid-bar. Fill-only path → no border between segments.
-function FundedBar(props: any) {
-  const { x, y, width, height, payload } = props;
-  if (!(height > 0) || !(width > 0)) return null;
-  const hasPipelineAbove = (payload?.pipeline ?? null) !== null && payload.pipeline > 0;
-  return <path d={topRoundedRectPath(x, y, width, height, hasPipelineAbove ? 0 : 6)} fill={LIME} />;
-}
-
-// Pipeline (upper) segment — current year only, always the very top of the
-// stack, so it carries the rounded top. Brand navy at reduced opacity, no border.
-function PipelineBar(props: any) {
-  const { x, y, width, height } = props;
-  if (!(height > 0) || !(width > 0)) return null;
-  return <path d={topRoundedRectPath(x, y, width, height, 6)} fill={PIPELINE_FILL} />;
-}
-
-// Tooltip for the by-year bars. Prior years: funded volume + count. Current
-// year: funded, pipeline, and a combined "Potential" total (funded + pipeline).
-function VolumeTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
-  if (!active || !payload || payload.length === 0) return null;
-  const d = payload[0].payload as ChartYear;
-  const hasPipeline = d.isCurrent && (d.pipeline ?? 0) > 0;
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2">
-      <p className="font-heading text-navy text-sm font-bold">
-        {d.isCurrent ? `${d.year} (YTD)` : d.year}
-      </p>
-      <p className="font-body text-xs text-gray-600 mt-1 flex items-center gap-1.5">
-        <span className="inline-block w-2 h-2 rounded-sm" style={{ background: LIME }} />
-        Funded {moneyFull(d.volume)}
-        <span className="text-gray-400">
-          ({d.count} {d.count === 1 ? 'deal' : 'deals'})
-        </span>
-      </p>
-      {hasPipeline && (
-        <>
-          <p className="font-body text-xs text-gray-600 mt-0.5 flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-sm" style={{ background: PIPELINE_FILL }} />
-            Pipeline {moneyFull(d.pipeline)}
-            <span className="text-gray-400">
-              ({d.pipelineCount} {d.pipelineCount === 1 ? 'deal' : 'deals'})
-            </span>
-          </p>
-          <p className="font-heading text-navy text-xs font-bold mt-1 pt-1 border-t border-gray-100">
-            Potential {moneyFull(d.volume + (d.pipeline ?? 0))}
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
-
-type Kpi = {
-  icon: typeof Building2;
-  value: string;
-  label: string;
-  sub: string | null;
-  comingSoon?: boolean;
-};
-
-export default function AdminDashboard() {
-  const router = useRouter();
-  const [data, setData] = useState<AdminDashboard | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/admin/dashboard')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (!cancelled) setData(json);
-      })
-      .catch(() => {
-        // Swallow — tiles fall back to dashes / Coming Soon.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const byType = data?.partners.byType;
-  const deals = data?.deals ?? null;
-
-  // Real by-type breakdown that INCLUDES lawyers and investors.
-  const partnerSubtitle = byType
-    ? `${byType.realtor} realtors, ${byType.lawyer} lawyers, ${byType.investor} investors, ${byType.financialPlanner} FPs`
-    : 'Loading…';
-
-  const todayFormatted = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-
-  // Trend badges removed — each needs a month-over-month query we have not
-  // built. Tiles with no live Zoho source are flagged comingSoon.
-  const topKpis: Kpi[] = [
-    {
-      icon: Building2,
-      value: moneyM(deals?.fundedVolume),
-      label: 'Total Funded Volume',
-      sub: deals ? `${deals.fundedCount} funded deals` : null,
-    },
-    {
-      icon: Users,
-      value: dash(data?.partners.total),
-      label: 'Active Partners',
-      sub: partnerSubtitle,
-    },
-    {
-      icon: DollarSign,
-      value: '',
-      label: 'Capital Deployed (Investors)',
-      sub: null,
-      comingSoon: true,
-    },
-    {
-      icon: TrendingUp,
-      value: '',
-      label: 'Referral Close Rate',
-      sub: null,
-      comingSoon: true,
-    },
-  ];
-
-  const secondKpis: Kpi[] = [
-    {
-      icon: FileText,
-      value: dash(deals?.totalReferrals),
-      label: 'Total Referrals (All Time)',
-      sub: deals ? `${deals.attributionPct}% of ${deals.total} deals` : null,
-    },
-    {
-      icon: Shield,
-      value: '',
-      label: 'Assets Under Monitoring',
-      sub: null,
-      comingSoon: true,
-    },
-    {
-      icon: Clock,
-      value: dash(deals?.inProgress),
-      label: 'Deals In Progress',
-      sub: deals ? 'Active pipeline' : null,
-    },
-    {
-      icon: Bell,
-      value: '',
-      label: 'Pending Actions',
-      sub: null,
-      comingSoon: true,
-    },
-  ];
-
-  const recent = deals?.recentReferrals ?? [];
-
-  // ─── Practice History derived data ─────────────────────────────────────────
-  const currentYear = new Date().getFullYear();
-  const byYear = deals?.fundedByYear ?? [];
-  const firstFundedYear = byYear.length ? byYear[0].year : FIRST_FUNDED_YEAR;
-
-  // One bar per calendar year, first funded year → current year. Years with no
-  // funded deals fill in at zero so the axis reads continuously.
-  //
-  // Pipeline is stacked above funded on the current-year bar ONLY. It's keyed
-  // to the backend's pipeline year (Toronto "now") rather than the browser
-  // year, so a New-Year's-Eve tz skew can't land it on the wrong column; all
-  // other years carry pipeline:null so Recharts draws no segment.
-  const pipeline = deals?.currentYearPipeline ?? null;
-  const byYearMap = new Map(byYear.map((y) => [y.year, y]));
-  const chartData: ChartYear[] = [];
-  for (let y = firstFundedYear; y <= currentYear; y++) {
-    const rec = byYearMap.get(y);
-    const isPipelineYear = pipeline != null && y === pipeline.year;
-    chartData.push({
-      year: String(y),
-      volume: rec?.volume ?? 0,
-      count: rec?.count ?? 0,
-      isCurrent: y === currentYear,
-      pipeline: isPipelineYear && pipeline.volume > 0 ? pipeline.volume : null,
-      pipelineCount: isPipelineYear ? pipeline.count : 0,
-    });
-  }
-
-  // 5-yr avg reference: mean of the COMPLETE (non-current) years only, so the
-  // partial current year never drags the baseline down. Label is derived from
-  // the count of complete years, so it stays correct in future years.
-  const completeYears = chartData.filter((d) => !d.isCurrent);
-  const avgComplete =
-    completeYears.length > 0
-      ? completeYears.reduce((s, d) => s + d.volume, 0) / completeYears.length
-      : 0;
-  const avgLabel = `${completeYears.length}-yr avg`;
-  const showMilestone =
-    MILESTONE_YEAR >= firstFundedYear && MILESTONE_YEAR <= currentYear;
-
-  // Summary-strip figures (all-time funded volume/count come straight from the
-  // same metrics that back the existing $31M card — not recomputed here).
-  const avgDeal =
-    deals && deals.fundedCount > 0 ? deals.fundedVolume / deals.fundedCount : null;
-  const yearsActive = deals ? currentYear - firstFundedYear + 1 : null;
-
-  const renderKpi = (kpi: Kpi) => {
-    const Icon = kpi.icon;
-    return (
-      <div
-        key={kpi.label}
-        className={`bg-white rounded-xl border border-gray-200 p-5 ${kpi.comingSoon ? 'opacity-60' : ''}`}
-      >
-        <div className={`rounded-lg p-2 w-fit ${kpi.comingSoon ? 'bg-gray-100' : 'bg-lime/10'}`}>
-          <Icon className={`w-5 h-5 ${kpi.comingSoon ? 'text-gray-400' : 'text-lime'}`} />
-        </div>
-        {kpi.comingSoon ? (
-          <>
-            <span className="inline-block bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full mt-3">
-              Coming Soon
-            </span>
-            <p className="text-gray-500 text-sm font-body mt-2">{kpi.label}</p>
-          </>
-        ) : (
-          <>
-            <p className="font-heading text-3xl text-navy font-bold mt-3">{kpi.value}</p>
-            <p className="text-gray-500 text-sm font-body mt-1">{kpi.label}</p>
-            {kpi.sub && <p className="text-gray-400 text-xs mt-0.5">{kpi.sub}</p>}
-          </>
+    <Link
+      href={href}
+      className={`block border rounded-xl px-4 py-3 transition-colors hover:border-navy/40 ${TONE_STYLES[tone]}`}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={`w-2 h-2 rounded-full shrink-0 ${
+            tone === 'red' ? 'bg-red-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-gray-300'
+          }`}
+        />
+        <span className="font-heading font-bold text-navy text-sm">{title}</span>
+        {typeof count === 'number' && (
+          <span
+            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              tone === 'red'
+                ? 'bg-red-100 text-red-700'
+                : tone === 'amber'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {count}
+          </span>
         )}
       </div>
-    );
-  };
+      {children ? <div className="mt-2 space-y-1">{children}</div> : null}
+    </Link>
+  )
+}
+
+function AttentionRow({ left, right }: { left: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-xs font-body text-gray-700">
+      <span className="truncate">{left}</span>
+      {right ? <span className="shrink-0 text-gray-500">{right}</span> : null}
+    </div>
+  )
+}
+
+function SectionCard({
+  title,
+  action,
+  children,
+}: {
+  title: string
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-heading text-navy font-bold text-base">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function QuietNote({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-gray-400 font-body py-2">{children}</p>
+}
+
+// ─── Page ───────────────────────────────────────────────────────────────────
+
+export default async function AdminHome() {
+  await requirePermission('deals.view')
+
+  const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
+  const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
+  const workbenchOff = !agentRes.configured
+  const workbenchErr = agentRes.configured && !agentRes.ok ? agentRes.error : null
+
+  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, stmtsR, sheetsR, shadowR, wbDealsR, ratesR, freshR] =
+    await Promise.all([
+      getAllDealsSlim()
+        .then(d => ({ ok: true as const, data: d }))
+        .catch(() => ({ ok: false as const, data: null })),
+      getTasksDue()
+        .then(t => ({ ok: true as const, data: t }))
+        .catch(() => ({ ok: false as const, data: null })),
+      agentId ? getOpenFlags(agentId) : null,
+      agentId ? getConditionsDue(agentId, CONDITIONS_DUE_SOON_DAYS) : null,
+      agentId ? getOpenConditionCounts(agentId) : null,
+      agentId ? getPendingStatementReviews(agentId) : null,
+      agentId ? getPendingSheetReviews(agentId) : null,
+      agentId ? getShadowTally(agentId) : null,
+      agentId ? getDealsSummary(agentId) : null,
+      agentId ? getRateQuoteStats(agentId) : null,
+      agentId ? getIntakeFreshness(agentId) : null,
+    ])
+
+  const deals: SlimDeal[] | null = dealsRes.ok ? dealsRes.data : null
+  const tasks: OpenTask[] | null = tasksRes.ok ? tasksRes.data : null
+
+  const todayYMD = torontoTodayYMD()
+  const year = Number(todayYMD.slice(0, 4))
+
+  const pipeline = deals ? computePipeline(deals) : null
+  const funded = deals ? computeFundedYTD(deals, year) : null
+  const weighted = pipeline
+    ? weightedPipelineVolume(pipelineStageVolumes(pipeline), STAGE_WEIGHTS)
+    : null
+  const pacing =
+    funded && weighted !== null
+      ? computePacing({
+          fundedYTD: funded.volume,
+          weightedPipeline: weighted,
+          annualTarget: ANNUAL_FUNDED_TARGET,
+          asOf: torontoAsOfDate(),
+        })
+      : null
+
+  const closingsAttention = deals ? computeClosings(deals, CLOSINGS_ATTENTION_DAYS) : []
+  const closingsStrip = deals ? computeClosings(deals, CLOSINGS_STRIP_DAYS) : []
+
+  const flags = val(flagsR) ?? []
+  const conds = val(condsR)
+  const condCounts = val(condCountsR) ?? {}
+  const stmts = val(stmtsR) ?? []
+  const sheets = val(sheetsR) ?? []
+  const shadow = val(shadowR)
+  const wbDeals = val(wbDealsR) ?? []
+  const rates = val(ratesR)
+  const fresh = val(freshR)
+
+  // Zoho deal id → workbench deal (for the closings join).
+  const wbByZohoId = new Map<string, (typeof wbDeals)[number]>()
+  for (const d of wbDeals) if (d.zohoPotentialId) wbByZohoId.set(d.zohoPotentialId, d)
+
+  const closingRows = closingsAttention.map(c => {
+    const wb = wbByZohoId.get(c.id)
+    return {
+      ...c,
+      wbMatch: Boolean(wb),
+      openConds: wb ? (condCounts[wb.id] ?? 0) : null,
+    }
+  })
+  const closingsNeedingAttention = closingRows.filter(
+    r => !r.wbMatch || (r.openConds ?? 0) > 0,
+  )
+
+  const highFlags = flags.filter(f => f.severity === 'high')
+  const warnFlags = flags.filter(f => f.severity === 'warning')
+  const infoFlags = flags.filter(f => f.severity === 'info')
+
+  const activeWb = wbDeals.filter(d => d.status === 'active')
+  const shadowDue = shadow
+    ? activeWb.filter(d => !shadow.scoredFileRefs.includes(d.fileRef)).length
+    : 0
+  const pendingApprovals = stmts.length + sheets.length + shadowDue
+
+  const staleHours = fresh?.lastActivity ? hoursSince(fresh.lastActivity) : null
+  const intakeStale =
+    Boolean(agentId && fresh) && (staleHours === null || staleHours > INTAKE_STALE_HOURS)
+  const zohoDown = deals === null
+
+  const headerDate = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Toronto',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+
+  const attentionCards: React.ReactNode[] = []
+
+  if (conds && conds.overdue.length > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="overdue"
+        tone="red"
+        title="Overdue conditions"
+        count={conds.overdue.length}
+        href="/portal/admin/deals"
+      >
+        {conds.overdue.slice(0, 5).map(c => (
+          <AttentionRow
+            key={c.id}
+            left={`${c.dealRef ?? 'file'}: ${c.text}`}
+            right={`due ${fmtShortDate(c.dueDate)} (${c.owner})`}
+          />
+        ))}
+        {conds.overdue.length > 5 && (
+          <p className="text-xs text-gray-500">and {conds.overdue.length - 5} more</p>
+        )}
+      </AttentionCard>,
+    )
+  }
+
+  if (conds && conds.dueSoon.length > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="duesoon"
+        tone="amber"
+        title={`Conditions due within ${CONDITIONS_DUE_SOON_DAYS} days`}
+        count={conds.dueSoon.length}
+        href="/portal/admin/deals"
+      >
+        {conds.dueSoon.slice(0, 5).map(c => (
+          <AttentionRow
+            key={c.id}
+            left={`${c.dealRef ?? 'file'}: ${c.text}`}
+            right={`due ${fmtShortDate(c.dueDate)} (${c.owner})`}
+          />
+        ))}
+      </AttentionCard>,
+    )
+  }
+
+  if (closingsNeedingAttention.length > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="closings"
+        tone="amber"
+        title={`Closings within ${CLOSINGS_ATTENTION_DAYS} days needing eyes`}
+        count={closingsNeedingAttention.length}
+        href="/portal/admin/deals"
+      >
+        {closingsNeedingAttention.slice(0, 5).map(r => (
+          <AttentionRow
+            key={r.id}
+            left={r.dealName}
+            right={
+              r.wbMatch
+                ? `${fmtShortDate(r.closingDate)}, ${r.openConds} open condition${r.openConds === 1 ? '' : 's'}`
+                : `${fmtShortDate(r.closingDate)}, no workbench file`
+            }
+          />
+        ))}
+      </AttentionCard>,
+    )
+  }
+
+  if (flags.length > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="flags"
+        tone={highFlags.length > 0 ? 'red' : 'amber'}
+        title="Open workbench flags"
+        count={flags.length}
+        href="/portal/admin/deals"
+      >
+        <AttentionRow
+          left={`${highFlags.length} high, ${warnFlags.length} warning, ${infoFlags.length} info`}
+        />
+        {[...highFlags, ...warnFlags].slice(0, 4).map(f => (
+          <AttentionRow
+            key={f.id}
+            left={`${f.severity}: ${f.kind.replace(/_/g, ' ')}`}
+            right={f.dealRef ?? undefined}
+          />
+        ))}
+      </AttentionCard>,
+    )
+  }
+
+  if (pendingApprovals > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="approvals"
+        tone="amber"
+        title="Pending approvals"
+        count={pendingApprovals}
+        href="/portal/admin/approvals"
+      >
+        <AttentionRow
+          left={`${stmts.length} statement review${stmts.length === 1 ? '' : 's'}, ${sheets.length} rate sheet review${sheets.length === 1 ? '' : 's'}, ${shadowDue} shadow score${shadowDue === 1 ? '' : 's'} due`}
+        />
+      </AttentionCard>,
+    )
+  }
+
+  if (zohoDown || intakeStale) {
+    attentionCards.push(
+      <AttentionCard
+        key="sync"
+        tone="red"
+        title="Sync freshness"
+        href="/portal/admin/status"
+      >
+        {zohoDown && <AttentionRow left="Zoho CRM is unreachable right now." />}
+        {intakeStale && (
+          <AttentionRow
+            left={
+              staleHours === null
+                ? 'Workbench has no recorded intake activity yet.'
+                : `Workbench intake has been quiet for ${Math.round(staleHours)}h (threshold ${INTAKE_STALE_HOURS}h).`
+            }
+          />
+        )}
+      </AttentionCard>,
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-10">
-      {/* 1. PAGE HEADER */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-8">
-        <div>
-          <h1 className="font-heading text-navy text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-gray-500 font-body mt-1">
-            Good evening, Michael. Here&apos;s everything happening across your practice.
-          </p>
-        </div>
-        <div className="text-right mt-4 md:mt-0">
-          <p className="text-sm text-navy font-body">{todayFormatted}</p>
-          <p className="text-xs text-gray-400">Last updated: just now</p>
-        </div>
+    <div className="max-w-6xl">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="font-heading text-navy text-2xl font-bold">Home</h1>
+        <p className="text-gray-500 font-body text-sm mt-1">{headerDate}</p>
       </div>
 
-      {/* 2. TOP KPI ROW */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {topKpis.map(renderKpi)}
-      </div>
-
-      {/* 3. SECOND KPI ROW */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {secondKpis.map(renderKpi)}
-      </div>
-
-      {/* 4. PORTAL OVERVIEW TILES */}
+      {/* Needs Attention rail */}
       <div className="mb-8">
-        <h2 className="font-heading text-navy text-xl font-bold mb-4">Portal Activity</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Partner Portal — enters the realtor portal as the representative
-              partner view (mirrors the sidebar "Switch to Portal → Realtor").
-              The retired /portal/dashboard catch-all would no-op for admins. */}
-          <div
-            onClick={() => router.push('/portal/realtor/dashboard')}
-            className="bg-white rounded-2xl border-2 border-gray-200 hover:border-lime cursor-pointer transition-all p-6"
-          >
-            <div className="flex items-center gap-3">
-              <div className="bg-lime/10 rounded-full p-2">
-                <Users className="w-5 h-5 text-lime" />
-              </div>
-              <h3 className="font-heading text-navy font-bold text-lg">Partner Portal</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.realtor)}</p>
-                <p className="text-gray-500 text-xs">Active Realtors</p>
-              </div>
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.financialPlanner)}</p>
-                <p className="text-gray-500 text-xs">Active FPs</p>
-              </div>
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.lawyer)}</p>
-                <p className="text-gray-500 text-xs">Active Lawyers</p>
-              </div>
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.investor)}</p>
-                <p className="text-gray-500 text-xs">Active Investors</p>
-              </div>
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">{dash(deals?.referralsThisMonth)}</p>
-                <p className="text-gray-500 text-xs">Referrals This Month</p>
-              </div>
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">
-                  {deals
-                    ? `${deals.totalReferrals} / ${deals.total} (${deals.attributionPct}%)`
-                    : '—'}
-                </p>
-                <p className="text-gray-500 text-xs">Referral Attribution</p>
-              </div>
-            </div>
-            <p className="text-lime font-semibold text-sm mt-4">Enter Partner Portal &rarr;</p>
+        {workbenchOff && (
+          <div className="border border-gray-200 bg-white rounded-xl px-4 py-3 mb-3">
+            <p className="text-sm text-gray-500 font-body">
+              Workbench not connected. Conditions, flags, and approvals appear here once
+              UW_SUPABASE_URL and UW_SUPABASE_SERVICE_ROLE_KEY are set.
+            </p>
           </div>
-
-          {/* Investor Portal — only the partner count is live; position-level
-              figures await an investor data source in Zoho. */}
-          <div
-            onClick={() => router.push('/portal/investor/dashboard')}
-            className="bg-white rounded-2xl border-2 border-gray-200 hover:border-lime cursor-pointer transition-all p-6"
-          >
-            <div className="flex items-center gap-3">
-              <div className="bg-lime/10 rounded-full p-2">
-                <TrendingUp className="w-5 h-5 text-lime" />
-              </div>
-              <h3 className="font-heading text-navy font-bold text-lg">Investor Portal</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div>
-                <p className="font-heading text-navy text-xl font-bold">{dash(byType?.investor)}</p>
-                <p className="text-gray-500 text-xs">Active Investors</p>
-              </div>
-              <div>
-                <span className="inline-block bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                  Coming Soon
-                </span>
-                <p className="text-gray-500 text-xs mt-1">Capital Deployed</p>
-              </div>
-              <div>
-                <span className="inline-block bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                  Coming Soon
-                </span>
-                <p className="text-gray-500 text-xs mt-1">Interest Paid YTD</p>
-              </div>
-              <div>
-                <span className="inline-block bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                  Coming Soon
-                </span>
-                <p className="text-gray-500 text-xs mt-1">New Opportunities</p>
-              </div>
-            </div>
-            <p className="text-lime font-semibold text-sm mt-4">Enter Investor Portal &rarr;</p>
+        )}
+        {workbenchErr && (
+          <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 mb-3">
+            <p className="text-sm text-amber-800 font-body">Workbench: {workbenchErr}</p>
           </div>
-
-          {/* SMM Dashboard — no live data source yet. */}
-          <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 opacity-75 p-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-gray-100 rounded-full p-2">
-                <Activity className="w-5 h-5 text-gray-400" />
-              </div>
-              <div>
-                <h3 className="font-heading text-navy font-bold text-lg">SMM Dashboard</h3>
-                <p className="text-gray-400 text-xs">Strategic Mortgage Monitoring</p>
-              </div>
-            </div>
-            <div className="flex flex-col items-center justify-center py-8 gap-2">
-              <span className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">
-                Coming Soon
-              </span>
-              <p className="text-gray-400 text-xs text-center">
-                Monitoring metrics not yet sourced from Zoho.
+        )}
+        {attentionCards.length > 0 ? (
+          <div className="space-y-3">{attentionCards}</div>
+        ) : (
+          !workbenchOff &&
+          !workbenchErr && (
+            <div className="border border-gray-200 bg-white rounded-xl px-4 py-3">
+              <p className="text-sm text-gray-500 font-body">
+                Nothing needs attention right now. Conditions, flags, approvals, and sync
+                are all clear.
               </p>
             </div>
-          </div>
-        </div>
+          )
+        )}
       </div>
 
-      {/* 5. RECENT ACTIVITY */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Recent Referrals — live, attributed deals newest first. */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-navy font-bold text-lg">Recent Referrals</h3>
-            <Link href="/portal/clients" className="text-lime text-sm font-semibold">
-              View All &rarr;
-            </Link>
-          </div>
-          <div>
-            {recent.length === 0 ? (
-              <p className="text-sm text-gray-400 py-3">
-                {data ? 'No attributed referrals yet.' : 'Loading…'}
-              </p>
+      {/* Pipeline + Tasks */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2">
+          <SectionCard
+            title="Pipeline by stage"
+            action={
+              <Link href="/portal/admin/deals" className="text-xs font-semibold text-navy hover:text-lime">
+                Deals &rarr;
+              </Link>
+            }
+          >
+            {pipeline ? (
+              <div>
+                <table className="w-full text-sm font-body">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-400 uppercase tracking-wide">
+                      <th className="py-1.5 font-medium">Stage</th>
+                      <th className="py-1.5 font-medium text-right">Files</th>
+                      <th className="py-1.5 font-medium text-right">Volume</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...pipeline.ordered, ...pipeline.other].map(row => (
+                      <tr key={row.stage} className="border-t border-gray-100">
+                        <td className="py-2">
+                          <Link href="/portal/admin/deals" className="text-navy hover:text-lime">
+                            {row.stage}
+                          </Link>
+                        </td>
+                        <td className="py-2 text-right text-navy font-semibold">{row.count}</td>
+                        <td className="py-2 text-right text-gray-600">{fmtMoneyCompact(row.volume)}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-gray-200">
+                      <td className="py-2 font-semibold text-navy">Open total</td>
+                      <td className="py-2 text-right font-semibold text-navy">{pipeline.openCount}</td>
+                      <td className="py-2 text-right font-semibold text-navy">
+                        {fmtMoneyCompact(pipeline.openVolume)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                {pipeline.summary.map(s => (
+                  <p key={s.stage} className="text-xs text-gray-400 font-body mt-2">
+                    {s.stage}: {s.count} tracked records (not counted as pipeline)
+                  </p>
+                ))}
+              </div>
             ) : (
-              recent.map((ref, i) => (
-                <div
-                  key={ref.dealId}
-                  className={`flex items-center justify-between py-3 ${i < recent.length - 1 ? 'border-b border-gray-100' : ''}`}
+              <QuietNote>Zoho pipeline data is unavailable right now. Check Status.</QuietNote>
+            )}
+          </SectionCard>
+        </div>
+
+        <SectionCard title="Tasks due today">
+          {tasks === null ? (
+            <QuietNote>Zoho tasks are unavailable right now.</QuietNote>
+          ) : tasks.length === 0 ? (
+            <QuietNote>No tasks due today.</QuietNote>
+          ) : (
+            <div className="space-y-2">
+              {tasks.slice(0, 8).map(t => (
+                <a
+                  key={t.id}
+                  href={zohoTaskUrl(t.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block group"
                 >
-                  <div>
-                    <p className="text-sm font-body text-navy font-semibold">{ref.borrower}</p>
-                    <p className="text-xs text-gray-400">{ref.partner ?? 'Unknown partner'}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${stageColor(ref.stage)}`}>
-                      {ref.stage || '—'}
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-body text-navy group-hover:text-lime leading-snug">
+                      {t.subject}
                     </span>
-                    <span className="text-xs text-gray-400">{fmtDate(ref.createdTime)}</span>
+                    <span
+                      className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                        t.overdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {t.overdue ? `overdue ${fmtShortDate(t.dueDate)}` : 'today'}
+                    </span>
+                  </div>
+                  {t.priority && (
+                    <p className="text-[11px] text-gray-400 mt-0.5">{t.priority} priority</p>
+                  )}
+                </a>
+              ))}
+              {tasks.length > 8 && (
+                <p className="text-xs text-gray-400">and {tasks.length - 8} more in Zoho</p>
+              )}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Goal pacing + Rates */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2">
+          <SectionCard
+            title={`Goal pacing ${year}`}
+            action={
+              <Link href="/portal/admin/revenue" className="text-xs font-semibold text-navy hover:text-lime">
+                Revenue &rarr;
+              </Link>
+            }
+          >
+            {pacing ? (
+              <div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <p className="font-heading text-xl text-navy font-bold">
+                      {fmtMoneyCompact(pacing.fundedYTD)}
+                    </p>
+                    <p className="text-xs text-gray-500 font-body mt-0.5">
+                      Funded YTD ({funded?.count ?? 0} deals)
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-heading text-xl text-navy font-bold">
+                      {fmtMoneyCompact(pacing.weightedPipeline)}
+                    </p>
+                    <p className="text-xs text-gray-500 font-body mt-0.5">Weighted pipeline</p>
+                  </div>
+                  <div>
+                    <p className="font-heading text-xl text-navy font-bold">
+                      {fmtMoneyCompact(pacing.combined)}
+                    </p>
+                    <p className="text-xs text-gray-500 font-body mt-0.5">Combined</p>
+                  </div>
+                  <div>
+                    <p
+                      className={`font-heading text-xl font-bold ${pacing.onPace ? 'text-green-600' : 'text-red-600'}`}
+                    >
+                      {(pacing.onPace ? '+' : '-') + fmtMoneyCompact(Math.abs(pacing.delta))}
+                    </p>
+                    <p className="text-xs text-gray-500 font-body mt-0.5">
+                      {pacing.onPace ? 'Ahead of' : 'Behind'} straight-line
+                    </p>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
 
-        {/* Investor Activity — no live data source yet. */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 opacity-75">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-navy font-bold text-lg">Investor Activity</h3>
-          </div>
-          <div className="flex flex-col items-center justify-center py-12 gap-2">
-            <span className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">
-              Coming Soon
-            </span>
-            <p className="text-gray-400 text-xs text-center">
-              Investor position data not yet sourced from Zoho.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. PENDING ACTIONS — no live data source yet. */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8 opacity-75">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading text-navy font-bold text-lg">Pending Actions</h3>
-        </div>
-        <div className="flex flex-col items-center justify-center py-10 gap-2">
-          <span className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">
-            Coming Soon
-          </span>
-          <p className="text-gray-400 text-xs text-center">
-            Action queue not yet wired to a live source.
-          </p>
-        </div>
-      </div>
-
-      {/* 7. PRACTICE SUMMARY — real deal-derived numbers only. */}
-      <div className="bg-navy text-white rounded-xl p-6">
-        <h3 className="text-lime font-heading font-bold text-lg mb-4">Practice Summary</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          <div>
-            <p className="font-heading text-2xl font-bold text-lime">{moneyM(deals?.fundedVolume)}</p>
-            <p className="text-gray-400 text-xs mt-1">Total Funded Volume</p>
-          </div>
-          <div>
-            <p className="font-heading text-2xl font-bold text-white">{dash(deals?.fundedCount)}</p>
-            <p className="text-gray-400 text-xs mt-1">Funded Deals</p>
-          </div>
-          <div>
-            <p className="font-heading text-2xl font-bold text-lime">{dash(deals?.total)}</p>
-            <p className="text-gray-400 text-xs mt-1">Total Deals</p>
-          </div>
-          <div>
-            <p className="font-heading text-2xl font-bold text-white">{dash(data?.partners.total)}</p>
-            <p className="text-gray-400 text-xs mt-1">Active Partners</p>
-          </div>
-        </div>
-      </div>
-
-      {/* 8. PRACTICE HISTORY — funded production over time (admin only). Sits
-          at the bottom; the all-time tiles above are untouched. */}
-      <div className="mt-8">
-        <h2 className="font-heading text-navy text-xl font-bold mb-1">Practice History</h2>
-        <p className="text-gray-500 font-body text-sm mb-4">
-          Funded production since {firstFundedYear}.
-        </p>
-
-        {/* Summary strip */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="font-heading text-2xl text-navy font-bold">{moneyM(deals?.fundedVolume)}</p>
-            <p className="text-gray-500 text-sm font-body mt-1">Total Funded Volume</p>
-            <p className="text-gray-400 text-xs mt-0.5">All time</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="font-heading text-2xl text-navy font-bold">{dash(deals?.fundedCount)}</p>
-            <p className="text-gray-500 text-sm font-body mt-1">Funded Deals</p>
-            <p className="text-gray-400 text-xs mt-0.5">All time</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="font-heading text-2xl text-navy font-bold">{moneyShort(avgDeal)}</p>
-            <p className="text-gray-500 text-sm font-body mt-1">Avg Deal Size</p>
-            <p className="text-gray-400 text-xs mt-0.5">Volume &divide; funded deals</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="font-heading text-2xl text-navy font-bold">
-              {yearsActive === null ? '—' : yearsActive}
-            </p>
-            <p className="text-gray-500 text-sm font-body mt-1">Years Active</p>
-            <p className="text-gray-400 text-xs mt-0.5">
-              {deals ? `${firstFundedYear}–${currentYear}` : ''}
-            </p>
-          </div>
-          {/* Active partners slot — reserved, sourced in a later pass. */}
-          <div className="bg-white rounded-xl border border-dashed border-gray-200 p-5 opacity-60">
-            <p className="font-heading text-2xl text-gray-300 font-bold">—</p>
-            <p className="text-gray-500 text-sm font-body mt-1">Active Partners</p>
-            <p className="text-gray-400 text-xs mt-0.5">Coming soon</p>
-          </div>
-        </div>
-
-        {/* Volume by Year */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-heading text-navy font-bold text-lg">Funded Volume by Year</h3>
-            <span className="text-xs text-gray-400 font-body">
-              Actuals + current pipeline &middot; {firstFundedYear}&ndash;{currentYear}
-            </span>
-          </div>
-          <div className="w-full" style={{ height: 320 }}>
-            {!deals ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                Loading&hellip;
-              </div>
-            ) : chartData.every((d) => d.volume === 0 && !d.pipeline) ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                No funded deals yet.
+                {/* Progress vs the straight-line marker */}
+                <div className="mt-5">
+                  <div className="relative h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="absolute left-0 top-0 bottom-0 bg-lime"
+                      style={{
+                        width: `${Math.min(100, (pacing.combined / pacing.annualTarget) * 100)}%`,
+                      }}
+                    />
+                    <div
+                      className="absolute top-0 bottom-0 w-0.5 bg-navy"
+                      style={{ left: `${Math.min(100, pacing.pctYearElapsed * 100)}%` }}
+                      title="Straight-line position for today"
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] text-gray-400 font-body mt-1.5">
+                    <span>
+                      Target {fmtMoneyCompact(pacing.annualTarget)} &middot; day {pacing.dayOfYear} of{' '}
+                      {pacing.daysInYear}
+                    </span>
+                    <span>
+                      Straight-line today: {fmtMoney(pacing.straightLineTarget)}
+                    </span>
+                  </div>
+                </div>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 28, right: 16, left: 8, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f2" />
-                  <XAxis
-                    dataKey="year"
-                    tickFormatter={(y) => (Number(y) === currentYear ? `${y} YTD` : y)}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tickFormatter={(v) => moneyShort(v)}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={56}
-                  />
-                  <Tooltip content={<VolumeTooltip />} cursor={{ fill: 'rgba(3,33,51,0.04)' }} />
-                  {/* Funded actuals — solid lime in every year, bottom of the
-                      stack. Custom shape rounds the top only when there's no
-                      pipeline above (prior years); flat under the current-year
-                      pipeline so the stack reads as one continuous bar. */}
-                  <Bar dataKey="volume" stackId="vol" maxBarSize={64} isAnimationActive={false} shape={<FundedBar />} />
-                  {/* Current-year pipeline — brand navy at reduced opacity,
-                      stacked above funded (shared stackId). null on prior years,
-                      so it shows only on the current bar; carries the rounded top. */}
-                  <Bar dataKey="pipeline" stackId="vol" maxBarSize={64} isAnimationActive={false} shape={<PipelineBar />} />
-                  {avgComplete > 0 && (
-                    <ReferenceLine y={avgComplete} stroke={NAVY} strokeOpacity={0.55} strokeDasharray="5 4">
-                      <Label
-                        content={(p: any) => {
-                          const vb = p?.viewBox;
-                          if (!vb) return null;
-                          return (
-                            <text
-                              x={vb.x + 8}
-                              y={vb.y - 6}
-                              textAnchor="start"
-                              fill={NAVY}
-                              fillOpacity={0.75}
-                              fontSize={11}
-                              fontWeight={600}
-                            >
-                              {avgLabel}
-                            </text>
-                          );
-                        }}
-                      />
-                    </ReferenceLine>
-                  )}
-                  {showMilestone && (
-                    <ReferenceLine x={String(MILESTONE_YEAR)} stroke={NAVY} strokeWidth={1.5} strokeDasharray="4 3">
-                      <Label
-                        content={(p: any) => {
-                          const vb = p?.viewBox;
-                          if (!vb) return null;
-                          return (
-                            <text
-                              x={vb.x - 6}
-                              y={vb.y - 8}
-                              textAnchor="end"
-                              fill={NAVY}
-                              fontSize={11}
-                              fontWeight={600}
-                            >
-                              {MILESTONE_LABEL}
-                            </text>
-                          );
-                        }}
-                      />
-                    </ReferenceLine>
-                  )}
-                </BarChart>
-              </ResponsiveContainer>
+              <QuietNote>Pacing needs the Zoho deal pull, which is unavailable right now.</QuietNote>
             )}
-          </div>
+          </SectionCard>
         </div>
+
+        <SectionCard
+          title="Rates"
+          action={
+            <Link href="/portal/admin/rates" className="text-xs font-semibold text-navy hover:text-lime">
+              Rates &rarr;
+            </Link>
+          }
+        >
+          {workbenchOff ? (
+            <QuietNote>Workbench not connected.</QuietNote>
+          ) : rates ? (
+            <div className="space-y-2.5 font-body text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Approved current quotes</span>
+                <span className="text-navy font-semibold">{rates.approvedCurrent}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Superseded</span>
+                <span className="text-navy font-semibold">{rates.superseded}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Newest approved sheet</span>
+                <span className="text-navy font-semibold">
+                  {rates.newestApprovedAsOf ? fmtShortDate(rates.newestApprovedAsOf) : 'none'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Pending sheet reviews</span>
+                <Link href="/portal/admin/approvals" className="text-navy font-semibold hover:text-lime">
+                  {sheets.length}
+                </Link>
+              </div>
+              <p className="text-[11px] text-gray-400 pt-1">
+                Promo countdowns arrive in Session 4 with the knowledge wiring.
+              </p>
+            </div>
+          ) : (
+            <QuietNote>Workbench rates data is unavailable right now.</QuietNote>
+          )}
+        </SectionCard>
       </div>
+
+      {/* Closings this week */}
+      <SectionCard
+        title={`Closings in the next ${CLOSINGS_STRIP_DAYS} days`}
+        action={
+          <Link href="/portal/admin/deals" className="text-xs font-semibold text-navy hover:text-lime">
+            Deals &rarr;
+          </Link>
+        }
+      >
+        {deals === null ? (
+          <QuietNote>Zoho closings are unavailable right now.</QuietNote>
+        ) : closingsStrip.length === 0 ? (
+          <QuietNote>No closings scheduled in the next {CLOSINGS_STRIP_DAYS} days.</QuietNote>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {closingsStrip.map(c => {
+              const wb = wbByZohoId.get(c.id)
+              const openConds = wb ? (condCounts[wb.id] ?? 0) : null
+              return (
+                <Link
+                  key={c.id}
+                  href="/portal/admin/deals"
+                  className="border border-gray-200 rounded-lg px-3 py-2.5 hover:border-lime transition-colors"
+                >
+                  <p className="text-sm font-body font-semibold text-navy truncate">{c.dealName}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {fmtShortDate(c.closingDate)} &middot; {c.stage}
+                  </p>
+                  <p className="text-[11px] mt-1">
+                    {wb ? (
+                      <span className={openConds ? 'text-amber-700' : 'text-green-700'}>
+                        {openConds} open condition{openConds === 1 ? '' : 's'}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">no workbench file</span>
+                    )}
+                  </p>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </SectionCard>
     </div>
-  );
+  )
 }
