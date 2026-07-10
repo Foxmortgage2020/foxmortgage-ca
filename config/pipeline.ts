@@ -73,6 +73,30 @@ export function isTerminalStage(stage: string): boolean {
   return (TERMINAL_STAGES as readonly string[]).includes(stage)
 }
 
+// ─── Workbench-side terminal semantics (Session 4) ──────────────────────────
+// The workbench deals table carries its own stage vocabulary (lowercase,
+// e.g. 'funded', 'underwriting') and a status column ('active' vs markers
+// like 'superseded'). A terminal workbench deal stays fully visible in the
+// deal list and deal room but never feeds urgency surfaces: the Home
+// Needs Attention rail and the Approvals badge counts.
+
+export const WORKBENCH_TERMINAL_STAGES = [
+  'funded',
+  'closed',
+  'lost',
+  'cancelled',
+  'archived',
+] as const
+
+export function isTerminalWorkbenchDeal(deal: {
+  status?: string | null
+  stage?: string | null
+}): boolean {
+  if (deal.status && deal.status !== 'active') return true
+  const stage = deal.stage?.toLowerCase() ?? ''
+  return (WORKBENCH_TERMINAL_STAGES as readonly string[]).includes(stage)
+}
+
 export function isSummaryStage(stage: string): boolean {
   return (SUMMARY_STAGES as readonly string[]).includes(stage)
 }

@@ -49,7 +49,6 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: '/portal/admin/rates',
     iconKey: 'Percent',
     permission: 'rates.view',
-    arrivesInSession: 4,
     description:
       'Current approved lender quotes, promos with countdowns, and rate sheet history from the workbench.',
   },
@@ -58,7 +57,6 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: '/portal/admin/intel',
     iconKey: 'Radar',
     permission: 'intel.view',
-    arrivesInSession: 4,
     description:
       'Lender intel items from Roam and Dialpad, triaged into knowledge and rate updates.',
   },
@@ -67,9 +65,16 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: '/portal/admin/knowledge',
     iconKey: 'BookOpen',
     permission: 'knowledge.view',
-    arrivesInSession: 4,
     description:
-      'Lender guidelines and program knowledge, searchable and cited back to source documents.',
+      'Lender profiles and notes with as-of dates, served from the git-versioned workbench knowledge base.',
+  },
+  {
+    label: 'Changelog',
+    href: '/portal/admin/changelog',
+    iconKey: 'History',
+    permission: 'knowledge.view',
+    description:
+      'What changed: sheets in force, intel arrivals, and platform releases, grouped by week.',
   },
   {
     label: 'Compliance',
@@ -96,6 +101,13 @@ export const ADMIN_NAV: AdminNavItem[] = [
     permission: 'partners.provision',
     description:
       'Partner directory, onboarding links, documents, and view-as access to every partner portal.',
+  },
+  {
+    label: 'Directory',
+    href: '/portal/admin/directory',
+    iconKey: 'BookUser',
+    permission: 'deals.view',
+    description: 'Staff with licence numbers; lender contacts once the workbench grant lands.',
   },
   {
     label: 'Bookkeeping',

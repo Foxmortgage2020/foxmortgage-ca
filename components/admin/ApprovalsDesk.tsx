@@ -343,7 +343,11 @@ export default function ApprovalsDesk({
       url: `/api/portal/admin/gates/flags/${card.id}/disposition`,
       body: { disposition, ...(note(key).trim() ? { note: note(key).trim() } : {}) },
       onSuccess: () => {
-        setData(d => ({ ...d, flags: d.flags.filter(f => f.id !== card.id) }))
+        setData(d => ({
+          ...d,
+          flags: d.flags.filter(f => f.id !== card.id),
+          flagsOnClosed: d.flagsOnClosed.filter(f => f.id !== card.id),
+        }))
       },
       successText: () => `Flag ${label(card.kind)} dispositioned as ${disposition}.`,
     })
@@ -388,6 +392,82 @@ export default function ApprovalsDesk({
   }
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
+
+  // One flag card, shared by the live severity groups and the collapsed
+  // closed-files section (same controls; terminal-deal cleanup is allowed
+  // by the contract and audited with deal_terminal).
+  const renderFlagCard = (card: OpenFlagCard) => {
+    const key = `flag:${card.id}`
+    const detailEntries = Object.entries(card.detail).filter(
+      ([, v]) => v !== null && v !== undefined && typeof v !== 'object',
+    )
+    const sev = card.severity
+    return (
+      <div key={card.id} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip tone={sev === 'high' ? 'red' : sev === 'warning' ? 'amber' : 'gray'}>{sev}</Chip>
+          <h4 className="font-heading font-bold text-navy text-sm capitalize">{label(card.kind)}</h4>
+          {card.dealRef && card.dealId && (
+            <Link
+              href={`/portal/admin/deals/${card.dealId}`}
+              className="text-xs font-semibold text-navy underline hover:text-lime ml-auto"
+            >
+              {card.dealRef} deal room
+            </Link>
+          )}
+        </div>
+        <p className="text-[11px] text-gray-400 font-body mt-1">raised {fmtWhen(card.createdAt)}</p>
+        {detailEntries.length > 0 && (
+          <div className="mt-2 space-y-0.5">
+            {detailEntries.map(([k, v]) => (
+              <p key={k} className="text-xs font-body text-gray-600 break-words">
+                <span className="text-gray-400">{label(k)}:</span> {String(v)}
+              </p>
+            ))}
+          </div>
+        )}
+        {card.evidenceRefCount > 0 && (
+          <p className="text-[11px] text-gray-400 font-body mt-1.5">
+            {card.evidenceRefCount} evidence reference{card.evidenceRefCount === 1 ? '' : 's'} recorded in
+            the workbench (evidence detail is not granted to the portal yet)
+          </p>
+        )}
+        {canDecide.flags ? (
+          <>
+            <NoteField
+              value={note(key)}
+              onChange={v => setNote(key, v)}
+              placeholder="Optional note (lands in the flag reason and the audit trail)"
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(['accepted', 'corrected', 'escalated'] as const).map(dispo => (
+                <ConfirmButton
+                  key={dispo}
+                  label={dispo === 'accepted' ? 'Accept' : dispo === 'corrected' ? 'Corrected' : 'Escalate'}
+                  confirmLabel="Tap again to confirm"
+                  tone={dispo === 'escalated' ? 'reject' : dispo === 'accepted' ? 'approve' : 'neutral'}
+                  busy={Boolean(busy[key])}
+                  armed={armed === `${key}:${dispo}`}
+                  onArm={() => arm(`${key}:${dispo}`)}
+                  onFire={() => disposeFlag(card, dispo)}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <ViewOnlyNote />
+        )}
+        {cardErrors[key] && (
+          <CardError
+            message={cardErrors[key]}
+            onRetry={
+              cardErrors[key].startsWith('Could not reach') ? () => disposeFlag(card, 'accepted') : undefined
+            }
+          />
+        )}
+      </div>
+    )
+  }
 
   const tabs: { key: TabKey; title: string; count: number }[] = [
     { key: 'statements', title: 'Statements', count: data.statements.length },
@@ -659,97 +739,35 @@ export default function ApprovalsDesk({
           ))}
 
         {/* ── Flags ── */}
-        {tab === 'flags' &&
-          (data.flags.length === 0 ? (
-            <EmptyState text={emptyCopy.flags} lastDecided={lastDecidedFor.flags} />
-          ) : (
-            (['high', 'warning', 'info'] as const).map(sev => {
-              const group = data.flags.filter(f => f.severity === sev)
-              if (group.length === 0) return null
-              return (
-                <div key={sev}>
-                  <h3 className="font-heading font-bold text-navy text-sm uppercase tracking-wide mb-2 mt-2">
-                    {sev} <span className="text-gray-400 font-body font-normal">({group.length})</span>
-                  </h3>
-                  <div className="space-y-3">
-                    {group.map(card => {
-                      const key = `flag:${card.id}`
-                      const detailEntries = Object.entries(card.detail).filter(
-                        ([, v]) => v !== null && v !== undefined && typeof v !== 'object',
-                      )
-                      return (
-                        <div key={card.id} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Chip tone={sev === 'high' ? 'red' : sev === 'warning' ? 'amber' : 'gray'}>{sev}</Chip>
-                            <h4 className="font-heading font-bold text-navy text-sm capitalize">{label(card.kind)}</h4>
-                            {card.dealRef && card.dealId && (
-                              <Link
-                                href={`/portal/admin/deals/${card.dealId}`}
-                                className="text-xs font-semibold text-navy underline hover:text-lime ml-auto"
-                              >
-                                {card.dealRef} deal room
-                              </Link>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-gray-400 font-body mt-1">raised {fmtWhen(card.createdAt)}</p>
-                          {detailEntries.length > 0 && (
-                            <div className="mt-2 space-y-0.5">
-                              {detailEntries.map(([k, v]) => (
-                                <p key={k} className="text-xs font-body text-gray-600 break-words">
-                                  <span className="text-gray-400">{label(k)}:</span> {String(v)}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                          {card.evidenceRefCount > 0 && (
-                            <p className="text-[11px] text-gray-400 font-body mt-1.5">
-                              {card.evidenceRefCount} evidence reference{card.evidenceRefCount === 1 ? '' : 's'} recorded in
-                              the workbench (evidence detail is not granted to the portal yet)
-                            </p>
-                          )}
-                          {canDecide.flags ? (
-                            <>
-                              <NoteField
-                                value={note(key)}
-                                onChange={v => setNote(key, v)}
-                                placeholder="Optional note (lands in the flag reason and the audit trail)"
-                              />
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {(['accepted', 'corrected', 'escalated'] as const).map(dispo => (
-                                  <ConfirmButton
-                                    key={dispo}
-                                    label={dispo === 'accepted' ? 'Accept' : dispo === 'corrected' ? 'Corrected' : 'Escalate'}
-                                    confirmLabel="Tap again to confirm"
-                                    tone={dispo === 'escalated' ? 'reject' : dispo === 'accepted' ? 'approve' : 'neutral'}
-                                    busy={Boolean(busy[key])}
-                                    armed={armed === `${key}:${dispo}`}
-                                    onArm={() => arm(`${key}:${dispo}`)}
-                                    onFire={() => disposeFlag(card, dispo)}
-                                  />
-                                ))}
-                              </div>
-                            </>
-                          ) : (
-                            <ViewOnlyNote />
-                          )}
-                          {cardErrors[key] && (
-                            <CardError
-                              message={cardErrors[key]}
-                              onRetry={
-                                cardErrors[key].startsWith('Could not reach')
-                                  ? () => disposeFlag(card, 'accepted')
-                                  : undefined
-                              }
-                            />
-                          )}
-                        </div>
-                      )
-                    })}
+        {tab === 'flags' && (
+          <>
+            {data.flags.length === 0 ? (
+              <EmptyState text={emptyCopy.flags} lastDecided={lastDecidedFor.flags} />
+            ) : (
+              (['high', 'warning', 'info'] as const).map(sev => {
+                const group = data.flags.filter(f => f.severity === sev)
+                if (group.length === 0) return null
+                return (
+                  <div key={sev}>
+                    <h3 className="font-heading font-bold text-navy text-sm uppercase tracking-wide mb-2 mt-2">
+                      {sev} <span className="text-gray-400 font-body font-normal">({group.length})</span>
+                    </h3>
+                    <div className="space-y-3">{group.map(renderFlagCard)}</div>
                   </div>
-                </div>
-              )
-            })
-          ))}
+                )
+              })
+            )}
+            {data.flagsOnClosed.length > 0 && (
+              <details className="mt-4">
+                <summary className="cursor-pointer select-none text-sm font-semibold font-body text-gray-500 py-2">
+                  On closed files ({data.flagsOnClosed.length}): cleanup, not urgency. These never
+                  count in the badge.
+                </summary>
+                <div className="mt-2 space-y-3">{data.flagsOnClosed.map(renderFlagCard)}</div>
+              </details>
+            )}
+          </>
+        )}
 
         {/* ── Shadow scores ── */}
         {tab === 'shadow' &&
