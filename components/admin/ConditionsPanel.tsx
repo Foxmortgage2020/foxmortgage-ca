@@ -47,11 +47,16 @@ export default function ConditionsPanel({
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
-  const [armed, setArmed] = useState<string | null>(null)
+  // Armed state carries its timestamp: the fire path checks elapsed time at
+  // tap time because background tabs throttle timers, and a visually armed
+  // button must never fire outside its window (found live in Session 4
+  // testing: a throttled disarm let a stray tap decide a real condition).
+  const [armed, setArmed] = useState<{ key: string; at: number } | null>(null)
   const [toast, setToast] = useState<{ tone: 'green' | 'amber'; text: string } | null>(null)
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mintGatesToken = useGatesToken()
+  const ARM_WINDOW_MS = 4000
 
   useEffect(() => setRows(conditions), [conditions])
   useEffect(
@@ -63,7 +68,7 @@ export default function ConditionsPanel({
   )
 
   const arm = useCallback((key: string) => {
-    setArmed(key)
+    setArmed({ key, at: Date.now() })
     if (armTimer.current) clearTimeout(armTimer.current)
     armTimer.current = setTimeout(() => setArmed(null), 4000)
   }, [])
@@ -170,12 +175,16 @@ export default function ConditionsPanel({
                   <div className="mt-2 flex flex-wrap gap-2">
                     {(['satisfied', 'moot', 'waived'] as const).map(action => {
                       const key = `${c.id}:${action}`
-                      const isArmed = armed === key
+                      const isArmed = armed?.key === key
                       return (
                         <button
                           key={action}
                           disabled={Boolean(busy[c.id])}
-                          onClick={() => (isArmed ? void decide(c, action) : arm(key))}
+                          onClick={() =>
+                            isArmed && armed && Date.now() - armed.at <= ARM_WINDOW_MS
+                              ? void decide(c, action)
+                              : arm(key)
+                          }
                           className={`min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
                             isArmed
                               ? 'bg-navy text-white'

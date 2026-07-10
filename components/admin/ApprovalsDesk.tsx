@@ -114,13 +114,18 @@ function NoteField({
 }
 
 // Two-tap confirm button. First tap arms it (label changes), second tap
-// within 4 seconds fires. Fat-finger guard without a modal.
+// within the window fires. The window is enforced by timestamp at tap time,
+// not only by the visual disarm timer: background tabs throttle timers, and
+// a visually armed button must never fire outside its window.
+const ARM_WINDOW_MS = 4000
+
 function ConfirmButton({
   label: text,
   confirmLabel,
   tone,
   busy,
   armed,
+  armedAt,
   onArm,
   onFire,
 }: {
@@ -129,6 +134,7 @@ function ConfirmButton({
   tone: 'approve' | 'reject' | 'neutral'
   busy: boolean
   armed: boolean
+  armedAt?: number
   onArm: () => void
   onFire: () => void
 }) {
@@ -143,8 +149,9 @@ function ConfirmButton({
       : tone === 'reject'
         ? 'bg-white border border-red-300 text-red-700 hover:bg-red-50'
         : 'bg-white border border-gray-300 text-navy hover:bg-gray-50'
+  const fresh = armed && armedAt !== undefined && Date.now() - armedAt <= ARM_WINDOW_MS
   return (
-    <button className={`${base} ${toneCls}`} disabled={busy} onClick={armed ? onFire : onArm}>
+    <button className={`${base} ${toneCls}`} disabled={busy} onClick={() => (fresh ? onFire() : onArm())}>
       {busy ? 'Working…' : armed ? confirmLabel : text}
     </button>
   )
@@ -221,16 +228,16 @@ export default function ApprovalsDesk({
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
-  const [armed, setArmed] = useState<string | null>(null)
+  const [armed, setArmed] = useState<{ key: string; at: number } | null>(null)
   const [toast, setToast] = useState<{ tone: 'green' | 'amber'; text: string } | null>(null)
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mintGatesToken = useGatesToken()
 
   const arm = useCallback((key: string) => {
-    setArmed(key)
+    setArmed({ key, at: Date.now() })
     if (armTimer.current) clearTimeout(armTimer.current)
-    armTimer.current = setTimeout(() => setArmed(null), 4000)
+    armTimer.current = setTimeout(() => setArmed(null), ARM_WINDOW_MS)
   }, [])
 
   const showToast = useCallback((tone: 'green' | 'amber', text: string) => {
@@ -447,7 +454,8 @@ export default function ApprovalsDesk({
                   confirmLabel="Tap again to confirm"
                   tone={dispo === 'escalated' ? 'reject' : dispo === 'accepted' ? 'approve' : 'neutral'}
                   busy={Boolean(busy[key])}
-                  armed={armed === `${key}:${dispo}`}
+                  armed={armed?.key === `${key}:${dispo}`}
+                  armedAt={armed?.at}
                   onArm={() => arm(`${key}:${dispo}`)}
                   onFire={() => disposeFlag(card, dispo)}
                 />
@@ -607,7 +615,8 @@ export default function ApprovalsDesk({
                           confirmLabel="Tap again to approve"
                           tone="approve"
                           busy={Boolean(busy[key])}
-                          armed={armed === `${key}:approve`}
+                          armed={armed?.key === `${key}:approve`}
+                          armedAt={armed?.at}
                           onArm={() => arm(`${key}:approve`)}
                           onFire={() => decideStatement(card, 'approve')}
                         />
@@ -617,7 +626,8 @@ export default function ApprovalsDesk({
                           confirmLabel="Tap again to reject"
                           tone="reject"
                           busy={Boolean(busy[key])}
-                          armed={armed === `${key}:reject`}
+                          armed={armed?.key === `${key}:reject`}
+                          armedAt={armed?.at}
                           onArm={() => arm(`${key}:reject`)}
                           onFire={() => decideStatement(card, 'reject')}
                         />
@@ -704,7 +714,8 @@ export default function ApprovalsDesk({
                           confirmLabel="Tap again to approve"
                           tone="approve"
                           busy={Boolean(busy[key])}
-                          armed={armed === `${key}:approve`}
+                          armed={armed?.key === `${key}:approve`}
+                          armedAt={armed?.at}
                           onArm={() => arm(`${key}:approve`)}
                           onFire={() => decideSheet(card, 'approve')}
                         />
@@ -713,7 +724,8 @@ export default function ApprovalsDesk({
                           confirmLabel="Tap again to reject"
                           tone="reject"
                           busy={Boolean(busy[key])}
-                          armed={armed === `${key}:reject`}
+                          armed={armed?.key === `${key}:reject`}
+                          armedAt={armed?.at}
                           onArm={() => arm(`${key}:reject`)}
                           onFire={() => decideSheet(card, 'reject')}
                         />
@@ -830,7 +842,8 @@ export default function ApprovalsDesk({
                                 confirmLabel="Tap again to record"
                                 tone="approve"
                                 busy={Boolean(busy[key])}
-                                armed={armed === `${key}:agree`}
+                                armed={armed?.key === `${key}:agree`}
+                                armedAt={armed?.at}
                                 onArm={() => arm(`${key}:agree`)}
                                 onFire={() => scoreShadow(card, dim.dimension, true)}
                               />
