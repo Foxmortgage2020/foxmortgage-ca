@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 10, 2026 (Agent session shipped: Ask Fox, the in-portal practice agent with Call Prep and Call Review, six enumerated tools, confirm-card writes, FOXCA conversation log; needs ANTHROPIC_API_KEY on Vercel to answer)
+## Last Updated: July 10, 2026 (Session 7 shipped: Revenue and Partners — commission forecast on the comp model with actuals-first pricing, funded trends and honest mix, funnel with method caveat, P&L graceful state, partner health ranking with server-side Clerk sign-in recency; Ask Fox prompt v2 adds get_open_tasks dedup; thinking indicator)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -93,11 +93,11 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
 
 ### Nav IA (names are stable; renames need a note here)
 Home | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
-Changelog (S4, under Knowledge) | Compliance (S5) | Revenue (S6) |
-Partners (existing pages) | Directory (S4) | Bookkeeping (nav link to existing
-/portal/bookkeeping, pages untouched) | Audit Log (S3) | Status | Settings |
-Roadmap. All live except Revenue (S7). Compliance shipped S6. Config:
-`config/admin-nav.ts`.
+Changelog (S4, under Knowledge) | Compliance (S6) | Revenue (S7) |
+Partners (S7 health ranking over the existing management pages) |
+Directory (S4) | Bookkeeping (nav link to existing /portal/bookkeeping,
+pages untouched) | Audit Log (S3) | Status | Settings | Roadmap. All live.
+Config: `config/admin-nav.ts`.
 
 ### Session 4 pages and semantics
 - Terminal-deal filtering: config/pipeline.ts isTerminalWorkbenchDeal (status not
@@ -394,6 +394,104 @@ Roadmap. All live except Revenue (S7). Compliance shipped S6. Config:
   append-leaning posture.
 - v2 noted on the roadmap: Dialpad-automatic Call Review through the
   existing n8n call pipeline (no paste). Out of scope this session.
+
+### Session 7: Revenue and Partners (2026-07-10)
+
+#### Part 1 data discovery (recorded per the brief; live against Zoho 2026-07-10)
+- REVENUE FIELDS EXIST on Potentials: `BPS` (integer), `VB_BPS` (integer,
+  volume bonus), `Split_to_Brokerage_Network` (double fraction; observed
+  0.15 on 2026 files, 0.25 on some 2025), and three currency formula
+  fields: `Total_Commission`, `Finders_Fee`, `Brokerage_Network_Commission`.
+  Formula semantics verified to the cent on three funded deals:
+  Total_Commission = Amount x (BPS + VB_BPS)/10000 x (1 - split);
+  Finders_Fee is the same without VB_BPS; Brokerage_Network_Commission is
+  the split share. One funded deal (BRXM-F040336) carries Total_Commission
+  1500 with BPS null, so the formula also folds in a flat fee component
+  (likely Brokerage_Fee); the portal treats Total_Commission > 0 as the
+  actual and never re-derives it. IMPORTANT: formula fields always return
+  a number, so 0 means "not recorded", never "free deal".
+- Coverage: Total_Commission > 0 on 5/11 funded trailing-12 (45.5%) and
+  11/54 all funded (20.4%); BPS set on 4/11 funded-t12. So actuals take
+  precedence and config/comp.ts fills gaps, exactly the brief's design.
+- ATTRIBUTION: Lead_Source does NOT exist on Potentials (0/205; the field
+  is absent from the module, not just empty). It exists on Leads with
+  100% coverage on the 26 leads created trailing-12 (top: Website - SMM
+  Wizard 10, CoPilot Ai 5, Website 3). Referral_Partner on Potentials:
+  12/35 deals created trailing-12 (34.3%), 18/205 all time across 4
+  distinct partners, 4/11 funded-t12 (36.4%). These are the caveats
+  rendered on the Revenue funnel and the Partners page.
+- FUNDED-T12 MIX COVERAGE (11 deals): Transaction_Type 100%, Rate_Type
+  90.9%, Term_Years 90.9%, Mortgage_Rate 90.9%, Mortgage_Type 72.7%,
+  LTV 63.6%, Term_Type 54.5%, Lender_Name 27.3%. Mix charts render at
+  >= 70% (MIN_MIX_COVERAGE in lib/revenue.ts): purpose, rate type, term,
+  mortgage type in; LTV, term type, lender out with the honest
+  low-coverage state. NO insured-class field exists on the module at all.
+- CLOSING-DATE HYGIENE: of 31 open deals, only 4 carry a future
+  Closing_Date; 12 have none; 15 carry stale past dates (2021-2024). The
+  forecast buckets past-dated and undated deals separately and never
+  smears them into future months; the page renders the hygiene callout.
+- QBO PATH: none exists server-side in this repo (no QBO env vars, no
+  client code; the bookkeeping proxy routes are Zoho Creator). The n8n
+  QBO credential is SANDBOX-realm only and production API access waits on
+  the Intuit app assessment, so the P&L tile renders the graceful state.
+  Exact requirements listed in lib/pnl.ts PNL_REQUIREMENTS and on the
+  page: an n8n read-only webhook serving P&L-by-class JSON (contract
+  documented in lib/pnl.ts) + N8N_QBO_PNL_WEBHOOK_URL, or direct QBO
+  OAuth vars in a future session. The tile lights with zero portal
+  changes once the webhook env var lands (attempt-and-fallback).
+
+#### What shipped
+- /portal/admin/revenue (revenue.view): goal pacing deep view (funded
+  YTD, weighted pipeline, pace delta, gap in files at the trailing
+  average, labeled estimated), commission forecast by close month
+  (trailing 3 funded months beside it for scale), funded revenue trend
+  with actual/model split visible, mix grids at real coverage, the
+  conversion funnel (stage census + funded t12 + leads by source) with
+  its method caveat stated on the page, the P&L tile, and the comp model
+  card with confirm-bps chips.
+- config/comp.ts (COMP_MODEL_VERSION 1): rows match on
+  Lender_Classification or Lender_Name substring, first match wins, then
+  defaultBps; networkSplit 0.15 (confirm); agentSplit 1.0 is the future
+  comp-engine hook (per-agent rows become a config evolution, not a
+  redesign). Every value seeded unconfirmed until Michael confirms.
+  Bump the version with every value change plus a changelog note.
+- lib/revenue.ts: pure math (dealRevenue actuals-first, forecast with
+  past-dated/undated buckets, fundedTrend, mixBreakdown with
+  MIN_MIX_COVERAGE 0.7, pacingByMonth, filesToCloseGap, leadsBySource);
+  unit-tested in tests/revenue.test.ts including "changing a bps value
+  changes the forecast".
+- /portal/admin/partners: health-ranked list (PartnersHealthTable
+  replaced PartnersFilterTable, which was deleted) with tier chips from
+  config/partner-tiers.ts (active <= 90 days since last referral,
+  cooling <= 270, dormant beyond or never; thresholds carry
+  confirmed:false until Michael confirms), referrals t12, conversion to
+  funded (open files count against, stated), attributed volume and
+  revenue (actual + est chip, never conflated), portal last sign-in via
+  server-side Clerk (lib/partner-engagement.ts; caches the
+  partner-agnostic user index; matches publicMetadata zoho_partner_id /
+  fp_zoho_id then lowercase email; read failure renders "not read",
+  never "no account"). INVESTORS CARRY NO TIER (funding partners, not
+  referral partners; grading them on referral recency would mislabel
+  every one dormant) and sort after tiered partners.
+- Partner detail: the non-investor "coming soon" card replaced by
+  PartnerReferralSection (referred files with stages and outcomes,
+  12-month cadence bars, portal sign-in recency, contact card); the
+  investor branch renders the section only when files actually carry the
+  partner as Referral_Partner. No messaging or send capability anywhere;
+  the page informs the touch.
+- The attribution caveat renders EXACTLY ONCE, on the Partners list page.
+- Ask Fox: seventh tool get_open_tasks (related-records API,
+  Potentials/Contacts, Completed filtered client-side); prompt v2 rule
+  CHECK OPEN TASKS FIRST (reference a covering task with its due date
+  instead of duplicating). Live proof: the Aitken deal carries 5 open
+  tasks including "Backfill Aitken deal fields from commitment" due
+  2026-07-11, exactly the card v1 would have duplicated. AgentChat gained
+  the thinking indicator (submit to first token) and per-tool running
+  shimmer, both behind motion-safe with a static reduced-motion form.
+- Estimate labeling contract: every model-derived figure renders with a
+  data-estimate chip whose tooltip names the assumptions (grep
+  data-estimate across app/portal/admin/revenue and the two partner
+  components to verify).
 
 ### End-of-session closing ritual (STANDING RULE, Session 5)
 Every build session ends by updating all three, together, before the
@@ -1152,6 +1250,44 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-10 — Admin Command Center Session 7 (Revenue and Partners)
+- Part 0: Ask Fox task awareness (get_open_tasks as the seventh
+  enumerated tool over the Zoho related-records API; prompt v2 with the
+  CHECK OPEN TASKS FIRST rule; dedup proven by mocked-loop unit test
+  yielding zero cards plus the reference line, and live by the Aitken
+  deal's 5 real open tasks covering what v1 would have duplicated) and
+  the thinking indicator (in-thread dots from submit to first token,
+  shimmer on the running tool line, motion-safe with a static
+  reduced-motion form).
+- Part 1 discovery recorded above: real commission fields with verified
+  formula semantics but partial coverage (actuals on 5/11 funded-t12),
+  Lead_Source absent from Potentials (100% on Leads), Referral_Partner
+  34.3% on created-t12, funded mix coverage per dimension, the stale
+  closing-date picture, and the no-QBO-path answer.
+- Revenue shipped: forecast by close month (stage weights x actuals-first
+  deal revenue through config/comp.ts), funded trends with the
+  actual/model split visible, mix at real coverage only, funnel with the
+  census-not-cohort caveat (Zoho stage history is not bulk-queryable via
+  the records API, so no cohort view), pacing deep view with the gap in
+  dollars and estimated files, P&L graceful state with exact
+  requirements, comp model card with confirm-bps chips.
+- Partners shipped: health-ranked list (tiers in config/partner-tiers.ts,
+  investors untier-ed as funding partners), attributed volume and revenue
+  with est chips, server-side Clerk last sign-in, detail referral section
+  with cadence and referred files; attribution caveat exactly once on the
+  list page. PartnersFilterTable deleted (replaced by
+  PartnersHealthTable); management surfaces (invites, documents, view-as,
+  investor KPIs) untouched.
+- New modules: lib/revenue.ts, lib/partners-health.ts,
+  lib/partner-engagement.ts, lib/pnl.ts, config/comp.ts,
+  config/partner-tiers.ts. Suite at 142 tests (tests/revenue.test.ts 15,
+  tests/partners.test.ts 7, agent tests grew to cover the seventh tool,
+  prompt v2, and the dedup fixture).
+- Guardrails held: no new Zoho writes (get_open_tasks is a read; the two
+  write functions unchanged), workbench untouched, FOXCA untouched (no
+  new migrations), Clerk read server-side with the existing secret,
+  no QBO writes (WRITE_TO_QBO untouched), env unchanged.
 
 ### 2026-07-10 — Agent session (Ask Fox: Call Prep and Call Review)
 - Shipped the in-portal practice agent: streaming chat at

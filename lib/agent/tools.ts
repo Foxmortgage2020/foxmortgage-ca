@@ -1,11 +1,12 @@
-// The Ask Fox tool surface (Agent session): six enumerated tools, each a
-// thin wrapper over code this portal already trusts. The agent never
-// composes SQL or arbitrary requests; every workbench read rides the
-// portal_readonly role, every rate answer rides the same matching module
-// the Rates page uses, and the ONLY writes are propose_* tools that mint
-// confirm cards. No gate decisions, no send capability, nothing that
-// executes without Michael's tap. This enumeration is architectural: a
-// tool that is not here does not exist.
+// The Ask Fox tool surface: seven enumerated tools (six from the Agent
+// session plus get_open_tasks from Session 7), each a thin wrapper over
+// code this portal already trusts. The agent never composes SQL or
+// arbitrary requests; every workbench read rides the portal_readonly
+// role, every rate answer rides the same matching module the Rates page
+// uses, and the ONLY writes are propose_* tools that mint confirm cards.
+// No gate decisions, no send capability, nothing that executes without
+// Michael's tap. This enumeration is architectural: a tool that is not
+// here does not exist.
 //
 // Tool results are bounded and never carry unmasked identifiers beyond
 // what the source systems store. Results log with the conversation as
@@ -50,6 +51,7 @@ import {
 } from '@/lib/scenario'
 import {
   FIND_CLIENT_NOTE,
+  getOpenTasksForRecord,
   getZohoDealsByContactId,
   searchZohoContacts,
   searchZohoDealsByWord,
@@ -152,6 +154,23 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
         slug: { type: 'string', description: 'Lender knowledge slug (fn, scotia, mcap, td) or "index".' },
       },
       required: ['slug'],
+    },
+  },
+  {
+    name: 'get_open_tasks',
+    description:
+      'Read the OPEN Zoho tasks linked to a deal or contact. Call this BEFORE proposing any card for a record: where an existing open task already covers the action, reference it in your reply with its due date instead of proposing a duplicate. Completed tasks never appear here.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        module: {
+          type: 'string',
+          enum: ['Potentials', 'Contacts'],
+          description: 'Where the record lives. Default Potentials (deals).',
+        },
+        record_id: { type: 'string', description: 'The Zoho record id.' },
+      },
+      required: ['record_id'],
     },
   },
   {
@@ -583,6 +602,39 @@ async function runKnowledgeLookup(input: any, ctx: AgentToolContext): Promise<To
   }
 }
 
+async function runGetOpenTasks(input: any): Promise<ToolExecution> {
+  const module = input?.module === 'Contacts' ? 'Contacts' : 'Potentials'
+  const recordId = s(input?.record_id, 30).trim()
+  if (!/^\d{5,25}$/.test(recordId)) {
+    return { ok: false, result: { error: 'record_id must be a Zoho record id' }, summary: 'rejected: record id' }
+  }
+  try {
+    const tasks = await getOpenTasksForRecord(module, recordId)
+    return {
+      ok: true,
+      result: {
+        open_tasks: tasks.slice(0, 20).map(t => ({
+          subject: t.subject,
+          due_date: t.dueDate,
+          priority: t.priority,
+          status: t.status,
+        })),
+        note:
+          tasks.length > 0
+            ? 'Where one of these covers an action you were about to propose, reference it with its due date instead of minting a duplicate card.'
+            : 'No open tasks on this record; propose cards for the actions the conversation justifies.',
+      },
+      summary: `${tasks.length} open task(s) on ${module} ${recordId}`,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      result: { error: 'The Zoho tasks read failed; say so rather than assuming no tasks exist.' },
+      summary: `tasks read failed: ${err instanceof Error ? err.message.slice(0, 80) : 'error'}`,
+    }
+  }
+}
+
 function scalarFields(input: unknown): Record<string, string | number | boolean> | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null
   const out: Record<string, string | number | boolean> = {}
@@ -716,6 +768,8 @@ export async function executeAgentTool(
       return runSearchRates(input, ctx)
     case 'knowledge_lookup':
       return runKnowledgeLookup(input, ctx)
+    case 'get_open_tasks':
+      return runGetOpenTasks(input)
     case 'propose_zoho_update':
       return runProposeZohoUpdate(input, ctx)
     case 'propose_task':

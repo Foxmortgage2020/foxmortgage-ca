@@ -29,10 +29,15 @@ interface CardState {
   result: Record<string, unknown> | null
 }
 
+interface ToolRun {
+  label: string
+  status: 'running' | 'ok' | 'failed'
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
-  toolNotes: string[]
+  toolRuns: ToolRun[]
   cards: CardState[]
   error: string | null
 }
@@ -52,10 +57,33 @@ function toolLabel(name: string): string {
     get_deal_file: 'reading the workbench file',
     search_rates: 'searching the approved book',
     knowledge_lookup: 'reading lender knowledge',
+    get_open_tasks: 'checking open tasks',
     propose_zoho_update: 'drafting a CRM update card',
     propose_task: 'drafting a task card',
   }
   return labels[name] ?? name
+}
+
+// In-thread indicator from submit to first token. The dots animate only
+// where motion is welcome; prefers-reduced-motion gets the static form.
+function ThinkingIndicator() {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-gray-400"
+      role="status"
+      aria-label="Ask Fox is working"
+      data-testid="thinking-indicator"
+    >
+      <span className="text-xs font-body motion-safe:hidden">Working…</span>
+      {[0, 150, 300].map(delay => (
+        <span
+          key={delay}
+          className="hidden motion-safe:inline-block w-1.5 h-1.5 rounded-full bg-navy/40 animate-bounce"
+          style={{ animationDelay: `${delay}ms`, animationDuration: '900ms' }}
+        />
+      ))}
+    </span>
+  )
 }
 
 export default function AgentChat({
@@ -74,9 +102,11 @@ export default function AgentChat({
     initial.messages.map(m => ({
       role: m.role,
       content: m.content,
-      toolNotes:
+      toolRuns:
         m.role === 'assistant' && m.tool_calls.length > 0
-          ? m.tool_calls.map(t => `${toolLabel(t.name)}${t.ok ? '' : ' (failed)'}`)
+          ? m.tool_calls.map(
+              (t): ToolRun => ({ label: toolLabel(t.name), status: t.ok ? 'ok' : 'failed' }),
+            )
           : [],
       cards: initial.cards
         .filter(c => c.turn_seq === m.seq)
@@ -114,8 +144,8 @@ export default function AgentChat({
       setStreaming(true)
       setMessages(prev => [
         ...prev,
-        { role: 'user', content: trimmed, toolNotes: [], cards: [], error: null },
-        { role: 'assistant', content: '', toolNotes: [], cards: [], error: null },
+        { role: 'user', content: trimmed, toolRuns: [], cards: [], error: null },
+        { role: 'assistant', content: '', toolRuns: [], cards: [], error: null },
       ])
       scrollDown()
 
@@ -171,11 +201,24 @@ export default function AgentChat({
             } else if (event.type === 'text' && typeof event.delta === 'string') {
               patchDraft(d => ({ ...d, content: d.content + event.delta }))
               scrollDown()
-            } else if (event.type === 'tool' && event.status !== 'running') {
+            } else if (event.type === 'tool' && event.status === 'running') {
               patchDraft(d => ({
                 ...d,
-                toolNotes: [...d.toolNotes, `${toolLabel(event.name)}${event.status === 'failed' ? ' (failed)' : ''}`],
+                toolRuns: [...d.toolRuns, { label: toolLabel(event.name), status: 'running' }],
               }))
+              scrollDown()
+            } else if (event.type === 'tool') {
+              patchDraft(d => {
+                const runs = [...d.toolRuns]
+                const label = toolLabel(event.name)
+                for (let j = runs.length - 1; j >= 0; j--) {
+                  if (runs[j].status === 'running' && runs[j].label === label) {
+                    runs[j] = { label, status: event.status === 'failed' ? 'failed' : 'ok' }
+                    return { ...d, toolRuns: runs }
+                  }
+                }
+                return { ...d, toolRuns: [...runs, { label, status: event.status === 'failed' ? 'failed' : 'ok' }] }
+              })
             } else if (event.type === 'card' && event.card) {
               patchDraft(d => ({
                 ...d,
@@ -387,15 +430,36 @@ export default function AgentChat({
                   : 'max-w-full bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3'
               }
             >
-              {m.role === 'assistant' && m.toolNotes.length > 0 && (
-                <p className="text-[11px] text-gray-400 font-body mb-1.5">{m.toolNotes.join(' · ')}</p>
+              {m.role === 'assistant' && m.toolRuns.length > 0 && (
+                <p className="text-[11px] font-body mb-1.5">
+                  {m.toolRuns.map((r, j) => (
+                    <span key={j}>
+                      {j > 0 && <span className="text-gray-300"> · </span>}
+                      <span
+                        className={
+                          r.status === 'running'
+                            ? 'text-navy/70 motion-safe:animate-pulse'
+                            : 'text-gray-400'
+                        }
+                        data-testid={r.status === 'running' ? 'tool-running' : undefined}
+                      >
+                        {r.label}
+                        {r.status === 'running' ? '…' : r.status === 'failed' ? ' (failed)' : ''}
+                      </span>
+                    </span>
+                  ))}
+                </p>
               )}
               <div
                 className={`text-sm font-body whitespace-pre-wrap break-words ${
                   m.role === 'user' ? 'text-white' : 'text-gray-800'
                 }`}
               >
-                {m.content || (m.role === 'assistant' && streaming && i === messages.length - 1 ? '…' : m.content)}
+                {m.role === 'assistant' && !m.content && streaming && i === messages.length - 1 ? (
+                  <ThinkingIndicator />
+                ) : (
+                  m.content
+                )}
               </div>
               {m.cards.map(card => (
                 <ConfirmCard

@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-10',
+    title: 'Session 7: Revenue and Partners',
+    detail:
+      'The money layer and the relationship layer. Revenue: commission forecast by close month (stage-weighted, priced from recorded commissions where they exist and the comp model everywhere else, every estimate labeled), funded trends with honest mix charts, the conversion funnel with its method caveat, goal pacing deep view, and the business-line P&L tile with its honest not-connected state. Partners: ranked for Monday attention with health chips, referral stats, attributed revenue, and portal sign-in recency; detail pages gain referred files and cadence. Ask Fox learned to check open Zoho tasks before proposing a card (prompt v2), and the chat gained a thinking indicator.',
+  },
+  {
+    date: '2026-07-10',
     title: 'Ask Fox: the practice agent',
     detail:
       'A chat in the sidebar that preps and reviews calls from the systems the portal already trusts: Zoho records, the gate-approved rate book, lender knowledge with its as-of dates, and the workbench file where one exists. Every number carries its source, gaps say not captured, and CRM changes only happen through confirm cards you tap. Decisions stay on the Approvals desk. Add ANTHROPIC_API_KEY in Vercel to switch it on; rubric v1 and the system prompt are versioned in the repo.',

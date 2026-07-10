@@ -21,6 +21,8 @@ import SendOnboardingLinkButton from '@/components/SendOnboardingLinkButton'
 import SendPortalInviteButton from '@/components/SendPortalInviteButton'
 import { isMagicLinkExpired } from '@/lib/onboarding'
 import { getPartnerConfigByZohoType } from '@/lib/partner-types'
+import PartnerReferralSection from '@/components/admin/PartnerReferralSection'
+import { getAllDealsRevenue } from '@/lib/zoho-admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -152,18 +154,39 @@ export default async function AdminPartnerDetailPage({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <p className="font-heading text-navy text-lg font-bold mb-2">Detail view coming soon</p>
-          <p className="font-body text-gray-500 text-sm mb-4 max-w-md mx-auto">
-            Full Financial Planner / Realtor / Lawyer detail pages are deferred to a future commit. For now, you can issue portal invites above and review documents via the standalone documents route.
-          </p>
-          <Link
-            href={`/portal/admin/partners/${partnerId}/documents`}
-            className="inline-block bg-lime text-navy font-heading font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-lime-dark transition-colors"
-          >
-            Open Documents →
-          </Link>
+        <PartnerReferralSection
+          partnerId={partnerId}
+          partnerType={partner.partnerType}
+          email={partner.email}
+        />
+
+        {/* Contact details */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <h3 className="font-heading text-base font-bold text-navy mb-4">Contact</h3>
+          <dl className="grid grid-cols-2 gap-4">
+            <div>
+              <dt className="text-gray-500 text-xs font-body">Email</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5 break-all">{fmt(partner.email)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 text-xs font-body">Phone</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(partner.mobile || partner.phone)}</dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-gray-500 text-xs font-body">Address</dt>
+              <dd className="text-navy font-medium text-sm font-body mt-0.5">
+                {[partner.street, partner.city, partner.province, partner.postalCode].filter(Boolean).join(', ') || '—'}
+              </dd>
+            </div>
+          </dl>
         </div>
+
+        <Link
+          href={`/portal/admin/partners/${partnerId}/documents`}
+          className="inline-block bg-lime text-navy font-heading font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-lime-dark transition-colors"
+        >
+          Open Documents →
+        </Link>
       </div>
     )
   }
@@ -194,6 +217,18 @@ export default async function AdminPartnerDetailPage({
   const approvedRequiredDocs = REQUIRED_DOC_TYPES.filter(reqType =>
     documents.some(d => d.documentStatus === 'Approved' && d.documentType === reqType)
   ).length
+
+  // Investors fund deals rather than referring them, so the referral
+  // section renders only when files actually carry this partner as
+  // Referral_Partner (possible for a dual-role relationship).
+  let investorHasReferrals = false
+  try {
+    investorHasReferrals = (await getAllDealsRevenue()).some(
+      d => d.referralPartnerId === partnerId,
+    )
+  } catch {
+    investorHasReferrals = false
+  }
 
   const address = [partner.street, partner.city, partner.province, partner.postalCode].filter(Boolean).join(', ') || '—'
 
@@ -266,6 +301,14 @@ export default async function AdminPartnerDetailPage({
           <p className="text-gray-400 text-xs mt-1 font-body">Money-weighted, lifetime</p>
         </div>
       </div>
+
+      {investorHasReferrals && (
+        <PartnerReferralSection
+          partnerId={partnerId}
+          partnerType={partner.partnerType}
+          email={partner.email}
+        />
+      )}
 
       {/* Documents section */}
       <section className="mb-8">

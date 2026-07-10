@@ -97,9 +97,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: '/portal/admin/revenue',
     iconKey: 'DollarSign',
     permission: 'revenue.view',
-    arrivesInSession: 7,
     description:
-      'Funded production, commission tracking, and goal pacing history across years.',
+      'Commission forecast, funded trends and mix, the conversion funnel, and the business-line P&L.',
   },
   {
     label: 'Partners',

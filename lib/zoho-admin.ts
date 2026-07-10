@@ -23,6 +23,7 @@ import {
   isTerminalStage,
 } from '@/config/pipeline'
 import type { StageVolume } from '@/lib/pacing'
+import type { RevenueDeal } from '@/lib/revenue'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
@@ -245,6 +246,165 @@ export async function getTasksDue(): Promise<OpenTask[]> {
   if (listRes.status === 204 || !listRes.ok) return []
   const listData = await listRes.json()
   return normalize(listData?.data ?? [])
+}
+
+// ─── Open tasks linked to a record (Ask Fox task awareness, Session 7) ──────
+// The related-records API serves a record's Tasks directly; completed tasks
+// drop client-side (the search API rejects not_equal on Status, and the
+// related list takes no criteria at all).
+
+export interface RelatedOpenTask {
+  id: string
+  subject: string
+  dueDate: string | null
+  priority: string | null
+  status: string | null
+}
+
+export async function getOpenTasksForRecord(
+  module: 'Potentials' | 'Contacts',
+  recordId: string,
+): Promise<RelatedOpenTask[]> {
+  const token = await getZohoToken()
+  const url = `${ZOHO_API}/${module}/${recordId}/Tasks?fields=${TASK_FIELDS}&per_page=200`
+  const res = await fetch(url, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 204) return []
+  if (!res.ok) {
+    console.error(`[zoho-admin] ${module}/${recordId}/Tasks HTTP ${res.status}`)
+    throw new Error(`Zoho related tasks read failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  return (data?.data ?? [])
+    .filter((t: any) => String(t.Status ?? '') !== 'Completed')
+    .map((t: any) => ({
+      id: t.id,
+      subject: t.Subject ?? '(untitled task)',
+      dueDate: t.Due_Date ?? null,
+      priority: t.Priority ?? null,
+      status: t.Status ?? null,
+    }))
+}
+
+// ─── Revenue and Partners pull (Session 7) ──────────────────────────────────
+// One paginated read serves the Revenue page, the Partners health list, and
+// the funnel: the slim deal shape plus the commission fields the Part 1
+// discovery verified live (Total_Commission = Amount x (BPS + VB_BPS)/10000
+// x (1 - Split_to_Brokerage_Network), checked to the cent on three funded
+// deals). Formula fields always return a number, so zero means "not
+// recorded", never "free deal"; lib/revenue.ts treats > 0 as an actual.
+// The RevenueDeal shape lives in lib/revenue.ts (the pure math module);
+// this file only normalizes into it.
+
+const REVENUE_DEAL_FIELDS = [
+  'Deal_Name', 'Stage', 'Amount', 'Total_Loan_Amount', 'Closing_Date', 'Created_Time',
+  'Total_Commission', 'BPS', 'VB_BPS', 'Split_to_Brokerage_Network',
+  'Lender_Name', 'Lender_Classification', 'Referral_Partner',
+  'Rate_Type', 'Term_Years', 'Mortgage_Type', 'Transaction_Type', 'Mortgage_Rate',
+].join(',')
+
+const revenueDealsCache = createCache<string, RevenueDeal[]>({ max: 2, ttlMs: 5 * 60 * 1000 })
+
+const numOrNull = (v: unknown): number | null =>
+  v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v)
+
+export async function getAllDealsRevenue(): Promise<RevenueDeal[]> {
+  const cached = revenueDealsCache.get('all')
+  if (cached !== undefined) return cached
+
+  const token = await getZohoToken()
+  const all: RevenueDeal[] = []
+  let page = 1
+  while (page <= 20) {
+    const url = `${ZOHO_API}/Potentials?fields=${REVENUE_DEAL_FIELDS}&per_page=200&page=${page}&sort_by=Created_Time&sort_order=desc`
+    const res = await fetch(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      cache: 'no-store',
+    })
+    if (res.status === 204) break
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error('[zoho-admin] revenue pull error:', res.status, text.substring(0, 200))
+      throw new Error(`Zoho revenue pull failed with status ${res.status}`)
+    }
+    const data = await res.json()
+    for (const d of data?.data ?? []) {
+      all.push({
+        id: d.id,
+        dealName: d.Deal_Name ?? '(untitled)',
+        stage: String(d.Stage ?? '').trim(),
+        amount: dealAmount(d),
+        closingDate: typeof d.Closing_Date === 'string' ? d.Closing_Date : null,
+        createdTime: typeof d.Created_Time === 'string' ? d.Created_Time.slice(0, 10) : null,
+        totalCommission: Number(d.Total_Commission) || 0,
+        bps: numOrNull(d.BPS),
+        vbBps: numOrNull(d.VB_BPS),
+        splitToNetwork: numOrNull(d.Split_to_Brokerage_Network),
+        lenderName: d.Lender_Name?.name ?? null,
+        lenderClassification: d.Lender_Classification ?? null,
+        referralPartnerId: d.Referral_Partner?.id ?? null,
+        referralPartnerName: d.Referral_Partner?.name ?? null,
+        rateType: d.Rate_Type ?? null,
+        termYears: numOrNull(d.Term_Years),
+        mortgageType: d.Mortgage_Type ?? null,
+        transactionType: d.Transaction_Type ?? null,
+        mortgageRate: numOrNull(d.Mortgage_Rate),
+      })
+    }
+    if (data?.info?.more_records !== true) break
+    page += 1
+  }
+  revenueDealsCache.set('all', all)
+  return all
+}
+
+// Leads with their source, for the funnel's lead-level breakdown.
+// Lead_Source does not exist on Potentials (Part 1 discovery), so the
+// source picture lives at the Leads level only and the page says so.
+
+export interface SlimLead {
+  id: string
+  leadSource: string | null
+  createdTime: string | null
+  leadStatus: string | null
+}
+
+const leadsCache = createCache<string, SlimLead[]>({ max: 2, ttlMs: 5 * 60 * 1000 })
+
+export async function getLeadsSlim(): Promise<SlimLead[]> {
+  const cached = leadsCache.get('all')
+  if (cached !== undefined) return cached
+
+  const token = await getZohoToken()
+  const all: SlimLead[] = []
+  let page = 1
+  while (page <= 10) {
+    const url = `${ZOHO_API}/Leads?fields=Lead_Source,Created_Time,Lead_Status&per_page=200&page=${page}`
+    const res = await fetch(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      cache: 'no-store',
+    })
+    if (res.status === 204) break
+    if (!res.ok) {
+      console.error('[zoho-admin] leads pull error:', res.status)
+      throw new Error(`Zoho leads pull failed with status ${res.status}`)
+    }
+    const data = await res.json()
+    for (const l of data?.data ?? []) {
+      all.push({
+        id: l.id,
+        leadSource: l.Lead_Source ?? null,
+        createdTime: typeof l.Created_Time === 'string' ? l.Created_Time.slice(0, 10) : null,
+        leadStatus: l.Lead_Status ?? null,
+      })
+    }
+    if (data?.info?.more_records !== true) break
+    page += 1
+  }
+  leadsCache.set('all', all)
+  return all
 }
 
 // ─── Ask Fox: client and deal search (reads) ────────────────────────────────

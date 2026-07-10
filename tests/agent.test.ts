@@ -97,10 +97,11 @@ describe('transcript parsing', () => {
 // ─── The tool surface (acceptance 6) ─────────────────────────────────────────
 
 describe('tool surface', () => {
-  it('is exactly the six enumerated tools', () => {
+  it('is exactly the seven enumerated tools', () => {
     expect(AGENT_TOOLS.map(t => t.name).sort()).toEqual([
       'find_client',
       'get_deal_file',
+      'get_open_tasks',
       'knowledge_lookup',
       'propose_task',
       'propose_zoho_update',
@@ -159,7 +160,13 @@ describe('not captured, never a guess', () => {
     expect(AGENT_SYSTEM_PROMPT).toContain('Never estimate a client\'s balance')
     expect(AGENT_SYSTEM_PROMPT).toContain('APPROVED MEANS APPROVED')
     expect(AGENT_SYSTEM_PROMPT).toContain('THE DESK DECIDES')
-    expect(AGENT_PROMPT_VERSION).toBe(1)
+    expect(AGENT_PROMPT_VERSION).toBe(2)
+  })
+
+  it('the system prompt mandates the open-task check before any card (v2)', () => {
+    expect(AGENT_SYSTEM_PROMPT).toContain('CHECK OPEN TASKS FIRST')
+    expect(AGENT_SYSTEM_PROMPT).toContain('get_open_tasks')
+    expect(AGENT_SYSTEM_PROMPT).toContain('instead of proposing a duplicate')
   })
 })
 
@@ -297,6 +304,61 @@ describe('agent loop (Anthropic API mocked)', () => {
     expect(result.toolLog).toHaveLength(MAX_TOOL_CALLS_PER_TURN)
     // The turn ended with the plain ran-out message, not a crash.
     expect(result.error).toBeNull()
+  })
+
+  it('task dedup: a record with covering open tasks yields zero cards and the reference line', async () => {
+    // The Part 0 acceptance fixture: the model checks get_open_tasks per
+    // the v2 prompt rule, finds the follow-up already scheduled, and
+    // references it instead of minting a duplicate propose_task card.
+    const cardsEmitted: string[] = []
+    const ctx = testCtx()
+    ctx.emitCard = card => cardsEmitted.push(card.id)
+    const executed: string[] = []
+    const result = await runAgentTurn({
+      history: [],
+      userMessage: 'prep a call for Nick Aitken and set up the follow-ups',
+      todayYMD: '2026-07-10',
+      ctx,
+      emit: () => {},
+      clientFactory: () =>
+        mockClient([
+          {
+            stop_reason: 'tool_use',
+            content: [
+              {
+                type: 'tool_use',
+                id: 'tu_tasks',
+                name: 'get_open_tasks',
+                input: { module: 'Potentials', record_id: '7112178000001410334' },
+              },
+            ],
+          },
+          {
+            stop_reason: 'end_turn',
+            textDeltas: [
+              'No new card needed: your existing task covers this, due Jul 11 (Confirm maturity date with Nick).',
+            ],
+            content: [{ type: 'text', text: 'covered' }],
+          },
+        ]),
+      executeTool: async name => {
+        executed.push(name)
+        return {
+          ok: true,
+          result: {
+            open_tasks: [
+              { subject: 'Confirm maturity date with Nick', due_date: '2026-07-11', priority: 'High', status: 'Not Started' },
+            ],
+            note: 'Where one of these covers an action you were about to propose, reference it with its due date instead of minting a duplicate card.',
+          },
+          summary: '1 open task(s) on Potentials 7112178000001410334',
+        }
+      },
+    })
+    expect(executed).toEqual(['get_open_tasks'])
+    expect(cardsEmitted).toHaveLength(0)
+    expect(result.error).toBeNull()
+    expect(result.text).toContain('existing task covers this, due Jul 11')
   })
 
   it('surfaces a refusal honestly', async () => {

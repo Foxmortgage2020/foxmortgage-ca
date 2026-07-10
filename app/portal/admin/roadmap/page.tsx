@@ -137,17 +137,20 @@ const SESSIONS: {
   {
     n: '7',
     title: 'Revenue and Partners',
-    status: 'next',
+    status: 'shipped',
     repo: 'foxmortgage-ca',
     items: [
-      'Funded production history and commission tracking',
-      'Partner management deepening on top of the existing directory',
+      'Commission forecast by close month: stage-weighted, recorded commissions first, comp model estimates labeled everywhere else (config/comp.ts, confirm-bps placeholders for Michael)',
+      'Funded trends with mix charts that render only at real field coverage; conversion funnel with its honest method caveat; goal pacing deep view with the gap in dollars and files',
+      'Partners ranked for Monday attention: health tiers (config/partner-tiers.ts), referral stats, attributed revenue, portal sign-in recency read server-side; detail pages gain referred files and cadence',
+      'Business-line P&L tile renders its honest not-connected state; the exact requirements to light it are listed on the page (no production QBO path exists yet)',
+      'Ask Fox v2 prompt: checks open Zoho tasks before proposing a card, references covering tasks instead of duplicating; chat gained the thinking indicator',
     ],
   },
   {
     n: '8',
     title: 'Multi-user hardening',
-    status: 'planned',
+    status: 'next',
     repo: 'foxmortgage-ca + fox-underwriting',
     items: [
       'Per-agent tenancy end to end for the first non-Michael users',
