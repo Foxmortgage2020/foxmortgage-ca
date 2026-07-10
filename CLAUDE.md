@@ -1,37 +1,69 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 9, 2026 (Admin Command Center Session 1 shipped; repo audit in docs/portal-audit-2026-07.md)
+## Last Updated: July 9, 2026 (Admin Command Center Session 3 shipped: approvals desk live, deals + deal room, audit viewer, gates client; service-role key removed)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
 
 ---
 
-## Admin Command Center (Session 1 shipped 2026-07-09)
+## Admin Command Center (Sessions 1 and 3 shipped 2026-07-09)
 
 ### Three-layer architecture
 - Zoho CRM: system of record for relationships, stages, tasks.
 - fox-underwriting (separate repo + Supabase project `rnupbdmpxfwsowiqhcqv`): system of
   record for underwriting truth (evidence, calcs, conditions, flags, reviews, audit log).
-- This portal: system of engagement. Reads both; writes to neither until Session 3,
-  when workbench write actions arrive via the fox-underwriting gates API. Never
-  re-implement workbench logic here.
+- This portal: system of engagement. Reads the workbench through a database-enforced
+  read-only role; every decision write flows through the Gates API at
+  https://fox-underwriting.vercel.app (Session 2 deployment). This repo NEVER writes
+  to the workbench database and never re-implements gate logic.
 
-### Read-only workbench posture
+### Read-only workbench posture (Session 3: database-enforced)
 - `lib/underwriting.ts` is the ONLY module touching the UW Supabase project. Its whole
-  query surface is one GET-based PostgREST select wrapper: no insert/update/upsert/
-  delete/rpc calls exist anywhere in this repo. Temporary posture: Session 2 replaces
-  the service key with a database-enforced read-only role.
+  query surface is one GET-based PostgREST wrapper (uwFetch/uwSelect; the audit viewer
+  variant adds Prefer: count=exact, still a GET). No insert/update/upsert/delete/rpc
+  calls exist anywhere in this repo against the workbench.
+- Since Session 3 the wrapper authenticates as the `portal_readonly` Postgres role
+  (fox-underwriting migration 0024): `UW_SUPABASE_READONLY_KEY` (long-lived ES256 JWT
+  under a standby signing key, expires 2028-07-08) rides Authorization: Bearer;
+  `UW_SUPABASE_PUBLISHABLE_KEY` rides apikey for gateway passage. Rotation procedure:
+  fox-underwriting docs/gates-api.md.
+- `UW_SUPABASE_SERVICE_ROLE_KEY` was DELETED from the foxmortgage-ca Vercel project on
+  2026-07-09 (all targets) and removed from .env.local. The portal cannot write to the
+  workbench even in principle: portal_readonly has SELECT on exactly 12 tables and
+  Postgres refuses everything else with 42501 (verified live).
+- Granted tables (SELECT only, enumerated live 2026-07-09): agents, audit_log,
+  conditions, deals, flags, intake_events, lender_intel_items, rate_quotes,
+  rate_sheet_reviews, shadow_scores, statement_fields, statement_reviews.
+  NOT granted (graceful sections, never workarounds): borrowers, evidence,
+  income_calcs, ratio_calcs, documents. No submission-notes table exists yet.
 - Env vars (server-only, never NEXT_PUBLIC): `UW_SUPABASE_URL`,
-  `UW_SUPABASE_SERVICE_ROLE_KEY`. Missing vars produce `{ configured: false }` and quiet
-  "Workbench not connected" UI states, never crashes. The service key is type=sensitive
-  in Vercel: confirmed runtime-readable in production (2026-07-09), but `vercel env
-  pull` returns it empty, so local dev shows not-connected unless the key is pasted
-  into .env.local by hand. The URL accepts the bare project URL or a pasted
-  .../rest/v1 form (wrapper normalizes both).
+  `UW_SUPABASE_READONLY_KEY`, `UW_SUPABASE_PUBLISHABLE_KEY`. Any missing produces
+  `{ configured: false }` and quiet "Workbench not connected" UI states, never crashes.
+  The URL accepts the bare project URL or a pasted .../rest/v1 form.
 - Never log workbench payloads (counts and durations only). Render masked values
   exactly as stored. Every fetcher takes `agentId` (tenant scoping); Michael's agent
   row is resolved by email (`config/targets.ts WORKBENCH_AGENT_EMAIL`) and cached.
+
+### Gates client (Session 3) — the only decision write path
+- `lib/gates.ts` is the ONLY module that calls the Gates API (`GATES_API_URL`, set in
+  Vercel all targets). Server-side only, invoked from the four gate proxy routes under
+  app/api/portal/admin/gates/: statements/[id]/decision, rate-sheets/[id]/decision,
+  flags/[id]/disposition, shadow/[id]/score. Each route enforces the authority matrix
+  (apiPermission in lib/authz.ts) before any Gates call.
+- Token mechanics (CONTRACT CORRECTION, verified live 2026-07-09): the gates-template
+  Clerk token MUST be minted in the browser. Backend mints via auth().getToken carry
+  no azp claim and the Gates API refuses them with 401. `lib/gates-token.ts`
+  (client-side, the only browser mint point) mints per action with
+  getToken({ template: 'gates' }) (60s life, never cached, never logged) and the desk
+  forwards it in the x-gates-token header; the proxy route passes it to lib/gates.ts.
+- Error mapping is a UX contract (unit-tested in tests/gates.test.ts): 401 auth copy,
+  403 permission copy, 404 "Not found or not yours.", 409 "Already decided." plus a
+  queue refetch, 422 surfaces the server validation message, 503/unexpected render as
+  unavailable, fetch failures render retryable network copy. Raw error bodies never
+  reach the user. STATUS_BY_KIND mirrors kinds to HTTP statuses on the proxy routes.
+- Logs carry method, path (with record id), status, duration. Never tokens, never
+  notes, never payloads.
 
 ### Authority matrix contract
 - `config/authority.ts` holds ROLES ('admin' | 'ops' | 'underwriting-reviewer' |
@@ -45,10 +77,47 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
 - Settings renders the matrix read-only.
 
 ### Nav IA (names are stable; renames need a note here)
-Home (live) | Deals (S3) | Approvals (S3, live counts now) | Rates (S4) | Intel (S4) |
+Home (live) | Deals (LIVE S3) | Approvals (LIVE S3) | Rates (S4) | Intel (S4) |
 Knowledge (S4) | Compliance (S5) | Revenue (S6) | Partners (live, existing pages) |
-Bookkeeping (nav link to existing /portal/bookkeeping, pages untouched) | Audit Log (S3) |
-Status (live) | Settings (live) | Roadmap (live). Config: `config/admin-nav.ts`.
+Bookkeeping (nav link to existing /portal/bookkeeping, pages untouched) |
+Audit Log (LIVE S3) | Status (live) | Settings (live) | Roadmap (live).
+Config: `config/admin-nav.ts`.
+
+### Approvals desk, Deals, Audit viewer (Session 3)
+- /portal/admin/approvals: four queues (statements, rate sheets, flags, shadow) in
+  `components/admin/ApprovalsDesk.tsx` (client) over `lib/approvals-data.ts` (shared
+  loader; also served fresh by GET /api/portal/admin/approvals/queues for the
+  post-decision reconcile refetch). Final actions (approve, reject, flag dispositions,
+  shadow agree) take a two-tap confirm on the same control with a 4 second disarm;
+  hold is single-tap; shadow disagree requires a 5+ character note. Success updates
+  optimistically then refetches; 409 shows "Already decided" and refetches. Statement
+  cards render extracted fields with source_snippet/source_page citations exactly as
+  stored, pre-stored held_reason chips, and the two-sided discrepancy framing from
+  open statement_value_discrepancy flags (detail keys: statement_field,
+  statement_value, statement_document_id, statement_source, application_field,
+  application_value, application_source, wide_gap, policy). Empty queues show the
+  last-decided timestamp derived from audit_log decision actions.
+- Shadow queue definition (aligned across Home and Approvals): active deals with
+  fewer than 4 latest-scored dimensions. System values for unscored dimensions are
+  computed by the Gates API at scoring time (fetchSnapshot + dealValues in
+  fox-underwriting); nothing is pre-stored, so cards render past scores'
+  system_value as recorded and say so. The portal never re-implements that pathway.
+- /portal/admin/deals: every workbench deal with Zoho stage joined via
+  zoho_potential_id (Session 1 approach), open condition/flag counts, shadow n/4
+  chip; closing-date sort; stage and open-flags filters via searchParams.
+- /portal/admin/deals/[id] (deal room): snapshot from the deals row, statement
+  evidence with provenance beside every value, conditions with overdue highlight,
+  flags with disposition history, shadow history with recorded system values,
+  deal-scoped audit entries. Borrowers, ratios/calcs, and submission notes render
+  graceful not-granted sections (see granted-table list above). Rate sheet reviews
+  are practice-level, not per deal; the room links to Approvals for them.
+- /portal/admin/audit (audit.view): reverse-chron entries showing actor_email for
+  portal-originated actions, filters (Toronto-day date bounds via
+  torontoDayStartISO/torontoDayEndISO in lib/dates.ts, actor enum, action ilike,
+  deal file ref resolved to deal_id), server-side pagination (50/page,
+  count=exact), CSV export at GET /api/portal/admin/audit/export capped at
+  AUDIT_EXPORT_CAP (config/targets.ts, 5000, stated in the UI). Fixed header states
+  the log is append-only and test entries are marked and superseded, never deleted.
 
 ### Shell and gating
 - `/portal/admin/*` renders in its own responsive shell (`app/portal/admin/layout.tsx`
@@ -77,8 +146,10 @@ Status (live) | Settings (live) | Roadmap (live). Config: `config/admin-nav.ts`.
   Status; `lib/zoho-admin.ts getTasksDue` filters by Due_Date and drops Completed
   client-side.
 
-### Status page sources
-- Workbench reachability + intake freshness (lib/underwriting.ts).
+### Status page sources (covers every production dependency as of Session 3)
+- Workbench reachability + intake freshness (lib/underwriting.ts, portal_readonly).
+- Gates API: GET /api/gates/health via lib/gates.ts getGatesHealth (traffic light with
+  auth/db booleans, commit, env).
 - Zoho ping: token refresh + 1-record Potentials read (lib/zoho-admin.ts).
 - n8n: `N8N_API_URL` + `N8N_API_KEY` (added to Vercel 2026-07-09 via REST API,
   encrypted, production+preview; same API key the Paperclip agents use). Known
@@ -86,6 +157,11 @@ Status (live) | Settings (live) | Roadmap (live). Config: `config/admin-nav.ts`.
 - Bookkeeping: live WRITE_TO_QBO read from workflow Uu6fsZ2A2gTn0gBs config node, plus
   the dry-run log via `lib/bookkeeping-dry-run-store.ts` (extracted from the route;
   route behavior unchanged).
+- Form intake capture: the foxmortgage-ca Supabase project via the STABLE
+  security-definer function form_submission_stats() (migration 20260709230000;
+  the anon key is insert-only on form_submissions, so a table SELECT would silently
+  return nothing). Panel shows 7-day submission count, zoho_failed count, latest
+  submission time.
 - Deploy: VERCEL_GIT_* env plus BUILD_TIME (baked in next.config.js).
 
 ---
@@ -425,6 +501,8 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - FP referral n8n workflow (j17v139rGek6tjAC) POSTs FP_Name / FP_Firm / FP_Email / Referral_Goal to the Leads module, but NONE of those fields exist on Leads (live fields check 2026-07-09; Zoho silently drops unknown fields). FP attribution has never been stored on webhook-created leads; only the notification emails carried it. Fix the workflow or add the fields in Zoho.
 - Paperclip DB missing `pg_trgm` PostgreSQL extension — Paperclip API write operations (PATCH/POST) return 500. Read-only works. Needs Paperclip infrastructure fix.
 - Zoho credential leak: .env.local.save was accidentally committed and removed 2026-03-27. ZOHO_REFRESH_TOKEN still NOT rotated (Vercel records date from the incident day; verified 2026-07-09). Rotate it.
+- fox-underwriting follow-up (found in Session 3 testing): POST /api/gates/shadow/[dealId]/score returns 500 when the deal has no ratio_calcs rows and the ratios dimension is scored (systemValues appears to dereference the missing newest ratio_calc). Real deals carry calcs so Michael's flow is unaffected; guard dealValues for empty calc sets. The portal renders the honest unavailable state when it happens.
+- statement_reviews/rate_sheet_reviews rows written through the Gates API keep decided_by='michael' (schema default); the acting human's identity lives on the audit_log entry (actor_clerk_id/actor_email per migration 0025). Cosmetic; note if a future hire needs decided_by to differentiate.
 - CLAUDE.md needs update after each session
 
 ### API Route Pattern
@@ -740,6 +818,33 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-09 — Admin Command Center Session 3 (approvals live, deals, audit viewer)
+- Part 0: lib/underwriting.ts swapped to the portal_readonly role
+  (UW_SUPABASE_READONLY_KEY bearer + UW_SUPABASE_PUBLISHABLE_KEY apikey, both live in
+  Vercel all targets); granted 12-table surface enumerated live and recorded above;
+  UW_SUPABASE_SERVICE_ROLE_KEY DELETED from the Vercel project after preview and
+  production verification; GATES_API_URL added (all targets, encrypted, via REST).
+- Shipped: lib/gates.ts (sole Gates API caller, error-mapping unit tests),
+  lib/gates-token.ts (browser mint; backend-minted template tokens carry no azp and
+  the API refuses them, a live-verified contract correction for docs/gates-api.md),
+  four gate proxy routes behind the authority matrix, the approvals desk (four live
+  queues, two-tap confirms, optimistic updates with reconcile refetch, 409 handling),
+  deals list with Zoho stage join, deal room with provenance-visible statement
+  evidence and graceful not-granted sections, audit viewer with filters, server
+  pagination, capped CSV export, and Status panels for the Gates API and form intake
+  capture (form_submission_stats security-definer function on the FOXCA project).
+- Part 6 test cycle on production with Michael's real session against TEST-PORTAL
+  seeds (deal 568b0f48, doc bc44816d, intel b1fd6b91): statement hold, approve with
+  note (2 promoted, 1 anomalous held, discrepancy flag auto-resolved), reject; sheet
+  approve; flag accept with note; stale-tab double-dispose returned 409 rendered as
+  "Already decided" with refetch (gates log: same flag 200 then 409); shadow
+  checklist agree, income disagree with note, shortlist agree on the mobile layout.
+  All portal audit entries carry actor_clerk_id + actor_email. Test rows superseded
+  per convention (statuses superseded/ignored), never deleted; seed and supersede
+  audit entries retained (portal.s3_test_seed 6c023054, portal.s3_test_supersede).
+- Found for fox-underwriting: shadow ratios dimension 500s on a deal with no
+  ratio_calcs (see Known Issues); docs/gates-api.md needs the browser-mint note.
 
 ### 2026-07-09 — Admin Command Center Session 1 (foundation)
 - Shipped: repo audit (docs/portal-audit-2026-07.md), 14-section admin nav with its
