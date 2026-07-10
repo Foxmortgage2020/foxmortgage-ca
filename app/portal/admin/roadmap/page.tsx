@@ -1,21 +1,24 @@
-// Roadmap: the eight-session build plan, so anyone onboarded later can see
-// where the platform is going. Static content, updated each session.
+// Roadmap: the command center build plan and its real history, so anyone
+// onboarded later can see where the platform is going and what already
+// shipped. Updated every session as part of the CLAUDE.md closing ritual
+// (session ledger, config/changelog.ts entry, this page). Staleness here
+// is a bug.
 
 import { requirePermission } from '@/lib/authz'
 
 export const dynamic = 'force-dynamic'
 
-type SessionStatus = 'shipped' | 'next' | 'planned'
+type SessionStatus = 'shipped' | 'current' | 'next' | 'planned'
 
 const SESSIONS: {
-  n: number
+  n: string
   title: string
   status: SessionStatus
   repo: string
   items: string[]
 }[] = [
   {
-    n: 1,
+    n: '1',
     title: 'Command center foundation',
     status: 'shipped',
     repo: 'foxmortgage-ca',
@@ -28,47 +31,82 @@ const SESSIONS: {
     ],
   },
   {
-    n: 2,
+    n: '1.5',
+    title: 'Hotfix: public forms were dropping submissions',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'Persist-first form intake pipeline (Supabase capture, then Zoho, then Resend, then an honest response)',
+      'Honeypot and validation on the public pair; attribution on the referral endpoint',
+    ],
+  },
+  {
+    n: '2',
     title: 'Gates API and read-only database role',
-    status: 'next',
+    status: 'shipped',
     repo: 'fox-underwriting',
     items: [
-      'Database-enforced read-only role replaces the service key posture',
-      'Gates API for approval actions, enforcing the same permission keys as this portal',
+      'Database-enforced portal_readonly role replaced the service key posture (service key deleted)',
+      'Gates API for approval decisions, enforcing the same permission keys as this portal',
       'Amended guardrail: dependency points one direction only (this portal depends on fox-underwriting, never the reverse)',
     ],
   },
   {
-    n: 3,
+    n: '3',
     title: 'Deals, Approvals, Audit Log',
-    status: 'planned',
+    status: 'shipped',
     repo: 'foxmortgage-ca',
     items: [
-      'Deals workspace joining Zoho stages with workbench evidence, conditions, and flags',
-      'Approval decisions (statement reviews, rate sheet reviews, shadow scores) through the gates API',
-      'Audit Log viewer over the workbench audit trail',
+      'Approvals desk live over the four gate queues with two-tap confirms and 409 reconciliation',
+      'Deals list and deal room joining Zoho stages with workbench evidence, conditions, and flags',
+      'Audit viewer with filters, server pagination, and capped CSV export',
+      'Browser-minted gates token contract verified live and documented',
     ],
   },
   {
-    n: 4,
-    title: 'Rates, Intel, Knowledge',
-    status: 'planned',
-    repo: 'foxmortgage-ca',
+    n: '3.5',
+    title: 'Workbench micro-sessions 1 and 2',
+    status: 'shipped',
+    repo: 'fox-underwriting',
     items: [
-      'Current approved quotes and promo countdowns',
-      'Lender intel triage',
-      'Knowledge search cited back to source documents',
+      'Micro-session 1: shadow empty-calcs 422, token-mint contract correction, deal room grants (16-table surface), decided_by convention',
+      'Micro-session 2: knowledge read endpoints, conditions decision gate, zoho_potential_id backfill for the deal rooms',
     ],
   },
   {
-    n: 5,
+    n: '4',
+    title: 'Rates, Intel, Knowledge, Changelog, Directory',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'Rates browser over the approved quote set with digest strip and promo countdowns',
+      'Knowledge base pages with as-of discipline, draft and withheld-profile handling',
+      'Intel feed with review outcomes; changelog; staff directory',
+      'Conditions decisions in the deal room; terminal-deal filtering; form intake acknowledged path',
+    ],
+  },
+  {
+    n: '5',
+    title: 'Rates v2: scenario-driven decision tool',
+    status: 'current',
+    repo: 'foxmortgage-ca',
+    items: [
+      'Describe the deal, see which lenders win it, lowest rate first, from Michael-approved sheets',
+      'Three levels: lender results, lender drill-in, product detail with approval provenance',
+      'Pin up to three products, compare side by side, export the client-ready PDF (download only)',
+      'Deal room prefill: find rates for this deal, read-only',
+      'Prerequisite still pending in fox-underwriting: quote_slugs aliases on the knowledge index (micro-session 3); cross-links stay graceful until it lands',
+    ],
+  },
+  {
+    n: '6',
     title: 'Compliance',
     status: 'planned',
     repo: 'foxmortgage-ca',
     items: ['FSRA-facing completeness and disclosure view per file'],
   },
   {
-    n: 6,
+    n: '7',
     title: 'Revenue and Partners',
     status: 'planned',
     repo: 'foxmortgage-ca',
@@ -78,14 +116,17 @@ const SESSIONS: {
     ],
   },
   {
-    n: 7,
-    title: 'Reserved',
+    n: '8',
+    title: 'Multi-user hardening',
     status: 'planned',
-    repo: 'tbd',
-    items: ['Scope is set in a later brief.'],
+    repo: 'foxmortgage-ca + fox-underwriting',
+    items: [
+      'Per-agent tenancy end to end for the first non-Michael users',
+      'Role review against the authority matrix before any second human decides anything',
+    ],
   },
   {
-    n: 8,
+    n: '9',
     title: 'PWA and polish',
     status: 'planned',
     repo: 'foxmortgage-ca',
@@ -95,7 +136,8 @@ const SESSIONS: {
 
 const STATUS_CHIP: Record<SessionStatus, { label: string; cls: string }> = {
   shipped: { label: 'Shipped', cls: 'bg-lime/20 text-navy border border-lime/50' },
-  next: { label: 'Next', cls: 'bg-navy text-white' },
+  current: { label: 'In progress', cls: 'bg-navy text-white' },
+  next: { label: 'Next', cls: 'bg-navy/80 text-white' },
   planned: { label: 'Planned', cls: 'bg-gray-100 text-gray-600' },
 }
 
@@ -107,8 +149,9 @@ export default async function RoadmapPage() {
       <div className="mb-6">
         <h1 className="font-heading text-navy text-2xl font-bold">Roadmap</h1>
         <p className="text-gray-500 font-body text-sm mt-1">
-          Eight sessions turn this portal into the system of engagement for the whole operation:
-          Michael today, staff and recruited agents later.
+          The command center build: what shipped, what is in progress, and what follows. This page
+          updates every session alongside the ledger and the changelog; the interstitial rows are
+          hotfixes and workbench micro-sessions, kept so the history reads true.
         </p>
       </div>
 
@@ -126,9 +169,9 @@ export default async function RoadmapPage() {
             calcs, conditions, flags, reviews, audit log.
           </li>
           <li>
-            <span className="text-white font-semibold">This portal</span> reads both. Workbench
-            write actions arrive in Session 3 through the gates API only. Workbench logic is never
-            re-implemented here.
+            <span className="text-white font-semibold">This portal</span> reads both through a
+            database-enforced read-only role. Every decision write flows through the gates API;
+            workbench logic is never re-implemented here.
           </li>
         </ul>
       </div>

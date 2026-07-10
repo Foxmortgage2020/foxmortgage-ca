@@ -1237,6 +1237,123 @@ export async function getRateQuoteBrowser(agentId: string): Promise<UwResult<Rat
   )
 }
 
+// ─── Session 5: scenario-driven rates (full rows + approval provenance) ─────
+
+// Every column the rate_quotes row stores (minus tenant plumbing), for the
+// scenario levels: level 3 renders all of it, nothing invented.
+export interface RateQuoteFullRow {
+  id: string
+  intelItemId: string
+  lenderSlug: string
+  productClass: string
+  variant: string | null
+  termMonths: number
+  rate: number
+  compBps: number | null
+  asOfDate: string | null
+  expiryDate: string | null
+  sourcePage: number
+  sourceSnippet: string
+  confidence: number
+  status: string
+  extractedBy: string
+  createdAt: string
+  reviewedAt: string | null
+  approvedVia: string | null
+  heldReason: string | null
+}
+
+export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQuoteFullRow[]>> {
+  const res = await uwSelect<any>('rate_quotes', {
+    select:
+      'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,status,extracted_by,created_at,reviewed_at,approved_via,held_reason',
+    agent_id: `eq.${agentId}`,
+    status: 'in.(approved,superseded)',
+    order: 'as_of_date.desc',
+    limit: '5000',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      intelItemId: r.intel_item_id,
+      lenderSlug: r.lender_slug,
+      productClass: r.product_class,
+      variant: r.variant ?? null,
+      termMonths: r.term_months,
+      rate: Number(r.rate),
+      compBps: r.comp_bps !== null && r.comp_bps !== undefined ? Number(r.comp_bps) : null,
+      asOfDate: r.as_of_date ?? null,
+      expiryDate: r.expiry_date ?? null,
+      sourcePage: r.source_page,
+      sourceSnippet: r.source_snippet,
+      confidence: Number(r.confidence),
+      status: r.status,
+      extractedBy: r.extracted_by,
+      createdAt: r.created_at,
+      reviewedAt: r.reviewed_at ?? null,
+      approvedVia: r.approved_via ?? null,
+      heldReason: r.held_reason ?? null,
+    })),
+  )
+}
+
+// Approval provenance for product detail: the sheet review behind
+// approved_via='sheet:<review_id>', plus the matching audit entry
+// (action rates.sheet_approved, joined by intel_item_id client-side; the
+// gate writes intel_item_id, not review_id, into the detail).
+export interface SheetProvenance {
+  reviewId: string
+  intelItemId: string
+  decision: string
+  decidedAt: string
+  quotesTotal: number | null
+  auditEntryId: string | null
+  auditCreatedAt: string | null
+}
+
+export async function getSheetProvenance(
+  agentId: string,
+  reviewIds: string[],
+): Promise<UwResult<Record<string, SheetProvenance>>> {
+  if (reviewIds.length === 0) return { configured: true, ok: true, data: {} }
+  const reviewsRes = await uwSelect<any>('rate_sheet_reviews', {
+    select: 'id,intel_item_id,decision,decided_at,quotes_total',
+    agent_id: `eq.${agentId}`,
+    id: `in.(${reviewIds.join(',')})`,
+    limit: '200',
+  })
+  if (!reviewsRes.configured || !reviewsRes.ok) return reviewsRes
+  const auditRes = await uwSelect<any>('audit_log', {
+    select: 'id,detail,created_at',
+    agent_id: `eq.${agentId}`,
+    action: 'eq.rates.sheet_approved',
+    limit: '500',
+  })
+  const auditByIntelItem = new Map<string, { id: string; createdAt: string }>()
+  if (auditRes.configured && auditRes.ok) {
+    for (const a of auditRes.data) {
+      const intel = a.detail?.intel_item_id
+      if (typeof intel === 'string') auditByIntelItem.set(intel, { id: a.id, createdAt: a.created_at })
+    }
+  }
+  return mapResult(reviewsRes, rows => {
+    const out: Record<string, SheetProvenance> = {}
+    for (const r of rows) {
+      const audit = auditByIntelItem.get(r.intel_item_id) ?? null
+      out[r.id] = {
+        reviewId: r.id,
+        intelItemId: r.intel_item_id,
+        decision: r.decision,
+        decidedAt: r.decided_at,
+        quotesTotal: r.quotes_total ?? null,
+        auditEntryId: audit?.id ?? null,
+        auditCreatedAt: audit?.createdAt ?? null,
+      }
+    }
+    return out
+  })
+}
+
 export interface IntelItemRow {
   id: string
   lenderSlugGuess: string | null

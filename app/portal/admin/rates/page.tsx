@@ -1,20 +1,23 @@
-// Rates — the browser over the approved quote set (Session 4), built
-// entirely from granted workbench tables, plus promo countdowns from the
-// knowledge base. The digest strip computes week-over-week movement only
-// where the data supports it; otherwise it shows sheet dates instead of a
-// fake trend.
+// Rates v2 (Session 5): scenario-driven decision tool as the default
+// landing, with the Session 4 dense table behind the view toggle. The
+// digest strip and promo countdowns stay. Every rate carries its sheet
+// date; product detail links its approval audit entry. The scenario view
+// runs on the full quote rows plus the sheet-review provenance map.
 
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import {
   getAgentIdByEmail,
   getPendingSheetReviews,
-  getRateQuoteBrowser,
+  getRateQuotesFull,
+  getSheetProvenance,
+  type SheetProvenance,
   type UwResult,
 } from '@/lib/underwriting'
 import { computeLenderDigests } from '@/lib/rates'
-import RatesBrowser from '@/components/admin/RatesBrowser'
+import RatesScenario from '@/components/admin/RatesScenario'
 import PromoCountdowns from '@/components/admin/PromoCountdowns'
 import { fmtShortDate } from '@/lib/dates'
 
@@ -24,11 +27,7 @@ function val<T>(r: UwResult<T> | null): T | null {
   return r && r.configured && r.ok ? r.data : null
 }
 
-export default async function RatesPage({
-  searchParams,
-}: {
-  searchParams: { lender?: string }
-}) {
+export default async function RatesPage() {
   await requirePermission('rates.view')
 
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
@@ -41,7 +40,7 @@ export default async function RatesPage({
         <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-sm text-gray-500 font-body">
             {!agentRes.configured
-              ? 'Workbench not connected. The rates browser reads approved quotes through the read-only role.'
+              ? 'Workbench not connected. Rates reads approved quotes through the read-only role.'
               : 'Workbench is configured but not answering. See Status for details.'}
           </p>
         </div>
@@ -50,12 +49,24 @@ export default async function RatesPage({
   }
 
   const [quotesR, pendingR] = await Promise.all([
-    getRateQuoteBrowser(agentId),
+    getRateQuotesFull(agentId),
     getPendingSheetReviews(agentId),
   ])
   const quotes = val(quotesR) ?? []
   const pendingSheets = val(pendingR) ?? []
   const digests = computeLenderDigests(quotes)
+
+  // Approval provenance for every approved quote's sheet review, resolved
+  // once server-side so level 3 renders it without extra round trips.
+  const reviewIds = Array.from(
+    new Set(
+      quotes
+        .filter(q => q.approvedVia?.startsWith('sheet:'))
+        .map(q => q.approvedVia!.slice(6)),
+    ),
+  )
+  const provenanceR = await getSheetProvenance(agentId, reviewIds)
+  const provenance: Record<string, SheetProvenance> = val(provenanceR) ?? {}
 
   return (
     <div className="max-w-5xl">
@@ -106,9 +117,11 @@ export default async function RatesPage({
         <PromoCountdowns />
       </div>
 
-      {/* The browser */}
+      {/* Scenario view (default) with the table behind the toggle */}
       <div className="mt-6">
-        <RatesBrowser quotes={quotes} initialLender={searchParams.lender?.trim() || undefined} />
+        <Suspense fallback={<p className="text-sm text-gray-400 font-body">Loading scenario…</p>}>
+          <RatesScenario quotes={quotes} provenance={provenance} />
+        </Suspense>
       </div>
     </div>
   )
@@ -119,8 +132,8 @@ function Header() {
     <div>
       <h1 className="font-heading text-navy text-2xl font-bold">Rates</h1>
       <p className="text-gray-500 font-body text-sm mt-1">
-        The approved quote set from the workbench, with superseded history behind a toggle and
-        offer expiries from the knowledge base.
+        Describe the deal and see which lenders win it, from rate sheets Michael approved through
+        the audited gate. The dense table stays behind the Table toggle.
       </p>
     </div>
   )

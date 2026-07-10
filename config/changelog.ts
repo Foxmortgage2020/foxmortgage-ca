@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-10',
+    title: 'Session 5: Rates becomes a scenario tool',
+    detail:
+      'Describe the deal and see which lenders win it, lowest rate first, from sheets Michael approved through the audited gate. Drill into products with full provenance, pin up to three to compare, and download a client-ready PDF. Deal rooms gain a find-rates button. The dense table stays behind a toggle.',
+  },
+  {
     date: '2026-07-09',
     title: 'Session 4: Knowledge, Rates, Intel, and the reference layer',
     detail:

@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 9, 2026 (Admin Command Center Session 4 shipped: knowledge base, rates browser, intel feed, changelog + directory, conditions decisions, terminal-deal filtering, 16-table granted surface)
+## Last Updated: July 10, 2026 (Admin Command Center Session 5 shipped: Rates v2 scenario tool, compare + client PDF, deal room prefill, roadmap brought current, closing ritual and UI test discipline made standing policy)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -132,6 +132,91 @@ Roadmap. All live except Compliance and Revenue. Config: `config/admin-nav.ts`.
   unacknowledged failures (light logic pure and unit-tested in lib/status.ts);
   acknowledge is admin-only (status.acknowledge) through the security-definer
   function, recorded who and when, and never hides fresh failures.
+
+### Session 5: Rates v2, scenario-driven (2026-07-10)
+- /portal/admin/rates now lands on the scenario view (three levels, Lender
+  Spotlight shaped, grounded in audited data); the Session 4 dense table
+  stays behind the Cards/Table toggle with superseded history. Trust edge
+  everywhere: every rate carries its sheet date; product detail renders the
+  approval provenance block (sheet review decision + decided date + audit
+  entry id linking into the audit viewer) and the lender knowledge page
+  where the slug matches.
+- lib/scenario.ts is the pure model (unit-tested in tests/scenario.test.ts):
+  matchQuote / lenderResults / summaryLine / classifyVariant /
+  scenarioParamsFromDeal / URL round-trip. The whole view state lives in
+  searchParams (scenario, lender, product, pins, view, from), so back
+  preserves the scenario, deal rooms prefill by link, and every level is
+  reachable without a pointer event.
+- rate_quotes dimension inventory (live, 2026-07-10; 429 rows, 310
+  approved): lender_slug mcap 168 / first-national 116 / rfa 61 / strive 54
+  / scotia 28 / test-portal 2 (superseded seeds, excluded from scenarios);
+  product_class conventional/insurable/insured (fully populated, the
+  insurance-class dimension); term_months 12/24/36/48/60/84/120 (fully
+  populated); variant is the SPARSE column carrying three families: LTV
+  bands (ltv<=65, ltv65-70, ltv70-75, ltv75-80; insurable rows on
+  fn/mcap/rfa/strive), rental markers (rental, second-home-rental), Scotia
+  Mortgage Plus markers (mortgage-plus, -25yr, -30yr); 121 rows have null
+  variant. comp_bps null on all mcap rows; expiry_date null on ALL approved
+  rows (rate holds do not exist in the data; excluded from the panel,
+  wishlist). No purpose/transaction-type column exists: purpose in the
+  scenario drives promo eligibility and the summary line only, never the
+  quote filter (tooltip says so).
+- Sparse-dimension rule (tested): explicit variant markers rule quotes in
+  or out; absence NEVER silently excludes; the match carries an assumed
+  note the UI shows as a tooltip plus an inline line. Unknown future
+  variants classify as 'other' and always match with a note.
+- Payment math: lib/mortgage-engine.ts monthlyPayment was ALREADY the
+  shared validated library (the public calculators import it; it shares the
+  semi-annual compounding core with refinance-engine). No extraction was
+  needed; Rates v2 and the PDF import it and never re-derive. Cent anchors
+  in tests: 650000 @ 3.75 over 30yr = 2999.58 (Zinger cross-validated);
+  500000 @ 5.00 over 25yr = 2908.02 (standard reference).
+- Compare tray: pin up to three products across lenders (pins in the URL),
+  aligned rows with payments at the scenario amount, penalty methodology
+  line per lender. No machine profile documents a penalty methodology
+  today, so the line renders the honest not-documented state with the
+  profile's as-of date; the lookup lights up when profiles gain the field.
+- Client PDF: POST /api/portal/admin/rates/pdf (rates.view), server-side
+  with pdf-lib (no headless browser on the serverless runtime; Helvetica
+  with brand navy/lime, recorded tradeoff). The route re-fetches pinned
+  quotes through the read-only role and recomputes payments with the
+  engine; client figures are never trusted into a client-facing document.
+  Lender display names resolve live from the knowledge index through the
+  browser-minted token the tray forwards (x-gates-token, same posture as
+  the knowledge proxies); mint failure degrades to stored slugs. Grade 6
+  copy, scenario summary, sheet dates, licence line (Mortgage Agent
+  Level 2, BRX Mortgage, FSRA 13463), estimates-not-a-commitment
+  disclaimer. Download only, filename rates-comparison-[date].pdf, never
+  client PII in the filename (a prefill file ref may appear in the body).
+- Deal room prefill: the find-rates button builds
+  /portal/admin/rates?...&from=<fileRef> via scenarioParamsFromDeal (reads
+  only; purpose mapped only from the deal_type vocabulary, insured
+  prefilled only above 80 LTV); the scenario page banners the source file.
+- Slug gap unchanged (Session 4 finding): quote slugs first-national/rfa/
+  strive have no knowledge page; cross-links render the graceful no-page
+  state. The component and the PDF route already resolve through
+  quote_slugs aliases the moment fox-underwriting micro-session 3 publishes
+  them on the knowledge index; the portal never invents the mapping.
+
+### End-of-session closing ritual (STANDING RULE, Session 5)
+Every build session ends by updating all three, together, before the
+completion report: (1) the Session Ledger entry in this file, (2) a
+PLATFORM_NOTES entry in config/changelog.ts, (3) the roadmap page
+(app/portal/admin/roadmap/page.tsx) statuses and items. Roadmap staleness
+is a bug; this ritual is why it cannot happen again. Future briefs inherit
+this step even when they do not restate it.
+
+### UI test automation discipline (STANDING RULE, Session 5, after the Session 4 incident)
+Automated UI tests and browser drivers target elements by explicit test
+ids scoped to rows with TEST-prefixed identifiers, and never fire pointer
+or keyboard events on pages listing live records. Decision-control testing
+happens on preview deploys against seeded TEST rows only. A flow that
+cannot be exercised that way is verified by unit test plus a manual step
+listed for Michael, never by automation against production data.
+Components ship data-testid attributes carrying the record id (e.g.
+rate-product-<id>, pin-<id>) so tests can scope to TEST rows; the Rates v2
+view keeps every level and pin state URL-addressable so screenshots and
+checks navigate instead of clicking.
 
 ### Approvals desk, Deals, Audit viewer (Session 3)
 - /portal/admin/approvals: four queues (statements, rate sheets, flags, shadow) in
@@ -870,6 +955,44 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-10 — Admin Command Center Session 5 (Rates v2, scenario-driven)
+- Shipped the three-level scenario tool as the Rates landing (lib/scenario.ts
+  pure model + components/admin/RatesScenario.tsx; Session 4 table behind the
+  toggle): describe the deal (purpose, occupancy, insurance class, term,
+  amount, property value with LTV computed and locked, amortization), lender
+  cards lowest-rate-first with promo chips from the offers endpoint, lender
+  drill-in cards with sheet dates, product detail rendering every stored
+  column plus the approval provenance block (sheet review + decided date +
+  audit entry link) and the knowledge cross-link (exact slug or published
+  quote_slugs alias only).
+- Dimension inventory recorded above from the live schema; sparse variant
+  handling (LTV bands, rental markers, Mortgage Plus amortization markers)
+  matches-all-with-note where data cannot rule out, proven in
+  tests/scenario.test.ts (25 tests) including the cent anchors 2999.58 and
+  2908.02 against lib/mortgage-engine.ts (already the shared library; no
+  extraction needed).
+- Compare tray pins up to three across lenders with payments and honest
+  penalty lines (no profile documents a methodology yet; as-of dates shown).
+  Client PDF at POST /api/portal/admin/rates/pdf: pdf-lib server-side,
+  server re-fetches pins and recomputes payments, knowledge names through
+  the forwarded browser-minted token, grade 6 disclaimer, licence line,
+  rates-comparison-[date].pdf, download only, no send path.
+- Deal room gains the read-only find-rates prefill button
+  (scenarioParamsFromDeal; banner names the source file; nothing writes).
+- Part 0: roadmap page brought current (Sessions 1 through 4 shipped with
+  the hotfix and workbench micro-sessions as interstitial rows; Session 5 in
+  progress; remainder renumbered 6 compliance, 7 revenue and partners,
+  8 multi-user hardening, 9 PWA and polish). Micro-session 3 (quote_slugs
+  aliases) had NOT run at build time, so the roadmap lists it pending and
+  every cross-link degrades gracefully; the component and PDF route already
+  consume the aliases the moment they publish.
+- Standing policies recorded: the three-part closing ritual (ledger,
+  changelog, roadmap) and the UI test automation discipline (test ids
+  scoped to TEST-prefixed rows; no pointer or keyboard events on pages
+  listing live records; decision testing on preview deploys with TEST
+  seeds; otherwise unit test plus a manual step for Michael).
+- Deps: pdf-lib added. New tests: tests/scenario.test.ts. Suite at 62.
 
 ### 2026-07-09 — Admin Command Center Session 4 (knowledge, rates, intel, opening fixes)
 - Part 0 fixes: deal room sections rebuilt attempt-and-fallback over the 16-table

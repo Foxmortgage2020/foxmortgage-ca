@@ -28,6 +28,7 @@ import {
   type UwResult,
 } from '@/lib/underwriting'
 import ConditionsPanel from '@/components/admin/ConditionsPanel'
+import { scenarioParamsFromDeal } from '@/lib/scenario'
 import { fmtDateTime, fmtMoney, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
@@ -175,6 +176,22 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
         <Chip tone="gray">{label(deal.dealType)}</Chip>
         {deal.stage && <Chip tone="gray">{label(deal.stage)}</Chip>}
         <Chip tone={deal.status === 'active' ? 'green' : 'gray'}>{deal.status}</Chip>
+        {/* Prefill only reads the deals row into rates searchParams; it
+            writes nothing anywhere (Session 5 Part 4). */}
+        <Link
+          href={`/portal/admin/rates?${new URLSearchParams(
+            scenarioParamsFromDeal({
+              fileRef: deal.fileRef,
+              dealType: deal.dealType,
+              mortgageAmount: deal.mortgageAmount,
+              purchasePrice: deal.purchasePrice,
+            }),
+          ).toString()}`}
+          className="ml-auto text-xs font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90"
+          data-testid="find-rates-for-deal"
+        >
+          Find rates for this deal
+        </Link>
       </div>
       <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm font-body">
         <div>
