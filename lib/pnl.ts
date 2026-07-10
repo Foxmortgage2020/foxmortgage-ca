@@ -42,7 +42,7 @@ export type PnlResult =
 export const PNL_REQUIREMENTS = [
   'An n8n read-only webhook serving P&L by QBO class for the trailing 3 months (JSON contract in lib/pnl.ts), plus N8N_QBO_PNL_WEBHOOK_URL on Vercel pointing at it.',
   'That webhook needs a production-realm QBO credential (realm 9341456900727321), which waits on the Intuit app assessment. The n8n credential that exists today is sandbox only.',
-  'Alternative: direct QBO OAuth here (QBO_CLIENT_ID, QBO_CLIENT_SECRET, QBO_REFRESH_TOKEN, QBO_REALM_ID) — a future session wires it into this module.',
+  'Alternative: direct QBO OAuth here (QBO_CLIENT_ID, QBO_CLIENT_SECRET, QBO_REFRESH_TOKEN, QBO_REALM_ID); a future session wires it into this module.',
 ]
 
 // Pure and unit-tested: a malformed payload returns null rather than a

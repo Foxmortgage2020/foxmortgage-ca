@@ -153,7 +153,11 @@ export default async function RevenuePage() {
   const mixes = [
     mixBreakdown(fundedT12, 'Purpose', d => d.transactionType),
     mixBreakdown(fundedT12, 'Rate type', d => d.rateType),
-    mixBreakdown(fundedT12, 'Term (years)', d => (d.termYears != null ? `${d.termYears} yr` : null)),
+    // Term_Years holds mixed units live (some files store months in it),
+    // so the value renders exactly as stored with no unit suffix.
+    mixBreakdown(fundedT12, 'Term (Term_Years as stored)', d =>
+      d.termYears != null ? String(d.termYears) : null,
+    ),
     mixBreakdown(fundedT12, 'Mortgage type', d => d.mortgageType),
   ]
   const lenderMix = mixBreakdown(fundedT12, 'Lender', d => d.lenderName)
