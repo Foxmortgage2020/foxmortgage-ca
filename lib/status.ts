@@ -209,6 +209,58 @@ export async function getBookkeepingStatus(): Promise<BookkeepingStatus> {
   }
 }
 
+// ─── Form intake capture (foxmortgage-ca Supabase project) ──────────────────
+// Counts come through the STABLE security-definer function
+// form_submission_stats() (migration 20260709230000): the app's anon key is
+// deliberately insert-only on form_submissions, so a table SELECT would
+// silently return nothing. Counts and a timestamp only, never row content.
+
+export interface FormIntakeStatus {
+  configured: boolean
+  reachable: boolean
+  total7d: number | null
+  zohoFailed: number | null
+  latestAt: string | null
+  error: string | null
+}
+
+export async function getFormIntakeStatus(): Promise<FormIntakeStatus> {
+  const url = process.env.FOXCA_SUPABASE_URL
+  const key = process.env.FOXCA_SUPABASE_KEY
+  const none: FormIntakeStatus = {
+    configured: false,
+    reachable: false,
+    total7d: null,
+    zohoFailed: null,
+    latestAt: null,
+    error: null,
+  }
+  if (!url || !key) return none
+  const base = url.replace(/\/+$/, '')
+  try {
+    const res = await fetch(`${base}/rest/v1/rpc/form_submission_stats`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!res.ok) {
+      return { ...none, configured: true, reachable: true, error: `stats query failed (HTTP ${res.status})` }
+    }
+    const rows = (await res.json()) as any[]
+    const r = Array.isArray(rows) ? rows[0] : null
+    return {
+      configured: true,
+      reachable: true,
+      total7d: r?.total_7d !== undefined && r?.total_7d !== null ? Number(r.total_7d) : null,
+      zohoFailed: r?.zoho_failed !== undefined && r?.zoho_failed !== null ? Number(r.zoho_failed) : null,
+      latestAt: r?.latest_at ?? null,
+      error: null,
+    }
+  } catch {
+    return { ...none, configured: true, reachable: false, error: 'unreachable' }
+  }
+}
+
 // ─── Deploy info ────────────────────────────────────────────────────────────
 
 export interface DeployInfo {

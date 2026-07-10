@@ -1,24 +1,21 @@
-// Approvals — stub this session, but the pending counts are live through
-// the read-only workbench wiring. Decisions (approve / reject / hold) land
-// in Session 3 through the fox-underwriting gates API.
+// Approvals — the live desk (Session 3). Four queues with decisions
+// flowing through the fox-underwriting Gates API: statement reviews, rate
+// sheets, flag dispositions, shadow scores. The server page loads the
+// queue data read-only; every decision goes through the gate proxy routes
+// with the signed-in user's own token.
 
 import Link from 'next/link'
-import StubPage from '@/components/admin/StubPage'
-import { requirePermission } from '@/lib/authz'
+import { can, requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
-import {
-  getAgentIdByEmail,
-  getDealsSummary,
-  getPendingSheetReviews,
-  getPendingStatementReviews,
-  getShadowTally,
-} from '@/lib/underwriting'
-import { fmtDateTime, fmtShortDate } from '@/lib/dates'
+import { getAgentIdByEmail } from '@/lib/underwriting'
+import { getApprovalsData } from '@/lib/approvals-data'
+import { gatesConfigured } from '@/lib/gates'
+import ApprovalsDesk from '@/components/admin/ApprovalsDesk'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ApprovalsPage() {
-  await requirePermission('approvals.view')
+  const user = await requirePermission('approvals.view')
 
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
@@ -28,8 +25,8 @@ export default async function ApprovalsPage() {
     body = (
       <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
         <p className="text-sm text-gray-500 font-body">
-          Workbench not connected. Pending counts appear here once UW_SUPABASE_URL and
-          UW_SUPABASE_SERVICE_ROLE_KEY are set.
+          Workbench not connected. Queues appear here once UW_SUPABASE_URL,
+          UW_SUPABASE_READONLY_KEY, and UW_SUPABASE_PUBLISHABLE_KEY are set.
         </p>
       </div>
     )
@@ -46,70 +43,40 @@ export default async function ApprovalsPage() {
       </div>
     )
   } else {
-    const [stmtsR, sheetsR, shadowR, wbDealsR] = await Promise.all([
-      getPendingStatementReviews(agentId),
-      getPendingSheetReviews(agentId),
-      getShadowTally(agentId),
-      getDealsSummary(agentId),
-    ])
-    const stmts = stmtsR.configured && stmtsR.ok ? stmtsR.data : []
-    const sheets = sheetsR.configured && sheetsR.ok ? sheetsR.data : []
-    const shadow = shadowR.configured && shadowR.ok ? shadowR.data : null
-    const wbDeals = wbDealsR.configured && wbDealsR.ok ? wbDealsR.data : []
-    const shadowDue = shadow
-      ? wbDeals.filter(d => d.status === 'active' && !shadow.scoredFileRefs.includes(d.fileRef))
-      : []
-
+    const data = await getApprovalsData(agentId)
     body = (
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="font-heading text-3xl text-navy font-bold">{stmts.length}</p>
-          <p className="text-sm text-gray-600 font-body mt-1">Statement reviews pending</p>
-          <div className="mt-2 space-y-1">
-            {stmts.slice(0, 4).map(s => (
-              <p key={s.documentId} className="text-xs text-gray-500 font-body truncate">
-                {s.docClass.replace(/_/g, ' ')} on {s.dealRef ?? 'file'} ({s.fieldCount} fields)
-              </p>
-            ))}
+      <div className="mt-6">
+        {!gatesConfigured() && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <p className="text-sm text-amber-800 font-body">
+              The Gates API is not connected (GATES_API_URL is not set), so queues are read-only
+              right now. Decisions will fail until it is configured.
+            </p>
           </div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="font-heading text-3xl text-navy font-bold">{sheets.length}</p>
-          <p className="text-sm text-gray-600 font-body mt-1">Rate sheet reviews pending</p>
-          <div className="mt-2 space-y-1">
-            {sheets.slice(0, 4).map(s => (
-              <p key={s.intelItemId} className="text-xs text-gray-500 font-body truncate">
-                {s.lenderSlug ?? 'unknown lender'}: {s.quoteCount} quotes
-                {s.asOfDate ? `, as of ${fmtShortDate(s.asOfDate)}` : ''}
-              </p>
-            ))}
-          </div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="font-heading text-3xl text-navy font-bold">{shadowDue.length}</p>
-          <p className="text-sm text-gray-600 font-body mt-1">Shadow scores due</p>
-          {shadow && (
-            <div className="mt-2 space-y-1 text-xs text-gray-500 font-body">
-              <p>{shadow.filesScored} files scored so far</p>
-              <p>Agreement streak: {shadow.agreementStreak}</p>
-              <p>
-                Last score:{' '}
-                {shadow.lastScoreDate ? fmtDateTime(shadow.lastScoreDate) : 'none yet'}
-              </p>
-            </div>
-          )}
-        </div>
+        )}
+        <ApprovalsDesk
+          initial={data}
+          canDecide={{
+            statements: can(user, 'approvals.statement.decide'),
+            sheets: can(user, 'approvals.ratesheet.decide'),
+            flags: can(user, 'flags.disposition'),
+            shadow: can(user, 'shadow.score'),
+          }}
+        />
       </div>
     )
   }
 
   return (
-    <StubPage
-      title="Approvals"
-      session={3}
-      description="One queue for statement reviews, rate sheet reviews, and shadow scores. Counts below are live from the workbench; the decision actions arrive with the gates API."
-    >
+    <div className="max-w-4xl">
+      <div>
+        <h1 className="font-heading text-navy text-2xl font-bold">Approvals</h1>
+        <p className="text-gray-500 font-body text-sm mt-1">
+          Statement reviews, rate sheets, flags, and shadow scores. Every decision is recorded in
+          the workbench audit log under your name.
+        </p>
+      </div>
       {body}
-    </StubPage>
+    </div>
   )
 }

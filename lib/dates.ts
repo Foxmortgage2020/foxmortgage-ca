@@ -32,6 +32,36 @@ export function hoursSince(iso: string, now: Date = new Date()): number {
   return (now.getTime() - new Date(iso).getTime()) / 3_600_000
 }
 
+// Offset of the practice timezone at a given instant, in minutes (EDT -240,
+// EST -300). Probed at noon UTC of the target day so the DST boundary
+// itself cannot flip the probe.
+function torontoOffsetMinutes(probe: Date): number {
+  const part = new Intl.DateTimeFormat('en-US', {
+    timeZone: ADMIN_TZ,
+    timeZoneName: 'longOffset',
+  })
+    .formatToParts(probe)
+    .find(p => p.type === 'timeZoneName')?.value
+  const m = part?.match(/GMT([+-])(\d{2}):(\d{2})/)
+  if (!m) return -300
+  const sign = m[1] === '-' ? -1 : 1
+  return sign * (Number(m[2]) * 60 + Number(m[3]))
+}
+
+// UTC instant of Toronto midnight for a YYYY-MM-DD — the audit viewer's
+// date filters are day-bounded in practice time, not UTC.
+export function torontoDayStartISO(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const offset = torontoOffsetMinutes(new Date(Date.UTC(y, m - 1, d, 12)))
+  return new Date(Date.UTC(y, m - 1, d) - offset * 60_000).toISOString()
+}
+
+// Last instant of the Toronto day (start of the next day minus 1ms).
+export function torontoDayEndISO(ymd: string): string {
+  const start = new Date(torontoDayStartISO(ymd))
+  return new Date(start.getTime() + 24 * 3_600_000 - 1).toISOString()
+}
+
 // "Jul 14" from a YYYY-MM-DD or ISO datetime. Date-only strings are parsed
 // from their literal parts so they never shift a day across UTC boundaries.
 export function fmtShortDate(value: string | null | undefined): string {
