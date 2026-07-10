@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
     "@clerk/nextjs": "^5.7.5",
     "lru-cache": "^11.3.6",
     "lucide-react": "^1.7.0",

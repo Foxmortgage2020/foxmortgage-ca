@@ -1708,6 +1708,28 @@ export async function getDealIdByFileRef(agentId: string, fileRef: string): Prom
   return mapResult(res, rows => rows[0]?.id ?? null)
 }
 
+// Ask Fox: pending (extracted) quote counts by rate type, so the agent
+// can say "N floating quotes await your approval" as a COUNT, never a
+// quotable number. Pending rows are never served as rates anywhere.
+export async function getPendingQuoteTypeCounts(
+  agentId: string,
+): Promise<UwResult<Record<string, number>>> {
+  const res = await uwSelect<any>('rate_quotes', {
+    select: 'rate_type',
+    agent_id: `eq.${agentId}`,
+    status: 'eq.extracted',
+    limit: '5000',
+  })
+  return mapResult(res, rows => {
+    const counts: Record<string, number> = {}
+    for (const r of rows) {
+      const t = r.rate_type ?? 'fixed'
+      counts[t] = (counts[t] ?? 0) + 1
+    }
+    return counts
+  })
+}
+
 export async function getRateQuoteStats(agentId: string): Promise<UwResult<RateQuoteStats>> {
   const res = await uwSelect<any>('rate_quotes', {
     select: 'status,as_of_date',

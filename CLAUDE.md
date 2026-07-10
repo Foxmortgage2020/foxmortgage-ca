@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 10, 2026 (Admin Command Center Session 6 shipped: floating-rate vocabulary on every rates surface, promo offers as scenario results, Directory number_links, and the Compliance module with its FOXCA-backed registers)
+## Last Updated: July 10, 2026 (Agent session shipped: Ask Fox, the in-portal practice agent with Call Prep and Call Review, six enumerated tools, confirm-card writes, FOXCA conversation log; needs ANTHROPIC_API_KEY on Vercel to answer)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -317,6 +317,83 @@ Roadmap. All live except Revenue (S7). Compliance shipped S6. Config:
   14 days red (thresholds unit-tested in tests/compliance.test.ts; past
   due stays red; no date recorded never alarms), unconfirmed dates say
   "confirm date".
+
+### Ask Fox, the practice agent (Agent session, 2026-07-10)
+- /portal/admin/agent ("Ask Fox" in the nav, agent.use: admin today so
+  onboarding roles can get it later; agent.execute gates confirm-card
+  execution and stays admin even when agent.use widens). Mobile-first
+  streaming chat; /portal/admin/agent/history lists every conversation;
+  deal rooms carry a one-tap "Prep a call" button
+  (/portal/admin/agent?prep=<fileRef>, auto-sends once).
+- BEHAVIOUR RULES ARE THE PRODUCT (encoded in lib/agent/prompt.ts,
+  versioned AGENT_PROMPT_VERSION; prompt changes get changelog entries):
+  grounded or silent (every figure carries its source inline; missing
+  data says "not captured", never a guess; no balance field exists in
+  Zoho and the agent says so); approved means approved (pending quotes as
+  counts only); reads freely, writes only through confirm cards; the desk
+  decides (NO gate actions exist in the tool surface, architecturally);
+  tenant-scoped and logged.
+- The tool surface is EXACTLY six tools (lib/agent/tools.ts, enumerated,
+  no raw queries; unit test asserts the list and greps prove no send
+  paths): find_client (Zoho contacts and deals, longest-token retry
+  because Zoho word search does not match Nick against Nicholas),
+  get_deal_file (workbench readonly composite; honest not-found for
+  pre-workbench files), search_rates (the same lib/scenario matching
+  module the Rates page uses: approved rows only, floating discounts with
+  effective-at-prime labels, structured offers with conditions and
+  expiry, prime as-of, pending counts by rate type), knowledge_lookup
+  (profiles with as-of, mechanism notes with the pending caveat, penalty
+  state), propose_zoho_update and propose_task (mint confirm cards,
+  nothing more). Zoho writes exist ONLY in updateZohoRecordFields and
+  createZohoTask (lib/zoho-admin.ts), called ONLY by the card execute
+  route after the tap, executing the STORED payload (client bodies
+  ignored); module allowlist Potentials and Contacts, scalar fields only.
+- Loop (lib/agent/loop.ts): manual Anthropic Messages tool-use loop,
+  streamed as NDJSON events (text, tool, card, error, capped, done);
+  model claude-sonnet-4-6 by default (config/agent.ts AGENT_MODEL env
+  override), adaptive thinking, cached static system prompt (runtime
+  date renders after the cache breakpoint); caps enforced and
+  unit-tested: 12 tool calls per user message (excess tool_use gets an
+  is_error budget note; hard iteration ceiling above it), 25 messages
+  per conversation (capped conversations say so plainly and require a
+  new thread). Errors surface honestly in-stream; refusal, max_tokens,
+  auth, and rate-limit cases carry their own copy.
+- Persistence: FOXCA migration 20260710190000 (agent_conversations,
+  agent_messages with tool_calls jsonb, agent_cards with one-decision
+  guard), narrow security-definer functions only, table grants revoked
+  (42501 verified live with the actual key), nothing deletes. The chat
+  route persists the user message BEFORE the model runs and refuses to
+  run unlogged; the assistant turn persists with its tool log even on
+  mid-turn errors. Cards attach to their turn_seq; the execute route
+  stamps who, when, and the result on the card row.
+- Call Review: transcript paste or CSV upload; lib/agent/transcript.ts
+  parses the Dialpad CSV shape by header sniffing (name/time/type/
+  content-ish columns, event rows dropped, quoted fields handled) with a
+  plain-text fallback so a paste never fails; the Jul 10 reference CSV
+  was not on this machine, so the parser is shape-tolerant by design and
+  unit-tested on a synthetic fixture. Rubric config/call-rubric.ts v1
+  (ten items, stable ids); rubric changes are config edits with
+  changelog notes.
+- RUNTIME ENV VARS (Michael adds via dashboard or REST, all targets):
+  ANTHROPIC_API_KEY (required; feature renders the honest not-configured
+  banner until set) and optional AGENT_MODEL. DISTINCTION NOTE: the
+  standing guardrail against setting ANTHROPIC_API_KEY in build-session
+  subprocesses STANDS; this is a runtime product credential, server-side
+  only, never client-exposed, never NEXT_PUBLIC. No key exists in
+  .env.local by design.
+- Live verification (2026-07-10, mocked-model tests plus real-read runs):
+  find_client resolves Nick Aitken to IFMS-F001515 with Maturity_Date
+  null and Mortgage_Rate 1.99 (the reference gap); get_deal_file answers
+  found:false for IFMS-F001515 and found:true for BRXM-F053724;
+  search_rates serves approved matches with the honest prime-unavailable
+  state when no token rides; the confirm write path ran on TEST
+  artifacts through the stored-card sequence (Zoho task
+  7112178000005988001 created then completed; card 0c70fd74 executed
+  with the double-decide guard returning false; conversation f0f90f9e).
+  TEST-AGENT conversations and cards stay in FOXCA per the
+  append-leaning posture.
+- v2 noted on the roadmap: Dialpad-automatic Call Review through the
+  existing n8n call pipeline (no paste). Out of scope this session.
 
 ### End-of-session closing ritual (STANDING RULE, Session 5)
 Every build session ends by updating all three, together, before the
@@ -1075,6 +1152,53 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-10 — Agent session (Ask Fox: Call Prep and Call Review)
+- Shipped the in-portal practice agent: streaming chat at
+  /portal/admin/agent behind the new agent.use key (agent.execute gates
+  card execution), a manual Anthropic tool-use loop (claude-sonnet-4-6
+  default, AGENT_MODEL override, adaptive thinking, cached system prompt)
+  over EXACTLY six enumerated tools wrapping code the portal already
+  trusts: find_client, get_deal_file, search_rates (the Rates page's own
+  matching module; approved rows only, floating discount-first with
+  labeled effective rates, offers with conditions, pending counts by
+  type), knowledge_lookup, propose_zoho_update, propose_task. No gate
+  actions, no send capability anywhere (unit-asserted and grepped).
+- Confirm cards are the only write path: propose_* mints a card in FOXCA;
+  the execute route (admin) loads the STORED payload and runs it through
+  the only two Zoho write functions in the admin surface; one decision
+  per card; who, when, and the result stamp the row. Draft emails return
+  as text; nothing sends.
+- Persistence per the house pattern: FOXCA migration 20260710190000,
+  narrow functions only, direct table access refuses 42501 (verified with
+  the actual key), nothing deletes; the chat refuses to run unlogged;
+  history page lists every conversation.
+- Call Prep is one tap from every deal room (?prep=<fileRef>) and renders
+  the reference-shaped brief (What we hold, Where the book sits, The
+  doors, Ask on the call, The clock) with the maturity-gap prominence
+  encoded in the prompt. Call Review grades pasted or uploaded
+  transcripts against config/call-rubric.ts v1 (ten items) with
+  transcript evidence per score, extracted facts with quotes, and
+  proposed actions as cards; the Dialpad CSV parser sniffs headers and
+  falls back to plain text (the Jul 10 reference CSV lives on Michael's
+  machine, so live acceptance of that exact file runs the day he pastes
+  it).
+- Caps enforced and unit-tested: 12 tool calls per message, 25 messages
+  per conversation, capped threads say so and link a new one. Suite at
+  116 tests (tests/agent.test.ts adds 18: mocked-API loop, budget
+  exhaustion, refusal, unconfigured state, transcript shapes, tool
+  surface enumeration, stripped-fixture not-captured contract).
+- Live verification without the runtime key (none exists here by
+  design): real-read tool runs (Aitken resolves with the maturity gap;
+  BRXM-F053724 workbench composite; approved-book search with honest
+  prime-unavailable) and the confirm write path on TEST artifacts (Zoho
+  task 7112178000005988001 created from the stored card and completed;
+  card 0c70fd74; conversation f0f90f9e). Michael switches the feature on
+  by adding ANTHROPIC_API_KEY (and optionally AGENT_MODEL) in Vercel;
+  the build-subprocess guardrail for that key stands unchanged.
+- Roadmap: agent session recorded as 6.5 shipped; Session 7 Revenue
+  still next; Dialpad-automatic Call Review noted as the agent's v2
+  through the existing n8n call pipeline.
 
 ### 2026-07-10 — Admin Command Center Session 6 (floating rates on screen, and Compliance)
 - Part 0 consumed the fox-underwriting variable-rates session: all three

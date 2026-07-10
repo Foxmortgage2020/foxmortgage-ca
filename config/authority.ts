@@ -24,6 +24,12 @@ export const PERMISSIONS = {
   // writing them (credentials, complaints, policies, acknowledgments) is
   // admin only. Records never delete; they retire with history.
   'compliance.manage': ['admin'],
+  // Agent session: Ask Fox. agent.use gates the chat (admin today; the
+  // key exists so onboarding roles can get it later). agent.execute gates
+  // confirm-card execution (the Zoho writes) and stays admin even when
+  // agent.use widens.
+  'agent.use': ['admin'],
+  'agent.execute': ['admin'],
   'audit.view': ['admin'],
   'partners.provision': ['admin'],
   'portals.view-as': ['admin'],

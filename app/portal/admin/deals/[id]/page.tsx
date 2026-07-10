@@ -179,20 +179,31 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
         <Chip tone={deal.status === 'active' ? 'green' : 'gray'}>{deal.status}</Chip>
         {/* Prefill only reads the deals row into rates searchParams; it
             writes nothing anywhere (Session 5 Part 4). */}
-        <Link
-          href={`/portal/admin/rates?${new URLSearchParams(
-            scenarioParamsFromDeal({
-              fileRef: deal.fileRef,
-              dealType: deal.dealType,
-              mortgageAmount: deal.mortgageAmount,
-              purchasePrice: deal.purchasePrice,
-            }),
-          ).toString()}`}
-          className="ml-auto text-xs font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90"
-          data-testid="find-rates-for-deal"
-        >
-          Find rates for this deal
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          {/* One-tap Call Prep: the agent page auto-sends the prep for
+              this file. Reads only; the brief cites its sources. */}
+          <Link
+            href={`/portal/admin/agent?prep=${encodeURIComponent(deal.fileRef)}`}
+            className="text-xs font-bold bg-navy text-white rounded-lg px-3 py-1.5 hover:opacity-90"
+            data-testid="prep-call-for-deal"
+          >
+            Prep a call
+          </Link>
+          <Link
+            href={`/portal/admin/rates?${new URLSearchParams(
+              scenarioParamsFromDeal({
+                fileRef: deal.fileRef,
+                dealType: deal.dealType,
+                mortgageAmount: deal.mortgageAmount,
+                purchasePrice: deal.purchasePrice,
+              }),
+            ).toString()}`}
+            className="text-xs font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90"
+            data-testid="find-rates-for-deal"
+          >
+            Find rates for this deal
+          </Link>
+        </div>
       </div>
       <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm font-body">
         <div>

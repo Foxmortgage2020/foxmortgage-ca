@@ -122,6 +122,19 @@ const SESSIONS: {
     ],
   },
   {
+    n: '6.5',
+    title: 'Ask Fox: the practice agent (Call Prep and Call Review)',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'In-portal chat over the Anthropic API with six enumerated read tools (Zoho, workbench, the approved rate book, lender knowledge); every figure sourced, gaps named, never guessed',
+      'Call Prep one-tap briefs from deal rooms; Call Review grades pasted transcripts against the versioned rubric with evidence',
+      'CRM changes and tasks only as confirm cards Michael taps; no gate actions, no send capability; every conversation kept as a supervision record',
+      'Needs ANTHROPIC_API_KEY on Vercel to answer; renders the honest not-configured state until then',
+      'v2 (planned): Dialpad-automatic Call Review, transcripts flowing in through the existing n8n call pipeline without paste',
+    ],
+  },
+  {
     n: '7',
     title: 'Revenue and Partners',
     status: 'next',

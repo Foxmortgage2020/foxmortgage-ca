@@ -77,6 +77,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
       'What changed: sheets in force, intel arrivals, and platform releases, grouped by week.',
   },
   {
+    label: 'Ask Fox',
+    href: '/portal/admin/agent',
+    iconKey: 'MessageSquareText',
+    permission: 'agent.use',
+    description:
+      'The practice agent: call prep briefs and call reviews grounded in Zoho, the approved rate book, and the workbench, with CRM changes as confirm cards.',
+  },
+  {
     label: 'Compliance',
     href: '/portal/admin/compliance',
     iconKey: 'Shield',

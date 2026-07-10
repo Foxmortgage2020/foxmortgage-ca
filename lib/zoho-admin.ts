@@ -1,5 +1,10 @@
-// Read-only Zoho CRM aggregates for the admin command center: pipeline by
-// stage, funded YTD, closings windows, and open tasks.
+// Zoho CRM access for the admin command center: read-only aggregates
+// (pipeline by stage, funded YTD, closings windows, open tasks), the Ask
+// Fox search reads, and the ONLY two Zoho write functions in the admin
+// surface (updateZohoDealFields, createZohoTask), which exist solely for
+// the agent confirmed-action routes: nothing calls them except a route
+// that just loaded a Michael-confirmed card. The agent itself holds no
+// write tools.
 //
 // Deliberately mirrors getAdminDashboardPayload's approach in lib/zoho.ts:
 // the records API (/Potentials, paginated at 200/page), NEVER COQL — the
@@ -7,8 +12,6 @@
 // production even though it works through the separately-authenticated MCP
 // connector. Volume field: Amount, falling back to Total_Loan_Amount —
 // 2026 funded records carry Amount only (verified 2026-07-09).
-//
-// No writes to Zoho anywhere in this module.
 
 import { getZohoToken } from '@/lib/zoho'
 import { createCache } from '@/lib/cache'
@@ -242,6 +245,209 @@ export async function getTasksDue(): Promise<OpenTask[]> {
   if (listRes.status === 204 || !listRes.ok) return []
   const listData = await listRes.json()
   return normalize(listData?.data ?? [])
+}
+
+// ─── Ask Fox: client and deal search (reads) ────────────────────────────────
+// The brief-relevant field surface, verified live against IFMS-F001515 on
+// 2026-07-10. Zoho returns null for uncaptured fields; the agent renders
+// those as "not captured", never a guess. No balance field exists on
+// Potentials (Amount is the original principal).
+
+export const AGENT_DEAL_FIELDS =
+  'Deal_Name,Stage,Contact_Name,Mortgage_Rate,Amount,Total_Loan_Amount,Maturity_Date,Payment_Amount,Payment_Frequency,Renewal_In_Progress,Investor_Status,Closing_Date,Rate_Type,Term_Type,Mortgage_Type,First_Payment_Date,LTV,City,Province'
+
+export interface AgentZohoDeal {
+  id: string
+  fields: Record<string, unknown>
+}
+
+export interface AgentZohoContact {
+  id: string
+  fullName: string
+  email: string | null
+  phone: string | null
+  mobile: string | null
+}
+
+// Pure and exported for the not-captured unit test: a stripped Zoho row
+// keeps its nulls; nothing fills a missing value.
+export function normalizeAgentDeal(d: any): AgentZohoDeal {
+  const fields: Record<string, unknown> = {}
+  for (const key of AGENT_DEAL_FIELDS.split(',')) {
+    const v = d[key]
+    fields[key] =
+      v && typeof v === 'object' && 'name' in v ? { name: v.name, id: v.id } : (v ?? null)
+  }
+  return { id: d.id, fields }
+}
+
+// The grounding note every find_client result carries: the CRM has no
+// balance field, so a balance question answers "not captured".
+export const FIND_CLIENT_NOTE =
+  'Null fields are not captured in Zoho. Amount is the original principal; no balance field exists in the CRM.'
+
+async function zohoSearch(module: string, params: Record<string, string>): Promise<any[]> {
+  const token = await getZohoToken()
+  const qs = new URLSearchParams(params).toString()
+  const res = await fetch(`${ZOHO_API}/${module}/search?${qs}`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 204) return []
+  if (!res.ok) {
+    console.error(`[zoho-admin] ${module}/search HTTP ${res.status}`)
+    throw new Error(`Zoho ${module} search failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  return data?.data ?? []
+}
+
+export async function searchZohoContacts(
+  query: string,
+  by: 'word' | 'email' | 'phone',
+): Promise<AgentZohoContact[]> {
+  const rows = await zohoSearch('Contacts', {
+    [by]: query,
+    fields: 'Full_Name,Email,Phone,Mobile',
+    per_page: '10',
+  })
+  return rows.map(c => ({
+    id: c.id,
+    fullName: c.Full_Name ?? '(unnamed contact)',
+    email: c.Email ?? null,
+    phone: c.Phone ?? null,
+    mobile: c.Mobile ?? null,
+  }))
+}
+
+export async function searchZohoDealsByWord(word: string): Promise<AgentZohoDeal[]> {
+  const rows = await zohoSearch('Potentials', { word, fields: AGENT_DEAL_FIELDS, per_page: '10' })
+  return rows.map(normalizeAgentDeal)
+}
+
+export async function getZohoDealsByContactId(contactId: string): Promise<AgentZohoDeal[]> {
+  const rows = await zohoSearch('Potentials', {
+    criteria: `(Contact_Name:equals:${contactId})`,
+    fields: AGENT_DEAL_FIELDS,
+    per_page: '20',
+  })
+  return rows.map(normalizeAgentDeal)
+}
+
+export async function getZohoDealById(dealId: string): Promise<AgentZohoDeal | null> {
+  const token = await getZohoToken()
+  const res = await fetch(`${ZOHO_API}/Potentials/${dealId}?fields=${AGENT_DEAL_FIELDS}`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 204 || res.status === 404) return null
+  if (!res.ok) {
+    console.error(`[zoho-admin] Potentials get HTTP ${res.status}`)
+    throw new Error(`Zoho deal read failed with status ${res.status}`)
+  }
+  const data = await res.json()
+  const d = data?.data?.[0]
+  return d ? normalizeAgentDeal(d) : null
+}
+
+// ─── Ask Fox: confirmed-action writes ───────────────────────────────────────
+// Called ONLY by the agent card execute routes after Michael taps confirm.
+// The payload executed is the stored card payload, never a client body.
+
+const AGENT_WRITABLE_MODULES = ['Potentials', 'Contacts'] as const
+export type AgentWritableModule = (typeof AGENT_WRITABLE_MODULES)[number]
+
+export function isAgentWritableModule(m: string): m is AgentWritableModule {
+  return (AGENT_WRITABLE_MODULES as readonly string[]).includes(m)
+}
+
+export async function updateZohoRecordFields(
+  module: AgentWritableModule,
+  recordId: string,
+  fields: Record<string, unknown>,
+): Promise<void> {
+  const token = await getZohoToken()
+  const res = await fetch(`${ZOHO_API}/${module}/${recordId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ data: [{ id: recordId, ...fields }] }),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho-admin] update error:', module, res.status, text.substring(0, 300))
+    throw new Error(`Zoho ${module} update failed with status ${res.status}`)
+  }
+  const data = await res.json().catch(() => null)
+  const status = data?.data?.[0]?.status
+  if (status !== 'success') {
+    console.error('[zoho-admin] update non-success:', module, JSON.stringify(data?.data?.[0]?.code ?? ''))
+    throw new Error(`Zoho ${module} update was not accepted (${data?.data?.[0]?.code ?? 'unknown'})`)
+  }
+}
+
+export interface CreateTaskInput {
+  subject: string
+  description?: string | null
+  dueDate?: string | null
+  priority?: string | null
+  /** Optional linked record (a Potentials id). Tasks link via What_Id with
+   * $se_module naming the module. */
+  relatedDealId?: string | null
+}
+
+export async function createZohoTask(input: CreateTaskInput): Promise<string> {
+  const token = await getZohoToken()
+  const payload: Record<string, unknown> = { Subject: input.subject }
+  if (input.description) payload.Description = input.description
+  if (input.dueDate) payload.Due_Date = input.dueDate
+  if (input.priority) payload.Priority = input.priority
+  if (input.relatedDealId) {
+    payload.What_Id = { id: input.relatedDealId }
+    payload.$se_module = 'Potentials'
+  }
+  const res = await fetch(`${ZOHO_API}/Tasks`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ data: [payload] }),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    console.error('[zoho-admin] task create error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho task create failed with status ${res.status}`)
+  }
+  const data = await res.json().catch(() => null)
+  const row = data?.data?.[0]
+  if (row?.status !== 'success' || !row?.details?.id) {
+    console.error('[zoho-admin] task create non-success:', JSON.stringify(row?.code ?? ''))
+    throw new Error(`Zoho task create was not accepted (${row?.code ?? 'unknown'})`)
+  }
+  return String(row.details.id)
+}
+
+// Used only by the live verification flow to close a TEST task it just
+// created (status update through the same write path).
+export async function completeZohoTask(taskId: string): Promise<void> {
+  const token = await getZohoToken()
+  const res = await fetch(`${ZOHO_API}/Tasks/${taskId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Zoho-oauthtoken ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ data: [{ id: taskId, Status: 'Completed' }] }),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    throw new Error(`Zoho task complete failed with status ${res.status}`)
+  }
 }
 
 // ─── Health ping ────────────────────────────────────────────────────────────
