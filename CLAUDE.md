@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 9, 2026 (Admin Command Center Session 3 shipped: approvals desk live, deals + deal room, audit viewer, gates client; service-role key removed)
+## Last Updated: July 9, 2026 (Admin Command Center Session 4 shipped: knowledge base, rates browser, intel feed, changelog + directory, conditions decisions, terminal-deal filtering, 16-table granted surface)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -32,11 +32,17 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
   2026-07-09 (all targets) and removed from .env.local. The portal cannot write to the
   workbench even in principle: portal_readonly has SELECT on exactly 12 tables and
   Postgres refuses everything else with 42501 (verified live).
-- Granted tables (SELECT only, enumerated live 2026-07-09): agents, audit_log,
-  conditions, deals, flags, intake_events, lender_intel_items, rate_quotes,
-  rate_sheet_reviews, shadow_scores, statement_fields, statement_reviews.
-  NOT granted (graceful sections, never workarounds): borrowers, evidence,
-  income_calcs, ratio_calcs, documents. No submission-notes table exists yet.
+- Granted tables (SELECT only; 16 since fox-underwriting migration 0026, verified
+  live 2026-07-09): agents, audit_log, borrowers, conditions, deals, documents,
+  flags, income_calcs, intake_events, lender_intel_items, rate_quotes,
+  rate_sheet_reviews, ratio_calcs, shadow_scores, statement_fields,
+  statement_reviews. NOT granted: evidence (still 42501), the number directory.
+  No submission-notes table exists yet (notes are report artifacts, not rows).
+- Attempt-and-fallback is the STANDING RULE for granted-surface sections
+  (Session 4): a page section queries its tables and renders the not-granted
+  state only on an actual permission refusal (UwResult.status 403, helper
+  isPermissionRefusal), never as a hardcoded placeholder. When a grant lands in
+  the workbench, the portal section lights up with zero portal changes.
 - Env vars (server-only, never NEXT_PUBLIC): `UW_SUPABASE_URL`,
   `UW_SUPABASE_READONLY_KEY`, `UW_SUPABASE_PUBLISHABLE_KEY`. Any missing produces
   `{ configured: false }` and quiet "Workbench not connected" UI states, never crashes.
@@ -47,10 +53,19 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
 
 ### Gates client (Session 3) — the only decision write path
 - `lib/gates.ts` is the ONLY module that calls the Gates API (`GATES_API_URL`, set in
-  Vercel all targets). Server-side only, invoked from the four gate proxy routes under
+  Vercel all targets). Server-side only, invoked from the five gate proxy routes under
   app/api/portal/admin/gates/: statements/[id]/decision, rate-sheets/[id]/decision,
-  flags/[id]/disposition, shadow/[id]/score. Each route enforces the authority matrix
-  (apiPermission in lib/authz.ts) before any Gates call.
+  flags/[id]/disposition, shadow/[id]/score, conditions/[id]/decision (Session 4).
+  Each route enforces the authority matrix (apiPermission in lib/authz.ts) before any
+  Gates call. Conditions vocabulary: satisfied | moot | waived; moot records as status
+  waived with the action preserved in the audit detail; moot and waived require a 5+
+  character note; deciding on a terminal deal succeeds and audits deal_terminal.
+- Knowledge endpoints ride the same posture behind knowledge.view (all internal
+  roles): browser-minted token, forwarded through the three read-only proxy routes
+  under app/api/portal/admin/knowledge/ (lenders, lenders/[slug], offers) into
+  lib/gates.ts gateGet. Client fetches use lib/knowledge-client.ts useKnowledgeFetch.
+  The health response's knowledge_bundled count renders on Status and ambers the
+  panel at 0 (knowledge missed the deploy).
 - Token mechanics (CONTRACT CORRECTION, verified live 2026-07-09): the gates-template
   Clerk token MUST be minted in the browser. Backend mints via auth().getToken carry
   no azp claim and the Gates API refuses them with 401. `lib/gates-token.ts`
@@ -77,11 +92,46 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
 - Settings renders the matrix read-only.
 
 ### Nav IA (names are stable; renames need a note here)
-Home (live) | Deals (LIVE S3) | Approvals (LIVE S3) | Rates (S4) | Intel (S4) |
-Knowledge (S4) | Compliance (S5) | Revenue (S6) | Partners (live, existing pages) |
-Bookkeeping (nav link to existing /portal/bookkeeping, pages untouched) |
-Audit Log (LIVE S3) | Status (live) | Settings (live) | Roadmap (live).
-Config: `config/admin-nav.ts`.
+Home | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
+Changelog (S4, under Knowledge) | Compliance (S5) | Revenue (S6) |
+Partners (existing pages) | Directory (S4) | Bookkeeping (nav link to existing
+/portal/bookkeeping, pages untouched) | Audit Log (S3) | Status | Settings |
+Roadmap. All live except Compliance and Revenue. Config: `config/admin-nav.ts`.
+
+### Session 4 pages and semantics
+- Terminal-deal filtering: config/pipeline.ts isTerminalWorkbenchDeal (status not
+  active, or stage in WORKBENCH_TERMINAL_STAGES: funded/closed/lost/cancelled/
+  archived). Terminal deals never feed the Home Needs Attention rail or the
+  Approvals badges; they stay fully visible in the deal list and room. Open flags
+  on terminal deals render in a collapsed closed-files section on the flags tab
+  (still decidable; excluded from the badge). A terminal deal room with open
+  conditions or flags shows a quiet cleanup note.
+- Deal room conditions carry decision controls (components/admin/
+  ConditionsPanel.tsx): satisfied/moot/waived with two-tap confirms, notes, 409
+  handling, router.refresh reconcile. This is Michael's cleanup and daily tool.
+- /portal/admin/rates: RatesBrowser (client filter over approved plus superseded
+  behind a toggle), digest strip (lib/rates.ts computeLenderDigests: median
+  movement only when two sheet dates exist, otherwise the sheet date, honestly),
+  PromoCountdowns from the offers endpoint (amber inside 14 days).
+- /portal/admin/knowledge and /knowledge/[slug]: client-fetched via the proxy
+  routes; as-of dates everywhere, stale flag past 90 days (lib/knowledge.ts,
+  unit-tested), draft caveat (Scotia), withheld-profile handling (MCAP: never
+  invent figures), markdown rendered with react-markdown + remark-gfm in house
+  style, approved-quote count linking into Rates filtered by lender.
+- /portal/admin/intel: read-only feed from lender_intel_items with lender and
+  source filters; items with a sheet review show the outcome; no mutation, the
+  workbench owns intel lifecycle.
+- /portal/admin/changelog: week-grouped feed from rate_sheet_reviews, recent
+  intel, and PLATFORM_NOTES in config/changelog.ts (each session appends one
+  entry; convention documented in that file). Offers render as a current-state
+  strip because they carry expiries, not start dates.
+- /portal/admin/directory: staff from the agents table; lender contacts state
+  the grant gap (number directory outside the granted surface).
+- Form intake acknowledged convention: zoho_failed rows carry acknowledged_at/
+  acknowledged_by (FOXCA migration 20260710000000). The status panel counts only
+  unacknowledged failures (light logic pure and unit-tested in lib/status.ts);
+  acknowledge is admin-only (status.acknowledge) through the security-definer
+  function, recorded who and when, and never hides fresh failures.
 
 ### Approvals desk, Deals, Audit viewer (Session 3)
 - /portal/admin/approvals: four queues (statements, rate sheets, flags, shadow) in
@@ -818,6 +868,28 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-09 — Admin Command Center Session 4 (knowledge, rates, intel, opening fixes)
+- Part 0 fixes: deal room sections rebuilt attempt-and-fallback over the 16-table
+  surface (borrowers, income_calcs, ratio_calcs, documents fetchers; graceful only
+  on a real 403); terminal-deal filtering on the Home rail and Approvals badges
+  (isTerminalWorkbenchDeal; flags on closed files collapse below the queue, still
+  decidable); conditions decisions in the deal room through the new gates
+  conditions endpoint (satisfied/moot/waived, ConditionsPanel); form intake
+  acknowledged path (FOXCA migration 20260710000000, admin-only ack route, panel
+  counts unacknowledged only, light logic unit-tested); knowledge_bundled on the
+  Gates status panel (amber at 0).
+- Reference layer shipped: Rates (browser + digest strip with honest WoW +
+  promo countdowns), Knowledge (index + lender pages, as-of discipline, stale
+  flag unit-tested, draft and withheld handling), Intel (read-only feed with
+  review outcomes), Changelog (config/changelog.ts platform notes + data-derived
+  events, week-grouped), Directory (staff; lender contacts gap stated).
+  Authority additions: conditions.decide, status.acknowledge; knowledge.view
+  widened to all internal roles per the contract. Deps added: react-markdown,
+  remark-gfm.
+- Knowledge fetches happen in the browser (same azp posture as gates) through
+  three read-only proxy routes; lib/gates.ts gained gateGet and stayed the only
+  Gates API caller.
 
 ### 2026-07-09 — Admin Command Center Session 3 (approvals live, deals, audit viewer)
 - Part 0: lib/underwriting.ts swapped to the portal_readonly role

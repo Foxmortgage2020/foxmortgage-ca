@@ -31,11 +31,21 @@
 
 import { createCache } from '@/lib/cache'
 import { torontoTodayYMD, ymdAddDays } from '@/lib/dates'
+import { isTerminalWorkbenchDeal } from '@/config/pipeline'
 
 export type UwResult<T> =
   | { configured: false }
   | { configured: true; ok: true; data: T }
-  | { configured: true; ok: false; error: string }
+  // status carries the HTTP code so pages can tell a permission refusal
+  // (403/42501: render the not-granted state) from an outage (retry copy).
+  | { configured: true; ok: false; error: string; status?: number }
+
+// Attempt-and-fallback helper (Session 4 standing rule): a section renders
+// its not-granted state only on an actual permission refusal, never as a
+// hardcoded placeholder.
+export function isPermissionRefusal<T>(res: UwResult<T>): boolean {
+  return res.configured && !res.ok && res.status === 403
+}
 
 function uwEnv(): { url: string; bearer: string; apikey: string } | null {
   const rawUrl = process.env.UW_SUPABASE_URL
@@ -63,7 +73,7 @@ async function uwFetch<T>(
   withCount = false,
 ): Promise<
   | { configured: false }
-  | { configured: true; ok: false; error: string }
+  | { configured: true; ok: false; error: string; status?: number }
   | { configured: true; ok: true; data: T[]; total: number | null }
 > {
   const env = uwEnv()
@@ -84,7 +94,12 @@ async function uwFetch<T>(
     if (!res.ok) {
       // Status + table only — never response bodies (rule 2).
       console.error(`[uw] ${table} HTTP ${res.status} ms=${ms}`)
-      return { configured: true, ok: false, error: `Workbench query failed (HTTP ${res.status})` }
+      return {
+        configured: true,
+        ok: false,
+        error: `Workbench query failed (HTTP ${res.status})`,
+        status: res.status,
+      }
     }
     const data = (await res.json()) as T[]
     let total: number | null = null
@@ -151,22 +166,27 @@ export interface OpenFlag {
   createdAt: string
 }
 
+// Urgency surface: flags on terminal deals (funded and the like) are
+// excluded here; they stay visible in the deal list, the deal room, and
+// the Approvals closed-files section. Lender-level flags (null deal) stay.
 export async function getOpenFlags(agentId: string): Promise<UwResult<OpenFlag[]>> {
   const res = await uwSelect<any>('flags', {
-    select: 'id,severity,kind,created_at,deals(file_ref)',
+    select: 'id,severity,kind,created_at,deal_id,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
     status: 'eq.open',
     order: 'created_at.desc',
-    limit: '200',
+    limit: '500',
   })
   return mapResult(res, rows =>
-    rows.map(r => ({
-      id: r.id,
-      severity: r.severity,
-      kind: r.kind,
-      dealRef: r.deals?.file_ref ?? null,
-      createdAt: r.created_at,
-    })),
+    rows
+      .filter(r => !r.deal_id || !isTerminalWorkbenchDeal(r.deals ?? {}))
+      .map(r => ({
+        id: r.id,
+        severity: r.severity,
+        kind: r.kind,
+        dealRef: r.deals?.file_ref ?? null,
+        createdAt: r.created_at,
+      })),
   )
 }
 
@@ -185,12 +205,13 @@ export async function getPendingStatementReviews(
   agentId: string,
 ): Promise<UwResult<PendingStatementReview[]>> {
   const res = await uwSelect<any>('statement_fields', {
-    select: 'document_id,doc_class,deals(file_ref)',
+    select: 'document_id,doc_class,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
     status: 'eq.extracted',
     limit: '1000',
   })
-  return mapResult(res, rows => {
+  return mapResult(res, allRows => {
+    const rows = allRows.filter(r => !isTerminalWorkbenchDeal(r.deals ?? {}))
     const byDoc = new Map<string, PendingStatementReview>()
     for (const r of rows) {
       const cur = byDoc.get(r.document_id)
@@ -303,7 +324,7 @@ export async function getConditionsDue(
   horizonDays: number,
 ): Promise<UwResult<ConditionsDue>> {
   const res = await uwSelect<any>('conditions', {
-    select: 'id,text,owner,status,due_date,cond_number,deals(file_ref)',
+    select: 'id,text,owner,status,due_date,cond_number,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
     status: 'not.in.(satisfied,waived)',
     order: 'due_date.asc.nullslast',
@@ -311,7 +332,10 @@ export async function getConditionsDue(
   })
   const today = torontoTodayYMD()
   const horizon = ymdAddDays(today, horizonDays)
-  return mapResult(res, rows => {
+  return mapResult(res, allRows => {
+    // Urgency surface: conditions on terminal deals are cleanup, not
+    // attention items; they render in the deal room instead.
+    const rows = allRows.filter(r => !isTerminalWorkbenchDeal(r.deals ?? {}))
     const toRow = (r: any): ConditionRow => ({
       id: r.id,
       dealRef: r.deals?.file_ref ?? null,
@@ -479,13 +503,14 @@ const stmtFieldRow = (r: any): StatementFieldRow => ({
 export async function getStatementQueue(agentId: string): Promise<UwResult<StatementQueueCard[]>> {
   const res = await uwSelect<any>('statement_fields', {
     select:
-      'id,document_id,doc_class,deal_id,field_name,value_text,value_numeric,unit,source_page,source_snippet,confidence,held_reason,status,deals(file_ref)',
+      'id,document_id,doc_class,deal_id,field_name,value_text,value_numeric,unit,source_page,source_snippet,confidence,held_reason,status,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
     status: 'eq.extracted',
     order: 'created_at.asc',
     limit: '1000',
   })
-  return mapResult(res, rows => {
+  return mapResult(res, allRows => {
+    const rows = allRows.filter(r => !isTerminalWorkbenchDeal(r.deals ?? {}))
     const byDoc = new Map<string, StatementQueueCard>()
     for (const r of rows) {
       let card = byDoc.get(r.document_id)
@@ -632,11 +657,15 @@ export interface OpenFlagCard {
   createdAt: string
   detail: Record<string, unknown>
   evidenceRefCount: number
+  // True when the flag's deal is terminal (funded and the like). Such
+  // flags render in the desk's closed-files section and never count in
+  // the tab badge.
+  dealTerminal: boolean
 }
 
 export async function getOpenFlagCards(agentId: string): Promise<UwResult<OpenFlagCard[]>> {
   const res = await uwSelect<any>('flags', {
-    select: 'id,severity,kind,deal_id,created_at,detail,evidence_refs,deals(file_ref)',
+    select: 'id,severity,kind,deal_id,created_at,detail,evidence_refs,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
     status: 'eq.open',
     order: 'created_at.desc',
@@ -652,6 +681,7 @@ export async function getOpenFlagCards(agentId: string): Promise<UwResult<OpenFl
       createdAt: r.created_at,
       detail: (r.detail ?? {}) as Record<string, unknown>,
       evidenceRefCount: Array.isArray(r.evidence_refs) ? r.evidence_refs.length : 0,
+      dealTerminal: Boolean(r.deal_id) && isTerminalWorkbenchDeal(r.deals ?? {}),
     })),
   )
 }
@@ -685,7 +715,7 @@ export const SHADOW_DIMENSIONS_ORDER = ['checklist', 'income', 'ratios', 'shortl
 export async function getShadowQueue(agentId: string): Promise<UwResult<ShadowQueueCard[]>> {
   const [dealsRes, scoresRes] = await Promise.all([
     uwSelect<any>('deals', {
-      select: 'id,file_ref,stage,closing_date',
+      select: 'id,file_ref,stage,status,closing_date',
       agent_id: `eq.${agentId}`,
       status: 'eq.active',
       order: 'closing_date.asc.nullslast',
@@ -707,7 +737,8 @@ export async function getShadowQueue(agentId: string): Promise<UwResult<ShadowQu
       const key = `${s.deal_id}:${s.dimension}`
       if (!latest.has(key)) latest.set(key, s)
     }
-    const cards: ShadowQueueCard[] = dealsRes.data.map(d => {
+    const liveDeals = dealsRes.data.filter(d => !isTerminalWorkbenchDeal(d))
+    const cards: ShadowQueueCard[] = liveDeals.map(d => {
       const dimensions: ShadowDimensionState[] = SHADOW_DIMENSIONS_ORDER.map(dim => {
         const s = latest.get(`${d.id}:${dim}`)
         return {
@@ -1026,6 +1057,297 @@ export async function getDealShadowHistory(agentId: string, dealId: string): Pro
       disagreementNote: r.disagreement_note ?? null,
       rulingRef: r.ruling_ref ?? null,
       scoredAt: r.scored_at,
+    })),
+  )
+}
+
+// ═══ Session 4: deal room granted-surface fetchers ══════════════════════════
+// Migration 0026 extended portal_readonly with borrowers, income_calcs,
+// ratio_calcs, and documents (16 granted tables total). These sections
+// follow the attempt-and-fallback rule: query first, graceful state only
+// on an actual permission refusal (isPermissionRefusal) or outage.
+
+export interface BorrowerRow {
+  id: string
+  role: string
+  fullName: string
+  dob: string | null
+  maritalStatus: string | null
+  employment: unknown
+}
+
+export async function getDealBorrowers(agentId: string, dealId: string): Promise<UwResult<BorrowerRow[]>> {
+  const res = await uwSelect<any>('borrowers', {
+    select: 'id,role,full_name,dob,marital_status,employment',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    order: 'role.asc',
+    limit: '20',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      role: r.role,
+      fullName: r.full_name,
+      dob: r.dob ?? null,
+      maritalStatus: r.marital_status ?? null,
+      employment: r.employment ?? null,
+    })),
+  )
+}
+
+export interface IncomeCalcRow {
+  id: string
+  borrowerId: string | null
+  lenderSlug: string | null
+  basis: string
+  resultAnnual: number
+  calcVersion: string
+  inputsHash: string
+  createdAt: string
+}
+
+export async function getDealIncomeCalcs(agentId: string, dealId: string): Promise<UwResult<IncomeCalcRow[]>> {
+  const res = await uwSelect<any>('income_calcs', {
+    select: 'id,borrower_id,lender_slug,basis,result_annual,calc_version,inputs_hash,created_at',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    order: 'created_at.desc',
+    limit: '100',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      borrowerId: r.borrower_id ?? null,
+      lenderSlug: r.lender_slug ?? null,
+      basis: r.basis,
+      resultAnnual: Number(r.result_annual),
+      calcVersion: r.calc_version,
+      inputsHash: r.inputs_hash,
+      createdAt: r.created_at,
+    })),
+  )
+}
+
+export interface RatioCalcRow {
+  id: string
+  lenderSlug: string | null
+  qualRate: number | null
+  pmtContract: number | null
+  pmtStress: number | null
+  gds: number | null
+  tds: number | null
+  ltv: number | null
+  calcVersion: string
+  inputsHash: string
+  createdAt: string
+}
+
+export async function getDealRatioCalcs(agentId: string, dealId: string): Promise<UwResult<RatioCalcRow[]>> {
+  const res = await uwSelect<any>('ratio_calcs', {
+    select: 'id,lender_slug,qual_rate,pmt_contract,pmt_stress,gds,tds,ltv,calc_version,inputs_hash,created_at',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    order: 'created_at.desc',
+    limit: '100',
+  })
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      lenderSlug: r.lender_slug ?? null,
+      qualRate: num(r.qual_rate),
+      pmtContract: num(r.pmt_contract),
+      pmtStress: num(r.pmt_stress),
+      gds: num(r.gds),
+      tds: num(r.tds),
+      ltv: num(r.ltv),
+      calcVersion: r.calc_version,
+      inputsHash: r.inputs_hash,
+      createdAt: r.created_at,
+    })),
+  )
+}
+
+export interface DocumentRow {
+  id: string
+  docType: string
+  source: string
+  receivedAt: string | null
+  reviewStatus: string
+  createdAt: string
+}
+
+export async function getDealDocuments(agentId: string, dealId: string): Promise<UwResult<DocumentRow[]>> {
+  const res = await uwSelect<any>('documents', {
+    select: 'id,doc_type,source,received_at,review_status,created_at',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    order: 'created_at.desc',
+    limit: '200',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      docType: r.doc_type,
+      source: r.source,
+      receivedAt: r.received_at ?? null,
+      reviewStatus: r.review_status,
+      createdAt: r.created_at,
+    })),
+  )
+}
+
+// ─── Session 4: rates browser, intel feed, directory ────────────────────────
+
+export interface RateQuoteBrowserRow {
+  id: string
+  lenderSlug: string
+  productClass: string
+  variant: string | null
+  termMonths: number
+  rate: number
+  compBps: number | null
+  asOfDate: string | null
+  expiryDate: string | null
+  status: string
+}
+
+export async function getRateQuoteBrowser(agentId: string): Promise<UwResult<RateQuoteBrowserRow[]>> {
+  const res = await uwSelect<any>('rate_quotes', {
+    select: 'id,lender_slug,product_class,variant,term_months,rate,comp_bps,as_of_date,expiry_date,status',
+    agent_id: `eq.${agentId}`,
+    status: 'in.(approved,superseded)',
+    order: 'as_of_date.desc',
+    limit: '5000',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      lenderSlug: r.lender_slug,
+      productClass: r.product_class,
+      variant: r.variant ?? null,
+      termMonths: r.term_months,
+      rate: Number(r.rate),
+      compBps: r.comp_bps !== null && r.comp_bps !== undefined ? Number(r.comp_bps) : null,
+      asOfDate: r.as_of_date ?? null,
+      expiryDate: r.expiry_date ?? null,
+      status: r.status,
+    })),
+  )
+}
+
+export interface IntelItemRow {
+  id: string
+  lenderSlugGuess: string | null
+  docClassGuess: string
+  itemKind: string
+  fileName: string | null
+  messageText: string | null
+  status: string
+  receivedAt: string
+  review: { decision: string; decidedAt: string; quotesTotal: number } | null
+}
+
+export async function getIntelItems(agentId: string): Promise<UwResult<IntelItemRow[]>> {
+  const itemsRes = await uwSelect<any>('lender_intel_items', {
+    select: 'id,lender_slug_guess,doc_class_guess,item_kind,file_name,message_text,status,received_at',
+    agent_id: `eq.${agentId}`,
+    order: 'received_at.desc',
+    limit: '300',
+  })
+  if (!itemsRes.configured || !itemsRes.ok) return itemsRes
+  try {
+    const ids = itemsRes.data.map(r => r.id)
+    const reviewByItem = new Map<string, { decision: string; decidedAt: string; quotesTotal: number }>()
+    if (ids.length > 0) {
+      const reviewsRes = await uwSelect<any>('rate_sheet_reviews', {
+        select: 'intel_item_id,decision,decided_at,quotes_total',
+        agent_id: `eq.${agentId}`,
+        intel_item_id: `in.(${ids.join(',')})`,
+        limit: '300',
+      })
+      if (reviewsRes.configured && reviewsRes.ok) {
+        for (const rv of reviewsRes.data) {
+          reviewByItem.set(rv.intel_item_id, {
+            decision: rv.decision,
+            decidedAt: rv.decided_at,
+            quotesTotal: rv.quotes_total,
+          })
+        }
+      }
+    }
+    return {
+      configured: true,
+      ok: true,
+      data: itemsRes.data.map(r => ({
+        id: r.id,
+        lenderSlugGuess: r.lender_slug_guess ?? null,
+        docClassGuess: r.doc_class_guess,
+        itemKind: r.item_kind,
+        fileName: r.file_name ?? null,
+        messageText: r.message_text ?? null,
+        status: r.status,
+        receivedAt: r.received_at,
+        review: reviewByItem.get(r.id) ?? null,
+      })),
+    }
+  } catch {
+    return { configured: true, ok: false, error: 'Workbench result had an unexpected shape' }
+  }
+}
+
+// Sheet review decisions with their intel item joined: the changelog's
+// "new sheets in force" events.
+export interface SheetReviewEvent {
+  id: string
+  decision: string
+  decidedAt: string
+  quotesTotal: number
+  lenderSlugGuess: string | null
+  fileName: string | null
+}
+
+export async function getSheetReviewEvents(agentId: string, limit = 100): Promise<UwResult<SheetReviewEvent[]>> {
+  const res = await uwSelect<any>('rate_sheet_reviews', {
+    select: 'id,decision,decided_at,quotes_total,lender_intel_items(lender_slug_guess,file_name)',
+    agent_id: `eq.${agentId}`,
+    order: 'decided_at.desc',
+    limit: String(limit),
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      decision: r.decision,
+      decidedAt: r.decided_at,
+      quotesTotal: r.quotes_total,
+      lenderSlugGuess: r.lender_intel_items?.lender_slug_guess ?? null,
+      fileName: r.lender_intel_items?.file_name ?? null,
+    })),
+  )
+}
+
+export interface AgentRow {
+  id: string
+  name: string
+  email: string
+  fsraLicence: string
+  officePhone: string | null
+}
+
+export async function getAgents(): Promise<UwResult<AgentRow[]>> {
+  const res = await uwSelect<any>('agents', {
+    select: '*',
+    order: 'name.asc',
+    limit: '100',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      fsraLicence: r.fsra_licence,
+      officePhone: r.office_phone ?? null,
     })),
   )
 }

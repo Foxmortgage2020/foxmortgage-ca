@@ -219,27 +219,43 @@ export interface FormIntakeStatus {
   configured: boolean
   reachable: boolean
   total7d: number | null
+  // Unacknowledged zoho_failed rows: this is what drives the light. A
+  // fresh failure always ambers; an acknowledged one stops nagging.
   zohoFailed: number | null
+  zohoFailedTotal: number | null
   latestAt: string | null
   error: string | null
 }
 
-export async function getFormIntakeStatus(): Promise<FormIntakeStatus> {
+export interface FormIntakeFailureRow {
+  id: string
+  createdAt: string
+  source: string
+  errorDetail: string | null
+}
+
+function foxcaEnv(): { base: string; key: string } | null {
   const url = process.env.FOXCA_SUPABASE_URL
   const key = process.env.FOXCA_SUPABASE_KEY
+  if (!url || !key) return null
+  return { base: url.replace(/\/+$/, ''), key }
+}
+
+export async function getFormIntakeStatus(): Promise<FormIntakeStatus> {
+  const env = foxcaEnv()
   const none: FormIntakeStatus = {
     configured: false,
     reachable: false,
     total7d: null,
     zohoFailed: null,
+    zohoFailedTotal: null,
     latestAt: null,
     error: null,
   }
-  if (!url || !key) return none
-  const base = url.replace(/\/+$/, '')
+  if (!env) return none
   try {
-    const res = await fetch(`${base}/rest/v1/rpc/form_submission_stats`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    const res = await fetch(`${env.base}/rest/v1/rpc/form_submission_stats`, {
+      headers: { apikey: env.key, Authorization: `Bearer ${env.key}` },
       cache: 'no-store',
       signal: AbortSignal.timeout(6000),
     })
@@ -248,17 +264,87 @@ export async function getFormIntakeStatus(): Promise<FormIntakeStatus> {
     }
     const rows = (await res.json()) as any[]
     const r = Array.isArray(rows) ? rows[0] : null
+    const num = (v: unknown) => (v === undefined || v === null ? null : Number(v))
     return {
       configured: true,
       reachable: true,
-      total7d: r?.total_7d !== undefined && r?.total_7d !== null ? Number(r.total_7d) : null,
-      zohoFailed: r?.zoho_failed !== undefined && r?.zoho_failed !== null ? Number(r.zoho_failed) : null,
+      total7d: num(r?.total_7d),
+      zohoFailed: num(r?.zoho_failed),
+      zohoFailedTotal: num(r?.zoho_failed_total),
       latestAt: r?.latest_at ?? null,
       error: null,
     }
   } catch {
     return { ...none, configured: true, reachable: false, error: 'unreachable' }
   }
+}
+
+// Unacknowledged failures for the panel's triage list (counts, timestamps,
+// source, and the Zoho error only; never submitter content).
+export async function getFormIntakeFailures(): Promise<FormIntakeFailureRow[]> {
+  const env = foxcaEnv()
+  if (!env) return []
+  try {
+    const res = await fetch(`${env.base}/rest/v1/rpc/form_submission_failures`, {
+      headers: { apikey: env.key, Authorization: `Bearer ${env.key}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!res.ok) return []
+    const rows = (await res.json()) as any[]
+    return rows.map(r => ({
+      id: r.id,
+      createdAt: r.created_at,
+      source: r.source,
+      errorDetail: r.error_detail ?? null,
+    }))
+  } catch {
+    return []
+  }
+}
+
+export async function acknowledgeFormSubmission(id: string, by: string): Promise<boolean> {
+  const env = foxcaEnv()
+  if (!env) return false
+  try {
+    const res = await fetch(`${env.base}/rest/v1/rpc/acknowledge_form_submission`, {
+      method: 'POST',
+      headers: {
+        apikey: env.key,
+        Authorization: `Bearer ${env.key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_id: id, p_by: by }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!res.ok) {
+      console.error(`[form-intake] acknowledge HTTP ${res.status}`)
+      return false
+    }
+    const out = await res.json().catch(() => null)
+    return out === true
+  } catch {
+    console.error('[form-intake] acknowledge unreachable')
+    return false
+  }
+}
+
+// Pure light derivation (unit-tested): unacknowledged failures amber the
+// panel; acknowledged-only history stays green.
+export type FormIntakeLight = 'ok' | 'warn' | 'fail' | 'off'
+
+export function formIntakeLight(s: {
+  configured: boolean
+  reachable: boolean
+  error: string | null
+  zohoFailed: number | null
+}): FormIntakeLight {
+  if (!s.configured) return 'off'
+  if (!s.reachable) return 'fail'
+  if (s.error) return 'warn'
+  if (s.zohoFailed === null) return 'warn'
+  return s.zohoFailed > 0 ? 'warn' : 'ok'
 }
 
 // ─── Deploy info ────────────────────────────────────────────────────────────

@@ -236,6 +236,116 @@ export function scoreShadow(
   return gateCall(`/api/gates/shadow/${dealId}/score`, withNote({ dimension, agree }, note), token)
 }
 
+export type ConditionAction = 'satisfied' | 'moot' | 'waived'
+export const CONDITION_ACTIONS: readonly ConditionAction[] = ['satisfied', 'moot', 'waived']
+
+// Waived and moot remove an obligation without evidence, so the contract
+// requires a 5+ character note for both (moot records as status waived
+// with the action preserved in the audit detail).
+export const CONDITION_NOTE_REQUIRED: readonly ConditionAction[] = ['moot', 'waived']
+
+export interface ConditionDecisionResponse {
+  conditionId: string
+  condNumber?: number | string | null
+  action: string
+  statusFrom?: string
+  statusTo?: string
+  dealId?: string
+  fileRef?: string
+  dealTerminal?: boolean
+  auditId?: string
+}
+
+export function decideCondition(
+  conditionId: string,
+  action: ConditionAction,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<ConditionDecisionResponse>> {
+  return gateCall(`/api/gates/conditions/${conditionId}/decision`, withNote({ action }, note), token)
+}
+
+// ─── Knowledge endpoints (read-only, behind knowledge.view) ─────────────────
+// Same auth posture as the gates: a browser-minted token rides in. GET
+// only; the knowledge base is git-versioned repo files served verbatim.
+
+async function gateGet<T>(path: string, token: string | null): Promise<GateResult<T>> {
+  const base = gatesBase()
+  if (!base) {
+    return { ok: false, kind: 'unavailable', message: 'The Gates API is not connected (GATES_API_URL is not set).' }
+  }
+  if (!token) {
+    return { ok: false, kind: 'auth', message: 'Your session did not produce a token. Sign in again and retry.' }
+  }
+  const started = Date.now()
+  let res: Response
+  try {
+    res = await fetch(`${base}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+  } catch {
+    console.error(`[gates] GET ${path} NETWORK ms=${Date.now() - started}`)
+    return { ok: false, kind: 'network', message: 'Could not reach the Gates API. Check your connection and retry.' }
+  }
+  console.log(`[gates] GET ${path} ${res.status} ms=${Date.now() - started}`)
+  let parsed: unknown = null
+  try {
+    parsed = await res.json()
+  } catch {
+    // Non-JSON body: mapping falls back to fixed copy.
+  }
+  const err = mapGateResponse(res.status, parsed)
+  if (err) return { ok: false, ...err }
+  return { ok: true, data: parsed as T }
+}
+
+export interface KnowledgeLenderSummary {
+  slug: string
+  name: string
+  as_of: string | null
+  has_profile: boolean
+  draft: boolean
+}
+
+export function getKnowledgeLenders(token: string | null): Promise<GateResult<{ lenders: KnowledgeLenderSummary[] }>> {
+  return gateGet('/api/knowledge/lenders', token)
+}
+
+export interface KnowledgeLenderDetail {
+  slug: string
+  name: string
+  as_of: string | null
+  draft: boolean
+  markdown: string
+  profile: Record<string, unknown> | null
+}
+
+export function getKnowledgeLender(slug: string, token: string | null): Promise<GateResult<KnowledgeLenderDetail>> {
+  return gateGet(`/api/knowledge/lenders/${encodeURIComponent(slug)}`, token)
+}
+
+export interface KnowledgeOffer {
+  lender: string
+  lender_name: string
+  expiry: string
+  days_left: number
+  offer: {
+    id?: string
+    description?: string
+    predicates?: unknown
+    rates_or_amounts?: unknown
+    expiry?: string
+    provenance?: unknown
+    eligibility?: unknown
+    offer_rates?: unknown
+  }
+}
+
+export function getKnowledgeOffers(token: string | null): Promise<GateResult<{ as_of: string; offers: KnowledgeOffer[] }>> {
+  return gateGet('/api/knowledge/offers', token)
+}
+
 // ─── Health (Status page) ───────────────────────────────────────────────────
 
 export interface GatesHealth {
@@ -245,6 +355,9 @@ export interface GatesHealth {
   authConfigured: boolean | null
   dbConfigured: boolean | null
   dbReachable: boolean | null
+  // Count of lender knowledge files the deployed bundle can read. Zero
+  // means the knowledge files failed to ride the deploy: amber the panel.
+  knowledgeBundled: number | null
   commit: string | null
   env: string | null
   error: string | null
@@ -259,6 +372,7 @@ export async function getGatesHealth(): Promise<GatesHealth> {
     authConfigured: null,
     dbConfigured: null,
     dbReachable: null,
+    knowledgeBundled: null,
     commit: null,
     env: null,
     error: null,
@@ -282,6 +396,7 @@ export async function getGatesHealth(): Promise<GatesHealth> {
       authConfigured: typeof d.auth_configured === 'boolean' ? d.auth_configured : null,
       dbConfigured: typeof d.db_configured === 'boolean' ? d.db_configured : null,
       dbReachable: typeof d.db_reachable === 'boolean' ? d.db_reachable : null,
+      knowledgeBundled: typeof d.knowledge_bundled === 'number' ? d.knowledge_bundled : null,
       commit: typeof d.commit === 'string' ? d.commit : null,
       env: typeof d.env === 'string' ? d.env : null,
       error: null,

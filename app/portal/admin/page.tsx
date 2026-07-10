@@ -619,7 +619,7 @@ export default async function AdminHome() {
                 </Link>
               </div>
               <p className="text-[11px] text-gray-400 pt-1">
-                Promo countdowns arrive in Session 4 with the knowledge wiring.
+                Promo countdowns and the full browser live on the Rates page.
               </p>
             </div>
           ) : (

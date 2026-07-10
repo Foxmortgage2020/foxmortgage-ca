@@ -16,6 +16,8 @@ export const PERMISSIONS = {
   'approvals.ratesheet.decide': ['admin'],
   'flags.disposition': ['admin'],
   'shadow.score': ['admin'],
+  // Session 4, matching the gates API contract (micro-session 2):
+  'conditions.decide': ['admin'],
   'deals.view': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
   'compliance.view': ['admin', 'ops'],
   'audit.view': ['admin'],
@@ -28,9 +30,14 @@ export const PERMISSIONS = {
   'approvals.view': ['admin'],
   'rates.view': ['admin'],
   'intel.view': ['admin'],
-  'knowledge.view': ['admin'],
+  // Widened Session 4 to every internal role, matching the gates API
+  // contract (knowledge is reference material, not tenant data).
+  'knowledge.view': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
   'revenue.view': ['admin'],
   'status.view': ['admin', 'ops'],
+  // Session 4: acknowledging a triaged form-intake failure is a write on
+  // this repo's own FOXCA project; admin only.
+  'status.acknowledge': ['admin'],
   'bookkeeping.view': ['admin'],
   'roadmap.view': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
 } as const satisfies Record<string, readonly Role[]>

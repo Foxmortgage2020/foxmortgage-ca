@@ -23,7 +23,11 @@ export interface ApprovalsData {
   statements: StatementQueueCard[]
   discrepancies: DiscrepancyFlag[]
   sheets: SheetQueueCard[]
+  // Live-file flags: these drive the tab badge and the main queue.
   flags: OpenFlagCard[]
+  // Open flags whose deal is terminal (funded and the like): cleanup, not
+  // urgency. Rendered in a collapsed section, never counted in the badge.
+  flagsOnClosed: OpenFlagCard[]
   shadow: ShadowQueueCard[]
   lastDecided: LastDecided
   // Per-queue fetch problems, keyed for honest per-tab error banners.
@@ -59,7 +63,8 @@ export async function getApprovalsData(agentId: string): Promise<ApprovalsData> 
     statements: stmts.data,
     discrepancies: disc.data,
     sheets: sheets.data,
-    flags: flags.data,
+    flags: flags.data.filter(f => !f.dealTerminal),
+    flagsOnClosed: flags.data.filter(f => f.dealTerminal),
     shadow: shadow.data,
     lastDecided:
       lastR.configured && lastR.ok

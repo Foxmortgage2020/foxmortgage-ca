@@ -6,11 +6,15 @@ import Link from 'next/link'
 import { requirePermission } from '@/lib/authz'
 import { INTAKE_STALE_HOURS, WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import {
+  formIntakeLight,
   getBookkeepingStatus,
   getDeployInfo,
+  getFormIntakeFailures,
   getFormIntakeStatus,
   getN8nStatus,
 } from '@/lib/status'
+import FormIntakeAck from '@/components/admin/FormIntakeAck'
+import { can, getSessionUser } from '@/lib/authz'
 import {
   getAgentIdByEmail,
   getIntakeFreshness,
@@ -134,20 +138,22 @@ export default async function StatusPage() {
 
   const deployLight: Light = deploy.sha ? 'ok' : 'off'
 
-  // Gates API light
+  // Gates API light. knowledge_bundled of 0 means the knowledge files
+  // failed to ride the deploy: amber even when everything else is green.
   let gatesLight: Light = 'off'
   if (gates.configured) {
     if (!gates.reachable) gatesLight = 'fail'
-    else gatesLight = gates.ok ? 'ok' : 'warn'
+    else if (!gates.ok || gates.knowledgeBundled === 0) gatesLight = 'warn'
+    else gatesLight = 'ok'
   }
 
-  // Form intake light
-  let formLight: Light = 'off'
-  if (formIntake.configured) {
-    if (!formIntake.reachable) formLight = 'fail'
-    else if (formIntake.error || (formIntake.zohoFailed ?? 0) > 0) formLight = 'warn'
-    else formLight = 'ok'
-  }
+  // Form intake light (pure, unit-tested): only unacknowledged failures
+  // amber the panel.
+  const formLight: Light = formIntakeLight(formIntake)
+  const formFailures =
+    formLight === 'warn' && (formIntake.zohoFailed ?? 0) > 0 ? await getFormIntakeFailures() : []
+  const sessionUser = await getSessionUser()
+  const canAcknowledge = can(sessionUser, 'status.acknowledge')
 
   const checkedAt = fmtDateTime(new Date().toISOString())
 
@@ -215,6 +221,18 @@ export default async function StatusPage() {
                 value={`${gates.authConfigured ? 'yes' : 'no'} / ${gates.dbConfigured ? 'yes' : 'no'}${
                   gates.dbReachable === false ? ' (db unreachable)' : ''
                 }`}
+              />
+              <Row
+                label="Knowledge files bundled"
+                value={
+                  gates.knowledgeBundled === null ? (
+                    'not reported'
+                  ) : gates.knowledgeBundled === 0 ? (
+                    <span className="text-amber-700 font-bold">0 (knowledge missed the deploy)</span>
+                  ) : (
+                    gates.knowledgeBundled
+                  )
+                }
               />
               <Row label="Commit" value={gates.commit ? gates.commit.slice(0, 7) : 'unknown'} />
               <Row label="Environment" value={gates.env ?? 'unknown'} />
@@ -373,7 +391,7 @@ export default async function StatusPage() {
             <>
               <Row label="Submissions in the last 7 days" value={formIntake.total7d ?? 'unknown'} />
               <Row
-                label="Stuck in zoho_failed"
+                label="Unacknowledged zoho_failed"
                 value={
                   (formIntake.zohoFailed ?? 0) > 0 ? (
                     <span className="text-amber-700 font-bold">
@@ -384,10 +402,17 @@ export default async function StatusPage() {
                   )
                 }
               />
+              {(formIntake.zohoFailedTotal ?? 0) > (formIntake.zohoFailed ?? 0) && (
+                <Row
+                  label="Acknowledged failure history"
+                  value={`${(formIntake.zohoFailedTotal ?? 0) - (formIntake.zohoFailed ?? 0)} row(s), triaged`}
+                />
+              )}
               <Row
                 label="Latest submission"
                 value={formIntake.latestAt ? fmtDateTime(formIntake.latestAt) : 'none recorded'}
               />
+              {canAcknowledge && <FormIntakeAck failures={formFailures} />}
             </>
           )}
         </Panel>
