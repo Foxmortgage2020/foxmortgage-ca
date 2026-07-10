@@ -28,6 +28,7 @@ import {
   type UwResult,
 } from '@/lib/underwriting'
 import ConditionsPanel from '@/components/admin/ConditionsPanel'
+import ComplianceCard from '@/components/admin/ComplianceCard'
 import { scenarioParamsFromDeal } from '@/lib/scenario'
 import { fmtDateTime, fmtMoney, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
 
@@ -249,6 +250,16 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       )}
 
       <div className="mt-6 space-y-4">
+        {/* Compliance (Session 6): posture from recorded signals only,
+            gaps stated honestly, linked into the module. */}
+        <ComplianceCard
+          stage={deal.stage}
+          status={deal.status}
+          conditions={conds}
+          flags={flags}
+          todayYMD={today}
+        />
+
         {/* Borrowers (granted 2026-07-09; masked values render exactly as stored) */}
         <Section title="Borrowers">
           {borrowers.kind === 'ok' ? (

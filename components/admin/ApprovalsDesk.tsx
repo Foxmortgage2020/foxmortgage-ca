@@ -18,6 +18,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
+import { fmtDiscount } from '@/lib/scenario'
 import type { ApprovalsData } from '@/lib/approvals-data'
 import type {
   DiscrepancyFlag,
@@ -219,12 +220,17 @@ export interface CanDecide {
 export default function ApprovalsDesk({
   initial,
   canDecide,
+  initialTab = 'statements',
 }: {
   initial: ApprovalsData
   canDecide: CanDecide
+  // From the page's ?tab= param, so every queue is URL-addressable and
+  // screenshots and checks navigate instead of clicking (the UI test
+  // automation discipline).
+  initialTab?: TabKey
 }) {
   const [data, setData] = useState<ApprovalsData>(initial)
-  const [tab, setTab] = useState<TabKey>('statements')
+  const [tab, setTab] = useState<TabKey>(initialTab)
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
@@ -656,15 +662,44 @@ export default function ApprovalsDesk({
           ) : (
             data.sheets.map(card => {
               const key = `sheet:${card.intelItemId}`
-              const buckets = new Map<number, { min: number; max: number }>()
+              // Summary strip per rate type: printed-rate ranges for fixed,
+              // discount ranges (P−0.75..P−0.35 style) for adjustable and
+              // variable, never conflated, plus the cash back tier count.
+              const fixedBuckets = new Map<number, { min: number; max: number }>()
               for (const q of card.quotes) {
-                const b = buckets.get(q.termMonths)
-                if (!b) buckets.set(q.termMonths, { min: q.rate, max: q.rate })
+                if (q.rateType !== 'fixed' || q.rate === null) continue
+                const b = fixedBuckets.get(q.termMonths)
+                if (!b) fixedBuckets.set(q.termMonths, { min: q.rate, max: q.rate })
                 else {
                   b.min = Math.min(b.min, q.rate)
                   b.max = Math.max(b.max, q.rate)
                 }
               }
+              const floatRange = (type: 'adjustable' | 'variable'): string | null => {
+                const vs = card.quotes
+                  .filter(q => q.rateType === type && q.primeVariance !== null)
+                  .map(q => q.primeVariance!)
+                const printedOnly = card.quotes.filter(
+                  q => q.rateType === type && q.primeVariance === null && q.rate !== null,
+                ).length
+                const n = card.quotes.filter(q => q.rateType === type).length
+                if (n === 0) return null
+                if (vs.length === 0) return `${n} ${type} (printed rates only)`
+                const lo = Math.min(...vs)
+                const hi = Math.max(...vs)
+                const range = lo === hi ? fmtDiscount(lo) : `${fmtDiscount(lo)}..${fmtDiscount(hi)}`
+                return `${n} ${type}: ${range}${printedOnly > 0 ? ` (+${printedOnly} printed)` : ''}`
+              }
+              const cashbackCount = card.quotes.filter(q => q.cashbackPct !== null).length
+              const summaryParts = [
+                ...Array.from(fixedBuckets.entries())
+                  .sort((a, b) => a[0] - b[0])
+                  .map(([term, r]) =>
+                    `${term % 12 === 0 ? `${term / 12}y` : `${term}m`} fixed: ${r.min === r.max ? r.min : `${r.min}-${r.max}`}`,
+                  ),
+                floatRange('adjustable'),
+                floatRange('variable'),
+              ].filter(Boolean)
               return (
                 <div key={card.intelItemId} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
                   <div className="flex flex-wrap items-center gap-2">
@@ -673,15 +708,11 @@ export default function ApprovalsDesk({
                     </h3>
                     {card.asOfDate && <Chip tone="gray">sheet {card.asOfDate}</Chip>}
                     <Chip tone="gray">{card.quotes.length} quotes</Chip>
+                    {cashbackCount > 0 && (
+                      <Chip tone="green">{cashbackCount} cash back tier{cashbackCount === 1 ? '' : 's'}</Chip>
+                    )}
                   </div>
-                  <p className="text-xs font-body text-gray-500 mt-2">
-                    {Array.from(buckets.entries())
-                      .sort((a, b) => a[0] - b[0])
-                      .map(([term, r]) =>
-                        `${term % 12 === 0 ? `${term / 12}y` : `${term}m`}: ${r.min === r.max ? r.min : `${r.min}-${r.max}`}`,
-                      )
-                      .join(' · ')}
-                  </p>
+                  <p className="text-xs font-body text-gray-500 mt-2">{summaryParts.join(' · ')}</p>
 
                   <details className="mt-3 group">
                     <summary className="text-sm font-semibold text-navy cursor-pointer select-none py-1.5">
@@ -693,12 +724,43 @@ export default function ApprovalsDesk({
                           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm font-body">
                             <span className="text-gray-600">{label(q.productClass)}</span>
                             {q.variant && <span className="text-gray-400 text-xs">{q.variant}</span>}
+                            {q.rateType !== 'fixed' && (
+                              <span
+                                className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                  q.rateType === 'adjustable'
+                                    ? 'bg-sky-100 text-sky-900'
+                                    : 'bg-violet-100 text-violet-900'
+                                }`}
+                              >
+                                {q.rateType}
+                              </span>
+                            )}
                             <span className="text-navy font-semibold">
-                              {q.termMonths % 12 === 0 ? `${q.termMonths / 12}yr` : `${q.termMonths}mo`} at {q.rate}%
+                              {q.termMonths % 12 === 0 ? `${q.termMonths / 12}yr` : `${q.termMonths}mo`} at{' '}
+                              {q.rate !== null
+                                ? `${q.rate}%${q.primeVariance !== null ? ` (${fmtDiscount(q.primeVariance)})` : ''}`
+                                : q.primeVariance !== null
+                                  ? fmtDiscount(q.primeVariance)
+                                  : 'not priced'}
                             </span>
+                            {q.cashbackPct !== null && (
+                              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                {q.cashbackPct}% cash back
+                              </span>
+                            )}
                             {q.compBps !== null && <span className="text-xs text-gray-500">@ {q.compBps}bps</span>}
                             {q.heldReason && <Chip tone="amber">held: {q.heldReason}</Chip>}
                           </div>
+                          {q.programNotes && (
+                            <details className="mt-1">
+                              <summary className="text-[11px] text-gray-400 cursor-pointer select-none">
+                                program conditions, verbatim
+                              </summary>
+                              <p className="mt-0.5 text-[11px] text-gray-600 font-body whitespace-pre-wrap break-words bg-gray-50 rounded p-2">
+                                {q.programNotes}
+                              </p>
+                            </details>
+                          )}
                           <Snippet page={q.sourcePage} text={q.sourceSnippet} />
                         </div>
                       ))}

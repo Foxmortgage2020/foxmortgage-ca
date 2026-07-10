@@ -81,16 +81,15 @@ export const ADMIN_NAV: AdminNavItem[] = [
     href: '/portal/admin/compliance',
     iconKey: 'Shield',
     permission: 'compliance.view',
-    arrivesInSession: 5,
     description:
-      'FSRA-facing view: disclosures, document completeness, and audit readiness per file.',
+      'FSRA-conscious view: credentials, the complaint register, policies with acknowledgments, and per-file compliance cards.',
   },
   {
     label: 'Revenue',
     href: '/portal/admin/revenue',
     iconKey: 'DollarSign',
     permission: 'revenue.view',
-    arrivesInSession: 6,
+    arrivesInSession: 7,
     description:
       'Funded production, commission tracking, and goal pacing history across years.',
   },

@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-10',
+    title: 'Session 6: floating rates on screen, and Compliance',
+    detail:
+      'Adjustable and variable rates now render as what they are: discount first, with the effective rate computed against the served prime and labeled with its date. Cash back tiers are their own rows with the printed conditions, promo offers appear inside matching scenarios, and the approvals cards print floating sheets correctly. New Compliance module: credential renewals on the attention rail, the complaint and incident register, and a versioned policy library with acknowledgments. Nothing in it ever deletes.',
+  },
+  {
+    date: '2026-07-10',
     title: 'Session 5: Rates becomes a scenario tool',
     detail:
       'Describe the deal and see which lenders win it, lowest rate first, from sheets Michael approved through the audited gate. Drill into products with full provenance, pin up to three to compare, and download a client-ready PDF. Deal rooms gain a find-rates button. The dense table stays behind a toggle.',

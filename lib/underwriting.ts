@@ -7,7 +7,7 @@
 //      parameter. There is no insert / update / upsert / delete / rpc
 //      surface anywhere in this repo. Since Session 3 the wrapper
 //      authenticates as the portal_readonly Postgres role (Session 2,
-//      migration 0024): SELECT on exactly 12 granted tables, everything
+//      migration 0024; 17 granted tables as of migration 0028), everything
 //      else refused by Postgres itself. The service-role key is deleted
 //      from this Vercel project; decisions flow through the Gates API
 //      (lib/gates.ts), never through this module.
@@ -114,6 +114,12 @@ async function uwFetch<T>(
     console.error(`[uw] ${table} unreachable ms=${Date.now() - started}`)
     return { configured: true, ok: false, error: 'Workbench unreachable' }
   }
+}
+
+// PostgREST serves numerics as JSON strings in some configurations;
+// normalize once, keeping null honest.
+function numOrNull(v: unknown): number | null {
+  return v === null || v === undefined ? null : Number(v)
 }
 
 async function uwSelect<T>(
@@ -585,7 +591,14 @@ export interface RateQuoteRow {
   productClass: string
   variant: string | null
   termMonths: number
-  rate: number
+  // Nullable since migration 0029: a floating quote whose sheet prints
+  // only the discount stores no rate (the priced check guarantees a rate
+  // or a variance, never neither).
+  rate: number | null
+  rateType: 'fixed' | 'adjustable' | 'variable'
+  primeVariance: number | null
+  cashbackPct: number | null
+  programNotes: string | null
   compBps: number | null
   asOfDate: string | null
   expiryDate: string | null
@@ -605,7 +618,7 @@ export interface SheetQueueCard {
 export async function getRateSheetQueue(agentId: string): Promise<UwResult<SheetQueueCard[]>> {
   const res = await uwSelect<any>('rate_quotes', {
     select:
-      'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,held_reason',
+      'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,held_reason',
     agent_id: `eq.${agentId}`,
     status: 'eq.extracted',
     order: 'term_months.asc',
@@ -632,8 +645,12 @@ export async function getRateSheetQueue(agentId: string): Promise<UwResult<Sheet
         productClass: r.product_class,
         variant: r.variant ?? null,
         termMonths: r.term_months,
-        rate: Number(r.rate),
-        compBps: r.comp_bps !== null && r.comp_bps !== undefined ? Number(r.comp_bps) : null,
+        rate: numOrNull(r.rate),
+        rateType: r.rate_type ?? 'fixed',
+        primeVariance: numOrNull(r.prime_variance),
+        cashbackPct: numOrNull(r.cashback_pct),
+        programNotes: r.program_notes ?? null,
+        compBps: numOrNull(r.comp_bps),
         asOfDate: r.as_of_date ?? null,
         expiryDate: r.expiry_date ?? null,
         sourcePage: r.source_page,
@@ -901,11 +918,19 @@ export async function getDealDetail(agentId: string, dealId: string): Promise<Uw
 export interface DealConditionRow extends ConditionRow {
   source: string
   evidenceRefCount: number
+  // Session 6, for the compliance card: the stored category vocabulary
+  // (solicitor, borrower_execution, general_verification,
+  // property_valuation, product_mechanics, broker_deliverable), the kind
+  // marker where one exists, and the system precheck outcome recorded in
+  // the precheck jsonb (status only; assertions stay workbench detail).
+  category: string | null
+  kind: string | null
+  precheckStatus: string | null
 }
 
 export async function getDealConditions(agentId: string, dealId: string): Promise<UwResult<DealConditionRow[]>> {
   const res = await uwSelect<any>('conditions', {
-    select: 'id,text,owner,status,due_date,cond_number,source,evidence_ids',
+    select: 'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
     order: 'due_date.asc.nullslast',
@@ -922,8 +947,70 @@ export async function getDealConditions(agentId: string, dealId: string): Promis
       condNumber: r.cond_number ?? null,
       source: r.source,
       evidenceRefCount: Array.isArray(r.evidence_ids) ? r.evidence_ids.length : 0,
+      category: r.category ?? null,
+      kind: r.kind ?? null,
+      precheckStatus:
+        r.precheck && typeof r.precheck === 'object' && typeof r.precheck.status === 'string'
+          ? r.precheck.status
+          : null,
     })),
   )
+}
+
+// Session 6, compliance dashboard: the deals whose compliance card reads
+// attention, from recorded signals only (open compliance_gap flags, plus
+// overdue conditions in the compliance-bearing categories). The posture
+// rule itself lives in lib/compliance-logic.ts.
+export interface ComplianceAttentionDeal {
+  dealId: string
+  fileRef: string
+  reasons: string[]
+}
+
+export async function getComplianceAttentionDeals(
+  agentId: string,
+  complianceCategories: readonly string[],
+  todayYMD: string,
+): Promise<UwResult<ComplianceAttentionDeal[]>> {
+  const [flagsRes, condsRes] = await Promise.all([
+    uwSelect<any>('flags', {
+      select: 'deal_id,severity,deals(file_ref)',
+      agent_id: `eq.${agentId}`,
+      kind: 'eq.compliance_gap',
+      status: 'eq.open',
+      limit: '200',
+    }),
+    uwSelect<any>('conditions', {
+      select: 'deal_id,category,status,due_date,deals(file_ref)',
+      agent_id: `eq.${agentId}`,
+      category: `in.(${complianceCategories.join(',')})`,
+      status: 'not.in.(satisfied,waived)',
+      limit: '500',
+    }),
+  ])
+  if (!flagsRes.configured || !flagsRes.ok) return flagsRes
+  if (!condsRes.configured || !condsRes.ok) return condsRes
+  try {
+    const byDeal = new Map<string, ComplianceAttentionDeal>()
+    const add = (dealId: string, fileRef: string, reason: string) => {
+      const cur = byDeal.get(dealId)
+      if (cur) cur.reasons.push(reason)
+      else byDeal.set(dealId, { dealId, fileRef, reasons: [reason] })
+    }
+    for (const f of flagsRes.data) {
+      if (f.deal_id && f.deals?.file_ref) {
+        add(f.deal_id, f.deals.file_ref, `open compliance_gap flag (${f.severity})`)
+      }
+    }
+    for (const c of condsRes.data) {
+      if (c.deal_id && c.deals?.file_ref && c.due_date && c.due_date < todayYMD) {
+        add(c.deal_id, c.deals.file_ref, `overdue ${String(c.category).replace(/_/g, ' ')} condition`)
+      }
+    }
+    return { configured: true, ok: true, data: Array.from(byDeal.values()) }
+  } catch {
+    return { configured: true, ok: false, error: 'Workbench result had an unexpected shape' }
+  }
 }
 
 export interface DealFlagRow {
@@ -1206,7 +1293,11 @@ export interface RateQuoteBrowserRow {
   productClass: string
   variant: string | null
   termMonths: number
-  rate: number
+  rate: number | null
+  rateType: 'fixed' | 'adjustable' | 'variable'
+  primeVariance: number | null
+  cashbackPct: number | null
+  programNotes: string | null
   compBps: number | null
   asOfDate: string | null
   expiryDate: string | null
@@ -1215,7 +1306,8 @@ export interface RateQuoteBrowserRow {
 
 export async function getRateQuoteBrowser(agentId: string): Promise<UwResult<RateQuoteBrowserRow[]>> {
   const res = await uwSelect<any>('rate_quotes', {
-    select: 'id,lender_slug,product_class,variant,term_months,rate,comp_bps,as_of_date,expiry_date,status',
+    select:
+      'id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,status',
     agent_id: `eq.${agentId}`,
     status: 'in.(approved,superseded)',
     order: 'as_of_date.desc',
@@ -1228,8 +1320,12 @@ export async function getRateQuoteBrowser(agentId: string): Promise<UwResult<Rat
       productClass: r.product_class,
       variant: r.variant ?? null,
       termMonths: r.term_months,
-      rate: Number(r.rate),
-      compBps: r.comp_bps !== null && r.comp_bps !== undefined ? Number(r.comp_bps) : null,
+      rate: numOrNull(r.rate),
+      rateType: r.rate_type ?? 'fixed',
+      primeVariance: numOrNull(r.prime_variance),
+      cashbackPct: numOrNull(r.cashback_pct),
+      programNotes: r.program_notes ?? null,
+      compBps: numOrNull(r.comp_bps),
       asOfDate: r.as_of_date ?? null,
       expiryDate: r.expiry_date ?? null,
       status: r.status,
@@ -1240,7 +1336,10 @@ export async function getRateQuoteBrowser(agentId: string): Promise<UwResult<Rat
 // ─── Session 5: scenario-driven rates (full rows + approval provenance) ─────
 
 // Every column the rate_quotes row stores (minus tenant plumbing), for the
-// scenario levels: level 3 renders all of it, nothing invented.
+// scenario levels: level 3 renders all of it, nothing invented. Since
+// migration 0029: rate_type, prime_variance (signed, verbatim),
+// cashback_pct, program_notes (verbatim printed conditions); rate is
+// nullable behind the priced check.
 export interface RateQuoteFullRow {
   id: string
   intelItemId: string
@@ -1248,7 +1347,11 @@ export interface RateQuoteFullRow {
   productClass: string
   variant: string | null
   termMonths: number
-  rate: number
+  rate: number | null
+  rateType: 'fixed' | 'adjustable' | 'variable'
+  primeVariance: number | null
+  cashbackPct: number | null
+  programNotes: string | null
   compBps: number | null
   asOfDate: string | null
   expiryDate: string | null
@@ -1266,7 +1369,7 @@ export interface RateQuoteFullRow {
 export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQuoteFullRow[]>> {
   const res = await uwSelect<any>('rate_quotes', {
     select:
-      'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,status,extracted_by,created_at,reviewed_at,approved_via,held_reason',
+      'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,status,extracted_by,created_at,reviewed_at,approved_via,held_reason',
     agent_id: `eq.${agentId}`,
     status: 'in.(approved,superseded)',
     order: 'as_of_date.desc',
@@ -1280,8 +1383,12 @@ export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQ
       productClass: r.product_class,
       variant: r.variant ?? null,
       termMonths: r.term_months,
-      rate: Number(r.rate),
-      compBps: r.comp_bps !== null && r.comp_bps !== undefined ? Number(r.comp_bps) : null,
+      rate: numOrNull(r.rate),
+      rateType: r.rate_type ?? 'fixed',
+      primeVariance: numOrNull(r.prime_variance),
+      cashbackPct: numOrNull(r.cashback_pct),
+      programNotes: r.program_notes ?? null,
+      compBps: numOrNull(r.comp_bps),
       asOfDate: r.as_of_date ?? null,
       expiryDate: r.expiry_date ?? null,
       sourcePage: r.source_page,
@@ -1465,6 +1572,40 @@ export async function getAgents(): Promise<UwResult<AgentRow[]>> {
       email: r.email,
       fsraLicence: r.fsra_licence,
       officePhone: r.office_phone ?? null,
+    })),
+  )
+}
+
+// Session 6: number_links, the learned call-triage directory (granted as
+// the 17th table by fox-underwriting migration 0028). Numbers are stored
+// as their last ten digits; render exactly as stored, never reconstructed
+// into a full number the workbench does not hold.
+export interface NumberLinkRow {
+  id: string
+  phoneLast10: string
+  label: string | null
+  source: string | null
+  zohoContactId: string | null
+  zohoPartnerId: string | null
+  createdAt: string
+}
+
+export async function getNumberLinks(agentId: string): Promise<UwResult<NumberLinkRow[]>> {
+  const res = await uwSelect<any>('number_links', {
+    select: 'id,phone_last10,label,source,zoho_contact_id,zoho_partner_id,created_at',
+    agent_id: `eq.${agentId}`,
+    order: 'created_at.desc',
+    limit: '500',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      phoneLast10: String(r.phone_last10 ?? ''),
+      label: r.label ?? null,
+      source: r.source ?? null,
+      zohoContactId: r.zoho_contact_id ?? null,
+      zohoPartnerId: r.zoho_partner_id ?? null,
+      createdAt: r.created_at,
     })),
   )
 }

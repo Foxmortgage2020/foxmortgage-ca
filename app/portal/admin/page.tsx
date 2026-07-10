@@ -41,6 +41,8 @@ import {
   getShadowQueue,
   type UwResult,
 } from '@/lib/underwriting'
+import { listCredentials } from '@/lib/compliance'
+import { credentialTone } from '@/lib/compliance-logic'
 import {
   fmtMoney,
   fmtMoneyCompact,
@@ -155,7 +157,7 @@ export default async function AdminHome() {
   const workbenchOff = !agentRes.configured
   const workbenchErr = agentRes.configured && !agentRes.ok ? agentRes.error : null
 
-  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, stmtsR, sheetsR, shadowR, wbDealsR, ratesR, freshR] =
+  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, stmtsR, sheetsR, shadowR, wbDealsR, ratesR, freshR, credsR] =
     await Promise.all([
       getAllDealsSlim()
         .then(d => ({ ok: true as const, data: d }))
@@ -172,6 +174,7 @@ export default async function AdminHome() {
       agentId ? getDealsSummary(agentId) : null,
       agentId ? getRateQuoteStats(agentId) : null,
       agentId ? getIntakeFreshness(agentId) : null,
+      listCredentials(),
     ])
 
   const deals: SlimDeal[] | null = dealsRes.ok ? dealsRes.data : null
@@ -350,6 +353,33 @@ export default async function AdminHome() {
         <AttentionRow
           left={`${stmts.length} statement review${stmts.length === 1 ? '' : 's'}, ${sheets.length} rate sheet review${sheets.length === 1 ? '' : 's'}, ${shadowDue} shadow score${shadowDue === 1 ? '' : 's'} due`}
         />
+      </AttentionCard>,
+    )
+  }
+
+  // Credential renewals (Session 6): within 60 days amber, within 14 days
+  // red, from the FOXCA compliance register. Unconfirmed placeholder
+  // dates say so. No date recorded means no alarm.
+  const credentials = credsR.configured && credsR.ok ? credsR.data.filter(c => c.status === 'active') : []
+  const credRows = credentials
+    .map(c => ({ c, tone: credentialTone(c.expires_on, todayYMD) }))
+    .filter(x => x.tone === 'red' || x.tone === 'amber')
+  if (credRows.length > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="credentials"
+        tone={credRows.some(x => x.tone === 'red') ? 'red' : 'amber'}
+        title="Credential renewals"
+        count={credRows.length}
+        href="/portal/admin/compliance"
+      >
+        {credRows.slice(0, 4).map(({ c }) => (
+          <AttentionRow
+            key={c.id}
+            left={c.name}
+            right={`${fmtShortDate(c.expires_on!)}${c.date_confirmed ? '' : ' (confirm date)'}`}
+          />
+        ))}
       </AttentionCard>,
     )
   }

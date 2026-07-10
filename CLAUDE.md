@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 10, 2026 (Admin Command Center Session 5 shipped: Rates v2 scenario tool, compare + client PDF, deal room prefill, roadmap brought current, closing ritual and UI test discipline made standing policy)
+## Last Updated: July 10, 2026 (Admin Command Center Session 6 shipped: floating-rate vocabulary on every rates surface, promo offers as scenario results, Directory number_links, and the Compliance module with its FOXCA-backed registers)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -32,11 +32,11 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
   2026-07-09 (all targets) and removed from .env.local. The portal cannot write to the
   workbench even in principle: portal_readonly has SELECT on exactly 12 tables and
   Postgres refuses everything else with 42501 (verified live).
-- Granted tables (SELECT only; 16 since fox-underwriting migration 0026, verified
-  live 2026-07-09): agents, audit_log, borrowers, conditions, deals, documents,
-  flags, income_calcs, intake_events, lender_intel_items, rate_quotes,
-  rate_sheet_reviews, ratio_calcs, shadow_scores, statement_fields,
-  statement_reviews. NOT granted: evidence (still 42501), the number directory.
+- Granted tables (SELECT only; 17 since fox-underwriting migration 0028, verified
+  live 2026-07-10): agents, audit_log, borrowers, conditions, deals, documents,
+  flags, income_calcs, intake_events, lender_intel_items, number_links,
+  rate_quotes, rate_sheet_reviews, ratio_calcs, shadow_scores, statement_fields,
+  statement_reviews. NOT granted: evidence (still 42501).
   No submission-notes table exists yet (notes are report artifacts, not rows).
 - Attempt-and-fallback is the STANDING RULE for granted-surface sections
   (Session 4): a page section queries its tables and renders the not-granted
@@ -96,7 +96,8 @@ Home | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
 Changelog (S4, under Knowledge) | Compliance (S5) | Revenue (S6) |
 Partners (existing pages) | Directory (S4) | Bookkeeping (nav link to existing
 /portal/bookkeeping, pages untouched) | Audit Log (S3) | Status | Settings |
-Roadmap. All live except Compliance and Revenue. Config: `config/admin-nav.ts`.
+Roadmap. All live except Revenue (S7). Compliance shipped S6. Config:
+`config/admin-nav.ts`.
 
 ### Session 4 pages and semantics
 - Terminal-deal filtering: config/pipeline.ts isTerminalWorkbenchDeal (status not
@@ -147,20 +148,12 @@ Roadmap. All live except Compliance and Revenue. Config: `config/admin-nav.ts`.
   searchParams (scenario, lender, product, pins, view, from), so back
   preserves the scenario, deal rooms prefill by link, and every level is
   reachable without a pointer event.
-- rate_quotes dimension inventory (live, 2026-07-10; 429 rows, 310
-  approved): lender_slug mcap 168 / first-national 116 / rfa 61 / strive 54
-  / scotia 28 / test-portal 2 (superseded seeds, excluded from scenarios);
-  product_class conventional/insurable/insured (fully populated, the
-  insurance-class dimension); term_months 12/24/36/48/60/84/120 (fully
-  populated); variant is the SPARSE column carrying three families: LTV
-  bands (ltv<=65, ltv65-70, ltv70-75, ltv75-80; insurable rows on
-  fn/mcap/rfa/strive), rental markers (rental, second-home-rental), Scotia
-  Mortgage Plus markers (mortgage-plus, -25yr, -30yr); 121 rows have null
-  variant. comp_bps null on all mcap rows; expiry_date null on ALL approved
-  rows (rate holds do not exist in the data; excluded from the panel,
-  wishlist). No purpose/transaction-type column exists: purpose in the
-  scenario drives promo eligibility and the summary line only, never the
-  quote filter (tooltip says so).
+- rate_quotes dimension inventory: SUPERSEDED by the Session 6 refresh
+  below (migration 0029 added rate_type / prime_variance / cashback_pct /
+  program_notes and the parser expansion multiplied lenders and variants).
+  Still true from Session 5: no purpose/transaction-type column exists;
+  purpose in the scenario drives promo eligibility and the summary line
+  only, never the quote filter (tooltip says so).
 - Sparse-dimension rule (tested): explicit variant markers rule quotes in
   or out; absence NEVER silently excludes; the match carries an assumed
   note the UI shows as a tooltip plus an inline line. Unknown future
@@ -197,6 +190,133 @@ Roadmap. All live except Compliance and Revenue. Config: `config/admin-nav.ts`.
   state. The component and the PDF route already resolve through
   quote_slugs aliases the moment fox-underwriting micro-session 3 publishes
   them on the knowledge index; the portal never invents the mapping.
+
+### Session 6: floating rates on screen, and Compliance (2026-07-10)
+- Prerequisite consumed: the fox-underwriting variable-rates session
+  (migration 0029). rate_quotes now carries rate_type (fixed | adjustable |
+  variable, printed label only), prime_variance (signed, verbatim; -1.05 =
+  P minus 1.05, alt sheets price prime-plus), cashback_pct, program_notes
+  (verbatim printed conditions); rate is NULLABLE behind a priced check (a
+  quote carries a printed rate or a printed variance, never neither). All
+  three portal row types (RateQuoteFullRow, RateQuoteBrowserRow, the
+  approvals RateQuoteRow) carry the new columns; every .rate call site
+  handles null.
+- Rates-reference layer: GET /api/knowledge/rates-reference (prime with
+  as-of and source, per-lender overrides, floating mechanism notes,
+  quote-slug coverage) proxied at app/api/portal/admin/knowledge/
+  rates-reference behind knowledge.view, same browser-minted-token posture.
+  EFFECTIVE RATES ARE COMPUTED AT DISPLAY TIME as prime + variance
+  (per-lender override first, matched through the published coverage map
+  only) and always labeled with the prime as-of used; a computed figure is
+  never stored. Reference unreachable = discount alone with the honest
+  prime-unavailable state, never stale or guessed (unit-tested). A floating
+  quote whose sheet printed its own rate displays the printed figure
+  (UnionLink prints both).
+- Ranking contract (lib/scenario.ts, tested): floating-only views sort by
+  deepest discount (most negative variance); mixed views sort by effective
+  rate; floating rows the reference cannot price sort last, deepest
+  discount first; adjustable and variable are NEVER collapsed anywhere
+  (distinct badges, sky vs violet, with mechanism tooltips from the
+  reference payload, never the sheet label; pending caveat renders when
+  basis is printed_label_plus_convention, Scotia's variable note today).
+  A cash back tier is its own row and never the lender headline (a lender
+  with only cashback matches shows no headline rate at all). Scenario
+  gains the three-way rate-type filter (rt param) and the cash back filter
+  (cb param); product class extended to the observed vocabulary
+  (conventional/insurable/insured/b_side/heloc/reverse/other) since the
+  expansion book carries all of them. Scenario.insuranceClass renamed to
+  productClass (URL param stays 'class').
+- Promo offers as first-class scenario results: offerScenarioResult
+  renders an offer inside matching results ONLY when its structured
+  eligibility fits (purpose/occupancy/amortization gates, the same
+  semantics as fox-underwriting assessOffer) AND it carries structured
+  rate tiers; prose-only offers never auto-apply (they stay countdown
+  chips). Tier follows the scenario product class (insured picks the
+  default-insured tier). The Scotia 60-day 3yr special at 4.19 is the
+  proving case: badged card beside the sheet quotes with conditions,
+  expiry countdown, started date, and announcement provenance (never a
+  sheet). Term is NOT structured on offers; the card states the offer's
+  own description verbatim.
+- Approvals sheet cards (Michael's 719-quote sitting renders through
+  this): summary strip prints fixed printed-rate ranges per term plus
+  floating discount ranges per mechanism (P−0.75..P−0.35 style) plus the
+  cash back tier count; quote detail rows print discount-first floating,
+  cashback chips, and program conditions verbatim expandable. The old
+  min/max math would have crashed on null rates.
+- Client PDF: paginated now (program notes are verbatim, so overflow adds
+  pages; licence footer on every page); rate rows discount-first with
+  labeled effective rates; rate-type row; cash back row when a pinned
+  product carries one; mechanism lines per floating product in grade 6
+  words; printed program conditions verbatim; a sources section with
+  sheet date, page, snippet, and extraction confidence. The route fetches
+  rates-reference through the forwarded browser token; token missing or
+  refused = the PDF says prime was unavailable and prints no effective
+  rate (never stale). Helvetica lacks U+2212 so the PDF prints ASCII
+  hyphens (pdfSafe).
+- Directory completes: number_links (17th granted table) renders learned
+  numbers with label, source, and Zoho contact/partner links; last-10
+  digits exactly as stored.
+- rate_quotes dimension inventory refresh (live, 2026-07-10, post
+  migration 0029; 1150 readable rows: 312 approved incl. 2 approved
+  TEST-GATES-VR test-portal artifacts, 119 superseded, 719 extracted
+  pending Michael's sitting):
+  - approved book: fixed 311 / adjustable 1 (the test artifact); real
+    approved floating arrives only when Michael approves the queue.
+  - pending 719: fixed 554 / adjustable 133 / variable 32; cashback_pct
+    non-null on 95 (values 1/2/3/5); program_notes on 243; rate null on
+    154 (discount-only rows); floating variance -1.05 to +2.30; 11
+    floating rows print BOTH discount and rate (unionlink).
+  - pending lenders: mcap 123, merix 68, unionlink 62,
+    first-national-excalibur 45, scotia 44, neo 43, cmls 40, npx 38,
+    highclere 35, strive 33, nbc-optimum 32, haventree 25, b2b 24,
+    first-national 23, rfa 21, bridgewater 21, shinhan 16, manulife 11,
+    coast-capital 8, radius 4, home-trust 3.
+  - product_class now carries b_side 189 / heloc 20 / reverse 3 / other 1
+    beyond the insurance trio; variant vocabulary exploded (beacon bands,
+    physician, pmpp, fusion tiers, promo windows, partner-exclusive
+    bands); unclassified variants keep matching-with-note by design.
+  - prime 4.45 as of 2026-07-09 (CMLS, corroborated book-wide); one real
+    override: Kootenay PLR 5.50 (2026-07-03). Mechanism notes cover 14
+    lenders; every note today carries basis printed_label_plus_convention
+    (pending-confirmation caveat renders).
+- Compliance module shipped, two data homes honestly split. Workbench
+  truth reads through the granted surface; business compliance records
+  live in the FOXCA project (migration 20260710120000 + the table-revokes
+  follow-up, applied 2026-07-10): compliance_credentials,
+  compliance_complaints, compliance_policies + _versions + _acks, and
+  compliance_events (append-only trail). RLS on with NO table policies AND
+  direct table grants revoked (verified live: table select refuses 42501);
+  the ONLY surface is 13 narrow security-definer functions granted to
+  anon. lib/compliance.ts is the only client; admin gating rides
+  compliance.manage (new authority key, admin only) on the routes under
+  app/api/portal/admin/compliance/; every mutation records the acting
+  email and lands a compliance_events row. NOTHING DELETES: credentials
+  retire, complaints change status, policies version (full history
+  retained; acks attach to the version read).
+- /portal/admin/compliance (compliance.view: admin + ops): dashboard
+  (credentials tone, open complaints, policy ack coverage, files reading
+  attention, honest-gaps note), credential register (seeded with
+  Michael's FSRA licence / E&O / CE rows, placeholder dates marked
+  date_confirmed=false rendering a confirm-date chip), complaint and
+  incident register (FSRA-expects-this empty state), policy library
+  (versioned markdown, read-and-acknowledge, suggestion-only empty state).
+  Tab state in the URL (?tab=).
+- Per-file compliance card (components/admin/ComplianceCard.tsx) on every
+  deal room: posture chip computed by the pure rule in
+  lib/compliance-logic.ts (attention = open compliance_gap flag or
+  overdue solicitor/borrower_execution condition; clear needs recorded
+  rows; empty files read gaps-unrecorded, never clear), rule stated
+  verbatim in the tooltip (POSTURE_RULE); compliance_gap flags with
+  disposition history; compliance-bearing conditions grouped by the
+  stored category vocabulary; per-condition system precheck outcomes from
+  the precheck jsonb; the five workbench gap fields stated honestly
+  (suitability assessment, exit-strategy note, identity verification,
+  disclosure delivered date, package state) as the fox-underwriting
+  follow-up list.
+- Home Needs Attention rail: credential renewals join at 60 days amber /
+  14 days red (thresholds unit-tested in tests/compliance.test.ts; past
+  due stays red; no date recorded never alarms), unconfirmed dates say
+  "confirm date".
 
 ### End-of-session closing ritual (STANDING RULE, Session 5)
 Every build session ends by updating all three, together, before the
@@ -955,6 +1075,69 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-10 — Admin Command Center Session 6 (floating rates on screen, and Compliance)
+- Part 0 consumed the fox-underwriting variable-rates session: all three
+  quote row types gained rate_type / prime_variance / cashback_pct /
+  program_notes with rate nullable; lib/scenario.ts grew the effective-rate
+  layer (quoteRateDisplay / quoteEffectiveRate / primeForLender /
+  mechanismForLender / fmtDiscount) computing prime + variance at display
+  time against GET /api/knowledge/rates-reference (new proxy route, same
+  browser-minted-token posture), always labeled with the prime as-of,
+  honouring the Kootenay-style per-lender overrides through the published
+  coverage map, and rendering the honest prime-unavailable state when the
+  reference is unreachable (never stale, never guessed; unit-tested).
+- Ranking per the workbench contract: floating-only sorts by deepest
+  discount, mixed sorts by effective rate, unpriceable floating rows sort
+  last by discount; adjustable (sky) and variable (violet) badge
+  distinctly with mechanism tooltips from the reference payload plus the
+  pending-confirmation caveat on printed_label_plus_convention notes; cash
+  back tiers are first-class rows with chips and verbatim program
+  conditions and never become a lender headline. Scenario gained the
+  three-way rate-type filter, the cash back filter, and the extended
+  product-class vocabulary (b_side/heloc/reverse/other observed live);
+  Scenario.insuranceClass renamed to productClass.
+- Promo offers render inside matching scenario results when structured
+  eligibility fits and structured rate tiers exist (offerScenarioResult,
+  tested on the Scotia 60-day 3yr special at 4.19: badged, conditioned,
+  countdown, announcement provenance); prose-only offers stay chips.
+- Approvals sheet cards reworked for the 719-quote sitting: per-mechanism
+  summary ranges (fixed printed ranges, floating discount ranges), cash
+  back tier counts, discount-first quote rows, program notes expandable;
+  the old min/max math would have crashed on null rates. Table view gained
+  the type column and filter; compare tray and the client PDF carry rate
+  type, labeled effective rates, mechanism lines (grade 6), cash back
+  rows, verbatim program conditions, and a sources section with page,
+  snippet, and extraction confidence; the PDF paginates and puts the
+  licence line on every page.
+- Directory renders number_links (17th granted table, learned call-triage
+  numbers with Zoho links); CLAUDE.md dimension inventory refreshed from
+  live (1150 rows; pending book carries 133 adjustable, 32 variable, 95
+  cashback tiers across 21 lenders).
+- Compliance module shipped. FOXCA migration 20260710120000 (+ table
+  revokes): credentials, complaints, versioned policies with acks, and the
+  append-only compliance_events trail, behind 13 narrow security-definer
+  functions only (table select refuses 42501, verified live);
+  lib/compliance.ts sole client; compliance.manage (admin) added to the
+  authority matrix; routes under app/api/portal/admin/compliance record
+  who-and-when on every change; nothing deletes. /portal/admin/compliance
+  went from stub to dashboard + credential register (seeded FSRA licence /
+  E&O / CE rows with confirm-date placeholders) + complaint and incident
+  register (FSRA-shaped empty state) + policy library
+  (read-and-acknowledge per version, suggestion-only empty state).
+- Deal room gained the compliance card (posture computed by the pure
+  tested rule from open compliance_gap flags and overdue
+  solicitor/borrower_execution conditions; empty files read gaps
+  unrecorded, never clear; the five uncaptured workbench fields stated
+  honestly); Home rail gained credential renewals at 60/14 day thresholds
+  (unit-tested). Deal conditions fetcher now carries category, kind, and
+  precheck status.
+- Suite at 95 tests (tests/compliance.test.ts new; scenario tests grew the
+  floating vocabulary). Workbench follow-up list for a future
+  fox-underwriting session: suitability assessment, exit-strategy notes,
+  identity-verification status, disclosure-delivered dates, package state;
+  plus a penalty-methodology field on machine profiles (the compare tray
+  lookup lights up when it lands).
 
 ### 2026-07-10 — Admin Command Center Session 5 (Rates v2, scenario-driven)
 - Shipped the three-level scenario tool as the Rates landing (lib/scenario.ts

@@ -20,6 +20,10 @@ export const PERMISSIONS = {
   'conditions.decide': ['admin'],
   'deals.view': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
   'compliance.view': ['admin', 'ops'],
+  // Session 6: compliance records live in this repo's own FOXCA project;
+  // writing them (credentials, complaints, policies, acknowledgments) is
+  // admin only. Records never delete; they retire with history.
+  'compliance.manage': ['admin'],
   'audit.view': ['admin'],
   'partners.provision': ['admin'],
   'portals.view-as': ['admin'],

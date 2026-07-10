@@ -42,8 +42,12 @@ export function computeLenderDigests(quotes: RateQuoteBrowserRow[]): LenderDiges
     let medianDelta: number | null = null
     let previousAsOf: string | null = null
     if (dates.length >= 2) {
-      const latest = median(rows.filter(r => r.asOfDate === dates[0]).map(r => r.rate))
-      const prev = median(rows.filter(r => r.asOfDate === dates[1]).map(r => r.rate))
+      // Only printed rates feed movement math: a floating row that prints
+      // just its discount carries no rate and never fakes a trend.
+      const printed = (d: string) =>
+        rows.filter(r => r.asOfDate === d).map(r => r.rate).filter((x): x is number => x !== null)
+      const latest = median(printed(dates[0]))
+      const prev = median(printed(dates[1]))
       if (latest !== null && prev !== null) {
         medianDelta = Number((latest - prev).toFixed(3))
         previousAsOf = dates[1]

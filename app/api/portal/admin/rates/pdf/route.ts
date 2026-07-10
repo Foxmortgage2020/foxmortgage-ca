@@ -10,8 +10,8 @@ import { NextResponse } from 'next/server'
 import { apiPermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail, getRateQuotesFull } from '@/lib/underwriting'
-import { getKnowledgeLenders } from '@/lib/gates'
-import { scenarioFromParams } from '@/lib/scenario'
+import { getKnowledgeLenders, getRatesReference } from '@/lib/gates'
+import { scenarioFromParams, type RatesReference } from '@/lib/scenario'
 import { generateRatesPdf, ratesPdfFilename, type PdfLenderInfo } from '@/lib/rates-pdf'
 import { torontoTodayYMD } from '@/lib/dates'
 
@@ -57,23 +57,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'None of the pinned products are approved quotes.' }, { status: 422 })
   }
 
-  // Lender display names and profile as-of dates come live from the
-  // knowledge index through the browser-minted token the tray forwards
-  // (same posture as every knowledge proxy). Exact slug match or a
-  // published quote_slugs alias only; the portal never invents a mapping.
-  // Token absent or refused: quote slugs render as stored, the honest
-  // fallback.
+  // Lender display names, the prime reference, and mechanism notes come
+  // live from the knowledge endpoints through the browser-minted token the
+  // tray forwards (same posture as every knowledge proxy). Exact slug
+  // match or a published quote_slugs alias only; the portal never invents
+  // a mapping. Token absent or refused: quote slugs render as stored and
+  // floating rows print their discount with the honest prime-unavailable
+  // state; a stale or guessed effective rate never lands in a client
+  // document.
   const lenderInfo: Record<string, PdfLenderInfo | null> = {}
   for (const q of pinned) lenderInfo[q.lenderSlug] = null
+  let reference: RatesReference | null = null
   const token = req.headers.get('x-gates-token')
   if (token) {
-    const kn = await getKnowledgeLenders(token)
+    const [kn, refRes] = await Promise.all([getKnowledgeLenders(token), getRatesReference(token)])
     if (kn.ok) {
       const lenders = (kn.data as { lenders?: { slug: string; name: string; as_of: string | null; quote_slugs?: string[] }[] }).lenders ?? []
       for (const q of pinned) {
         const match = lenders.find(l => l.slug === q.lenderSlug || l.quote_slugs?.includes(q.lenderSlug))
         if (match) lenderInfo[q.lenderSlug] = { name: match.name, asOf: match.as_of ?? null }
       }
+    }
+    if (refRes.ok && refRes.data && typeof refRes.data === 'object') {
+      reference = refRes.data as unknown as RatesReference
     }
   }
 
@@ -82,6 +88,7 @@ export async function POST(req: Request) {
     scenario,
     quotes: pinned,
     lenderInfo,
+    reference,
     generatedDate,
     sourceFileRef,
   })

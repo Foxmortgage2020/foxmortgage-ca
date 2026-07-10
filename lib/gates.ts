@@ -346,6 +346,17 @@ export function getKnowledgeOffers(token: string | null): Promise<GateResult<{ a
   return gateGet('/api/knowledge/offers', token)
 }
 
+// The rates-reference layer (variable-rates session, 2026-07-10): prime
+// with as-of and source, per-lender overrides, per-lender payment
+// mechanism notes, quote-slug coverage. Zod-validated at serve time by
+// the workbench; the portal computes effective rates against it at
+// display time and labels every computed figure with the prime as-of.
+// The shape is typed in lib/scenario.ts (RatesReference) so client
+// components can share it without importing this server-only module.
+export function getRatesReference(token: string | null): Promise<GateResult<Record<string, unknown>>> {
+  return gateGet('/api/knowledge/rates-reference', token)
+}
+
 // ─── Health (Status page) ───────────────────────────────────────────────────
 
 export interface GatesHealth {

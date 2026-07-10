@@ -14,8 +14,16 @@ import ApprovalsDesk from '@/components/admin/ApprovalsDesk'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ApprovalsPage() {
+const TAB_KEYS = ['statements', 'sheets', 'flags', 'shadow'] as const
+
+export default async function ApprovalsPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>
+}) {
   const user = await requirePermission('approvals.view')
+  const rawTab = typeof searchParams?.tab === 'string' ? searchParams.tab : undefined
+  const initialTab = TAB_KEYS.find(t => t === rawTab) ?? 'statements'
 
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
@@ -56,6 +64,7 @@ export default async function ApprovalsPage() {
         )}
         <ApprovalsDesk
           initial={data}
+          initialTab={initialTab}
           canDecide={{
             statements: can(user, 'approvals.statement.decide'),
             sheets: can(user, 'approvals.ratesheet.decide'),

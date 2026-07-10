@@ -1,9 +1,10 @@
 'use client'
 
-// Rates v2 (Session 5): scenario-driven, three levels, modeled on the
-// Lender Spotlight hierarchy but grounded in Fox's audited data. Level 1
-// describes the deal and shows which lenders win it (lowest rate first,
-// always). Level 2 drills into a lender's matching products. Level 3 shows
+// Rates scenario view (Session 5; floating vocabulary Session 6): three
+// levels, modeled on the Lender Spotlight hierarchy but grounded in Fox's
+// audited data. Level 1 describes the deal and shows which lenders win it.
+// Level 2 drills into a lender's matching products, with promo offers as
+// first-class badged results beside the sheet quotes. Level 3 shows
 // everything the quote row stores plus its approval provenance. Pins feed
 // a compare tray and the client PDF.
 //
@@ -12,31 +13,44 @@
 // every level is reachable without a pointer event (UI test automation
 // discipline: automated drivers navigate, they never click live records).
 //
-// Trust edge: every rate rendered here carries its sheet date; product
-// detail links its approval audit entry. Sparse dimensions never silently
-// exclude: a quote the data cannot rule out matches with a visible note.
+// Floating honesty (Session 6): adjustable and variable render as what
+// they are and are never conflated; floating quotes lead with their
+// printed discount; the effective rate beside it is computed against the
+// served prime (per-lender override first) and labeled with the prime
+// as-of it used. When the rates-reference is unreachable the discount
+// stands alone with a plain prime-unavailable state. Mechanism
+// explanations come from the reference payload, never the sheet label.
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   AMORTIZATIONS,
-  INSURANCE_CLASSES,
+  CASHBACK_FILTERS,
+  PRODUCT_CLASSES,
   OCCUPANCIES,
   PURPOSES,
-  TEST_LENDER_SLUG,
-  classifyVariant,
+  RATE_TYPES,
+  RATE_TYPE_LABEL,
+  conventionText,
+  fmtDiscount,
   fmtMoneyFull,
   lenderResults,
   ltvPct,
-  matchQuote,
-  offerFitsScenario,
+  mechanismForLender,
+  mechanismPending,
+  offerScenarioResult,
+  productClassLabel,
+  quoteEffectiveRate,
+  quoteRateDisplay,
   scenarioFromParams,
   scenarioMonthlyPayment,
   scenarioToParams,
   summaryLine,
   termLabel,
-  type OfferEligibilityShape,
+  type OfferShape,
+  type QuoteRateDisplay,
+  type RatesReference,
   type Scenario,
 } from '@/lib/scenario'
 import type { RateQuoteFullRow, SheetProvenance } from '@/lib/underwriting'
@@ -64,9 +78,9 @@ interface KnowledgeLenderEntry {
   name: string
   as_of: string | null
   draft?: boolean
-  // Published by fox-underwriting micro-session 3 (quote_slugs aliases on
-  // the knowledge index). Absent until it ships; the cross-link falls back
-  // to exact slug equality and never invents a mapping.
+  // quote_slugs aliases published by the knowledge index (fox-underwriting
+  // micro-session 3). The cross-link uses exact slug equality or a
+  // published alias and never invents a mapping.
   quote_slugs?: string[]
 }
 
@@ -74,6 +88,120 @@ function variantLabel(variant: string | null): string {
   if (!variant) return 'standard'
   return variant.replace(/-/g, ' ').replace('ltv', 'LTV ')
 }
+
+// ─── Floating display atoms ─────────────────────────────────────────────────
+
+// Adjustable and variable are different client-facing products: the badge
+// colors and words never mix, and each carries the mechanism explanation
+// from the rates-reference payload as its tooltip.
+function TypeBadge({
+  rateType,
+  reference,
+  lenderSlug,
+  size = 'sm',
+}: {
+  rateType: 'fixed' | 'adjustable' | 'variable'
+  reference: RatesReference | null
+  lenderSlug: string
+  size?: 'sm' | 'md'
+}) {
+  if (rateType === 'fixed') return null
+  const note = mechanismForLender(reference, lenderSlug)
+  const pending = mechanismPending(note)
+  const base = note?.note ?? conventionText(reference, rateType) ?? 'Mechanism note not loaded yet.'
+  const tip = `${base}${note?.as_of ? ` (note as of ${note.as_of})` : ''}${
+    pending ? ' Pending lender confirmation.' : ''
+  }`
+  const cls =
+    rateType === 'adjustable'
+      ? 'bg-sky-100 text-sky-900 border border-sky-200'
+      : 'bg-violet-100 text-violet-900 border border-violet-200'
+  return (
+    <span
+      title={tip}
+      aria-label={tip}
+      className={`inline-flex items-center gap-1 rounded-full font-semibold cursor-help ${cls} ${
+        size === 'md' ? 'text-xs px-2.5 py-1' : 'text-[11px] px-2 py-0.5'
+      }`}
+      data-testid={`type-badge-${rateType}`}
+    >
+      {RATE_TYPE_LABEL[rateType]}
+      {pending && <span className="opacity-70">(mechanism pending)</span>}
+    </span>
+  )
+}
+
+function CashbackChip({ pct }: { pct: number | null }) {
+  if (pct === null) return null
+  return (
+    <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+      {pct}% cash back
+    </span>
+  )
+}
+
+// The rate as it renders everywhere: fixed plain, floating discount-first
+// with the effective rate labeled by the prime as-of it used, and the
+// honest prime-unavailable state when the reference is unreachable.
+function rateSubline(d: QuoteRateDisplay): string | null {
+  switch (d.kind) {
+    case 'floating-printed':
+      return `${d.rate.toFixed(2)}% printed on the sheet`
+    case 'floating-computed':
+      return `effective ${d.effective.toFixed(2)}% at prime ${d.primeValue.toFixed(2)}% as of ${d.primeAsOf}${
+        d.overridden ? ' (lender prime)' : ''
+      }`
+    case 'floating-no-prime':
+      return 'prime unavailable, discount shown alone'
+    default:
+      return null
+  }
+}
+
+export function rateHeadlineText(d: QuoteRateDisplay): string {
+  switch (d.kind) {
+    case 'fixed':
+      return `${d.rate.toFixed(2)}%`
+    case 'floating-printed':
+      return d.discount !== null ? fmtDiscount(d.discount) : `${d.rate.toFixed(2)}%`
+    case 'floating-computed':
+    case 'floating-no-prime':
+      return fmtDiscount(d.discount)
+    case 'unpriced':
+      return 'not priced'
+  }
+}
+
+function RateHeadline({ display, size = 'lg' }: { display: QuoteRateDisplay; size?: 'lg' | 'md' }) {
+  const sub = rateSubline(display)
+  return (
+    <div className="text-right">
+      <p className={`font-heading font-bold text-navy ${size === 'lg' ? 'text-3xl' : 'text-2xl'}`}>
+        {rateHeadlineText(display)}
+      </p>
+      {sub && <p className="text-[11px] text-gray-500 font-body mt-0.5 max-w-[180px]">{sub}</p>}
+    </div>
+  )
+}
+
+// One-line rate string for the compare tray, the product detail dl, and
+// screenshots. Same vocabulary as RateHeadline, compact.
+export function rateLineText(d: QuoteRateDisplay): string {
+  switch (d.kind) {
+    case 'fixed':
+      return `${d.rate.toFixed(2)}%`
+    case 'floating-printed':
+      return `${d.discount !== null ? `${fmtDiscount(d.discount)}, ` : ''}${d.rate.toFixed(2)}% printed on the sheet`
+    case 'floating-computed':
+      return `${fmtDiscount(d.discount)}, effective ${d.effective.toFixed(2)}% at prime ${d.primeValue.toFixed(2)}% as of ${d.primeAsOf}${d.overridden ? ' (lender prime)' : ''}`
+    case 'floating-no-prime':
+      return `${fmtDiscount(d.discount)}, prime unavailable`
+    case 'unpriced':
+      return 'not priced'
+  }
+}
+
+// ─── Main component ─────────────────────────────────────────────────────────
 
 export default function RatesScenario({
   quotes,
@@ -104,8 +232,14 @@ export default function RatesScenario({
   const offersRes = useKnowledgeFetch<{ as_of: string; offers: KnowledgeOffer[] }>(
     '/api/portal/admin/knowledge/offers',
   )
+  const referenceRes = useKnowledgeFetch<RatesReference>(
+    '/api/portal/admin/knowledge/rates-reference',
+  )
   const knowledgeLenders = knowledge.data?.lenders ?? []
   const offers = offersRes.data?.offers ?? []
+  const offersAsOf = offersRes.data?.as_of ?? null
+  const reference = referenceRes.data ?? null
+  const referenceUnavailable = !referenceRes.loading && reference === null
 
   // Exact match or a published alias, never an invented mapping.
   const knowledgeFor = (quoteSlug: string): KnowledgeLenderEntry | null =>
@@ -115,11 +249,13 @@ export default function RatesScenario({
     offers.filter(o => {
       const k = knowledgeFor(quoteSlug)
       if (!k || o.lender !== k.slug) return false
-      const eligibility = (o.offer as { eligibility?: OfferEligibilityShape | null })?.eligibility ?? null
-      return offerFitsScenario(eligibility, scenario) !== 'ruled_out'
+      // Chip logic: anything not ruled out shows a chip. First-class
+      // results additionally need structured rate tiers (offerScenarioResult).
+      const shape = o.offer as OfferShape
+      return offerScenarioResult(shape, scenario) !== null || !shape.eligibility
     })
 
-  const results = useMemo(() => lenderResults(quotes, scenario), [quotes, scenario])
+  const results = useMemo(() => lenderResults(quotes, scenario, reference), [quotes, scenario, reference])
   const pinnedQuotes = useMemo(
     () => pins.map(id => quotes.find(q => q.id === id)).filter((q): q is RateQuoteFullRow => Boolean(q)),
     [pins, quotes],
@@ -138,7 +274,7 @@ export default function RatesScenario({
 
   function setScenario(next: Scenario) {
     const params = new URLSearchParams(sp.toString())
-    for (const k of ['purpose', 'occupancy', 'class', 'term', 'amount', 'value', 'am']) params.delete(k)
+    for (const k of ['purpose', 'occupancy', 'class', 'term', 'rt', 'cb', 'amount', 'value', 'am']) params.delete(k)
     for (const [k, v] of Object.entries(scenarioToParams(next))) params.set(k, v)
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }
@@ -185,13 +321,42 @@ export default function RatesScenario({
         </div>
         {view === 'cards' && (
           <p className="text-xs text-gray-400 font-body hidden sm:block">
-            Every rate shows its sheet date. Lowest rate sorts first, always.
+            Every rate shows its sheet date. Best rate sorts first, always.
           </p>
         )}
       </div>
 
+      {/* Prime status: the label every computed effective rate leans on. */}
+      {view === 'cards' && (
+        <div className="mb-4" data-testid="prime-status">
+          {reference?.prime ? (
+            <p className="text-xs text-gray-500 font-body">
+              Prime {reference.prime.value.toFixed(2)}% as of {reference.prime.as_of}
+              {reference.lender_overrides && Object.keys(reference.lender_overrides).length > 0
+                ? `, with ${Object.keys(reference.lender_overrides).length} lender override${
+                    Object.keys(reference.lender_overrides).length === 1 ? '' : 's'
+                  }`
+                : ''}
+              . Effective rates for floating quotes are computed against this prime at display time.
+            </p>
+          ) : referenceUnavailable ? (
+            <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-amber-800 font-body">
+                Prime reference unavailable right now. Floating quotes show their discount alone,
+                and no effective rate or floating payment renders until it loads.
+              </p>
+              <button onClick={referenceRes.retry} className="shrink-0 text-xs font-semibold text-amber-800 underline py-1.5">
+                Retry
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 font-body">Loading prime reference…</p>
+          )}
+        </div>
+      )}
+
       {view === 'table' ? (
-        <RatesBrowser quotes={quotes} initialLender={lenderParam ?? undefined} />
+        <RatesBrowser quotes={quotes} initialLender={lenderParam ?? undefined} reference={reference} />
       ) : (
         <div className="lg:grid lg:grid-cols-[290px_1fr] lg:gap-5">
           {/* Scenario rail */}
@@ -207,7 +372,7 @@ export default function RatesScenario({
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="lender-results">
                 {results.length === 0 && (
                   <p className="text-sm text-gray-500 font-body col-span-full bg-white border border-gray-200 rounded-xl p-5">
-                    No approved quotes match this scenario. Widen the term or check the insurance
+                    No approved quotes match this scenario. Widen the term, rate type, or product
                     class; the table view shows the full approved set.
                   </p>
                 )}
@@ -223,20 +388,51 @@ export default function RatesScenario({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-heading font-bold text-navy">{k?.name ?? r.lenderSlug}</span>
-                        {i === 0 && <span className={`${chip} bg-lime text-navy`}>lowest rate</span>}
+                        {i === 0 && <span className={`${chip} bg-lime text-navy`}>best rate</span>}
                       </div>
-                      <p className="font-heading text-3xl font-bold text-navy mt-2">
-                        {r.lowestRate.toFixed(2)}%
-                      </p>
+                      {r.headline ? (
+                        <div className="mt-2 flex items-end justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-heading text-3xl font-bold text-navy">
+                              {rateHeadlineText(r.headline)}
+                            </p>
+                            {rateSubline(r.headline) && (
+                              <p className="text-[11px] text-gray-500 font-body mt-0.5">
+                                {rateSubline(r.headline)}
+                              </p>
+                            )}
+                          </div>
+                          {(r.headline.kind === 'floating-printed' ||
+                            r.headline.kind === 'floating-computed' ||
+                            r.headline.kind === 'floating-no-prime') && (
+                            <TypeBadge
+                              rateType={r.headline.rateType}
+                              reference={reference}
+                              lenderSlug={r.lenderSlug}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <p className="font-body text-sm text-gray-600 mt-2">
+                          cash back tiers only; open the lender for the rows
+                        </p>
+                      )}
                       <p className="text-xs text-gray-500 font-body mt-1">
                         {r.count} matching product{r.count === 1 ? '' : 's'}
+                        {r.cashbackCount > 0
+                          ? `, ${r.cashbackCount} cash back tier${r.cashbackCount === 1 ? '' : 's'}`
+                          : ''}
                       </p>
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {lenderOffers.map((o, j) => (
-                          <span key={j} className={`${chip} bg-amber-100 text-amber-900`}>
-                            promo, {o.days_left}d left
-                          </span>
-                        ))}
+                        {lenderOffers.map((o, j) => {
+                          const res = offerScenarioResult(o.offer as OfferShape, scenario)
+                          return (
+                            <span key={j} className={`${chip} bg-amber-100 text-amber-900`}>
+                              {res ? `promo ${res.ratePct.toFixed(2)}%, ` : 'promo, '}
+                              {o.days_left}d left
+                            </span>
+                          )
+                        })}
                         {r.anyAssumed && (
                           <span
                             className={`${chip} bg-gray-100 text-gray-600`}
@@ -258,6 +454,8 @@ export default function RatesScenario({
                 results={results}
                 knowledge={knowledgeFor(lenderParam)}
                 offers={offersFor(lenderParam)}
+                offersAsOf={offersAsOf}
+                reference={reference}
                 pins={pins}
                 togglePin={togglePin}
                 onBack={() => navigate({ lender: null, product: null }, true)}
@@ -271,6 +469,7 @@ export default function RatesScenario({
                 quote={detailQuote}
                 provenance={detailQuote?.approvedVia?.startsWith('sheet:') ? provenance[detailQuote.approvedVia.slice(6)] ?? null : null}
                 knowledge={detailQuote ? knowledgeFor(detailQuote.lenderSlug) : null}
+                reference={reference}
                 scenario={scenario}
                 pins={pins}
                 togglePin={togglePin}
@@ -286,6 +485,7 @@ export default function RatesScenario({
           pinned={pinnedQuotes}
           scenario={scenario}
           knowledgeFor={knowledgeFor}
+          reference={reference}
           fromFile={fromFile}
           onUnpin={togglePin}
           onClear={() => navigate({ pins: null })}
@@ -347,15 +547,15 @@ function ScenarioRail({
             ))}
           </select>
         </Field>
-        <Field label="Insurance class">
+        <Field label="Product class">
           <select
             className={selectCls}
-            value={scenario.insuranceClass}
-            onChange={e => setScenario({ ...scenario, insuranceClass: e.target.value as Scenario['insuranceClass'] })}
+            value={scenario.productClass}
+            onChange={e => setScenario({ ...scenario, productClass: e.target.value as Scenario['productClass'] })}
           >
-            {INSURANCE_CLASSES.map(c => (
+            {PRODUCT_CLASSES.map(c => (
               <option key={c} value={c}>
-                {c}
+                {productClassLabel(c)}
               </option>
             ))}
           </select>
@@ -371,7 +571,47 @@ function ScenarioRail({
             <option value="">Any term</option>
             {terms.map(t => (
               <option key={t} value={t}>
-                {termLabel(t)} fixed
+                {termLabel(t)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field
+          label="Rate type"
+          tip="An adjustable payment moves when prime moves and the amortization stays protected. A variable payment holds while rising prime eats amortization. The two are different products and never mix in results."
+        >
+          <select
+            className={selectCls}
+            value={scenario.rateType ?? ''}
+            onChange={e =>
+              setScenario({
+                ...scenario,
+                rateType: e.target.value ? (e.target.value as Scenario['rateType']) : null,
+              })
+            }
+            data-testid="rate-type-filter"
+          >
+            <option value="">Any rate type</option>
+            {RATE_TYPES.map(t => (
+              <option key={t} value={t}>
+                {RATE_TYPE_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field
+          label="Cash back"
+          tip="A cash back tier is its own product row with its own rate and printed conditions. It never blends into a lender's headline rate."
+        >
+          <select
+            className={selectCls}
+            value={scenario.cashback}
+            onChange={e => setScenario({ ...scenario, cashback: e.target.value as Scenario['cashback'] })}
+            data-testid="cashback-filter"
+          >
+            {CASHBACK_FILTERS.map(c => (
+              <option key={c} value={c}>
+                {c === 'any' ? 'With and without' : c === 'only' ? 'Cash back tiers only' : 'No cash back'}
               </option>
             ))}
           </select>
@@ -413,7 +653,7 @@ function ScenarioRail({
             <span>{pct === null ? 'enter amount and value' : `${pct}%`}</span>
             <span aria-hidden className="text-gray-400">&#128274;</span>
           </div>
-          {pct !== null && pct > 80 && scenario.insuranceClass !== 'insured' && (
+          {pct !== null && pct > 80 && scenario.productClass !== 'insured' && (
             <p className="text-[11px] text-amber-700 font-body mt-1">
               LTV above 80 typically means default insured.
             </p>
@@ -455,6 +695,90 @@ function Field({ label, tip, children }: { label: string; tip?: string; children
   )
 }
 
+// ─── Promo offer card (first-class scenario result) ─────────────────────────
+
+function PromoOfferCard({
+  offer,
+  scenario,
+  offersAsOf,
+}: {
+  offer: KnowledgeOffer
+  scenario: Scenario
+  offersAsOf: string | null
+}) {
+  const res = offerScenarioResult(offer.offer as OfferShape, scenario)
+  if (!res) return null
+  const provenance = (offer.offer as OfferShape).provenance
+  const payment =
+    scenario.amount !== null ? scenarioMonthlyPayment(scenario, res.ratePct) : null
+  return (
+    <div
+      className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 sm:col-span-2"
+      data-testid={`promo-offer-${res.offerId ?? 'offer'}`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white uppercase tracking-wide">
+          Promo offer
+        </span>
+        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+          {offer.days_left} day{offer.days_left === 1 ? '' : 's'} left, expires {offer.expiry}
+        </span>
+        {res.started && (
+          <span className="text-[11px] text-amber-800 font-body">effective {res.started}</span>
+        )}
+      </div>
+      <div className="mt-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-body font-semibold text-navy">{res.description}</p>
+          <p className="text-xs text-gray-600 font-body mt-1">
+            Tier for this scenario: <span className="font-semibold">{res.tierLabel}</span>
+            {res.compBps !== null ? `, comp ${res.compBps} bps` : ''}
+            {res.buydownRatePct !== null
+              ? `. Buydown to ${res.buydownRatePct.toFixed(2)}%${
+                  res.buydownMaxBps !== null ? ` (max ${res.buydownMaxBps} bps)` : ''
+                }.`
+              : ''}
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="font-heading text-3xl font-bold text-navy">{res.ratePct.toFixed(2)}%</p>
+          {payment !== null && (
+            <p className="text-[11px] text-gray-600 font-body">{fmtMoneyFull(payment)}/mo at the scenario amount</p>
+          )}
+        </div>
+      </div>
+      {/* Conditions summary: the structured gates a scenario cannot check
+          plus the announcement's own predicates, verbatim. */}
+      <div className="mt-2 text-xs font-body text-amber-900 space-y-0.5">
+        {res.requiredProduct && <p>Requires {res.requiredProduct}.</p>}
+        {res.closingWithinDays !== null && (
+          <p>Closing must land within {res.closingWithinDays} days of application.</p>
+        )}
+        {res.applicationWindowStart && (
+          <p>Applications from {res.applicationWindowStart} to {offer.expiry}.</p>
+        )}
+      </div>
+      {res.predicates.length > 0 && (
+        <details className="mt-2">
+          <summary className="text-xs font-semibold text-amber-900 cursor-pointer select-none py-1">
+            Full conditions ({res.predicates.length})
+          </summary>
+          <ul className="mt-1 space-y-1 text-xs text-gray-700 font-body list-disc pl-4">
+            {res.predicates.map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <p className="text-[11px] text-gray-500 font-body mt-2">
+        From the lender announcement{typeof provenance === 'string' ? ` (${provenance})` : ''}, knowledge
+        base{offersAsOf ? ` as of ${offersAsOf}` : ''}. This is an offer, not a rate sheet row; it has
+        no sheet approval provenance.
+      </p>
+    </div>
+  )
+}
+
 // ─── Level 2 ─────────────────────────────────────────────────────────────────
 
 function LenderLevel({
@@ -462,6 +786,8 @@ function LenderLevel({
   results,
   knowledge,
   offers,
+  offersAsOf,
+  reference,
   pins,
   togglePin,
   onBack,
@@ -472,6 +798,8 @@ function LenderLevel({
   results: ReturnType<typeof lenderResults>
   knowledge: KnowledgeLenderEntry | null
   offers: KnowledgeOffer[]
+  offersAsOf: string | null
+  reference: RatesReference | null
   pins: string[]
   togglePin: (id: string) => void
   onBack: () => void
@@ -493,89 +821,96 @@ function LenderLevel({
             Knowledge page
           </Link>
         ) : (
-          <span className="text-xs text-gray-400 font-body" title="No knowledge page matches this quote slug yet. The knowledge index will publish quote slug aliases; the portal never invents the mapping.">
+          <span className="text-xs text-gray-400 font-body" title="No knowledge page matches this quote slug yet. The knowledge index publishes quote slug aliases; the portal never invents the mapping.">
             no knowledge page for this slug yet
           </span>
         )}
       </div>
       <h2 className="font-heading text-navy font-bold text-xl mt-2">{knowledge?.name ?? lenderSlug}</h2>
-      {!r || r.matches.length === 0 ? (
-        <p className="text-sm text-gray-500 font-body mt-3 bg-white border border-gray-200 rounded-xl p-5">
-          No matching products for the current scenario.
-        </p>
-      ) : (
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {r.matches.map(m => {
-            const q = m.quote
-            const plusOffer =
-              classifyVariant(q.variant).kind === 'mortgage-plus'
-                ? offers.find(o => {
-                    const req = (o.offer as { eligibility?: { required_product?: string | null } }).eligibility?.required_product
-                    return typeof req === 'string' && req.toLowerCase().includes('mortgage plus')
-                  })
-                : undefined
-            const pinned = pins.includes(q.id)
-            return (
-              <div key={q.id} className="bg-white border border-gray-200 rounded-xl p-4" data-testid={`rate-product-${q.id}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-body font-semibold text-navy capitalize">
-                      {q.productClass} &middot; {variantLabel(q.variant)}
-                    </p>
-                    <p className="text-xs text-gray-500 font-body">{termLabel(q.termMonths)} fixed</p>
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Promo offers with structured terms render as first-class,
+            visually distinct results beside the sheet quotes. */}
+        {offers.map((o, i) => (
+          <PromoOfferCard key={`offer-${i}`} offer={o} scenario={scenario} offersAsOf={offersAsOf} />
+        ))}
+        {(!r || r.matches.length === 0) && (
+          <p className="text-sm text-gray-500 font-body bg-white border border-gray-200 rounded-xl p-5 sm:col-span-2">
+            No matching sheet products for the current scenario.
+          </p>
+        )}
+        {r?.matches.map(m => {
+          const q = m.quote
+          const display = quoteRateDisplay(q, reference)
+          const pinned = pins.includes(q.id)
+          return (
+            <div key={q.id} className="bg-white border border-gray-200 rounded-xl p-4" data-testid={`rate-product-${q.id}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-body font-semibold text-navy capitalize">
+                    {productClassLabel(q.productClass)} &middot; {variantLabel(q.variant)}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <span className="text-xs text-gray-500 font-body">{termLabel(q.termMonths)}</span>
+                    <TypeBadge rateType={q.rateType} reference={reference} lenderSlug={q.lenderSlug} />
+                    <CashbackChip pct={q.cashbackPct} />
                   </div>
-                  <p className="font-heading text-2xl font-bold text-navy">{q.rate.toFixed(2)}%</p>
                 </div>
-                <p className="text-xs text-gray-500 font-body mt-2">
-                  sheet {q.asOfDate ? fmtShortDate(q.asOfDate) : 'undated'}
-                  {q.compBps !== null ? ` · comp ${q.compBps} bps` : ''}
-                </p>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {plusOffer && (
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
-                      promo, {plusOffer.days_left}d left
-                    </span>
-                  )}
-                  {m.assumed.length > 0 && (
-                    <span
-                      className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 cursor-help"
-                      title={m.assumed.join(' ')}
-                    >
-                      matches all: {m.assumed.length} note{m.assumed.length === 1 ? '' : 's'}
-                    </span>
-                  )}
-                </div>
-                {m.assumed.length > 0 && (
-                  <p className="text-[11px] text-gray-400 font-body mt-1.5">{m.assumed[0]}</p>
-                )}
-                <div className="flex items-center gap-2 mt-3">
-                  <button
-                    onClick={() => onDetail(q.id)}
-                    className="text-xs font-semibold text-navy underline hover:text-lime py-1.5"
-                    data-testid={`detail-${q.id}`}
-                  >
-                    Details
-                  </button>
-                  <button
-                    onClick={() => togglePin(q.id)}
-                    disabled={!pinned && pins.length >= MAX_PINS}
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${
-                      pinned
-                        ? 'bg-navy text-white border-navy'
-                        : pins.length >= MAX_PINS
-                          ? 'text-gray-300 border-gray-200 cursor-not-allowed'
-                          : 'text-navy border-gray-300 hover:border-navy'
-                    }`}
-                    data-testid={`pin-${q.id}`}
-                  >
-                    {pinned ? 'Pinned' : pins.length >= MAX_PINS ? 'Pins full' : 'Pin to compare'}
-                  </button>
-                </div>
+                <RateHeadline display={display} size="md" />
               </div>
-            )
-          })}
-        </div>
-      )}
+              <p className="text-xs text-gray-500 font-body mt-2">
+                sheet {q.asOfDate ? fmtShortDate(q.asOfDate) : 'undated'}
+                {q.compBps !== null ? ` · comp ${q.compBps} bps` : ''}
+              </p>
+              {q.programNotes && (
+                <details className="mt-2">
+                  <summary className="text-xs font-semibold text-navy cursor-pointer select-none py-1">
+                    Program conditions, verbatim
+                  </summary>
+                  <p className="mt-1 text-xs text-gray-600 font-body whitespace-pre-wrap break-words bg-gray-50 rounded-lg p-2">
+                    {q.programNotes}
+                  </p>
+                </details>
+              )}
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {m.assumed.length > 0 && (
+                  <span
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 cursor-help"
+                    title={m.assumed.join(' ')}
+                  >
+                    matches all: {m.assumed.length} note{m.assumed.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+              {m.assumed.length > 0 && (
+                <p className="text-[11px] text-gray-400 font-body mt-1.5">{m.assumed[0]}</p>
+              )}
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  onClick={() => onDetail(q.id)}
+                  className="text-xs font-semibold text-navy underline hover:text-lime py-1.5"
+                  data-testid={`detail-${q.id}`}
+                >
+                  Details
+                </button>
+                <button
+                  onClick={() => togglePin(q.id)}
+                  disabled={!pinned && pins.length >= MAX_PINS}
+                  className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${
+                    pinned
+                      ? 'bg-navy text-white border-navy'
+                      : pins.length >= MAX_PINS
+                        ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                        : 'text-navy border-gray-300 hover:border-navy'
+                  }`}
+                  data-testid={`pin-${q.id}`}
+                >
+                  {pinned ? 'Pinned' : pins.length >= MAX_PINS ? 'Pins full' : 'Pin to compare'}
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
       <p className="text-[11px] text-gray-400 font-body mt-3">
         Scenario: {summaryLine(scenario)}
       </p>
@@ -589,6 +924,7 @@ function ProductLevel({
   quote,
   provenance,
   knowledge,
+  reference,
   scenario,
   pins,
   togglePin,
@@ -597,6 +933,7 @@ function ProductLevel({
   quote: RateQuoteFullRow | null
   provenance: SheetProvenance | null
   knowledge: KnowledgeLenderEntry | null
+  reference: RatesReference | null
   scenario: Scenario
   pins: string[]
   togglePin: (id: string) => void
@@ -612,15 +949,20 @@ function ProductLevel({
       </div>
     )
   }
-  const payment = scenarioMonthlyPayment(scenario, quote.rate)
+  const display = quoteRateDisplay(quote, reference)
+  const effective = quoteEffectiveRate(quote, reference)
+  const payment = effective !== null ? scenarioMonthlyPayment(scenario, effective) : null
   const pinned = pins.includes(quote.id)
   const decidedDay = provenance?.decidedAt ? provenance.decidedAt.slice(0, 10) : null
+  const mechanism = quote.rateType !== 'fixed' ? mechanismForLender(reference, quote.lenderSlug) : null
   const rows: [string, string][] = [
     ['Lender', knowledge?.name ?? quote.lenderSlug],
-    ['Product class', quote.productClass],
+    ['Product class', productClassLabel(quote.productClass)],
     ['Variant', variantLabel(quote.variant)],
-    ['Term', `${termLabel(quote.termMonths)} fixed`],
-    ['Rate', `${quote.rate.toFixed(2)}%`],
+    ['Term', termLabel(quote.termMonths)],
+    ['Rate type', RATE_TYPE_LABEL[quote.rateType]],
+    ['Rate', rateLineText(display)],
+    ...(quote.cashbackPct !== null ? ([['Cash back', `${quote.cashbackPct}%`]] as [string, string][]) : []),
     ['Compensation', quote.compBps !== null ? `${quote.compBps} bps` : 'not stated on the sheet'],
     ['Sheet date', quote.asOfDate ?? 'undated'],
     ['Sheet expiry', quote.expiryDate ?? 'not stated on the sheet'],
@@ -642,8 +984,13 @@ function ProductLevel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-heading text-navy font-bold text-xl capitalize">
-              {quote.productClass} &middot; {variantLabel(quote.variant)} &middot; {termLabel(quote.termMonths)}
+              {productClassLabel(quote.productClass)} &middot; {variantLabel(quote.variant)} &middot;{' '}
+              {termLabel(quote.termMonths)}
             </h2>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <TypeBadge rateType={quote.rateType} reference={reference} lenderSlug={quote.lenderSlug} size="md" />
+              <CashbackChip pct={quote.cashbackPct} />
+            </div>
             <p className="text-xs text-gray-500 font-body mt-1">
               from the {quote.asOfDate ? fmtShortDate(quote.asOfDate) : 'undated'} rate sheet
             </p>
@@ -664,13 +1011,56 @@ function ProductLevel({
           <Detail rows={extraction} title="Extraction" />
         </div>
 
-        {payment !== null && (
+        {/* Mechanism explanation: from the reference payload, never the
+            sheet label. Pending caveat renders where the note is not yet
+            lender-confirmed (Scotia Flex today). */}
+        {quote.rateType !== 'fixed' && (
+          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5" data-testid="mechanism-note">
+            <p className="text-xs font-semibold text-navy font-body">
+              How this {RATE_TYPE_LABEL[quote.rateType].toLowerCase()} rate behaves
+            </p>
+            <p className="text-xs text-gray-600 font-body mt-1">
+              {mechanism?.note ??
+                conventionText(reference, quote.rateType) ??
+                'The mechanism note has not loaded; retry the prime reference above.'}
+            </p>
+            {mechanism && (
+              <p className="text-[11px] text-gray-400 font-body mt-1">
+                Note as of {mechanism.as_of}
+                {mechanismPending(mechanism)
+                  ? '. Pending lender confirmation; treat the payment behaviour as unconfirmed until the desk confirms it.'
+                  : ''}
+              </p>
+            )}
+          </div>
+        )}
+
+        {quote.programNotes && (
+          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
+            <p className="text-xs font-semibold text-navy font-body">Program conditions, verbatim from the sheet</p>
+            <p className="text-xs text-gray-600 font-body mt-1 whitespace-pre-wrap break-words">
+              {quote.programNotes}
+            </p>
+          </div>
+        )}
+
+        {payment !== null && effective !== null ? (
           <p className="text-sm font-body text-navy mt-4 bg-lime/15 border border-lime/40 rounded-lg px-3 py-2">
             {fmtMoneyFull(payment)}/mo at the scenario&apos;s {fmtMoneyFull(scenario.amount!)} over{' '}
-            {scenario.amortizationYears} years (semi-annual compounding, the same validated math as
-            the public calculators)
+            {scenario.amortizationYears} years
+            {display.kind === 'floating-computed'
+              ? `, at the effective rate ${display.effective.toFixed(2)}% (prime ${display.primeValue.toFixed(2)}% as of ${display.primeAsOf})`
+              : display.kind === 'floating-printed'
+                ? `, at the sheet's printed ${display.rate.toFixed(2)}%`
+                : ''}{' '}
+            (semi-annual compounding, the same validated math as the public calculators)
           </p>
-        )}
+        ) : display.kind === 'floating-no-prime' && scenario.amount ? (
+          <p className="text-sm font-body text-amber-800 mt-4 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            No payment renders for this floating rate while the prime reference is unavailable; the
+            discount alone cannot price a payment.
+          </p>
+        ) : null}
 
         {/* Provenance: the trust edge. */}
         <div className="mt-4 border-t border-gray-100 pt-4">
@@ -711,7 +1101,7 @@ function ProductLevel({
             ) : (
               <span className="text-gray-400">
                 No knowledge page matches quote slug &quot;{quote.lenderSlug}&quot; yet; the knowledge
-                index will publish quote slug aliases.
+                index publishes quote slug aliases.
               </span>
             )}
           </p>
@@ -743,6 +1133,7 @@ function CompareTray({
   pinned,
   scenario,
   knowledgeFor,
+  reference,
   fromFile,
   onUnpin,
   onClear,
@@ -750,6 +1141,7 @@ function CompareTray({
   pinned: RateQuoteFullRow[]
   scenario: Scenario
   knowledgeFor: (slug: string) => KnowledgeLenderEntry | null
+  reference: RatesReference | null
   fromFile: string | null
   onUnpin: (id: string) => void
   onClear: () => void
@@ -764,8 +1156,9 @@ function CompareTray({
     setPdfError(null)
     try {
       // Browser-minted token (60s, per action) so the route can resolve
-      // lender display names from the knowledge index; the PDF still
-      // renders with stored slugs when the mint fails.
+      // lender display names and the prime reference; the PDF still
+      // renders with stored slugs and the prime-unavailable state when
+      // the mint fails.
       const token = await mintToken().catch(() => null)
       const res = await fetch('/api/portal/admin/rates/pdf', {
         method: 'POST',
@@ -799,18 +1192,31 @@ function CompareTray({
     }
   }
 
+  const mechanismLine = (q: RateQuoteFullRow): string => {
+    if (q.rateType === 'fixed') return 'Fixed: the rate and payment hold for the whole term.'
+    const note = mechanismForLender(reference, q.lenderSlug)
+    const base =
+      note?.note ?? conventionText(reference, q.rateType) ?? 'Mechanism note not loaded yet.'
+    return mechanismPending(note) ? `${base} Pending lender confirmation.` : base
+  }
+
   const compareRows: [string, (q: RateQuoteFullRow) => string][] = [
-    ['Rate', q => `${q.rate.toFixed(2)}%`],
-    ['Term', q => `${termLabel(q.termMonths)} fixed`],
-    ['Class', q => q.productClass],
+    ['Rate', q => rateLineText(quoteRateDisplay(q, reference))],
+    ['Rate type', q => RATE_TYPE_LABEL[q.rateType]],
+    ['Term', q => termLabel(q.termMonths)],
+    ['Class', q => productClassLabel(q.productClass)],
     ['Variant', q => variantLabel(q.variant)],
+    ['Cash back', q => (q.cashbackPct !== null ? `${q.cashbackPct}% (see program conditions)` : 'none')],
     [
       'Monthly payment',
       q => {
-        const p = scenarioMonthlyPayment(scenario, q.rate)
+        const eff = quoteEffectiveRate(q, reference)
+        if (eff === null) return 'prime unavailable'
+        const p = scenarioMonthlyPayment(scenario, eff)
         return p === null ? 'enter an amount' : fmtMoneyFull(p)
       },
     ],
+    ['How the rate behaves', mechanismLine],
     ['Compensation', q => (q.compBps !== null ? `${q.compBps} bps` : 'not stated')],
     ['Sheet date', q => q.asOfDate ?? 'undated'],
   ]
@@ -839,7 +1245,7 @@ function CompareTray({
         {pdfError && <p className="px-4 pb-2 text-xs text-amber-300 font-body">{pdfError}</p>}
         {expanded && (
           <div className="px-4 pb-4 overflow-x-auto">
-            <table className="w-full text-sm font-body min-w-[520px]">
+            <table className="w-full text-sm font-body min-w-[560px]">
               <thead>
                 <tr>
                   <th className="text-left text-[11px] uppercase tracking-wide text-white/50 font-medium py-1.5 w-32"></th>
@@ -865,7 +1271,7 @@ function CompareTray({
                   <tr key={label} className="border-t border-white/10">
                     <td className="py-1.5 text-[11px] uppercase tracking-wide text-white/50">{label}</td>
                     {pinned.map(q => (
-                      <td key={q.id} className="py-1.5 pr-3">
+                      <td key={q.id} className="py-1.5 pr-3 text-xs sm:text-sm">
                         {fn(q)}
                       </td>
                     ))}
@@ -888,7 +1294,9 @@ function CompareTray({
             </table>
             <p className="text-[11px] text-white/50 font-body mt-2">
               Payments use the scenario amount over {scenario.amortizationYears} years, semi-annual
-              compounding. Rates are from Michael-approved sheets on their stated dates.
+              compounding. Fixed payments use the printed rate; floating payments use the effective
+              rate labeled above, computed against the served prime. Rates are from Michael-approved
+              sheets on their stated dates.
             </p>
           </div>
         )}
