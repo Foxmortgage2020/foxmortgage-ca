@@ -184,7 +184,7 @@ export default async function StatusPage() {
             </p>
           ) : (
             <>
-              <Row label="Project" value="Reachable through portal_readonly (SELECT on 12 tables)" />
+              <Row label="Project" value="Reachable through portal_readonly (SELECT on 16 tables)" />
               <Row
                 label="Last intake activity"
                 value={

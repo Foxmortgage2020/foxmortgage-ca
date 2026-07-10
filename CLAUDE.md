@@ -551,8 +551,10 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - FP referral n8n workflow (j17v139rGek6tjAC) POSTs FP_Name / FP_Firm / FP_Email / Referral_Goal to the Leads module, but NONE of those fields exist on Leads (live fields check 2026-07-09; Zoho silently drops unknown fields). FP attribution has never been stored on webhook-created leads; only the notification emails carried it. Fix the workflow or add the fields in Zoho.
 - Paperclip DB missing `pg_trgm` PostgreSQL extension — Paperclip API write operations (PATCH/POST) return 500. Read-only works. Needs Paperclip infrastructure fix.
 - Zoho credential leak: .env.local.save was accidentally committed and removed 2026-03-27. ZOHO_REFRESH_TOKEN still NOT rotated (Vercel records date from the incident day; verified 2026-07-09). Rotate it.
-- fox-underwriting follow-up (found in Session 3 testing): POST /api/gates/shadow/[dealId]/score returns 500 when the deal has no ratio_calcs rows and the ratios dimension is scored (systemValues appears to dereference the missing newest ratio_calc). Real deals carry calcs so Michael's flow is unaffected; guard dealValues for empty calc sets. The portal renders the honest unavailable state when it happens.
-- statement_reviews/rate_sheet_reviews rows written through the Gates API keep decided_by='michael' (schema default); the acting human's identity lives on the audit_log entry (actor_clerk_id/actor_email per migration 0025). Cosmetic; note if a future hire needs decided_by to differentiate.
+- (fixed in fox-underwriting micro-session 2, 2026-07-10) the shadow ratios 500 on deals with no ratio_calcs now returns 422 with a clear validation message.
+- statement_reviews/rate_sheet_reviews rows written through the Gates API keep decided_by='michael' (schema default); the acting human's identity lives on the audit_log entry (actor_clerk_id/actor_email per migration 0025). By design: the audit log is the identity record.
+- Lender slug vocabulary gap (found in Session 4): rate_quotes carry lender_slug values like 'first-national', 'rfa', 'strive' while the knowledge base uses 'fn', 'td'. The knowledge lender page's approved-quote cross-link counts by exact slug, so FN shows 0 despite 75 first-national quotes. fox-underwriting follow-up: publish slug aliases in the knowledge index (or normalize lender_slug at extraction); the portal will not invent a mapping.
+- Session 4 test incident, disclosed for Michael: condition 21 on funded BRXM-F053724 (tax bill confirmation) was marked satisfied at 2026-07-10T03:57:21Z by UI test automation through a stray tap on an armed confirm button in a background tab (audit a8f87b71, no note; annotation appended as portal.s4_test_note audit 5263fca4). The condition's system precheck had already passed on Jul 3, and the deal is funded, so satisfied is likely materially right; re-open it workbench-side if the tax bill still needs collecting. Root cause fixed: confirm windows are now enforced by timestamp at tap time in both the desk and the conditions panel, so a background tab's throttled timer can no longer leave a button armed.
 - CLAUDE.md needs update after each session
 
 ### API Route Pattern
@@ -890,6 +892,21 @@ Savings_Identified, Last_Activity_Time, Term_Years
 - Knowledge fetches happen in the browser (same azp posture as gates) through
   three read-only proxy routes; lib/gates.ts gained gateGet and stayed the only
   Gates API caller.
+- Verification on production with Michael's real session: BRXM-F053724 deal room
+  renders borrowers, calcs with provenance, and documents, plus its Zoho Funded
+  stage from the backfill; rail counts moved overdue 33 to 0, flags 42 to 37,
+  pending approvals 2 to 1 after terminal filtering; TEST condition
+  a0c47fe9 (seed audit 93514fa0) decided moot through the UI (audit 3a4a16f0,
+  status waived, note preserved) with the stale-tab repeat returning 409
+  rendered as Already decided; the first authenticated knowledge fetch and
+  first portal conditions decision closed micro-session 2's verification debt;
+  the hotfix zoho_failed row acknowledged (recorded mfox@foxmortgage.ca,
+  04:12Z) turning the form intake panel green with the triaged-history line.
+  Test residuals: the TEST condition stays waived on the superseded
+  TEST-PORTAL-S3-001 deal; nothing deleted. One unintended live decision
+  during testing is disclosed in Known Issues (condition 21, BRXM-F053724)
+  with its annotation audit entry and the arm-window fix that prevents
+  recurrence.
 
 ### 2026-07-09 — Admin Command Center Session 3 (approvals live, deals, audit viewer)
 - Part 0: lib/underwriting.ts swapped to the portal_readonly role
