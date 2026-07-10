@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
 import { getPortalContext, isImpersonating } from '@/lib/auth'
+import { roleCan } from '@/config/authority'
+import { viewAsWriteRejection } from '@/lib/view-as'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,21 +12,17 @@ export async function POST(req: NextRequest) {
     }
 
     const isFP = ctx.actor.roles.includes('financial-planner')
-    const isAdmin = ctx.actor.roles.includes('admin')
+    // Session 8: the admin allowance is the portals.view-as capability, not a role literal.
+    const isAdmin = roleCan(ctx.actor.roles, 'portals.view-as')
     if (!isFP && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Write-block under impersonation — admins viewing as an FP must NOT
     // submit referrals that appear to come from the FP.
-    if (await isImpersonating()) {
-      return NextResponse.json(
-        {
-          error: 'ImpersonationReadOnly',
-          message: 'This action is blocked because you are viewing this portal in impersonation mode. Exit impersonation to take admin actions.',
-        },
-        { status: 403 },
-      )
+    const viewAsRejection = viewAsWriteRejection(await isImpersonating())
+    if (viewAsRejection) {
+      return NextResponse.json(viewAsRejection.body, { status: viewAsRejection.status })
     }
 
     const body = await req.json()

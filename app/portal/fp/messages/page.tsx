@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Send, Loader2 } from 'lucide-react'
+import { usePortalImpersonation } from '@/lib/portal-impersonation'
 
 interface Message {
   id?: string
@@ -28,6 +29,7 @@ const WELCOME: Message = {
 }
 
 export default function FPMessagesPage() {
+  const viewAs = usePortalImpersonation()
   const [messages, setMessages] = useState<Message[]>([])
   const [loadingThread, setLoadingThread] = useState(true)
   const [messageText, setMessageText] = useState('')
@@ -137,6 +139,11 @@ export default function FPMessagesPage() {
       )}
 
       {/* Compose */}
+      {viewAs ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm font-body text-gray-500">
+          Read-only view — actions are disabled while viewing as {viewAs.partnerName}.
+        </div>
+      ) : (
       <form onSubmit={handleSend} className="flex gap-2">
         <input
           type="text"
@@ -159,6 +166,7 @@ export default function FPMessagesPage() {
           Send
         </button>
       </form>
+      )}
 
       <p className="font-body text-xs text-gray-400 mt-3">
         Michael typically responds within 1 business day. You&apos;ll receive an email notification

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { roleCan } from '@/config/authority'
 import { getDeferredSchedules } from '@/lib/zoho-creator'
 
 // GET /api/bookkeeping/deferred-schedules?status=Active
@@ -9,7 +10,8 @@ export async function GET(req: NextRequest) {
     const user = await currentUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const roles = (user.publicMetadata as { roles?: string[] })?.roles || []
-    if (!roles.includes('admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Session 8: permission key, not a role literal.
+    if (!roleCan(roles, 'bookkeeping.view')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const status = req.nextUrl.searchParams.get('status') ?? undefined
     const records = await getDeferredSchedules(status)

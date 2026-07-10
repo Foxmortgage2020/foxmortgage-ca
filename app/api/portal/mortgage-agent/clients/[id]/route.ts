@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPortalContext } from '@/lib/auth'
+import { roleCan } from '@/config/authority'
 import { getMortgageAgentClientDetail, relationshipTagFor } from '@/lib/zoho'
 
 export async function GET(
@@ -13,7 +14,8 @@ export async function GET(
     }
 
     const isMortgageAgent = ctx.actor.roles.includes('mortgage_agent')
-    const isAdmin = ctx.actor.roles.includes('admin')
+    // Session 8: the admin allowance is the portals.view-as capability, not a role literal.
+    const isAdmin = roleCan(ctx.actor.roles, 'portals.view-as')
     if (!isMortgageAgent && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

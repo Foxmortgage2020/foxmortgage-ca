@@ -26,7 +26,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const portalLinks = can(user, 'portals.view-as') ? PORTAL_QUICK_LINKS : []
 
   return (
-    <AdminShell items={items} portalLinks={portalLinks} userName={user.name}>
+    <AdminShell
+      items={items}
+      portalLinks={portalLinks}
+      userName={user.name}
+      roleLabel={user.roles.join(', ')}
+    >
       {children}
     </AdminShell>
   )

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { currentUser } from '@clerk/nextjs/server'
+import { apiPermission } from '@/lib/authz'
 import { updateReviewRecord } from '@/lib/zoho-creator'
 
 // POST /api/bookkeeping/review-queue/[id]/approve
@@ -9,10 +9,10 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await currentUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const roles = (user.publicMetadata as { roles?: string[] })?.roles || []
-    if (!roles.includes('admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Session 8: permission key, not a role literal (bookkeeping.view is
+    // admin-only in the shipped baseline).
+    const gate = await apiPermission('bookkeeping.view')
+    if (!gate.ok) return NextResponse.json({ error: gate.message }, { status: gate.status })
 
     const { id } = params
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })

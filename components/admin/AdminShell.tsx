@@ -69,10 +69,13 @@ type Props = {
   items: ShellNavItem[]
   portalLinks: ShellPortalLink[]
   userName: string
+  // Session 8: the footer chip prints the actual roles, not an Admin
+  // literal — an ops user reads "ops" down there.
+  roleLabel?: string
   children: React.ReactNode
 }
 
-export default function AdminShell({ items, portalLinks, userName, children }: Props) {
+export default function AdminShell({ items, portalLinks, userName, roleLabel, children }: Props) {
   const pathname = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { signOut } = useClerk()
@@ -149,7 +152,7 @@ export default function AdminShell({ items, portalLinks, userName, children }: P
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-white truncate">{userName}</div>
           <div className="text-[10px] bg-lime/20 text-lime px-2 py-0.5 rounded-full inline-block mt-0.5">
-            Admin
+            {roleLabel || 'Admin'}
           </div>
         </div>
       </div>

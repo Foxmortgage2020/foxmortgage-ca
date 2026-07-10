@@ -1,15 +1,19 @@
 // POST /api/admin/impersonate
 //
-// Admin-only. Looks up the target partner in Zoho to derive a display name
-// and firm, then sets the `fox_impersonation` signed+encrypted cookie via
-// lib/auth.ts. The cookie is httpOnly + sameSite=lax + secure-in-production,
-// and is honored by lib/auth.ts#getPortalContext only when the requesting
-// user has the 'admin' role at request time (defense in depth — cookie
-// alone is never enough).
+// Gated on portals.view-as (Session 8; admin-only in the shipped
+// baseline). Looks up the target partner in Zoho to derive a display name
+// and firm, logs the session start to FOXCA (view_as_sessions, narrow
+// security-definer function), then sets the `fox_impersonation`
+// signed+encrypted cookie via lib/auth.ts. The cookie is httpOnly +
+// sameSite=lax + secure-in-production, and is honored by
+// lib/auth.ts#getPortalContext only when the requesting user has the
+// 'admin' role at request time (defense in depth — cookie alone is never
+// enough).
 
 import { NextResponse } from 'next/server'
-import { currentUser } from '@clerk/nextjs/server'
+import { apiPermission } from '@/lib/authz'
 import { setImpersonationCookie } from '@/lib/auth'
+import { viewAsStart } from '@/lib/people-store'
 import { getZohoToken } from '@/lib/zoho'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
@@ -70,15 +74,10 @@ async function lookupPartner(
 }
 
 export async function POST(req: Request) {
-  // 1. Admin gate.
-  const user = await currentUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  const metadata = (user.publicMetadata ?? {}) as { roles?: string[] }
-  const roles = metadata.roles ?? []
-  if (!roles.includes('admin')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // 1. Permission gate (Session 8: portals.view-as, not a role literal).
+  const gate = await apiPermission('portals.view-as')
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.message }, { status: gate.status })
   }
 
   // 2. Parse + validate body.
@@ -161,7 +160,24 @@ export async function POST(req: Request) {
     )
   }
 
-  // 4. Set the signed+encrypted cookie. Firm is intentionally undefined for
+  // 4. Log the session start to FOXCA. Graceful: a store outage never
+  // blocks Michael's own tool, but the miss is logged loudly and the
+  // session will show as never-ended in the view-as log.
+  let logId: string | undefined
+  const logged = await viewAsStart({
+    viewerClerkId: gate.user.userId,
+    viewerEmail: gate.user.email,
+    partnerZohoId: partnerId,
+    partnerName: partner.name,
+    portalRole: role,
+  })
+  if (logged.configured && logged.ok && typeof logged.data === 'string') {
+    logId = logged.data
+  } else {
+    console.error('[admin/impersonate] view_as_start did not record; session will lack a log row')
+  }
+
+  // 5. Set the signed+encrypted cookie. Firm is intentionally undefined for
   // now — the canonical firm source lives elsewhere in Zoho and is out of
   // scope for this build.
   await setImpersonationCookie({
@@ -169,6 +185,7 @@ export async function POST(req: Request) {
     partnerId,
     partnerName: partner.name,
     partnerFirm: undefined,
+    logId,
   })
 
   return NextResponse.json({

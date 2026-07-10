@@ -265,6 +265,43 @@ export function decideCondition(
   return gateCall(`/api/gates/conditions/${conditionId}/decision`, withNote({ action }, note), token)
 }
 
+// ─── Agent provisioning (Session 8; fox-underwriting micro-session 4) ──────
+// POST /api/gates/agents creates the workbench half of a new agent behind
+// the agents.provision key. The body schema is strict (an extra key is a
+// 422 — structurally no credential can pass through), so only the four
+// documented fields are ever sent. setup_remaining is the honest
+// checklist the wizard renders verbatim: everything a working agent
+// needs that the row alone does not give.
+
+export interface AgentSetupRemainingItem {
+  item: string
+  note: string
+}
+
+export interface AgentProvisionResponse {
+  agentId: string
+  name: string
+  email: string
+  fsraLicence: string
+  officePhone: string | null
+  setup_remaining: AgentSetupRemainingItem[]
+  auditId: string
+}
+
+export function provisionWorkbenchAgent(
+  input: { name: string; email: string; fsraLicence: string; officePhone?: string },
+  token: string | null,
+): Promise<GateResult<AgentProvisionResponse>> {
+  const body: Record<string, unknown> = {
+    name: input.name,
+    email: input.email,
+    fsra_licence: input.fsraLicence,
+  }
+  const phone = input.officePhone?.trim()
+  if (phone) body.office_phone = phone
+  return gateCall('/api/gates/agents', body, token)
+}
+
 // ─── Knowledge endpoints (read-only, behind knowledge.view) ─────────────────
 // Same auth posture as the gates: a browser-minted token rides in. GET
 // only; the knowledge base is git-versioned repo files served verbatim.

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { roleCan } from '@/config/authority'
 
 // Cached QBO Chart of Accounts for sandbox realm 9341456901231490
 // Fetched from QBO on demand and cached in-memory for 1 hour.
@@ -46,7 +47,8 @@ export async function GET(_req: NextRequest) {
     const user = await currentUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const roles = (user.publicMetadata as { roles?: string[] })?.roles || []
-    if (!roles.includes('admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Session 8: permission key, not a role literal.
+    if (!roleCan(roles, 'bookkeeping.view')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     if (_coaCache && Date.now() < _coaCacheExpiry) {
       return NextResponse.json({ accounts: _coaCache, cached: true })
@@ -68,7 +70,7 @@ export async function POST(_req: NextRequest) {
     const user = await currentUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const roles = (user.publicMetadata as { roles?: string[] })?.roles || []
-    if (!roles.includes('admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!roleCan(roles, 'bookkeeping.view')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     _coaCache = null
     _coaCacheExpiry = 0

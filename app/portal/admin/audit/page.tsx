@@ -86,7 +86,11 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
         <p className="text-gray-500 font-body text-sm mt-1">
           Append-only supervision record from the workbench. Entries are never edited or
           deleted; test entries are marked and superseded, never removed. Portal gate actions
-          carry the acting human&rsquo;s identity.
+          carry the acting human&rsquo;s identity.{' '}
+          <Link href="/portal/admin/audit/view-as" className="text-navy underline hover:text-lime">
+            View-as sessions
+          </Link>{' '}
+          have their own log.
         </p>
       </div>
 

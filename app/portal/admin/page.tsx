@@ -7,7 +7,7 @@
 // in docs/portal-audit-2026-07.md.
 
 import Link from 'next/link'
-import { requirePermission } from '@/lib/authz'
+import { can, requirePermission } from '@/lib/authz'
 import {
   ANNUAL_FUNDED_TARGET,
   CLOSINGS_ATTENTION_DAYS,
@@ -150,7 +150,10 @@ function QuietNote({ children }: { children: React.ReactNode }) {
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default async function AdminHome() {
-  await requirePermission('deals.view')
+  // Session 8: Home is permission-composed. Every section gates on the
+  // same key as its destination page, so an ops or agent home shows
+  // exactly what their nav can reach — nothing more.
+  const user = await requirePermission('deals.view')
 
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
@@ -341,7 +344,7 @@ export default async function AdminHome() {
     )
   }
 
-  if (pendingApprovals > 0) {
+  if (can(user, 'approvals.view') && pendingApprovals > 0) {
     attentionCards.push(
       <AttentionCard
         key="approvals"
@@ -364,7 +367,7 @@ export default async function AdminHome() {
   const credRows = credentials
     .map(c => ({ c, tone: credentialTone(c.expires_on, todayYMD) }))
     .filter(x => x.tone === 'red' || x.tone === 'amber')
-  if (credRows.length > 0) {
+  if (can(user, 'compliance.view') && credRows.length > 0) {
     attentionCards.push(
       <AttentionCard
         key="credentials"
@@ -538,8 +541,9 @@ export default async function AdminHome() {
         </SectionCard>
       </div>
 
-      {/* Goal pacing + Rates */}
+      {/* Goal pacing + Rates — each behind its destination page's key */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {can(user, 'revenue.view') && (
         <div className="lg:col-span-2">
           <SectionCard
             title={`Goal pacing ${year}`}
@@ -615,7 +619,9 @@ export default async function AdminHome() {
             )}
           </SectionCard>
         </div>
+        )}
 
+        {can(user, 'rates.view') && (
         <SectionCard
           title="Rates"
           action={
@@ -656,6 +662,7 @@ export default async function AdminHome() {
             <QuietNote>Workbench rates data is unavailable right now.</QuietNote>
           )}
         </SectionCard>
+        )}
       </div>
 
       {/* Closings this week */}

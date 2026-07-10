@@ -1,7 +1,6 @@
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { getPortalContext } from '@/lib/auth'
+import { requirePermission } from '@/lib/authz'
 import {
   getPartner,
   getPartnerDocuments,
@@ -71,10 +70,8 @@ export default async function AdminPartnerDetailPage({
 }: {
   params: { partnerId: string }
 }) {
-  const ctx = await getPortalContext()
-  if (!ctx || !ctx.actor.roles.includes('admin')) {
-    redirect('/portal')
-  }
+  // Session 8: permission key, not a role literal.
+  await requirePermission('partners.provision')
 
   const { partnerId } = params
   const partner = await getPartner(partnerId)

@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { MapPin, ArrowRight } from 'lucide-react';
 import PortalErrorState from '@/components/PortalErrorState';
+import { usePortalImpersonation } from '@/lib/portal-impersonation';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
 
 export default function InvestorOpportunitiesPage() {
+  const viewAs = usePortalImpersonation();
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -132,7 +134,11 @@ export default function InvestorOpportunitiesPage() {
         )}
 
         <div className="mt-4">
-          {expressed[dealId] ? (
+          {viewAs ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm font-body text-gray-500">
+              Read-only view — actions are disabled while viewing as {viewAs.partnerName}.
+            </div>
+          ) : expressed[dealId] ? (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center text-green-700 text-sm font-body">
               Interest registered! Michael will be in touch within 1 business day.
             </div>

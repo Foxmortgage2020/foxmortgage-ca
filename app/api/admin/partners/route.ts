@@ -13,7 +13,8 @@
 // switch to Clerk's metadata-filtered listing.
 
 import { NextResponse } from 'next/server'
-import { currentUser, clerkClient } from '@clerk/nextjs/server'
+import { clerkClient } from '@clerk/nextjs/server'
+import { apiPermission } from '@/lib/authz'
 
 type Role = 'fp' | 'investor' | 'realtor' | 'lawyer' | 'mortgage_agent'
 
@@ -36,14 +37,10 @@ function isRole(value: string): value is Role {
 }
 
 export async function GET(req: Request) {
-  const user = await currentUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  const metadata = (user.publicMetadata ?? {}) as { roles?: string[] }
-  const roles = metadata.roles ?? []
-  if (!roles.includes('admin')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Session 8: permission key, not a role literal.
+  const gate = await apiPermission('partners.provision')
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.message }, { status: gate.status })
   }
 
   const { searchParams } = new URL(req.url)

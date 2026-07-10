@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getPortalContext } from '@/lib/auth'
+import { roleCan } from '@/config/authority'
 import { getInvestorDeal } from '@/lib/zoho'
 
 export async function GET(
@@ -13,7 +14,8 @@ export async function GET(
     }
 
     const isInvestor = ctx.actor.roles.includes('investor')
-    const isAdmin = ctx.actor.roles.includes('admin')
+    // Session 8: the admin allowance is the portals.view-as capability, not a role literal.
+    const isAdmin = roleCan(ctx.actor.roles, 'portals.view-as')
     if (!isInvestor && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

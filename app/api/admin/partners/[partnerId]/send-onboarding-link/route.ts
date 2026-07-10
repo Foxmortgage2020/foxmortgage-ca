@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { getPortalContext } from '@/lib/auth'
+import { roleCan } from '@/config/authority'
 import { getPartner, updatePartner } from '@/lib/zoho'
 import { rememberMagicLink } from '@/lib/cache'
 import {
@@ -26,7 +27,8 @@ export async function POST(
     if (!ctx) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!ctx.actor.roles.includes('admin')) {
+    // Session 8: permission key, not a role literal.
+    if (!roleCan(ctx.actor.roles, 'partners.provision')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

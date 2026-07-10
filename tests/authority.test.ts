@@ -4,7 +4,16 @@
 // the network.
 
 import { describe, expect, it } from 'vitest'
-import { normalizeRoles, roleCan } from '../config/authority'
+import {
+  PERMISSIONS,
+  PERMISSION_LABELS,
+  ROLES,
+  normalizeRoles,
+  roleCan,
+  type Permission,
+} from '../config/authority'
+import { effectiveAccess } from '../lib/effective-access'
+import { ADMIN_NAV } from '../config/admin-nav'
 
 const GATE_PERMISSIONS = [
   'approvals.statement.decide',
@@ -44,5 +53,116 @@ describe('gate decision permissions', () => {
     expect(roleCan(normalizeRoles({ role: 'mystery-role' }), 'shadow.score')).toBe(false)
     expect(roleCan(normalizeRoles({ roles: [42, null] as unknown as string[] }), 'audit.view')).toBe(false)
     expect(roleCan(normalizeRoles({}), 'approvals.statement.decide')).toBe(false)
+  })
+})
+
+// ─── Session 8: shipped role baselines ──────────────────────────────────────
+// The exact per-role grant sets the brief records as the day-one surface.
+// Editing config/authority.ts intentionally breaks these — update both.
+
+const ALL_KEYS = Object.keys(PERMISSIONS) as Permission[]
+const grantSet = (role: string) => ALL_KEYS.filter(k => roleCan([role], k)).sort()
+
+describe('session 8 role baselines', () => {
+  it('ops baseline: views only, no decide keys', () => {
+    expect(grantSet('ops')).toEqual(
+      ['deals.view', 'compliance.view', 'knowledge.view', 'status.view', 'roadmap.view'].sort(),
+    )
+  })
+
+  it('underwriting-reviewer baseline: ops plus approvals visibility and agent.use', () => {
+    expect(grantSet('underwriting-reviewer')).toEqual(
+      [
+        'deals.view',
+        'compliance.view',
+        'knowledge.view',
+        'status.view',
+        'roadmap.view',
+        'approvals.view',
+        'agent.use',
+      ].sort(),
+    )
+  })
+
+  it('underwriting-reviewer is a strict superset of ops', () => {
+    for (const key of grantSet('ops')) {
+      expect(roleCan(['underwriting-reviewer'], key)).toBe(true)
+    }
+  })
+
+  it('agent baseline: their own scope', () => {
+    expect(grantSet('agent')).toEqual(
+      ['deals.view', 'knowledge.view', 'agent.use', 'roadmap.view'].sort(),
+    )
+  })
+
+  it('decision and provisioning keys stay admin-only', () => {
+    const adminOnly: Permission[] = [
+      'approvals.statement.decide',
+      'approvals.ratesheet.decide',
+      'flags.disposition',
+      'shadow.score',
+      'conditions.decide',
+      'agent.execute',
+      'compliance.manage',
+      'status.acknowledge',
+      'people.manage',
+      'agents.provision',
+      'partners.provision',
+      'portals.view-as',
+      'settings.manage',
+      'audit.view',
+    ]
+    for (const key of adminOnly) {
+      expect(PERMISSIONS[key]).toEqual(['admin'])
+    }
+  })
+
+  it('every permission key carries a label', () => {
+    for (const key of ALL_KEYS) {
+      expect(typeof PERMISSION_LABELS[key]).toBe('string')
+      expect(PERMISSION_LABELS[key].length).toBeGreaterThan(0)
+    }
+  })
+})
+
+// ─── Session 8: effective-access view ───────────────────────────────────────
+
+describe('effectiveAccess', () => {
+  it('covers every nav page and every non-nav permission, for every role', () => {
+    const navPermissions = new Set(ADMIN_NAV.map(i => i.permission))
+    for (const role of ROLES) {
+      const access = effectiveAccess(role)
+      expect(access.pages.length).toBe(ADMIN_NAV.length)
+      expect(access.actions.length).toBe(ALL_KEYS.filter(k => !navPermissions.has(k)).length)
+    }
+  })
+
+  it('admin reaches every page and every action', () => {
+    const access = effectiveAccess('admin')
+    expect(access.pages.every(p => p.allowed)).toBe(true)
+    expect(access.actions.every(a => a.allowed)).toBe(true)
+  })
+
+  it('agrees with roleCan for every role and entry', () => {
+    for (const role of ROLES) {
+      const access = effectiveAccess(role)
+      for (const p of access.pages) expect(p.allowed).toBe(roleCan([role], p.permission))
+      for (const a of access.actions) expect(a.allowed).toBe(roleCan([role], a.key))
+    }
+  })
+
+  it('ops sees no approval queues; underwriting-reviewer sees them; agent sees Ask Fox', () => {
+    const ops = effectiveAccess('ops')
+    const ur = effectiveAccess('underwriting-reviewer')
+    const agent = effectiveAccess('agent')
+    const page = (a: ReturnType<typeof effectiveAccess>, label: string) =>
+      a.pages.find(p => p.label === label)!
+    expect(page(ops, 'Approvals').allowed).toBe(false)
+    expect(page(ur, 'Approvals').allowed).toBe(true)
+    expect(page(agent, 'Ask Fox').allowed).toBe(true)
+    expect(page(ops, 'Ask Fox').allowed).toBe(false)
+    // Visibility never implies decide: UR sees the queues, holds no decide keys.
+    expect(ur.actions.find(a => a.key === 'conditions.decide')!.allowed).toBe(false)
   })
 })

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { roleCan } from '@/config/authority'
 import { getBookkeepingRules, createBookkeepingRule, updateBookkeepingRule } from '@/lib/zoho-creator'
 
 function adminOnly(roles: string[]): boolean {
-  return roles.includes('admin')
+  // Session 8: permission key, not a role literal.
+  return roleCan(roles, 'bookkeeping.view')
 }
 
 // Service-account auth for n8n (no Clerk session available in automated workflows)

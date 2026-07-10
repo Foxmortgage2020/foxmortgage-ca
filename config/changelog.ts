@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-10',
+    title: 'Session 8: Multi-user hardening',
+    detail:
+      'The platform is ready for its second human before the second human exists. Roles are live and verified: ops, underwriting reviewer, and agent each see exactly their surface, every admin page gates on a permission key, and Settings gains an effective-access view (pick a role, see everything it reaches). View-as is now a governed capability: a picker under the portals nav, structurally read-only (controls absent, server refuses writes), every session logged with viewer and viewed under Audit Log. Provisioning is a wizard at Settings → People — staff, partner (Zoho id picked, never typed), and agent (workbench half through the Gates API with its honest setup checklist). Offboarding is one two-tap action: access disabled and sessions revoked immediately, with a persisted cleanup checklist built from what the system knows. Nothing deletes.',
+  },
+  {
+    date: '2026-07-10',
     title: 'Session 7: Revenue and Partners',
     detail:
       'The money layer and the relationship layer. Revenue: commission forecast by close month (stage-weighted, priced from recorded commissions where they exist and the comp model everywhere else, every estimate labeled), funded trends with honest mix charts, the conversion funnel with its method caveat, goal pacing deep view, and the business-line P&L tile with its honest not-connected state. Partners: ranked for Monday attention with health chips, referral stats, attributed revenue, and portal sign-in recency; detail pages gain referred files and cadence. Ask Fox learned to check open Zoho tasks before proposing a card (prompt v2), and the chat gained a thinking indicator.',

@@ -40,6 +40,11 @@ export type ImpersonationContext = {
   partnerId: string
   partnerName: string
   partnerFirm?: string
+  // Session 8: FOXCA view_as_sessions row id, minted when the session
+  // starts so the exit route can stamp ended_at. Optional — a session
+  // started while the store was unreachable carries no logId and simply
+  // shows as expired in the log.
+  logId?: string
 }
 
 export type PortalContext = {
@@ -184,12 +189,15 @@ function verifyAndDecode(cookieValue: string): ImpersonationContext | null {
     typeof p.partnerFirm === 'string' && p.partnerFirm.length > 0
       ? p.partnerFirm
       : undefined
+  const logId =
+    typeof p.logId === 'string' && p.logId.length > 0 ? p.logId : undefined
 
   return {
     role: p.role,
     partnerId: p.partnerId,
     partnerName: p.partnerName,
     partnerFirm,
+    logId,
   }
 }
 

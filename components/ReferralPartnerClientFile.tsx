@@ -13,6 +13,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import PortalErrorState from '@/components/PortalErrorState'
+import { usePortalImpersonation } from '@/lib/portal-impersonation'
 import {
   ChevronLeft,
   MessageSquare,
@@ -227,6 +228,7 @@ const statusColors: Record<string, string> = {
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerKind; id: string }) {
+  const viewAs = usePortalImpersonation()
   const apiBase = `/api/portal/${kind}`
   const clientsHref = `/portal/${kind}/clients`
 
@@ -709,7 +711,11 @@ export default function ReferralPartnerClientFile({ kind, id }: { kind: PartnerK
           </div>
         )}
 
-        {messagingEnabled ? (
+        {messagingEnabled && viewAs ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm font-body text-gray-500">
+            Read-only view — actions are disabled while viewing as {viewAs.partnerName}.
+          </div>
+        ) : messagingEnabled ? (
           <>
             {messageError && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 font-body text-xs text-amber-900">

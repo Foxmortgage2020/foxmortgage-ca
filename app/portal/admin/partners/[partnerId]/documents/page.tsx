@@ -1,7 +1,6 @@
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { getPortalContext } from '@/lib/auth'
+import { requirePermission } from '@/lib/authz'
 import { getPartner, getPartnerDocuments } from '@/lib/zoho'
 import DocumentUploader from '@/components/DocumentUploader'
 
@@ -41,10 +40,8 @@ export default async function AdminPartnerDocumentsPage({
 }) {
   // Server-side admin gate. A non-admin hitting this URL gets bounced
   // straight to /portal — never sees the form or partner data.
-  const ctx = await getPortalContext()
-  if (!ctx || !ctx.actor.roles.includes('admin')) {
-    redirect('/portal')
-  }
+  // Session 8: permission key, not a role literal.
+  await requirePermission('partners.provision')
 
   const { partnerId } = params
   const partner = await getPartner(partnerId)

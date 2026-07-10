@@ -156,7 +156,11 @@ export const ADMIN_NAV: AdminNavItem[] = [
 ]
 
 // Quick-jump links into the partner-facing portals (admin oversight).
+// "View as a partner" (Session 8) opens the governed picker: any partner's
+// portal, read-only, logged to FOXCA. The bare portal links below open the
+// admin's own (empty) view of each portal shell.
 export const PORTAL_QUICK_LINKS: { label: string; href: string }[] = [
+  { label: 'View as a partner…', href: '/portal/admin/view-as' },
   { label: 'Financial Planner', href: '/portal/fp/dashboard' },
   { label: 'Realtor', href: '/portal/realtor/dashboard' },
   { label: 'Lawyer', href: '/portal/lawyer/dashboard' },

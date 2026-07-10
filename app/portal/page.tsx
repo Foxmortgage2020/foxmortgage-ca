@@ -33,6 +33,18 @@ export default function PortalRedirect() {
       return
     }
 
+    // Internal staff roles (Session 8: ops, underwriting-reviewer, agent)
+    // live in the command center too — the admin layout and nav filter to
+    // exactly their permitted sections via the authority matrix.
+    if (
+      ['ops', 'underwriting-reviewer', 'agent'].some(
+        r => roles.includes(r) || role === r,
+      )
+    ) {
+      router.push('/portal/admin')
+      return
+    }
+
     // Investor only (not also a partner)
     if (
       roles.includes('investor') &&

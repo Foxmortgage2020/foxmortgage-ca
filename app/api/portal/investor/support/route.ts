@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPortalContext, isImpersonating } from '@/lib/auth'
+import { roleCan } from '@/config/authority'
+import { viewAsWriteRejection } from '@/lib/view-as'
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,7 +11,8 @@ export async function POST(req: NextRequest) {
     }
 
     const isInvestor = ctx.actor.roles.includes('investor')
-    const isAdmin = ctx.actor.roles.includes('admin')
+    // Session 8: the admin allowance is the portals.view-as capability, not a role literal.
+    const isAdmin = roleCan(ctx.actor.roles, 'portals.view-as')
     if (!isInvestor && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -17,14 +20,9 @@ export async function POST(req: NextRequest) {
     // Write-block under impersonation — pre-emptive even though the route is
     // a stub today. When this is wired to Zoho, the block prevents an admin
     // viewing as an investor from filing support tickets as that investor.
-    if (await isImpersonating()) {
-      return NextResponse.json(
-        {
-          error: 'ImpersonationReadOnly',
-          message: 'This action is blocked because you are viewing this portal in impersonation mode. Exit impersonation to take admin actions.',
-        },
-        { status: 403 },
-      )
+    const viewAsRejection = viewAsWriteRejection(await isImpersonating())
+    if (viewAsRejection) {
+      return NextResponse.json(viewAsRejection.body, { status: viewAsRejection.status })
     }
 
     const body = await req.json()

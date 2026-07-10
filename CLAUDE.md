@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 10, 2026 (Session 7 shipped: Revenue and Partners — commission forecast on the comp model with actuals-first pricing, funded trends and honest mix, funnel with method caveat, P&L graceful state, partner health ranking with server-side Clerk sign-in recency; Ask Fox prompt v2 adds get_open_tasks dedup; thinking indicator)
+## Last Updated: July 10, 2026 (Session 8 shipped: Multi-user hardening — role baselines live and verified per role on dev-instance users, zero role-literal gates repo-wide, effective-access view on Settings, view-as governed and FOXCA-logged with structural read-only, provisioning wizard at Settings → People consuming POST /api/gates/agents, offboarding with persisted checklist; nothing deletes)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -97,7 +97,11 @@ Changelog (S4, under Knowledge) | Compliance (S6) | Revenue (S7) |
 Partners (S7 health ranking over the existing management pages) |
 Directory (S4) | Bookkeeping (nav link to existing /portal/bookkeeping,
 pages untouched) | Audit Log (S3) | Status | Settings | Roadmap. All live.
-Config: `config/admin-nav.ts`.
+Config: `config/admin-nav.ts`. Session 8 additions outside the main list:
+"View as a partner…" heads the portals quick-links block
+(portals.view-as); People lives under Settings
+(/portal/admin/settings/people, people.manage); the view-as session log
+lives under Audit Log (/portal/admin/audit/view-as, audit.view).
 
 ### Session 4 pages and semantics
 - Terminal-deal filtering: config/pipeline.ts isTerminalWorkbenchDeal (status not
@@ -492,6 +496,97 @@ Config: `config/admin-nav.ts`.
   data-estimate chip whose tooltip names the assumptions (grep
   data-estimate across app/portal/admin/revenue and the two partner
   components to verify).
+
+### Session 8: Multi-user hardening (2026-07-10)
+- Shipped role baselines (config/authority.ts, recorded in the header
+  comment there and asserted exactly in tests/authority.test.ts):
+  ops = deals.view, compliance.view, knowledge.view, status.view,
+  roadmap.view; underwriting-reviewer = ops + approvals.view + agent.use
+  (a strict superset of ops, tested); agent = deals.view, knowledge.view,
+  agent.use, roadmap.view. Decision keys, agent.execute,
+  compliance.manage, status.acknowledge, and the provisioning keys
+  (people.manage NEW, agents.provision NEW — the latter a CONTRACT with
+  the gates API micro-session 4) stay admin-only. PERMISSION_LABELS maps
+  every key to plain language (completeness unit-tested).
+- ZERO role-literal gates remain anywhere (grep `roles.includes('admin')`
+  across app/ returns nothing). Admin pages use requirePermission; admin
+  API routes use apiPermission or roleCan with permission keys;
+  bookkeeping routes gate on bookkeeping.view (service-account Bearer
+  paths untouched); the admin allowance inside partner-portal API routes
+  is now roleCan(roles, 'portals.view-as') — the capability it always
+  was. The /portal dispatcher routes internal roles (ops/UR/agent) to
+  /portal/admin; the Home page is permission-composed (approvals rail
+  behind approvals.view, pacing behind revenue.view, rates tile behind
+  rates.view, credentials rail behind compliance.view); the shell footer
+  chip prints actual roles.
+- Effective-access view on Settings (?role= URL state): every nav page
+  and every non-nav action with allowed/denied per role, derived live
+  from the matrix + nav by lib/effective-access.ts (no third source of
+  truth; unit-tested for all four roles).
+- View-as formalized: picker at /portal/admin/view-as (exact
+  Partner_Type groups; prospects excluded because the impersonate route
+  validates exact type), "View as a partner…" heads the portals nav
+  block. Both impersonate routes gate on portals.view-as. Every session
+  logs to FOXCA view_as_sessions through view_as_start/view_as_end (the
+  cookie carries the log row id as logId; store outage degrades to a
+  loud console error, never a block) and lists at
+  /portal/admin/audit/view-as (ended / expired-after-12h / active).
+  Structurally read-only, belt and suspenders: lib/view-as.ts
+  viewAsWriteRejection is the single server rejection every partner
+  write route runs (10 routes refactored; copy is a tested UX contract),
+  and all write controls (4 add-referral forms, 4 message composers,
+  investor express-interest, ReferralPartnerClientFile composer) are
+  ABSENT in view-as, replaced by the quiet read-only notice.
+- Provisioning wizard at /portal/admin/settings/people/new
+  (people.manage): staff (ops/UR with the exact grants rendered before
+  confirm), partner (kind chips + Zoho search-and-pick so the id is
+  selected never typed, re-verified server-side against live Zoho type;
+  metadata keys from lib/partner-types, identical to self-onboarding),
+  agent (Clerk half + workbench half through
+  lib/gates.ts provisionWorkbenchAgent → POST /api/gates/agents with the
+  browser-minted token forwarded; setup_remaining renders verbatim as
+  the honest hand-back; gates failure reported, never rolled back, never
+  pretended). Invitation email optional (Resend,
+  noreply@app.foxmortgage.ca, forgot-password first-sign-in copy).
+  people_provisioning records who provisioned whom. Validation is pure
+  (lib/provisioning.ts, tested): admin is NOT provisionable.
+- People list at /portal/admin/settings/people: every Clerk user with
+  roles, last sign-in (server-side, paginated getUserList), provisioned
+  by (FOXCA; older accounts read "pre-wizard (manual)"), status
+  (active/disabled), self shows "you" with no disable button.
+- Offboarding: two-tap Disable (timestamp-enforced arm window) → POST
+  offboard bans the Clerk user AND revokes live sessions in one action
+  (lib/people.ts banAndRevokeUser; ban failure aborts everything — no
+  checklist for a person who is still in; self-offboard refused, lockout
+  protection). Checklist built by pure lib/offboarding.ts (tested):
+  disable + grants-void pre-done; partner attribution with the honest
+  referred-file count (or could-not-read); agent workbench book +
+  FINMO_API_KEY_<AGENT> revoke (named from the gates setup_remaining
+  contract); compliance credentials matched by holder. Persisted to
+  people_offboarding; items toggle with updated_by stamped; record page
+  at settings/people/offboard/[id]. Nothing deletes — audit history,
+  provisioning records, and view-as logs remain.
+- FOXCA migration 20260710210000 (applied live): view_as_sessions,
+  people_provisioning, people_offboarding; RLS on, no policies, table
+  grants revoked (verified live: 42501 on all three), nine narrow
+  security-definer functions granted to anon; lib/people-store.ts is the
+  only client (twin of lib/compliance.ts).
+- Clerk backend surface (lib/people.ts, server-only, CLERK_SECRET_KEY):
+  list / createUser (skipPasswordRequirement; invite email covers
+  first sign-in) / banUser + revokeSession. Deleting users is
+  deliberately NOT in the module.
+- Verified on the DEV Clerk instance (sk_test in .env.local; production
+  untouched): per-role surfaces exact (ops 8 nav items, UR +Approvals
+  +Ask Fox with ZERO decide buttons on the desk, agent 7 items), page
+  refusals bounce to /portal, API refusal 403 on a decision route, the
+  full provision→verify→offboard→sign-in-refused (user_banned) cycle.
+  TEST users created and removed same session (ids in the session
+  report); FOXCA TEST rows remain per the append posture. Suite at 171
+  tests.
+- Note for the person-model: the dev Clerk instance enforces email_code
+  as a second factor on password sign-ins; the production custom sign-in
+  form only handles first factors. If production ever turns MFA on, the
+  sign-in page needs a second-factor step.
 
 ### End-of-session closing ritual (STANDING RULE, Session 5)
 Every build session ends by updating all three, together, before the
@@ -1250,6 +1345,59 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-10 — Admin Command Center Session 8 (Multi-user hardening)
+- Roles went live: shipped baselines recorded and exactly asserted
+  (tests/authority.test.ts) — ops (views only), underwriting-reviewer
+  (ops + approvals visibility + agent.use, strict superset tested),
+  agent (own scope); decision and provisioning keys admin-only. New keys
+  people.manage and agents.provision (gates contract). Zero role-literal
+  gates remain repo-wide: 3 partner admin pages, 2 impersonate routes,
+  13 bookkeeping routes, 5 admin API routes, and 31 partner-portal
+  routes (admin allowance → portals.view-as) all converted to permission
+  keys; grep proof clean; the /portal dispatcher now routes internal
+  roles to /portal/admin; Home is permission-composed per section; the
+  shell footer prints real roles. Settings gained the effective-access
+  view (lib/effective-access.ts, pure, tested for all four roles) plus
+  the People link.
+- View-as governed: portals.view-as gates both impersonate routes; every
+  session logs to FOXCA (view_as_start/end; logId rides the encrypted
+  cookie) and lists under Audit Log → View-as sessions; picker page +
+  portals-nav entry; structural read-only proven both ways live (form
+  absent with the read-only notice AND a forced POST refused 403
+  ImpersonationReadOnly); the rejection is one pure tested helper
+  (lib/view-as.ts) across all 10 partner write routes.
+- Provisioning wizard shipped (Settings → People → Provision someone):
+  staff/partner/agent flows, exact grants before confirm, Zoho partner
+  picked never typed and re-verified server-side, agent flow consuming
+  POST /api/gates/agents (micro-session 4) with setup_remaining rendered
+  verbatim and gates failures reported honestly; invitation via Resend
+  optional; who-provisioned-whom in FOXCA people_provisioning.
+- Offboarding rehearsed: two-tap Disable = Clerk ban + session revoke in
+  one action (ban failure aborts; self-offboard refused), persisted
+  checklist (lib/offboarding.ts pure + tested) covering grants void,
+  partner attribution with real referred counts, agent book +
+  FINMO_API_KEY_<AGENT> revoke, compliance credentials by holder;
+  nothing deletes.
+- FOXCA migration 20260710210000 applied and posture-verified live
+  (42501 on all three tables; nine functions answer; TEST view-as row
+  round-tripped). Full dev-instance cycle proven: TEST users
+  user_3GKKLYoWq27OvDBkAx8aRJfRsgG (ops),
+  user_3GKKLUFxuEEpcPPgppS2e42R2VF (UR),
+  user_3GKKLcV5NP2F5Y7q9eGssPJbr65 (agent),
+  user_3GKLWrJkzHKfLtkbMHXVWDyGkFa (admin),
+  user_3GKM5c0RM8gKUwQZzcKXkXUZkli (provisioned through the wizard, then
+  offboarded — banned + sign-in refused user_banned, checklist record
+  24949cfa persisted and toggled) — all five removed after; per-role
+  screenshots captured. Suite at 171 tests; build green; production
+  Clerk untouched.
+- New modules: lib/effective-access.ts, lib/view-as.ts, lib/people.ts,
+  lib/people-store.ts, lib/provisioning.ts, lib/offboarding.ts;
+  lib/gates.ts gained provisionWorkbenchAgent. New tests:
+  view-as/provisioning/offboarding + authority baselines. Guardrails
+  held: no workbench writes, gates-only workbench mutation, FOXCA
+  narrow functions only, Clerk backend server-side only, middleware
+  publicRoutes untouched, no invitation sends during testing.
 
 ### 2026-07-10 — Admin Command Center Session 7 (Revenue and Partners)
 - Part 0: Ask Fox task awareness (get_open_tasks as the seventh

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { roleCan } from '@/config/authority'
 import { getReviewQueue, createReviewRecord, updateReviewRecord } from '@/lib/zoho-creator'
 
 function adminOnly(roles: string[]): boolean {
-  return roles.includes('admin')
+  // Session 8: permission key, not a role literal.
+  return roleCan(roles, 'bookkeeping.view')
 }
 
 // GET /api/bookkeeping/review-queue?status=Pending

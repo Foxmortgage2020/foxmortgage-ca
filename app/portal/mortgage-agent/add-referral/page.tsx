@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { CheckCircle2, ArrowRight } from 'lucide-react'
+import { usePortalImpersonation } from '@/lib/portal-impersonation'
 
 type FormData = {
   clientName: string
@@ -26,6 +27,7 @@ const initialForm: FormData = {
 }
 
 export default function MortgageAgentAddReferralPage() {
+  const viewAs = usePortalImpersonation()
   const [form, setForm] = useState<FormData>(initialForm)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -107,6 +109,11 @@ export default function MortgageAgentAddReferralPage() {
         will follow up with your client within 1 business day.
       </p>
 
+      {viewAs ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm font-body text-gray-500">
+          Read-only view — actions are disabled while viewing as {viewAs.partnerName}.
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Client Info */}
         <div className="bg-white border border-gray-100 rounded-xl p-6">
@@ -260,6 +267,7 @@ export default function MortgageAgentAddReferralPage() {
           )}
         </button>
       </form>
+      )}
     </div>
   )
 }

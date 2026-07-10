@@ -7,8 +7,7 @@
 // management surface (invites, documents, view-as) lives on the detail
 // pages, unchanged.
 
-import { redirect } from 'next/navigation'
-import { getPortalContext } from '@/lib/auth'
+import { requirePermission } from '@/lib/authz'
 import { listAllPartners, listAllPartnerDocuments } from '@/lib/zoho'
 import { getAllDealsRevenue } from '@/lib/zoho-admin'
 import { getPartnerEngagementMap } from '@/lib/partner-engagement'
@@ -28,10 +27,9 @@ import PartnersHealthTable, {
 export const dynamic = 'force-dynamic'
 
 export default async function AdminPartnersPage() {
-  const ctx = await getPortalContext()
-  if (!ctx || !ctx.actor.roles.includes('admin')) {
-    redirect('/portal')
-  }
+  // Session 8: permission key, not a role literal (partners.provision is
+  // admin-only in the shipped baseline; the key is what Michael edits later).
+  await requirePermission('partners.provision')
 
   const todayYMD = torontoTodayYMD()
   const [partners, allDocs] = await Promise.all([listAllPartners(), listAllPartnerDocuments()])

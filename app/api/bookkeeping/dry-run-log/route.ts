@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
+import { roleCan } from '@/config/authority'
 import { addDryRunEntry, listDryRunEntries } from '@/lib/bookkeeping-dry-run-store'
 
 // Store lives in lib/bookkeeping-dry-run-store.ts (module-scope, per
@@ -7,7 +8,8 @@ import { addDryRunEntry, listDryRunEntries } from '@/lib/bookkeeping-dry-run-sto
 // the same log this route writes. Behavior of both handlers is unchanged.
 
 function adminOnly(roles: string[]): boolean {
-  return roles.includes('admin')
+  // Session 8: permission key, not a role literal.
+  return roleCan(roles, 'bookkeeping.view')
 }
 
 // GET /api/bookkeeping/dry-run-log — list recent dry-run entries
