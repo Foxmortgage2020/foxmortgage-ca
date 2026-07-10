@@ -104,6 +104,18 @@ async function gateCall<T>(path: string, body: Record<string, unknown>): Promise
   if (!token) {
     return { ok: false, kind: 'auth', message: 'Could not mint a decision token for your session. Sign in again.' }
   }
+  // Claims-shape telemetry (presence booleans and public config values
+  // only, never the token, never claim contents beyond iss/azp).
+  try {
+    const p = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+    console.log(
+      `[gates] token-claims iss=${p.iss} azp=${p.azp} email=${p.email ? 'present' : 'MISSING'} roles=${
+        Array.isArray(p.roles) ? 'array' : typeof p.roles
+      } life=${p.exp - p.iat}`,
+    )
+  } catch {
+    console.log('[gates] token-claims undecodable')
+  }
   const started = Date.now()
   let res: Response
   try {
