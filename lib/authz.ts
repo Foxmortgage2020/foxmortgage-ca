@@ -45,3 +45,18 @@ export async function requirePermission(permission: Permission): Promise<Session
   if (!can(user, permission)) redirect('/portal')
   return user
 }
+
+// API-route variant: JSON denials instead of redirects. Route handlers
+// return the denial as-is; the ok branch hands back the session user.
+export type ApiPermission =
+  | { ok: true; user: SessionUser }
+  | { ok: false; status: 401 | 403; message: string }
+
+export async function apiPermission(permission: Permission): Promise<ApiPermission> {
+  const user = await getSessionUser()
+  if (!user) return { ok: false, status: 401, message: 'Signed out.' }
+  if (!can(user, permission)) {
+    return { ok: false, status: 403, message: 'You do not have permission for this action.' }
+  }
+  return { ok: true, user }
+}

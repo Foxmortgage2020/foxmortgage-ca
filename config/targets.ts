@@ -21,3 +21,6 @@ export const INTAKE_STALE_HOURS = 24
 
 // Closings strip window on the Home page.
 export const CLOSINGS_STRIP_DAYS = 7
+
+// Audit viewer CSV export row cap (stated in the UI next to the button).
+export const AUDIT_EXPORT_CAP = 5000

@@ -38,7 +38,7 @@ import {
   getPendingSheetReviews,
   getPendingStatementReviews,
   getRateQuoteStats,
-  getShadowTally,
+  getShadowQueue,
   type UwResult,
 } from '@/lib/underwriting'
 import {
@@ -168,7 +168,7 @@ export default async function AdminHome() {
       agentId ? getOpenConditionCounts(agentId) : null,
       agentId ? getPendingStatementReviews(agentId) : null,
       agentId ? getPendingSheetReviews(agentId) : null,
-      agentId ? getShadowTally(agentId) : null,
+      agentId ? getShadowQueue(agentId) : null,
       agentId ? getDealsSummary(agentId) : null,
       agentId ? getRateQuoteStats(agentId) : null,
       agentId ? getIntakeFreshness(agentId) : null,
@@ -228,10 +228,9 @@ export default async function AdminHome() {
   const warnFlags = flags.filter(f => f.severity === 'warning')
   const infoFlags = flags.filter(f => f.severity === 'info')
 
-  const activeWb = wbDeals.filter(d => d.status === 'active')
-  const shadowDue = shadow
-    ? activeWb.filter(d => !shadow.scoredFileRefs.includes(d.fileRef)).length
-    : 0
+  // Same definition as the Approvals shadow tab: active deals with at
+  // least one of the four dimensions not yet scored.
+  const shadowDue = shadow ? shadow.length : 0
   const pendingApprovals = stmts.length + sheets.length + shadowDue
 
   const staleHours = fresh?.lastActivity ? hoursSince(fresh.lastActivity) : null
@@ -391,7 +390,7 @@ export default async function AdminHome() {
           <div className="border border-gray-200 bg-white rounded-xl px-4 py-3 mb-3">
             <p className="text-sm text-gray-500 font-body">
               Workbench not connected. Conditions, flags, and approvals appear here once
-              UW_SUPABASE_URL and UW_SUPABASE_SERVICE_ROLE_KEY are set.
+              UW_SUPABASE_URL, UW_SUPABASE_READONLY_KEY, and UW_SUPABASE_PUBLISHABLE_KEY are set.
             </p>
           </div>
         )}

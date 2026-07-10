@@ -8,6 +8,7 @@ import { INTAKE_STALE_HOURS, WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import {
   getBookkeepingStatus,
   getDeployInfo,
+  getFormIntakeStatus,
   getN8nStatus,
 } from '@/lib/status'
 import {
@@ -15,6 +16,7 @@ import {
   getIntakeFreshness,
   workbenchConfigured,
 } from '@/lib/underwriting'
+import { getGatesHealth } from '@/lib/gates'
 import { zohoPing } from '@/lib/zoho-admin'
 import { fmtDateTime, hoursSince } from '@/lib/dates'
 
@@ -85,11 +87,13 @@ export default async function StatusPage() {
   await requirePermission('status.view')
 
   const wbConfigured = workbenchConfigured()
-  const [agentRes, zoho, n8n, bookkeeping] = await Promise.all([
+  const [agentRes, zoho, n8n, bookkeeping, gates, formIntake] = await Promise.all([
     wbConfigured ? getAgentIdByEmail(WORKBENCH_AGENT_EMAIL) : Promise.resolve(null),
     zohoPing(),
     getN8nStatus(),
     getBookkeepingStatus(),
+    getGatesHealth(),
+    getFormIntakeStatus(),
   ])
   const agentId = agentRes && agentRes.configured && agentRes.ok ? agentRes.data : null
   const freshRes = agentId ? await getIntakeFreshness(agentId) : null
@@ -130,6 +134,21 @@ export default async function StatusPage() {
 
   const deployLight: Light = deploy.sha ? 'ok' : 'off'
 
+  // Gates API light
+  let gatesLight: Light = 'off'
+  if (gates.configured) {
+    if (!gates.reachable) gatesLight = 'fail'
+    else gatesLight = gates.ok ? 'ok' : 'warn'
+  }
+
+  // Form intake light
+  let formLight: Light = 'off'
+  if (formIntake.configured) {
+    if (!formIntake.reachable) formLight = 'fail'
+    else if (formIntake.error || (formIntake.zohoFailed ?? 0) > 0) formLight = 'warn'
+    else formLight = 'ok'
+  }
+
   const checkedAt = fmtDateTime(new Date().toISOString())
 
   return (
@@ -146,19 +165,20 @@ export default async function StatusPage() {
         <Panel light={wbLight} title="Underwriting workbench">
           {!wbConfigured ? (
             <p>
-              Not connected. Set UW_SUPABASE_URL and UW_SUPABASE_SERVICE_ROLE_KEY in Vercel to
-              wire this portal to the fox-underwriting project (read-only).
+              Not connected. Set UW_SUPABASE_URL, UW_SUPABASE_READONLY_KEY, and
+              UW_SUPABASE_PUBLISHABLE_KEY in Vercel to wire this portal to the
+              fox-underwriting project through the database-enforced read-only role.
             </p>
           ) : !agentId ? (
             <p className="text-red-700">
               Env vars are present but the workbench is not answering:{' '}
               {agentRes && agentRes.configured && !agentRes.ok ? agentRes.error : 'unknown error'}.
-              If this persists in production, the service key may be stored as a
-              sensitive-type env var; recreate it as encrypted.
+              If this persists, the portal_readonly token may have been rotated; see the
+              rotation procedure in fox-underwriting docs/gates-api.md.
             </p>
           ) : (
             <>
-              <Row label="Project" value="Reachable, agent row resolved" />
+              <Row label="Project" value="Reachable through portal_readonly (SELECT on 12 tables)" />
               <Row
                 label="Last intake activity"
                 value={
@@ -168,6 +188,37 @@ export default async function StatusPage() {
                 }
               />
               <Row label="Freshness threshold" value={`${INTAKE_STALE_HOURS}h`} />
+            </>
+          )}
+        </Panel>
+
+        {/* Gates API */}
+        <Panel light={gatesLight} title="Gates API">
+          {!gates.configured ? (
+            <p>
+              Not connected. Set GATES_API_URL in Vercel to enable approval decisions from the
+              portal.
+            </p>
+          ) : !gates.reachable ? (
+            <p className="text-red-700">
+              Unreachable. Approval decisions will fail until the fox-underwriting deployment
+              answers; the CLI remains available.
+            </p>
+          ) : (
+            <>
+              <Row
+                label="Health"
+                value={gates.ok ? 'OK' : <span className="text-amber-700 font-semibold">degraded</span>}
+              />
+              <Row
+                label="Auth / DB configured"
+                value={`${gates.authConfigured ? 'yes' : 'no'} / ${gates.dbConfigured ? 'yes' : 'no'}${
+                  gates.dbReachable === false ? ' (db unreachable)' : ''
+                }`}
+              />
+              <Row label="Commit" value={gates.commit ? gates.commit.slice(0, 7) : 'unknown'} />
+              <Row label="Environment" value={gates.env ?? 'unknown'} />
+              {gates.error && <p className="text-amber-700">{gates.error}</p>}
             </>
           )}
         </Panel>
@@ -302,6 +353,43 @@ export default async function StatusPage() {
               ))
             )}
           </div>
+        </Panel>
+
+        {/* Form intake capture */}
+        <Panel light={formLight} title="Form intake capture">
+          {!formIntake.configured ? (
+            <p>
+              Not connected. Set FOXCA_SUPABASE_URL and FOXCA_SUPABASE_KEY in Vercel to monitor
+              the form_submissions capture table.
+            </p>
+          ) : !formIntake.reachable ? (
+            <p className="text-red-700">
+              The foxmortgage-ca Supabase project is unreachable. Public form submissions fall
+              back to Zoho-only until it recovers.
+            </p>
+          ) : formIntake.error ? (
+            <p className="text-amber-700">Reachable, but {formIntake.error}.</p>
+          ) : (
+            <>
+              <Row label="Submissions in the last 7 days" value={formIntake.total7d ?? 'unknown'} />
+              <Row
+                label="Stuck in zoho_failed"
+                value={
+                  (formIntake.zohoFailed ?? 0) > 0 ? (
+                    <span className="text-amber-700 font-bold">
+                      {formIntake.zohoFailed} (rows captured, Zoho lead missing)
+                    </span>
+                  ) : (
+                    '0'
+                  )
+                }
+              />
+              <Row
+                label="Latest submission"
+                value={formIntake.latestAt ? fmtDateTime(formIntake.latestAt) : 'none recorded'}
+              />
+            </>
+          )}
         </Panel>
 
         {/* Deploy */}
