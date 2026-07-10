@@ -1132,8 +1132,9 @@ Savings_Identified, Last_Activity_Time, Term_Years
   honestly); Home rail gained credential renewals at 60/14 day thresholds
   (unit-tested). Deal conditions fetcher now carries category, kind, and
   precheck status.
-- Suite at 95 tests (tests/compliance.test.ts new; scenario tests grew the
-  floating vocabulary). Workbench follow-up list for a future
+- Suite at 98 tests (tests/compliance.test.ts and tests/rates-pdf.test.ts
+  new; scenario tests grew the floating vocabulary). Workbench follow-up
+  list for a future
   fox-underwriting session: suitability assessment, exit-strategy notes,
   identity-verification status, disclosure-delivered dates, package state;
   plus a penalty-methodology field on machine profiles (the compare tray
