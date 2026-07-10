@@ -47,6 +47,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       { status: 422 },
     )
   }
-  const result = await scoreShadow(params.id, dimension, body.agree, note)
+  const result = await scoreShadow(params.id, dimension, body.agree, req.headers.get('x-gates-token'), note)
   return NextResponse.json(result, { status: result.ok ? 200 : STATUS_BY_KIND[result.kind] })
 }

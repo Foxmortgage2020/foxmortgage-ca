@@ -36,6 +36,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     )
   }
   const note = typeof body?.note === 'string' ? body.note : undefined
-  const result = await decideStatement(params.id, action, note)
+  const result = await decideStatement(params.id, action, req.headers.get('x-gates-token'), note)
   return NextResponse.json(result, { status: result.ok ? 200 : STATUS_BY_KIND[result.kind] })
 }

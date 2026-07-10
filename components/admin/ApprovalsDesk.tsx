@@ -17,6 +17,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import type { ApprovalsData } from '@/lib/approvals-data'
 import type {
   DiscrepancyFlag,
@@ -175,11 +176,18 @@ type ApiOutcome =
   | { ok: true; data: any }
   | { ok: false; kind: string; message: string }
 
-async function postDecision(url: string, body: Record<string, unknown>): Promise<ApiOutcome> {
+async function postDecision(
+  url: string,
+  body: Record<string, unknown>,
+  gatesToken: string | null,
+): Promise<ApiOutcome> {
+  if (!gatesToken) {
+    return { ok: false, kind: 'auth', message: 'Your session did not produce a decision token. Sign in again and retry.' }
+  }
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', [GATES_TOKEN_HEADER]: gatesToken },
       body: JSON.stringify(body),
     })
     const json = await res.json().catch(() => null)
@@ -217,6 +225,7 @@ export default function ApprovalsDesk({
   const [toast, setToast] = useState<{ tone: 'green' | 'amber'; text: string } | null>(null)
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mintGatesToken = useGatesToken()
 
   const arm = useCallback((key: string) => {
     setArmed(key)
@@ -265,7 +274,10 @@ export default function ApprovalsDesk({
         delete next[opts.key]
         return next
       })
-      const outcome = await postDecision(opts.url, opts.body)
+      // Fresh 60-second gates token per action, minted on the signed-in
+      // session in the browser (backend mints carry no azp claim).
+      const gatesToken = await mintGatesToken()
+      const outcome = await postDecision(opts.url, opts.body, gatesToken)
       setBusy(b => ({ ...b, [opts.key]: false }))
       if (outcome.ok) {
         opts.onSuccess(outcome.data)
@@ -280,7 +292,7 @@ export default function ApprovalsDesk({
       }
       setCardErrors(e => ({ ...e, [opts.key]: outcome.message }))
     },
-    [refetch, showToast],
+    [mintGatesToken, refetch, showToast],
   )
 
   const note = (id: string) => notes[id] ?? ''

@@ -5,9 +5,12 @@
 // mint gates-template tokens.
 //
 // Rules:
-//   1. Every decision carries a person. Each call mints a fresh Clerk
-//      session token with the 'gates' JWT template (60 second lifetime),
-//      per action, never cached.
+//   1. Every decision carries a person. Each call forwards a fresh Clerk
+//      session token minted in the browser with the 'gates' JWT template
+//      (60 second lifetime, minted per action in lib/gates-token.ts,
+//      never cached). The mint must happen client-side: backend-minted
+//      template tokens carry no azp claim and the Gates API refuses them
+//      (verified live 2026-07-09).
 //   2. Request bodies are enumerated actions plus one bounded note. There
 //      is structurally no way to pass amounts or evidence through here.
 //   3. Error mapping is part of the UX contract: 409 means already
@@ -83,38 +86,17 @@ export function gatesConfigured(): boolean {
   return gatesBase() !== null
 }
 
-// Fresh 60-second gates-template token for the signed-in user. Clerk import
-// stays dynamic so pure parts of this module are unit-testable outside Next.
-async function mintGatesToken(): Promise<string | null> {
-  const { auth } = await import('@clerk/nextjs/server')
-  try {
-    const { getToken } = auth()
-    return await getToken({ template: 'gates' })
-  } catch {
-    return null
-  }
-}
-
-async function gateCall<T>(path: string, body: Record<string, unknown>): Promise<GateResult<T>> {
+async function gateCall<T>(
+  path: string,
+  body: Record<string, unknown>,
+  token: string | null,
+): Promise<GateResult<T>> {
   const base = gatesBase()
   if (!base) {
     return { ok: false, kind: 'unavailable', message: 'The Gates API is not connected (GATES_API_URL is not set).' }
   }
-  const token = await mintGatesToken()
   if (!token) {
-    return { ok: false, kind: 'auth', message: 'Could not mint a decision token for your session. Sign in again.' }
-  }
-  // Claims-shape telemetry (presence booleans and public config values
-  // only, never the token, never claim contents beyond iss/azp).
-  try {
-    const p = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
-    console.log(
-      `[gates] token-claims iss=${p.iss} azp=${p.azp} email=${p.email ? 'present' : 'MISSING'} roles=${
-        Array.isArray(p.roles) ? 'array' : typeof p.roles
-      } life=${p.exp - p.iat}`,
-    )
-  } catch {
-    console.log('[gates] token-claims undecodable')
+    return { ok: false, kind: 'auth', message: 'Your session did not produce a decision token. Sign in again and retry.' }
   }
   const started = Date.now()
   let res: Response
@@ -174,9 +156,10 @@ export interface StatementDecisionResponse {
 export function decideStatement(
   documentId: string,
   action: StatementAction,
+  token: string | null,
   note?: string,
 ): Promise<GateResult<StatementDecisionResponse>> {
-  return gateCall(`/api/gates/statements/${documentId}/decision`, withNote({ action }, note))
+  return gateCall(`/api/gates/statements/${documentId}/decision`, withNote({ action }, note), token)
 }
 
 export type RateSheetAction = 'approve' | 'reject'
@@ -199,9 +182,10 @@ export interface RateSheetDecisionResponse {
 export function decideRateSheet(
   intelItemId: string,
   action: RateSheetAction,
+  token: string | null,
   note?: string,
 ): Promise<GateResult<RateSheetDecisionResponse>> {
-  return gateCall(`/api/gates/rate-sheets/${intelItemId}/decision`, withNote({ action }, note))
+  return gateCall(`/api/gates/rate-sheets/${intelItemId}/decision`, withNote({ action }, note), token)
 }
 
 export type FlagDisposition = 'accepted' | 'corrected' | 'escalated'
@@ -219,9 +203,10 @@ export interface FlagDispositionResponse {
 export function disposeFlag(
   flagId: string,
   disposition: FlagDisposition,
+  token: string | null,
   note?: string,
 ): Promise<GateResult<FlagDispositionResponse>> {
-  return gateCall(`/api/gates/flags/${flagId}/disposition`, withNote({ disposition }, note))
+  return gateCall(`/api/gates/flags/${flagId}/disposition`, withNote({ disposition }, note), token)
 }
 
 export type ShadowDimension = 'checklist' | 'income' | 'ratios' | 'shortlist'
@@ -245,9 +230,10 @@ export function scoreShadow(
   dealId: string,
   dimension: ShadowDimension,
   agree: boolean,
+  token: string | null,
   note?: string,
 ): Promise<GateResult<ShadowScoreResponse>> {
-  return gateCall(`/api/gates/shadow/${dealId}/score`, withNote({ dimension, agree }, note))
+  return gateCall(`/api/gates/shadow/${dealId}/score`, withNote({ dimension, agree }, note), token)
 }
 
 // ─── Health (Status page) ───────────────────────────────────────────────────
