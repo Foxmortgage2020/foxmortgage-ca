@@ -6,6 +6,7 @@
 
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import type { KnowledgeOffer } from '@/lib/gates'
+import { OfferWindowBadge } from '@/components/admin/offer-display'
 
 const AMBER_WITHIN_DAYS = 14
 
@@ -37,24 +38,25 @@ export default function PromoCountdowns({ lenderSlug }: { lenderSlug?: string })
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {offers.map((o, i) => {
-        const amber = o.days_left <= AMBER_WITHIN_DAYS
+        const noExpiry = !o.expiry
+        const amber = typeof o.days_left === 'number' && o.days_left <= AMBER_WITHIN_DAYS
+        const border = noExpiry
+          ? 'border-red-300 bg-red-50'
+          : amber
+            ? 'border-amber-300 bg-amber-50'
+            : 'border-gray-200 bg-white'
         return (
-          <div
-            key={`${o.lender}-${o.offer?.id ?? i}`}
-            className={`border rounded-lg p-3 ${amber ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'}`}
-          >
+          <div key={`${o.lender}-${o.offer?.id ?? i}`} className={`border rounded-lg p-3 ${border}`}>
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-body font-semibold text-navy">{o.lender_name}</span>
-              <span
-                className={`shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                  amber ? 'bg-amber-200 text-amber-900' : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                {o.days_left} day{o.days_left === 1 ? '' : 's'} left
-              </span>
+              <OfferWindowBadge
+                variant="chip"
+                started={null}
+                expiry={(o.expiry as string | null) ?? null}
+                daysLeft={typeof o.days_left === 'number' ? o.days_left : null}
+              />
             </div>
             <p className="text-xs font-body text-gray-600 mt-1">{o.offer?.description ?? 'Offer'}</p>
-            <p className="text-[11px] text-gray-400 font-body mt-1">expires {o.expiry}</p>
           </div>
         )
       })}
