@@ -468,13 +468,18 @@ export interface OfferEligibilityShape {
   amortization_years?: number[] | null
   required_product?: string | null
   application_window_start?: string | null
+  /** Minimum mortgage amount the offer requires, where the sheet states one. */
+  min_amount?: number | null
+  /** Product classes the offer is limited to, where the sheet states them. */
+  product_classes?: string[] | null
 }
 
-/** Whether an offer can apply to the scenario, over the structured gates
- * a scenario can evaluate (purpose, occupancy, amortization). Date gates
- * (closing window, application window) need a real deal and render as
- * conditions instead. Offers without structured eligibility return
- * 'unknown' and are never auto-applied. */
+/** Whether an offer can apply to the scenario, over the structured gates a
+ * scenario can evaluate (purpose, occupancy, amortization, minimum amount,
+ * class). Date gates (closing window, application window) need a real deal and
+ * render as conditions instead. Offers without extractable structured
+ * eligibility return 'unknown' — the sparse-dimension convention: they match
+ * PERMISSIVELY with a stated caveat rather than being silently excluded. */
 export function offerFitsScenario(
   eligibility: OfferEligibilityShape | null | undefined,
   s: Scenario,
@@ -489,8 +494,21 @@ export function offerFitsScenario(
   ) {
     return 'ruled_out'
   }
+  if (typeof eligibility.min_amount === 'number' && s.amount !== null && s.amount < eligibility.min_amount) {
+    return 'ruled_out'
+  }
+  if (
+    Array.isArray(eligibility.product_classes) &&
+    eligibility.product_classes.length > 0 &&
+    !eligibility.product_classes.includes(s.productClass)
+  ) {
+    return 'ruled_out'
+  }
   return 'fits'
 }
+
+export const OFFER_PERMISSIVE_CAVEAT =
+  'Eligibility was not extracted from the announcement; confirm the offer terms fit this deal.'
 
 // A sourced figure as knowledge profiles store it: value + source + as-of.
 interface SourcedNumber {
@@ -530,15 +548,24 @@ export interface OfferScenarioResult {
   applicationWindowStart: string | null
   started: string | null
   predicates: string[]
+  /** True when eligibility could not be extracted and the offer matched on
+   * the sparse-dimension convention: shown, but with the caveat below. */
+  permissive: boolean
+  /** The stated caveat when permissive, null otherwise. */
+  caveat: string | null
 }
 
-/** A promo offer as a first-class scenario result: only when the
- * structured eligibility fits AND the offer carries structured rate
- * tiers. The tier follows the scenario's product class: insured picks the
- * default-insured tier where one exists; everything else picks the
- * non-insured tier. Nothing renders from prose alone. */
+/** A promo offer as a first-class scenario result: when its eligibility is
+ * NOT ruled out (fits, or unknown → permissive with a caveat) AND the offer
+ * carries structured rate tiers. A ruled-out offer returns null (never
+ * silently included); an unknown-eligibility offer matches permissively and
+ * says so (never silently excluded). The tier follows the scenario's product
+ * class: insured picks the default-insured tier where one exists; everything
+ * else picks the non-insured tier. Nothing renders from prose alone. */
 export function offerScenarioResult(offer: OfferShape, s: Scenario): OfferScenarioResult | null {
-  if (offerFitsScenario(offer.eligibility ?? null, s) !== 'fits') return null
+  const fit = offerFitsScenario(offer.eligibility ?? null, s)
+  if (fit === 'ruled_out') return null
+  const permissive = fit === 'unknown'
   const tiers = Array.isArray(offer.offer_rates) ? (offer.offer_rates as OfferRateTier[]) : []
   const priced = tiers.filter(t => typeof t?.rate_pct?.value === 'number')
   if (priced.length === 0) return null
@@ -562,6 +589,8 @@ export function offerScenarioResult(offer: OfferShape, s: Scenario): OfferScenar
     predicates: Array.isArray(offer.predicates)
       ? (offer.predicates as unknown[]).filter((p): p is string => typeof p === 'string')
       : [],
+    permissive,
+    caveat: permissive ? OFFER_PERMISSIVE_CAVEAT : null,
   }
 }
 

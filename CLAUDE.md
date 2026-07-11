@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 11, 2026 (Rates v3 shipped — the Rates page became four URL-addressable tabs (Scenario default / Lenders / Promos / All quotes); a `<LenderMark>` component renders a real logo from public/lenders/ or an on-brand navy+lime monogram fallback everywhere a lender is named; the Lenders tab browses the approved book with honest per-class headline rates and deepest floating discounts plus a three-state coverage map; the Promos tab is the offer board; saved scenarios persist per user in FOXCA; the scenario lender-card click was root-caused and fixed (affordance + scroll-to-top drill-in, NOT a broken handler); and a test locks the client PDF against ever disclosing compensation. Session 9 (below) was THE FINALE of the original nine-session map; Rates v3 is a post-finale enhancement session.)
+## Last Updated: July 11, 2026 (The offers desk shipped — promotional offers become approvable in the portal. A fifth "Offers" tab on /portal/admin/approvals (?tab=offers) decides the 23 pending offers through the gate (POST /api/gates/offers/[offerId]/decision, new authority key approvals.offer.decide); each card renders the priced elements as identity, the extraction evidence with page citations, the conditions verbatim, and — the point of the session — the WINDOW loudly, because 19 of the 23 pending offers have a NULL expiry and an offer with no clock outlives its terms. lender_offers is the 18th granted read table. The Promos tab, the scenario promo chips, the lender pages, and the client PDF all render the null-expiry warning (never a bare dash), the full priced detail, and permissive matching where eligibility was not extracted; a winning offer sorts first in scenario results; the client PDF carries a pinned offer's conditions and expiry with compensation scrubbed from every offer string. Rates v3 (below) and Session 9 preceded this.)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -32,12 +32,15 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
   2026-07-09 (all targets) and removed from .env.local. The portal cannot write to the
   workbench even in principle: portal_readonly has SELECT on exactly 12 tables and
   Postgres refuses everything else with 42501 (verified live).
-- Granted tables (SELECT only; 17 since fox-underwriting migration 0028, verified
-  live 2026-07-10): agents, audit_log, borrowers, conditions, deals, documents,
-  flags, income_calcs, intake_events, lender_intel_items, number_links,
-  rate_quotes, rate_sheet_reviews, ratio_calcs, shadow_scores, statement_fields,
-  statement_reviews. NOT granted: evidence (still 42501).
+- Granted tables (SELECT only; 18 since the promo-pipeline session, verified
+  live 2026-07-11): agents, audit_log, borrowers, conditions, deals, documents,
+  flags, income_calcs, intake_events, lender_intel_items, lender_offers (18th),
+  number_links, rate_quotes, rate_sheet_reviews, ratio_calcs, shadow_scores,
+  statement_fields, statement_reviews. NOT granted: evidence (still 42501).
   No submission-notes table exists yet (notes are report artifacts, not rows).
+  lender_offers is read by lib/underwriting.ts getOfferQueue (status=extracted
+  for the desk); the offers gate (POST /api/gates/offers/[id]/decision) is the
+  only decision path.
 - Attempt-and-fallback is the STANDING RULE for granted-surface sections
   (Session 4): a page section queries its tables and renders the not-granted
   state only on an actual permission refusal (UwResult.status 403, helper
@@ -1458,6 +1461,107 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-11 — The offers desk (offers become approvable; the Promos tab goes live)
+- Prerequisite consumed: the fox-underwriting promo pipeline session.
+  lender_offers is the 18th granted read table (portal_readonly SELECT
+  verified live). The offers gate lives at POST
+  /api/gates/offers/[offerId]/decision behind approvals.offer.decide (new
+  authority key, admin only, additive contract with fox-underwriting). GET
+  /api/knowledge/offers now serves approved unexpired offers from the table
+  in the same KnowledgeOffer shape the Promos tab already consumed.
+- Live data shape at build (23 pending, status='extracted'): 19/23 have a
+  NULL expiry (the dangerous field is the COMMON case), 0 have structured
+  eligibility, 0 carry offer_rates tiers, rate is null on 18 (priced value
+  in offer_payload.rates_or_amounts text), rate_type includes 'mixed' and
+  null, all 23 carry an evidence array. Approved offers: scotia special
+  (structured offer_rates + eligibility), two TD cashbacks (prose). So the
+  ONLY structured first-class scenario offer today is Scotia; everything
+  else is prose (chips) — honest and by design.
+- Part 1 — Offers queue (5th tab ?tab=offers on the approvals desk):
+  components/admin/ApprovalsDesk.tsx gained the offers tab (TabKey +
+  CanDecide + the four Record<TabKey> maps), the decideOffer handler
+  (mirrors decideSheet: key offer:<uuid>, gate proxy URL, optimistic
+  filter, two-tap confirm with the timestamp arm-window, 409 "Already
+  decided" + refetch), and the offer card. lib/underwriting.ts
+  getOfferQueue (status='extracted', demo-guarded to []) returns the rich
+  OfferQueueCard (normalized priced columns + conditions[] + eligibility
+  jsonb + evidence[] + started/expiry + offer_payload). lib/approvals-data.ts
+  wires offers into ApprovalsData + the queues refetch (no LastDecided
+  change — offers use lastDecidedFor: null). The queues route needed no
+  change. Home rail (app/portal/admin/page.tsx) gained an "Offers to
+  review" AttentionCard (approvals.view) noting the null-expiry count;
+  notifications gained the pending_offers category + pendingOfferNotifications
+  producer (approvals.view), wired in the route.
+- components/admin/offer-display.tsx (shared, the honest-render source):
+  OfferWindowBadge (banner + chip; a null expiry is a LOUD red warning
+  "no stated end date, will not auto-retire, confirm before quoting",
+  NEVER a dash; dated countdown amber<=14 red<=5, expired only d<0),
+  OfferPricedElements (reuses the rate-display atoms; clean rate where one
+  normalized, else the rates_or_amounts text; adjustable/variable distinct;
+  'mixed'/null rate types never forced into one of the three; cash back its
+  own chip), OfferConditions (verbatim), OfferEvidenceList (statement-review
+  style p<page>: "snippet" citations). lib/offers.ts is the pure model
+  (classifyWindow / hasNoExpiry / daysUntil / offerPricingShape /
+  offerCashbackLabel / offerTermsLabel / offerRateTypeLabel / offerRatesText
+  / normalizeEvidence), unit-tested (tests/offers.test.ts).
+- Part 2 — the Promos tab (components/admin/RatesPromos.tsx): full priced
+  rendering (offer_rates tiers with comp/buydown, or the rates_or_amounts
+  text), OfferWindowBadge with the loud null-expiry warning, evidence via
+  attempt-and-fallback (renders if offer_payload carries evidence), active/
+  expired split fixed so a null-expiry offer is ACTIVE and days_left===0
+  (expires today) stays active — matching classifyWindow everywhere. The
+  null-expiry warning also reaches the scenario promo chips (result cards +
+  PromoOfferCard) and the lender pages (RatesLenders card + lender-page
+  offer chips): no surface renders a missing expiry as a bare dash (grep
+  clean; the old promoTone(days_left) chip math that broke on null is gone).
+- Part 3 — scenario + PDF: offerFitsScenario gained min_amount + class
+  gates; offerScenarioResult now returns a result for fits OR unknown
+  eligibility (permissive with a stated caveat, OFFER_PERMISSIVE_CAVEAT),
+  ruled_out → null — never silently excluded, never silently included. A
+  winning offer (beats every priced sheet quote for the scenario) sorts
+  FIRST as a lime "beats every sheet quote" card; the dominance claim is
+  only made when the comparison is real (not when matched quotes are
+  unpriceable with prime unavailable — review fix). Offers are pinnable
+  into the compare tray and the client PDF via o:<offerId> pin tokens; the
+  PDF route fetches pins from the APPROVED-offers endpoint only (a pending
+  offer can never reach a client doc). lib/rates-pdf.ts renders a
+  "Promotional offers included" section: rate, the window (null expiry = a
+  warning, never a dash), and conditions verbatim, with redactComp run over
+  EVERY offer string (lenderName, description, ratesText, each condition).
+  tests/rates-pdf.test.ts extended: comp injected into offer conditions AND
+  the priced text (two non-vacuous branches) plus a positive
+  conditions/expiry/null-expiry test.
+- Verified: tsc clean, production build green, 245 unit tests green
+  (offers 8, scenario +5 permissive/gates, rates-pdf +4 offer scrub +
+  conditions), live workbench schema + status introspected through the
+  read-only paths. The offer approval card (loud null-expiry vs dated
+  countdown) proven with a faithful component preview screenshot.
+  ACCEPTANCE #3 CAVEAT (honest): a live offer decision through the real UI
+  on a marked TEST offer with the 409 repeat + audit identity could NOT be
+  run this session — the agent cannot authenticate to Clerk (no browser
+  gates token) and there are 0 TEST offers in lender_offers (test_extracted
+  0). The decision path is built and mirrors the live-proven rate-sheet
+  path exactly; per the standing UI-test discipline this is verified by
+  unit test + a manual step for Michael: seed a TEST-marked extracted offer
+  workbench-side (fox-underwriting owns the table), then approve/reject it
+  through ?tab=offers and confirm the audit entry + the 409 on a stale tab.
+- Offers contract awkwardness (for the report + fox-underwriting): the
+  knowledge offers endpoint serves offer_payload as `offer`, which for
+  prose offers has no structured priced fields or eligibility — so the
+  Promos/scenario surfaces can only render what offer_payload carries;
+  evidence on the Promos board is attempt-and-fallback because offer_payload
+  may not include the evidence array; and rate_type 'mixed'/null needed
+  explicit handling (never coerced into the strict three). The desk reads
+  the full row so it is always rich.
+- Guardrails held: readonly workbench (getOfferQueue through the existing
+  role; no workbench writes — decisions go through the Gates API only),
+  approved-only quoting (pending offers are counts/badges/queue cards,
+  never quotable rates), adjustable/variable never conflated, every rate
+  carries its date, floating leads with the discount + prime as-of, NO
+  compensation on the client PDF (scrubbed + tested), currentUser(),
+  middleware publicRoutes untouched, no ANTHROPIC_API_KEY in build
+  subprocesses, portals spot-checked.
 
 ### 2026-07-11 — Rates v3 follow-up: lender logos wired into public/lenders/
 - Wired the 21-file `Lender Logos/` folder (root, named by display name)

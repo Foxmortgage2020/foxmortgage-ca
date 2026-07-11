@@ -186,6 +186,18 @@ const SESSIONS: {
       'A test locks the client rate PDF against ever disclosing lender compensation to a borrower',
     ],
   },
+  {
+    n: '11',
+    title: 'The offers desk: promotional offers become approvable',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'A fifth Offers queue on the Approvals desk decides pending promos through the gate (approvals.offer.decide); each card shows priced elements as identity, expandable evidence with page citations, verbatim conditions, and the window rendered loudly',
+      'A null expiry is unmistakable everywhere it appears — the approval card, the Promos board, the scenario promo chips, the lender pages, and the client PDF — never a bare dash (19 of 23 pending offers had none)',
+      'Offers match a scenario permissively where eligibility could not be extracted (and say so), a winning offer sorts first, and a pinned offer carries its conditions and expiry onto the client PDF with compensation scrubbed from every field',
+      'Pending offers feed the Home attention rail and the notification bell; lender_offers is the 18th granted read table',
+    ],
+  },
 ]
 
 // The forward list once the original nine-session map is complete: the

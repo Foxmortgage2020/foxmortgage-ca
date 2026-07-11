@@ -33,6 +33,7 @@ import {
   getConditionsDue,
   getDealsSummary,
   getIntakeFreshness,
+  getOfferQueue,
   getOpenConditionCounts,
   getOpenFlags,
   getPendingSheetReviews,
@@ -160,7 +161,7 @@ export default async function AdminHome() {
   const workbenchOff = !agentRes.configured
   const workbenchErr = agentRes.configured && !agentRes.ok ? agentRes.error : null
 
-  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, stmtsR, sheetsR, shadowR, wbDealsR, ratesR, freshR, credsR] =
+  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, stmtsR, sheetsR, offersR, shadowR, wbDealsR, ratesR, freshR, credsR] =
     await Promise.all([
       getAllDealsSlim()
         .then(d => ({ ok: true as const, data: d }))
@@ -173,6 +174,7 @@ export default async function AdminHome() {
       agentId ? getOpenConditionCounts(agentId) : null,
       agentId ? getPendingStatementReviews(agentId) : null,
       agentId ? getPendingSheetReviews(agentId) : null,
+      agentId ? getOfferQueue(agentId) : null,
       agentId ? getShadowQueue(agentId) : null,
       agentId ? getDealsSummary(agentId) : null,
       agentId ? getRateQuoteStats(agentId) : null,
@@ -209,6 +211,8 @@ export default async function AdminHome() {
   const condCounts = val(condCountsR) ?? {}
   const stmts = val(stmtsR) ?? []
   const sheets = val(sheetsR) ?? []
+  const offers = val(offersR) ?? []
+  const pendingOffers = offers.length
   const shadow = val(shadowR)
   const wbDeals = val(wbDealsR) ?? []
   const rates = val(ratesR)
@@ -355,6 +359,25 @@ export default async function AdminHome() {
       >
         <AttentionRow
           left={`${stmts.length} statement review${stmts.length === 1 ? '' : 's'}, ${sheets.length} rate sheet review${sheets.length === 1 ? '' : 's'}, ${shadowDue} shadow score${shadowDue === 1 ? '' : 's'} due`}
+        />
+      </AttentionCard>,
+    )
+  }
+
+  if (can(user, 'approvals.view') && pendingOffers > 0) {
+    const noExpiry = offers.filter(o => !o.expiry).length
+    attentionCards.push(
+      <AttentionCard
+        key="offers"
+        tone="amber"
+        title="Offers to review"
+        count={pendingOffers}
+        href="/portal/admin/approvals?tab=offers"
+      >
+        <AttentionRow
+          left={`${pendingOffers} promotional offer${pendingOffers === 1 ? '' : 's'} extracted${
+            noExpiry > 0 ? `, ${noExpiry} with no stated end date` : ''
+          }. Approve or reject on the desk.`}
         />
       </AttentionCard>,
     )

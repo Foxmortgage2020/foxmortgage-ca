@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-11',
+    title: 'The offers desk: promotional offers become approvable',
+    detail:
+      'Twenty-three lender promos were waiting in a terminal for approval; now they sit on the desk. A new Offers tab on Approvals decides each one with a two-tap approve or reject that flows through the audited gate under your name, and each card shows the offer priced as identity, the extraction evidence with page citations, the conditions verbatim, and — the field that matters most — the window, rendered loudly. Nineteen of the twenty-three had no stated end date, so every one of those now carries an unmissable warning that it will not retire on its own and must be confirmed before quoting, on the desk and everywhere the offer appears afterward. Once approved, an offer lands on the Promos board with its full detail, matches a scenario permissively where its eligibility could not be read (and says so), sorts first when it beats every sheet quote, and can be pinned into a client PDF with its conditions and expiry — never its compensation. Pending offers also join the Home attention rail and the notification bell.',
+  },
+  {
+    date: '2026-07-11',
     title: 'Lender logos are live',
     detail:
       'Thirty-three lender logos are now dropped in, so nearly every lender shows its real mark across Rates, Knowledge, Intel, and the approvals desk instead of a monogram. Lenders without a logo keep the on-brand monogram, and any logo added later appears on its own with no code change.',

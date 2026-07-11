@@ -46,11 +46,30 @@ export interface PdfLenderInfo {
   asOf: string | null
 }
 
+/** A pinned promotional offer for the client PDF. Conditions and expiry go on
+ * the document because an offer quoted without its conditions is a promise you
+ * cannot keep; a null expiry gets the loud no-end-date warning. Every string
+ * field is compensation-scrubbed before it is drawn. */
+export interface PdfOfferInput {
+  lenderName: string
+  description: string
+  /** The headline promo rate where one was normalized. */
+  ratePct: number | null
+  /** The extracted priced text where no clean rate normalized. */
+  ratesText: string | null
+  conditions: string[]
+  started: string | null
+  /** Null means no stated end date — rendered as a warning, never a dash. */
+  expiry: string | null
+}
+
 export interface RatesPdfInput {
   scenario: Scenario
   quotes: RateQuoteFullRow[]
   /** quote lender_slug -> knowledge info (null entry = no page yet). */
   lenderInfo: Record<string, PdfLenderInfo | null>
+  /** Pinned promotional offers, if any. */
+  offers?: PdfOfferInput[]
   /** The served rates-reference, or null when it was unreachable at
    * generation time (the PDF then states prime unavailable, honestly). */
   reference: RatesReference | null
@@ -320,6 +339,43 @@ export async function generateRatesPdf(input: RatesPdfInput): Promise<Uint8Array
       )
       para(redactComp(q.programNotes!), 8.5, GRAY, 11)
       y -= 5
+    }
+    y -= 6
+  }
+
+  // Pinned promotional offers: the priced headline, the window (a null expiry
+  // is a warning, never a dash), and the conditions verbatim. EVERY string is
+  // compensation-scrubbed first — an offer's bonus comp must never reach a
+  // borrower any more than a sheet's does.
+  const offers = input.offers ?? []
+  if (offers.length > 0) {
+    ensure(40)
+    text('Promotional offers included', { size: 12, font: bold })
+    y -= 16
+    for (const o of offers) {
+      ensure(30)
+      const rate =
+        o.ratePct !== null
+          ? `${o.ratePct.toFixed(2)}%`
+          : o.ratesText
+            ? redactComp(o.ratesText)
+            : 'see the conditions below'
+      para(`${redactComp(o.lenderName)}: ${redactComp(o.description)} (${rate})`, 9.5, NAVY, 13)
+      if (o.expiry) {
+        para(`This offer expires ${o.expiry}${o.started ? `, effective from ${o.started}` : ''}.`, 9, GRAY, 12)
+      } else {
+        para(
+          'This offer has no stated end date. Confirm it is still available before relying on it; ' +
+            'it will not expire on its own.',
+          9,
+          GRAY,
+          12,
+        )
+      }
+      for (const c of o.conditions) {
+        para(`- ${redactComp(c)}`, 8.5, GRAY, 11)
+      }
+      y -= 4
     }
     y -= 6
   }

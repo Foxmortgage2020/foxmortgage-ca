@@ -1,15 +1,11 @@
 'use client'
 
-// Promos tab (Rates v3): the offer book as its own board, from the knowledge
-// offers endpoint. Cards sort by expiry ascending, amber inside 14 days and
-// red inside 5. Each card cites the announcement it came from as provenance,
-// never a sheet, and expands to the full conditions verbatim. Two actions per
-// card: open the lender, and open a Scenario to test the offer against a deal.
-//
-// The workbench serves only ACTIVE offers (expired ones are never returned),
-// so the recently-expired toggle renders the honest attempt-and-fallback
-// state: it lights up with real rows the moment the endpoint begins returning
-// recently-expired entries, and never invents them.
+// Promos tab (Rates v3; the offers desk session brought it a real book). The
+// offer board from the knowledge offers endpoint, sorted soonest-to-expire
+// first, each card citing the announcement it came from. Now with the full
+// priced elements, the extraction evidence where the endpoint carries it, and
+// — the point of the offers session — a loud warning on any offer that has no
+// stated expiry. A null-expiry offer looks different from a dated one, always.
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -17,19 +13,50 @@ import type { KnowledgeOffer } from '@/lib/gates'
 import { type OfferShape } from '@/lib/scenario'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import LenderMark from '@/components/admin/LenderMark'
+import { OfferConditions, OfferEvidenceList, OfferWindowBadge } from '@/components/admin/offer-display'
+import { hasNoExpiry, normalizeEvidence, offerRatesText } from '@/lib/offers'
 import { lenderDisplayName } from '@/config/lenders'
-import { matchKnowledge, promoTone, type KnowledgeLenderEntry } from '@/lib/rates-shared'
+import { matchKnowledge, type KnowledgeLenderEntry } from '@/lib/rates-shared'
 
 interface OfferTier {
   label?: string
   rate_pct?: { value?: number } | null
+  comp_bps?: { value?: number } | null
+  buydown_rate_pct?: { value?: number } | null
 }
 
-function pricedTiers(shape: OfferShape): { label: string; rate: number }[] {
+interface PricedTier {
+  label: string
+  rate: number
+  compBps: number | null
+  buydownRatePct: number | null
+}
+
+function pricedTiers(shape: OfferShape): PricedTier[] {
   const tiers = Array.isArray(shape.offer_rates) ? (shape.offer_rates as OfferTier[]) : []
   return tiers
     .filter(t => typeof t?.rate_pct?.value === 'number')
-    .map(t => ({ label: t.label ?? 'rate', rate: t.rate_pct!.value! }))
+    .map(t => ({
+      label: t.label ?? 'rate',
+      rate: t.rate_pct!.value!,
+      compBps: typeof t.comp_bps?.value === 'number' ? t.comp_bps.value : null,
+      buydownRatePct: typeof t.buydown_rate_pct?.value === 'number' ? t.buydown_rate_pct.value : null,
+    }))
+}
+
+// The knowledge type declares expiry as string, but a null-expiry offer is
+// served with a null expiry and (possibly) a null days_left.
+function offerExpiry(o: KnowledgeOffer): string | null {
+  return (o.expiry as string | null) ?? null
+}
+function offerDaysLeft(o: KnowledgeOffer): number | null {
+  return typeof o.days_left === 'number' ? o.days_left : null
+}
+function isActiveOffer(o: KnowledgeOffer): boolean {
+  // No clock = always active (and loudly flagged). Otherwise still in window:
+  // days_left === 0 (expires today) is still quotable, matching classifyWindow
+  // where expired is only d < 0. Every surface must agree on this boundary.
+  return hasNoExpiry(offerExpiry(o)) || (offerDaysLeft(o) ?? -1) >= 0
 }
 
 export default function RatesPromos() {
@@ -46,11 +73,17 @@ export default function RatesPromos() {
 
   const { active, expired } = useMemo(() => {
     const all = offersRes.data?.offers ?? []
-    const sorted = [...all].sort((a, b) => a.days_left - b.days_left)
-    return {
-      active: sorted.filter(o => o.days_left > 0),
-      expired: sorted.filter(o => o.days_left <= 0),
-    }
+    const activeList = all.filter(isActiveOffer).sort((a, b) => {
+      // Dated offers by soonest expiry; no-clock offers sort after (they have
+      // no deadline to act on) but still carry the loud warning.
+      const an = hasNoExpiry(offerExpiry(a))
+      const bn = hasNoExpiry(offerExpiry(b))
+      if (an && bn) return 0
+      if (an) return 1
+      if (bn) return -1
+      return (offerDaysLeft(a) ?? 0) - (offerDaysLeft(b) ?? 0)
+    })
+    return { active: activeList, expired: all.filter(o => !isActiveOffer(o)) }
   }, [offersRes.data])
 
   const knowledgeFor = (slug: string) => matchKnowledge(knowledgeLenders, slug)
@@ -71,18 +104,15 @@ export default function RatesPromos() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <p className="text-sm text-gray-500 font-body">
-          The live promo book, soonest to expire first. Active offers come from the knowledge base,
-          updated when Roam intel is reviewed
-          {offersAsOf ? `; as of ${offersAsOf}` : ''}.
-        </p>
-      </div>
+      <p className="text-sm text-gray-500 font-body mb-4">
+        The live promo book, soonest to expire first. Approved offers come from the knowledge base,
+        updated when Roam intel is reviewed on the approvals desk
+        {offersAsOf ? `; as of ${offersAsOf}` : ''}.
+      </p>
 
       {active.length === 0 ? (
         <p className="text-sm text-gray-500 font-body bg-white border border-gray-200 rounded-xl p-5">
-          No active offers right now. They land here when a lender announcement is reviewed in the
-          knowledge base.
+          No active offers right now. They land here when an offer is approved on the desk.
         </p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3" data-testid="promo-cards">
@@ -92,8 +122,6 @@ export default function RatesPromos() {
         </div>
       )}
 
-      {/* Recently expired: honest attempt-and-fallback over an endpoint that
-          serves only active offers today. */}
       <div className="mt-6">
         <button
           onClick={() => setShowExpired(s => !s)}
@@ -106,9 +134,8 @@ export default function RatesPromos() {
           <div className="mt-3" data-testid="promo-expired">
             {expired.length === 0 ? (
               <p className="text-xs text-gray-500 font-body bg-gray-50 border border-gray-200 rounded-lg p-3">
-                The knowledge base serves only active offers today, so recently expired promos are not
-                retained here yet. This list fills in on its own once the offers endpoint begins
-                returning recently-expired entries.
+                No recently expired offers in the knowledge base right now. Auto-retired offers appear
+                here as the offer book turns over.
               </p>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -144,16 +171,16 @@ function PromoCard({
   const [open, setOpen] = useState(false)
   const shape = offer.offer as OfferShape
   const tiers = pricedTiers(shape)
+  const ratesText = offerRatesText(shape)
   const predicates = Array.isArray(shape.predicates)
     ? (shape.predicates as unknown[]).filter((p): p is string => typeof p === 'string')
     : []
+  const evidence = normalizeEvidence((shape as { evidence?: unknown }).evidence)
   const provenance = typeof shape.provenance === 'string' ? shape.provenance : null
   const name = offer.lender_name || knowledge?.name || lenderDisplayName(offer.lender)
-  const tone = expired ? 'calm' : promoTone(offer.days_left)
-  const toneCls =
-    tone === 'red' ? 'bg-red-100 text-red-800' : tone === 'amber' ? 'bg-amber-100 text-amber-900' : 'bg-gray-100 text-gray-600'
-  // Prefer the quote-slug alias for the Lenders/Scenario deep links so the
-  // target keys resolve; fall back to the offer's own slug.
+  const started = typeof shape.started === 'string' ? shape.started : null
+  const expiry = offerExpiry(offer)
+  const daysLeft = offerDaysLeft(offer)
   const linkSlug = knowledge?.quote_slugs?.[0] ?? offer.lender
 
   const eligibility = (shape.eligibility ?? null) as
@@ -170,37 +197,52 @@ function PromoCard({
           <LenderMark slug={offer.lender} name={name} size={28} />
           <span className="font-heading font-bold text-navy truncate">{name}</span>
         </span>
-        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${toneCls}`}>
-          {expired ? `expired ${offer.expiry}` : `${offer.days_left}d left`}
-        </span>
+        {expired && <span className="text-[11px] font-semibold text-gray-500 shrink-0">expired {expiry}</span>}
       </div>
 
-      <p className="text-sm font-body font-semibold text-navy mt-2">
-        {shape.description ?? 'Promo offer'}
-      </p>
+      {/* The window, loud. A null expiry is a red warning, never a dash. */}
+      {!expired && (
+        <div className="mt-2">
+          <OfferWindowBadge started={started} expiry={expiry} daysLeft={daysLeft} />
+        </div>
+      )}
 
-      {tiers.length > 0 && (
+      <p className="text-sm font-body font-semibold text-navy mt-2">{shape.description ?? 'Promo offer'}</p>
+
+      {/* Priced elements. */}
+      {tiers.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {tiers.map((t, i) => (
             <span key={i} className="text-xs font-body bg-lime/20 border border-lime/50 rounded-full px-2 py-0.5 text-navy">
               {t.label}: <span className="font-heading font-bold">{t.rate.toFixed(2)}%</span>
+              {t.compBps !== null ? ` · ${t.compBps} bps` : ''}
+              {t.buydownRatePct !== null ? ` · buydown to ${t.buydownRatePct.toFixed(2)}%` : ''}
             </span>
           ))}
         </div>
-      )}
+      ) : ratesText ? (
+        <p className="text-xs font-body text-navy mt-2">
+          <span className="text-gray-500">Extracted: </span>
+          <span className="font-semibold">{ratesText}</span>
+        </p>
+      ) : null}
 
-      {/* Conditions summary */}
+      {/* Conditions summary from structured eligibility. */}
       <div className="mt-2 text-xs text-gray-600 font-body space-y-0.5">
         {eligibility?.required_product && <p>Requires {eligibility.required_product}.</p>}
         {typeof eligibility?.closing_within_days === 'number' && (
           <p>Closing within {eligibility.closing_within_days} days of application.</p>
         )}
-        {eligibility?.application_window_start && (
-          <p>Applications from {eligibility.application_window_start} to {offer.expiry}.</p>
+        {eligibility?.application_window_start && expiry && (
+          <p>Applications from {eligibility.application_window_start} to {expiry}.</p>
         )}
-        {shape.started && <p className="text-gray-400">Effective {shape.started}.</p>}
+        {started && <p className="text-gray-400">Effective {started}.</p>}
       </div>
 
+      {/* Extraction evidence where the endpoint carries it. */}
+      <OfferEvidenceList evidence={evidence} />
+
+      {/* Full conditions, verbatim. */}
       {predicates.length > 0 && (
         <div className="mt-2">
           <button
@@ -210,13 +252,7 @@ function PromoCard({
           >
             {open ? 'Hide' : 'Show'} full conditions ({predicates.length})
           </button>
-          {open && (
-            <ul className="mt-1 space-y-1 text-xs text-gray-700 font-body list-disc pl-4">
-              {predicates.map((p, i) => (
-                <li key={i}>{p}</li>
-              ))}
-            </ul>
-          )}
+          {open && <OfferConditions conditions={predicates} />}
         </div>
       )}
 

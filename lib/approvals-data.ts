@@ -5,6 +5,7 @@
 
 import {
   getLastDecided,
+  getOfferQueue,
   getOpenDiscrepancyFlags,
   getOpenFlagCards,
   getRateSheetQueue,
@@ -12,6 +13,7 @@ import {
   getStatementQueue,
   type DiscrepancyFlag,
   type LastDecided,
+  type OfferQueueCard,
   type OpenFlagCard,
   type ShadowQueueCard,
   type SheetQueueCard,
@@ -23,6 +25,8 @@ export interface ApprovalsData {
   statements: StatementQueueCard[]
   discrepancies: DiscrepancyFlag[]
   sheets: SheetQueueCard[]
+  // Extracted promotional offers awaiting approval.
+  offers: OfferQueueCard[]
   // Live-file flags: these drive the tab badge and the main queue.
   flags: OpenFlagCard[]
   // Open flags whose deal is terminal (funded and the like): cleanup, not
@@ -31,7 +35,7 @@ export interface ApprovalsData {
   shadow: ShadowQueueCard[]
   lastDecided: LastDecided
   // Per-queue fetch problems, keyed for honest per-tab error banners.
-  errors: Partial<Record<'statements' | 'sheets' | 'flags' | 'shadow', string>>
+  errors: Partial<Record<'statements' | 'sheets' | 'offers' | 'flags' | 'shadow', string>>
 }
 
 function take<T>(res: UwResult<T[]>, fallback: T[] = []): { data: T[]; error?: string } {
@@ -41,10 +45,11 @@ function take<T>(res: UwResult<T[]>, fallback: T[] = []): { data: T[]; error?: s
 }
 
 export async function getApprovalsData(agentId: string): Promise<ApprovalsData> {
-  const [stmtsR, discR, sheetsR, flagsR, shadowR, lastR] = await Promise.all([
+  const [stmtsR, discR, sheetsR, offersR, flagsR, shadowR, lastR] = await Promise.all([
     getStatementQueue(agentId),
     getOpenDiscrepancyFlags(agentId),
     getRateSheetQueue(agentId),
+    getOfferQueue(agentId),
     getOpenFlagCards(agentId),
     getShadowQueue(agentId),
     getLastDecided(agentId),
@@ -52,17 +57,20 @@ export async function getApprovalsData(agentId: string): Promise<ApprovalsData> 
   const stmts = take(stmtsR)
   const disc = take(discR)
   const sheets = take(sheetsR)
+  const offers = take(offersR)
   const flags = take(flagsR)
   const shadow = take(shadowR)
   const errors: ApprovalsData['errors'] = {}
   if (stmts.error) errors.statements = stmts.error
   if (sheets.error) errors.sheets = sheets.error
+  if (offers.error) errors.offers = offers.error
   if (flags.error) errors.flags = flags.error
   if (shadow.error) errors.shadow = shadow.error
   return {
     statements: stmts.data,
     discrepancies: disc.data,
     sheets: sheets.data,
+    offers: offers.data,
     flags: flags.data.filter(f => !f.dealTerminal),
     flagsOnClosed: flags.data.filter(f => f.dealTerminal),
     shadow: shadow.data,

@@ -18,12 +18,21 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
-import { fmtDiscount } from '@/lib/scenario'
+import { fmtDiscount, type RatesReference } from '@/lib/scenario'
+import { daysUntil, offerRatesText } from '@/lib/offers'
+import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import LenderMark from '@/components/admin/LenderMark'
+import {
+  OfferConditions,
+  OfferEvidenceList,
+  OfferPricedElements,
+  OfferWindowBadge,
+} from '@/components/admin/offer-display'
 import { lenderDisplayName } from '@/config/lenders'
 import type { ApprovalsData } from '@/lib/approvals-data'
 import type {
   DiscrepancyFlag,
+  OfferQueueCard,
   OpenFlagCard,
   ShadowQueueCard,
   SheetQueueCard,
@@ -210,11 +219,12 @@ async function postDecision(
 
 // ─── The desk ───────────────────────────────────────────────────────────────
 
-export type TabKey = 'statements' | 'sheets' | 'flags' | 'shadow'
+export type TabKey = 'statements' | 'sheets' | 'offers' | 'flags' | 'shadow'
 
 export interface CanDecide {
   statements: boolean
   sheets: boolean
+  offers: boolean
   flags: boolean
   shadow: boolean
 }
@@ -223,6 +233,7 @@ export default function ApprovalsDesk({
   initial,
   canDecide,
   initialTab = 'statements',
+  todayYMD,
 }: {
   initial: ApprovalsData
   canDecide: CanDecide
@@ -230,9 +241,14 @@ export default function ApprovalsDesk({
   // screenshots and checks navigate instead of clicking (the UI test
   // automation discipline).
   initialTab?: TabKey
+  // Toronto today, for the offer countdowns.
+  todayYMD: string
 }) {
   const [data, setData] = useState<ApprovalsData>(initial)
   const [tab, setTab] = useState<TabKey>(initialTab)
+  // Prime reference for pricing floating offer discounts as effective rates.
+  const referenceRes = useKnowledgeFetch<RatesReference>('/api/portal/admin/knowledge/rates-reference')
+  const reference = referenceRes.data ?? null
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
@@ -348,6 +364,23 @@ export default function ApprovalsDesk({
         action === 'approve'
           ? `Approved ${card.lenderSlug ?? 'sheet'}: ${r?.approved ?? 0} quotes approved, ${r?.held ?? 0} held, ${r?.superseded ?? 0} superseded.`
           : `Rejected ${card.lenderSlug ?? 'sheet'}: every quote on the sheet rejected.`,
+    })
+  }
+
+  const decideOffer = (card: OfferQueueCard, action: 'approve' | 'reject') => {
+    const key = `offer:${card.id}`
+    const who = card.lenderName ?? lenderDisplayName(card.lenderSlug)
+    void act({
+      key,
+      url: `/api/portal/admin/gates/offers/${card.id}/decision`,
+      body: { action, ...(note(key).trim() ? { note: note(key).trim() } : {}) },
+      onSuccess: () => {
+        setData(d => ({ ...d, offers: d.offers.filter(o => o.id !== card.id) }))
+      },
+      successText: () =>
+        action === 'approve'
+          ? `Approved ${who} offer: it now appears on the Promos board.`
+          : `Rejected ${who} offer: it will not be quoted.`,
     })
   }
 
@@ -488,6 +521,7 @@ export default function ApprovalsDesk({
   const tabs: { key: TabKey; title: string; count: number }[] = [
     { key: 'statements', title: 'Statements', count: data.statements.length },
     { key: 'sheets', title: 'Rate sheets', count: data.sheets.length },
+    { key: 'offers', title: 'Offers', count: data.offers.length },
     { key: 'flags', title: 'Flags', count: data.flags.length },
     { key: 'shadow', title: 'Shadow scores', count: data.shadow.length },
   ]
@@ -495,6 +529,7 @@ export default function ApprovalsDesk({
   const lastDecidedFor: Record<TabKey, string | null> = {
     statements: data.lastDecided.statements,
     sheets: data.lastDecided.rates,
+    offers: null,
     flags: data.lastDecided.flags,
     shadow: data.lastDecided.shadow,
   }
@@ -502,11 +537,12 @@ export default function ApprovalsDesk({
   const emptyCopy: Record<TabKey, string> = {
     statements: 'No statement reviews pending.',
     sheets: 'No rate sheets pending.',
+    offers: 'No promotional offers pending.',
     flags: 'No open flags.',
     shadow: 'No shadow scores due.',
   }
 
-  const queueError = { statements: data.errors.statements, sheets: data.errors.sheets, flags: data.errors.flags, shadow: data.errors.shadow }[tab]
+  const queueError = { statements: data.errors.statements, sheets: data.errors.sheets, offers: data.errors.offers, flags: data.errors.flags, shadow: data.errors.shadow }[tab]
 
   return (
     <div>
@@ -807,6 +843,119 @@ export default function ApprovalsDesk({
                       message={cardErrors[key]}
                       onRetry={
                         cardErrors[key].startsWith('Could not reach') ? () => decideSheet(card, 'approve') : undefined
+                      }
+                    />
+                  )}
+                </div>
+              )
+            })
+          ))}
+
+        {/* ── Offers ── */}
+        {tab === 'offers' &&
+          (data.offers.length === 0 ? (
+            <EmptyState text={emptyCopy.offers} lastDecided={lastDecidedFor.offers} />
+          ) : (
+            data.offers.map(card => {
+              const key = `offer:${card.id}`
+              const who = card.lenderName ?? lenderDisplayName(card.lenderSlug)
+              const provenance =
+                typeof (card.offerPayload as { provenance?: unknown } | null)?.provenance === 'string'
+                  ? ((card.offerPayload as { provenance?: string }).provenance as string)
+                  : null
+              const daysLeft = card.expiry ? daysUntil(todayYMD, card.expiry) : null
+              return (
+                <div
+                  key={card.id}
+                  className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5"
+                  data-testid={`offer-card-${card.id}`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <LenderMark slug={card.lenderSlug} name={who} size={28} />
+                      <div className="min-w-0">
+                        <h3 className="font-heading font-bold text-navy text-base">{who}</h3>
+                        <p className="text-sm font-body text-gray-700 break-words">{card.offerName}</p>
+                      </div>
+                    </div>
+                    {card.confidence !== null && <Chip tone="gray">conf {card.confidence}</Chip>}
+                  </div>
+
+                  {/* The window, rendered loudly. A null expiry is never a dash. */}
+                  <div className="mt-3">
+                    <OfferWindowBadge started={card.started} expiry={card.expiry} daysLeft={daysLeft} />
+                  </div>
+
+                  {/* Priced elements as identity. */}
+                  <div className="mt-3 border-t border-gray-100 pt-3">
+                    <OfferPricedElements
+                      offer={{
+                        lenderSlug: card.lenderSlug,
+                        rate: card.rate,
+                        rateType: card.rateType,
+                        primeVariance: card.primeVariance,
+                        cashbackPct: card.cashbackPct,
+                        cashbackAmountText: card.cashbackAmountText,
+                        productClass: card.productClass,
+                        termMonths: card.termMonths,
+                        termMonthsList: card.termMonthsList,
+                        ratesText: offerRatesText(card.offerPayload),
+                      }}
+                      reference={reference}
+                    />
+                  </div>
+
+                  {/* Conditions as extracted, verbatim. */}
+                  {card.conditions.length > 0 && (
+                    <details className="mt-3">
+                      <summary className="text-xs font-semibold text-navy cursor-pointer select-none py-1">
+                        Conditions, verbatim ({card.conditions.length})
+                      </summary>
+                      <OfferConditions conditions={card.conditions} />
+                    </details>
+                  )}
+
+                  {/* Evidence: the approval is of evidence, not a summary. */}
+                  <OfferEvidenceList evidence={card.evidence} />
+
+                  {provenance && (
+                    <p className="text-[11px] text-gray-400 font-body mt-2 break-words">Extracted from {provenance}.</p>
+                  )}
+
+                  {canDecide.offers ? (
+                    <>
+                      <NoteField value={note(key)} onChange={v => setNote(key, v)} />
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <ConfirmButton
+                          label="Approve offer"
+                          confirmLabel="Tap again to approve"
+                          tone="approve"
+                          busy={Boolean(busy[key])}
+                          armed={armed?.key === `${key}:approve`}
+                          armedAt={armed?.at}
+                          onArm={() => arm(`${key}:approve`)}
+                          onFire={() => decideOffer(card, 'approve')}
+                        />
+                        <ConfirmButton
+                          label="Reject offer"
+                          confirmLabel="Tap again to reject"
+                          tone="reject"
+                          busy={Boolean(busy[key])}
+                          armed={armed?.key === `${key}:reject`}
+                          armedAt={armed?.at}
+                          onArm={() => arm(`${key}:reject`)}
+                          onFire={() => decideOffer(card, 'reject')}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <ViewOnlyNote />
+                  )}
+                  {cardErrors[key] && (
+                    <CardError
+                      message={cardErrors[key]}
+                      onRetry={
+                        cardErrors[key].startsWith('Could not reach') ? () => decideOffer(card, 'approve') : undefined
                       }
                     />
                   )}

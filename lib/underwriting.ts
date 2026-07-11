@@ -32,6 +32,7 @@
 import { createCache } from '@/lib/cache'
 import { torontoTodayYMD, ymdAddDays } from '@/lib/dates'
 import { isTerminalWorkbenchDeal } from '@/config/pipeline'
+import { normalizeEvidence, type OfferEvidenceItem } from '@/lib/offers'
 // Demo mode (Session 9): each read fetcher below short-circuits to a
 // fictional fixture as its FIRST statement, before any uwFetch/network
 // call, so demo mode performs ZERO real workbench reads.
@@ -304,6 +305,82 @@ export async function getPendingSheetReviews(
     }
     return Array.from(byItem.values())
   })
+}
+
+// Promotional offers extracted from Roam intel, awaiting Michael's approval.
+// The lender_offers table is the 18th granted read surface. "pending" = rows
+// still in status=extracted. Each row carries its normalized priced elements
+// (rate/variance/cashback/term/class), the verbatim conditions, per-element
+// extraction evidence, the offer_payload the knowledge layer consumes, and —
+// the field that matters most — the window (started/expiry), where a null
+// expiry means the offer will not auto-retire.
+export interface OfferQueueCard {
+  id: string
+  offerId: string
+  offerName: string
+  lenderSlug: string
+  lenderName: string | null
+  rate: number | null
+  rateType: string | null
+  primeVariance: number | null
+  cashbackPct: number | null
+  cashbackAmountText: string | null
+  productClass: string | null
+  termMonths: number | null
+  termMonthsList: number[] | null
+  conditions: string[]
+  eligibility: unknown | null
+  started: string | null
+  expiry: string | null
+  offerPayload: unknown
+  evidence: OfferEvidenceItem[]
+  sourcePage: number | null
+  sourceSnippet: string | null
+  confidence: number | null
+  extractedBy: string
+  intelItemId: string | null
+  createdAt: string
+}
+
+export async function getOfferQueue(agentId: string): Promise<UwResult<OfferQueueCard[]>> {
+  if (isDemoMode()) return demoResult([])
+  const res = await uwSelect<any>('lender_offers', {
+    select:
+      'id,offer_id,offer_name,lender_slug,lender_name,rate,rate_type,prime_variance,cashback_pct,cashback_amount_text,product_class,term_months,term_months_list,conditions,eligibility,started,expiry,offer_payload,evidence,source_page,source_snippet,confidence,extracted_by,intel_item_id,list_seq,created_at',
+    agent_id: `eq.${agentId}`,
+    status: 'eq.extracted',
+    order: 'created_at.asc',
+    limit: '500',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      offerId: r.offer_id,
+      offerName: r.offer_name,
+      lenderSlug: r.lender_slug,
+      lenderName: r.lender_name ?? null,
+      rate: numOrNull(r.rate),
+      rateType: r.rate_type ?? null,
+      primeVariance: numOrNull(r.prime_variance),
+      cashbackPct: numOrNull(r.cashback_pct),
+      cashbackAmountText: r.cashback_amount_text ?? null,
+      productClass: r.product_class ?? null,
+      termMonths: r.term_months ?? null,
+      termMonthsList: Array.isArray(r.term_months_list) ? r.term_months_list.map(Number) : null,
+      conditions: Array.isArray(r.conditions) ? r.conditions.filter((c: unknown): c is string => typeof c === 'string') : [],
+      eligibility: r.eligibility ?? null,
+      started: r.started ?? null,
+      expiry: r.expiry ?? null,
+      offerPayload: r.offer_payload ?? null,
+      evidence: normalizeEvidence(r.evidence),
+      sourcePage: r.source_page ?? null,
+      sourceSnippet: r.source_snippet ?? null,
+      confidence: numOrNull(r.confidence),
+      extractedBy: r.extracted_by,
+      intelItemId: r.intel_item_id ?? null,
+      createdAt: r.created_at,
+    })),
+  )
 }
 
 export interface ShadowTally {

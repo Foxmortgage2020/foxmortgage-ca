@@ -30,6 +30,7 @@ export type Role = (typeof ROLES)[number]
 export const PERMISSIONS = {
   'approvals.statement.decide': ['admin'],
   'approvals.ratesheet.decide': ['admin'],
+  'approvals.offer.decide': ['admin'],
   'flags.disposition': ['admin'],
   'shadow.score': ['admin'],
   // Session 4, matching the gates API contract (micro-session 2):
@@ -90,6 +91,7 @@ export const PERMISSIONS = {
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'approvals.statement.decide': 'Decide statement reviews (approve / hold / reject)',
   'approvals.ratesheet.decide': 'Decide rate sheet reviews',
+  'approvals.offer.decide': 'Decide promotional offers (approve / reject)',
   'flags.disposition': 'Dispose flags',
   'shadow.score': 'Score shadow dimensions',
   'conditions.decide': 'Decide conditions (satisfied / moot / waived)',

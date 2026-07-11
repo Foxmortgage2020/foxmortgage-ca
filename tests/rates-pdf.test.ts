@@ -9,7 +9,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PDFArray, PDFDocument, PDFName } from 'pdf-lib'
-import { generateRatesPdf, ratesPdfFilename } from '@/lib/rates-pdf'
+import { generateRatesPdf, ratesPdfFilename, type PdfOfferInput } from '@/lib/rates-pdf'
 import { DEFAULT_SCENARIO, type RatesReference, type Scenario } from '@/lib/scenario'
 import type { RateQuoteFullRow } from '@/lib/underwriting'
 
@@ -195,7 +195,12 @@ describe('client PDF never discloses compensation', () => {
   const SENTINEL = 9137
   const comped = (over: Partial<RateQuoteFullRow>) => q({ compBps: SENTINEL, ...over })
 
-  const INPUT_SHAPES: { label: string; quotes: RateQuoteFullRow[]; reference: RatesReference | null }[] = [
+  const INPUT_SHAPES: {
+    label: string
+    quotes: RateQuoteFullRow[]
+    reference: RatesReference | null
+    offers?: PdfOfferInput[]
+  }[] = [
     {
       label: 'fixed + floating + cash back, prime available',
       reference: REF,
@@ -218,6 +223,50 @@ describe('client PDF never discloses compensation', () => {
       reference: null,
       quotes: [
         comped({ id: 'TEST-v', lenderSlug: 'scotia', rateType: 'variable', rate: null, primeVariance: -0.9 }),
+      ],
+    },
+    {
+      // A pinned OFFER carrying bonus compensation inside its conditions and
+      // priced text: the offers desk session's leak vector. Scrubbed like the
+      // sheet fields.
+      label: 'offer with bonus comp in its conditions and priced text',
+      reference: REF,
+      quotes: [comped({ id: 'TEST-q', lenderSlug: 'scotia', rate: 4.19, rateType: 'fixed' })],
+      offers: [
+        {
+          lenderName: 'Scotiabank',
+          description: 'Limited-time 3yr special',
+          ratePct: 4.19,
+          ratesText: 'fixed 4.19% with 9137 bps to the broker',
+          conditions: [
+            'Must use Scotia Mortgage Plus.',
+            'Bonus compensation of 9137 bps paid to the broker on funding.',
+            'Applications by August 24.',
+          ],
+          started: '2026-06-25',
+          expiry: '2026-08-24',
+        },
+      ],
+    },
+    {
+      // The priced-text branch specifically: when offerScenarioResult returns
+      // no rate (prose offer), the route passes ratePct:null and the PDF draws
+      // the verbatim rates_or_amounts text — which can itself carry comp. Force
+      // the sentinel to surface ONLY through that branch (clean conditions), so
+      // the ratesText redactComp guard is non-vacuously exercised.
+      label: 'offer priced-text (no structured rate) carrying comp',
+      reference: REF,
+      quotes: [comped({ id: 'TEST-pt', lenderSlug: 'scotia', rate: 4.19, rateType: 'fixed' })],
+      offers: [
+        {
+          lenderName: 'Neo',
+          description: 'Reduced fixed rate',
+          ratePct: null,
+          ratesText: 'fixed 4.79%, 9137 bps to the broker',
+          conditions: ['Owner-occupied only.'],
+          started: null,
+          expiry: '2026-08-31',
+        },
       ],
     },
     {
@@ -248,6 +297,7 @@ describe('client PDF never discloses compensation', () => {
         scenario: SCENARIO,
         quotes: shape.quotes,
         lenderInfo: LENDER_INFO,
+        offers: shape.offers,
         reference: shape.reference,
         generatedDate: '2026-07-10',
         sourceFileRef: null,
@@ -261,4 +311,55 @@ describe('client PDF never discloses compensation', () => {
       expect(text).not.toContain('Compensation')
     })
   }
+})
+
+describe('client PDF carries a pinned offer with its conditions and expiry', () => {
+  it('prints the conditions verbatim and a dated expiry', async () => {
+    const offer: PdfOfferInput = {
+      lenderName: 'Scotiabank',
+      description: 'Limited-time 3yr special',
+      ratePct: 4.19,
+      ratesText: null,
+      conditions: ['Must use Scotia Mortgage Plus.', 'Applications by August 24.'],
+      started: '2026-06-25',
+      expiry: '2026-08-24',
+    }
+    const bytes = await generateRatesPdf({
+      scenario: SCENARIO,
+      quotes: [q({ id: 'TEST-q', lenderSlug: 'scotia', rate: 4.19, rateType: 'fixed', compBps: 100 })],
+      lenderInfo: LENDER_INFO,
+      offers: [offer],
+      reference: REF,
+      generatedDate: '2026-07-10',
+      sourceFileRef: null,
+    })
+    const text = await extractPdfText(bytes)
+    expect(text).toContain('Promotional offers included')
+    expect(text).toContain('Must use Scotia Mortgage Plus')
+    expect(text).toContain('2026-08-24')
+  })
+
+  it('renders the loud no-end-date warning for a null-expiry offer, never a dash', async () => {
+    const offer: PdfOfferInput = {
+      lenderName: 'EQ Bank',
+      description: 'Reduced 1yr and 2yr fixed',
+      ratePct: null,
+      ratesText: 'fixed 4.89%',
+      conditions: ['FICO 680+.'],
+      started: '2026-07-06',
+      expiry: null,
+    }
+    const bytes = await generateRatesPdf({
+      scenario: SCENARIO,
+      quotes: [q({ id: 'TEST-q', lenderSlug: 'scotia', rate: 4.19, rateType: 'fixed', compBps: 100 })],
+      lenderInfo: LENDER_INFO,
+      offers: [offer],
+      reference: REF,
+      generatedDate: '2026-07-10',
+      sourceFileRef: null,
+    })
+    const text = await extractPdfText(bytes)
+    expect(text).toContain('no stated end date')
+    expect(text).toContain('will not expire on its own')
+  })
 })

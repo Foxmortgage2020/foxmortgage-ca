@@ -11,11 +11,12 @@ import { getAgentIdByEmail } from '@/lib/underwriting'
 import { getApprovalsData } from '@/lib/approvals-data'
 import { gatesConfigured } from '@/lib/gates'
 import { isDemoMode } from '@/lib/demo'
+import { torontoTodayYMD } from '@/lib/dates'
 import ApprovalsDesk from '@/components/admin/ApprovalsDesk'
 
 export const dynamic = 'force-dynamic'
 
-const TAB_KEYS = ['statements', 'sheets', 'flags', 'shadow'] as const
+const TAB_KEYS = ['statements', 'sheets', 'offers', 'flags', 'shadow'] as const
 
 export default async function ApprovalsPage({
   searchParams,
@@ -67,11 +68,13 @@ export default async function ApprovalsPage({
         <ApprovalsDesk
           initial={data}
           initialTab={initialTab}
+          todayYMD={torontoTodayYMD()}
           canDecide={{
             // Session 9: demo mode is read-only — no decision controls render
             // (the server also rejects any write with DemoWriteBlocked).
             statements: !demo && can(user, 'approvals.statement.decide'),
             sheets: !demo && can(user, 'approvals.ratesheet.decide'),
+            offers: !demo && can(user, 'approvals.offer.decide'),
             flags: !demo && can(user, 'flags.disposition'),
             shadow: !demo && can(user, 'shadow.score'),
           }}
@@ -85,8 +88,8 @@ export default async function ApprovalsPage({
       <div>
         <h1 className="font-heading text-navy text-2xl font-bold">Approvals</h1>
         <p className="text-gray-500 font-body text-sm mt-1">
-          Statement reviews, rate sheets, flags, and shadow scores. Every decision is recorded in
-          the workbench audit log under your name.
+          Statement reviews, rate sheets, promotional offers, flags, and shadow scores. Every decision
+          is recorded in the workbench audit log under your name.
         </p>
       </div>
       {body}

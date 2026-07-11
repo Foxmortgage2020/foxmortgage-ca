@@ -47,6 +47,7 @@ import {
   scenarioToParams,
   summaryLine,
   termLabel,
+  type OfferScenarioResult,
   type OfferShape,
   type RatesReference,
   type Scenario,
@@ -56,6 +57,7 @@ import type { KnowledgeOffer } from '@/lib/gates'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import LenderMark from '@/components/admin/LenderMark'
+import { OfferWindowBadge } from '@/components/admin/offer-display'
 import {
   CashbackChip,
   RateHeadline,
@@ -150,6 +152,45 @@ export default function RatesScenario({
     () => pins.map(id => quotes.find(q => q.id === id)).filter((q): q is RateQuoteFullRow => Boolean(q)),
     [pins, quotes],
   )
+  // Offer pins ride the same pins param, tokened `o:<offerId>`, so an offer can
+  // be pinned into the compare tray and the client PDF beside sheet quotes.
+  const pinnedOffers = useMemo(
+    () =>
+      pins
+        .filter(p => p.startsWith('o:'))
+        .map(p => offers.find(o => (o.offer as OfferShape).id === p.slice(2)))
+        .filter((o): o is KnowledgeOffer => Boolean(o)),
+    [pins, offers],
+  )
+
+  // The case the offers work exists for: an offer that beats every sheet quote
+  // for this scenario sorts FIRST and is visually unmistakable.
+  const winningOffer = useMemo(() => {
+    const cands = offers
+      .map(o => {
+        const res = offerScenarioResult(o.offer as OfferShape, scenario)
+        return res ? { o, res } : null
+      })
+      .filter((x): x is { o: KnowledgeOffer; res: OfferScenarioResult } => x !== null)
+    if (cands.length === 0) return null
+    const best = cands.reduce((a, b) => (a.res.ratePct <= b.res.ratePct ? a : b))
+    const bestLenderMatch = results[0]?.matches.find(m => m.quote.cashbackPct === null) ?? results[0]?.matches[0]
+    const bestLenderEffective = bestLenderMatch ? quoteEffectiveRate(bestLenderMatch.quote, reference) : null
+    // "Beats every sheet quote" requires an actual comparison. A null best
+    // effective means EITHER no sheet quotes matched (offer legitimately wins)
+    // OR the matched quotes are unpriceable (floating + prime unavailable) —
+    // in the latter case the dominance was never checked, so don't claim it.
+    if (bestLenderEffective === null) {
+      if (results.length > 0) return null
+    } else if (!(best.res.ratePct < bestLenderEffective)) {
+      return null
+    }
+    const kEntry = knowledgeLenders.find(l => l.slug === best.o.lender) ?? null
+    const quoteSlug = kEntry?.quote_slugs?.[0] ?? best.o.lender
+    const name = best.o.lender_name || kEntry?.name || lenderDisplayName(quoteSlug)
+    return { ...best, quoteSlug, name }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offers, scenario, results, reference, knowledgeLenders])
 
   function navigate(next: Record<string, string | null>, push = false) {
     const params = new URLSearchParams(sp.toString())
@@ -256,7 +297,48 @@ export default function RatesScenario({
 
             {level === 'results' && (
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="lender-results">
-                {results.length === 0 && (
+                {winningOffer && (
+                  <div
+                    className="sm:col-span-2 bg-lime/15 border-2 border-lime rounded-xl p-4"
+                    data-testid="winning-offer"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-lime text-navy uppercase tracking-wide">
+                        Best offer &middot; beats every sheet quote
+                      </span>
+                      <OfferWindowBadge
+                        variant="chip"
+                        started={winningOffer.res.started}
+                        expiry={(winningOffer.o.expiry as string | null) ?? null}
+                        daysLeft={typeof winningOffer.o.days_left === 'number' ? winningOffer.o.days_left : null}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-end justify-between gap-3">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <LenderMark slug={winningOffer.quoteSlug} name={winningOffer.name} size={28} />
+                        <span className="min-w-0">
+                          <span className="font-heading font-bold text-navy block truncate">{winningOffer.name}</span>
+                          <span className="text-xs text-gray-600 font-body">{winningOffer.res.description}</span>
+                        </span>
+                      </span>
+                      <p className="font-heading text-3xl font-bold text-navy shrink-0">
+                        {winningOffer.res.ratePct.toFixed(2)}%
+                      </p>
+                    </div>
+                    {winningOffer.res.permissive && winningOffer.res.caveat && (
+                      <p className="mt-2 text-[11px] font-body text-amber-900">
+                        Matches permissively: {winningOffer.res.caveat}
+                      </p>
+                    )}
+                    <button
+                      onClick={() => navigate({ lender: winningOffer.quoteSlug }, true)}
+                      className="mt-3 text-xs font-body font-semibold text-navy underline hover:text-lime cursor-pointer"
+                    >
+                      Open {winningOffer.name} &rsaquo;
+                    </button>
+                  </div>
+                )}
+                {results.length === 0 && !winningOffer && (
                   <p className="text-sm text-gray-500 font-body col-span-full bg-white border border-gray-200 rounded-xl p-5">
                     No approved quotes match this scenario. Widen the term, rate type, or product
                     class; the All quotes tab shows the full approved set.
@@ -314,13 +396,20 @@ export default function RatesScenario({
                           ? `, ${r.cashbackCount} cash back tier${r.cashbackCount === 1 ? '' : 's'}`
                           : ''}
                       </p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         {lenderOffers.map((o, j) => {
                           const res = offerScenarioResult(o.offer as OfferShape, scenario)
                           return (
-                            <span key={j} className={`${chip} bg-amber-100 text-amber-900`}>
-                              {res ? `promo ${res.ratePct.toFixed(2)}%, ` : 'promo, '}
-                              {o.days_left}d left
+                            <span key={j} className="inline-flex items-center gap-1">
+                              <span className={`${chip} bg-amber-100 text-amber-900`}>
+                                {res ? `promo ${res.ratePct.toFixed(2)}%` : 'promo'}
+                              </span>
+                              <OfferWindowBadge
+                                variant="chip"
+                                started={null}
+                                expiry={(o.expiry as string | null) ?? null}
+                                daysLeft={typeof o.days_left === 'number' ? o.days_left : null}
+                              />
                             </span>
                           )
                         })}
@@ -376,9 +465,10 @@ export default function RatesScenario({
           </div>
         </div>
 
-      {pinnedQuotes.length > 0 && (
+      {(pinnedQuotes.length > 0 || pinnedOffers.length > 0) && (
         <CompareTray
           pinned={pinnedQuotes}
+          pinnedOffers={pinnedOffers}
           scenario={scenario}
           knowledgeFor={knowledgeFor}
           reference={reference}
@@ -773,16 +863,23 @@ function PromoOfferCard({
   offer,
   scenario,
   offersAsOf,
+  pins,
+  togglePin,
 }: {
   offer: KnowledgeOffer
   scenario: Scenario
   offersAsOf: string | null
+  pins: string[]
+  togglePin: (id: string) => void
 }) {
   const res = offerScenarioResult(offer.offer as OfferShape, scenario)
   if (!res) return null
   const provenance = (offer.offer as OfferShape).provenance
   const payment =
     scenario.amount !== null ? scenarioMonthlyPayment(scenario, res.ratePct) : null
+  const offerId = (offer.offer as OfferShape).id ?? null
+  const pinToken = offerId ? `o:${offerId}` : null
+  const pinned = pinToken ? pins.includes(pinToken) : false
   return (
     <div
       className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 sm:col-span-2"
@@ -792,9 +889,12 @@ function PromoOfferCard({
         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white uppercase tracking-wide">
           Promo offer
         </span>
-        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-          {offer.days_left} day{offer.days_left === 1 ? '' : 's'} left, expires {offer.expiry}
-        </span>
+        <OfferWindowBadge
+          variant="chip"
+          started={res.started}
+          expiry={(offer.expiry as string | null) ?? null}
+          daysLeft={typeof offer.days_left === 'number' ? offer.days_left : null}
+        />
         {res.started && (
           <span className="text-[11px] text-amber-800 font-body">effective {res.started}</span>
         )}
@@ -819,6 +919,13 @@ function PromoOfferCard({
           )}
         </div>
       </div>
+      {/* Permissive match: eligibility was not extracted, so this offer is
+          shown but not confirmed to fit (the sparse-dimension convention). */}
+      {res.permissive && res.caveat && (
+        <p className="mt-2 text-[11px] font-body text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-1">
+          Matches permissively: {res.caveat}
+        </p>
+      )}
       {/* Conditions summary: the structured gates a scenario cannot check
           plus the announcement's own predicates, verbatim. */}
       <div className="mt-2 text-xs font-body text-amber-900 space-y-0.5">
@@ -847,6 +954,22 @@ function PromoOfferCard({
         base{offersAsOf ? ` as of ${offersAsOf}` : ''}. This is an offer, not a rate sheet row; it has
         no sheet approval provenance.
       </p>
+      {pinToken && (
+        <button
+          onClick={() => togglePin(pinToken)}
+          disabled={!pinned && pins.length >= MAX_PINS}
+          className={`mt-3 text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${
+            pinned
+              ? 'bg-navy text-white border-navy'
+              : pins.length >= MAX_PINS
+                ? 'text-gray-300 border-gray-200 cursor-not-allowed'
+                : 'text-navy border-gray-300 hover:border-navy'
+          }`}
+          data-testid={`pin-offer-${offerId}`}
+        >
+          {pinned ? 'Pinned' : pins.length >= MAX_PINS ? 'Pins full' : 'Pin to compare'}
+        </button>
+      )}
     </div>
   )
 }
@@ -908,7 +1031,14 @@ function LenderLevel({
         {/* Promo offers with structured terms render as first-class,
             visually distinct results beside the sheet quotes. */}
         {offers.map((o, i) => (
-          <PromoOfferCard key={`offer-${i}`} offer={o} scenario={scenario} offersAsOf={offersAsOf} />
+          <PromoOfferCard
+            key={`offer-${i}`}
+            offer={o}
+            scenario={scenario}
+            offersAsOf={offersAsOf}
+            pins={pins}
+            togglePin={togglePin}
+          />
         ))}
         {(!r || r.matches.length === 0) && (
           <p className="text-sm text-gray-500 font-body bg-white border border-gray-200 rounded-xl p-5 sm:col-span-2">
@@ -1214,6 +1344,7 @@ function Detail({ rows, title }: { rows: [string, string][]; title: string }) {
 
 function CompareTray({
   pinned,
+  pinnedOffers,
   scenario,
   knowledgeFor,
   reference,
@@ -1222,6 +1353,7 @@ function CompareTray({
   onClear,
 }: {
   pinned: RateQuoteFullRow[]
+  pinnedOffers: KnowledgeOffer[]
   scenario: Scenario
   knowledgeFor: (slug: string) => KnowledgeLenderEntry | null
   reference: RatesReference | null
@@ -1251,7 +1383,13 @@ function CompareTray({
         },
         body: JSON.stringify({
           scenario: scenarioToParams(scenario),
-          pins: pinned.map(q => q.id),
+          pins: [
+            ...pinned.map(q => q.id),
+            ...pinnedOffers
+              .map(o => (o.offer as OfferShape).id)
+              .filter((id): id is string => Boolean(id))
+              .map(id => `o:${id}`),
+          ],
           ...(fromFile ? { from: fromFile } : {}),
         }),
       })
@@ -1309,7 +1447,7 @@ function CompareTray({
       <div className="max-w-5xl mx-auto bg-navy text-white rounded-2xl shadow-2xl pointer-events-auto" data-testid="compare-tray">
         <div className="flex items-center justify-between px-4 py-2.5">
           <button onClick={() => setExpanded(e => !e)} className="text-sm font-body font-semibold">
-            Compare ({pinned.length}/{MAX_PINS}) {expanded ? '▼' : '▲'}
+            Compare ({pinned.length + pinnedOffers.length}/{MAX_PINS}) {expanded ? '▼' : '▲'}
           </button>
           <div className="flex items-center gap-3">
             <button
@@ -1328,6 +1466,8 @@ function CompareTray({
         {pdfError && <p className="px-4 pb-2 text-xs text-amber-300 font-body">{pdfError}</p>}
         {expanded && (
           <div className="px-4 pb-4 overflow-x-auto">
+            {pinned.length > 0 && (
+              <>
             <table className="w-full text-sm font-body min-w-[560px]">
               <thead>
                 <tr>
@@ -1384,6 +1524,47 @@ function CompareTray({
               rate labeled above, computed against the served prime. Rates are from Michael-approved
               sheets on their stated dates.
             </p>
+              </>
+            )}
+            {pinnedOffers.length > 0 && (
+              <div className="mt-2 border-t border-white/10 pt-2" data-testid="compare-offers">
+                <p className="text-[11px] uppercase tracking-wide text-white/50 mb-1">Pinned offers</p>
+                <div className="space-y-1.5">
+                  {pinnedOffers.map((o, i) => {
+                    const shape = o.offer as OfferShape
+                    const res = offerScenarioResult(shape, scenario)
+                    const token = shape.id ? `o:${shape.id}` : ''
+                    return (
+                      <div key={i} className="flex items-start justify-between gap-3 text-xs">
+                        <div className="min-w-0">
+                          <span className="font-bold">{o.lender_name || lenderDisplayName(o.lender)}</span>
+                          <span className="text-white/70"> &mdash; {shape.description ?? 'offer'}</span>
+                          <div className="text-white/60">
+                            {res ? `${res.ratePct.toFixed(2)}%` : ''}
+                            {o.expiry
+                              ? `${res ? ' · ' : ''}expires ${o.expiry}`
+                              : `${res ? ' · ' : ''}no end date, confirm before quoting`}
+                          </div>
+                        </div>
+                        {token && (
+                          <button
+                            onClick={() => onUnpin(token)}
+                            className="text-[11px] text-white/60 underline shrink-0"
+                            aria-label="Unpin offer"
+                          >
+                            unpin
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-white/50 font-body mt-2">
+                  Pinned offers carry their conditions and expiry on the client PDF. Compensation is
+                  never shown to a client.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

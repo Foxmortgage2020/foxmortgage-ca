@@ -463,14 +463,42 @@ describe('promo offers as first-class scenario results (acceptance 4)', () => {
     expect(offerScenarioResult(SCOTIA_OFFER, scenario({ occupancy: 'rental' }))).toBeNull()
   })
 
-  it('never renders from prose alone: no structured eligibility or no rate tiers means no result', () => {
+  it('never renders from prose alone: no rate tiers means no result even when eligibility is unknown', () => {
+    // No eligibility AND no tiers: nothing to price, so still no result.
     expect(offerScenarioResult({ description: 'a special exists', expiry: '2026-08-24' }, scenario({}))).toBeNull()
+    // Eligibility present but no tiers: no result.
     expect(
-      offerScenarioResult(
-        { ...SCOTIA_OFFER, offer_rates: [] },
-        scenario({ purpose: 'purchase' }),
-      ),
+      offerScenarioResult({ ...SCOTIA_OFFER, offer_rates: [] }, scenario({ purpose: 'purchase' })),
     ).toBeNull()
+  })
+
+  it('an offer with tiers but no extractable eligibility matches PERMISSIVELY with a caveat, never silently excluded', () => {
+    const noElig = { ...SCOTIA_OFFER, eligibility: null }
+    // refinance would be ruled out IF eligibility were extracted; with none, it
+    // matches permissively rather than disappearing.
+    const res = offerScenarioResult(noElig, scenario({ purpose: 'refinance' }))
+    expect(res).not.toBeNull()
+    expect(res!.permissive).toBe(true)
+    expect(res!.caveat).toBeTruthy()
+  })
+
+  it('a fits match carries no permissive caveat', () => {
+    const res = offerScenarioResult(SCOTIA_OFFER, scenario({ purpose: 'purchase' }))
+    expect(res!.permissive).toBe(false)
+    expect(res!.caveat).toBeNull()
+  })
+
+  it('the min-amount and class gates rule an offer out (never silently included)', () => {
+    const elig = { purposes: ['purchase'], min_amount: 500_000, product_classes: ['insured'] }
+    expect(
+      offerFitsScenario(elig, scenario({ purpose: 'purchase', amount: 300_000, productClass: 'insured' })),
+    ).toBe('ruled_out')
+    expect(
+      offerFitsScenario(elig, scenario({ purpose: 'purchase', amount: 600_000, productClass: 'conventional' })),
+    ).toBe('ruled_out')
+    expect(
+      offerFitsScenario(elig, scenario({ purpose: 'purchase', amount: 600_000, productClass: 'insured' })),
+    ).toBe('fits')
   })
 })
 

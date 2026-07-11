@@ -196,6 +196,30 @@ export function decideRateSheet(
   return gateCall(`/api/gates/rate-sheets/${intelItemId}/decision`, withNote({ action }, note), token)
 }
 
+// Offer decisions (the offers desk session). POST /api/gates/offers/[offerId]/
+// decision, approve | reject, optional note. The workbench owns the offer
+// lifecycle; the portal only decides through this path (never writes the
+// table). offerId is the lender_offers row uuid.
+export type OfferAction = 'approve' | 'reject'
+export const OFFER_ACTIONS: readonly OfferAction[] = ['approve', 'reject']
+
+export interface OfferDecisionResponse {
+  offerId: string
+  action: string
+  status?: string
+  auditId?: string
+}
+
+export function decideOffer(
+  offerId: string,
+  action: OfferAction,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<OfferDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideOffer'))
+  return gateCall(`/api/gates/offers/${offerId}/decision`, withNote({ action }, note), token)
+}
+
 export type FlagDisposition = 'accepted' | 'corrected' | 'escalated'
 export const FLAG_DISPOSITIONS: readonly FlagDisposition[] = ['accepted', 'corrected', 'escalated']
 

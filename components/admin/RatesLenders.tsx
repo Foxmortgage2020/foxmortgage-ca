@@ -35,6 +35,7 @@ import {
 } from '@/lib/lender-browse'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import LenderMark from '@/components/admin/LenderMark'
+import { OfferWindowBadge } from '@/components/admin/offer-display'
 import {
   CashbackChip,
   RATE_TYPE_GROUPS,
@@ -44,7 +45,7 @@ import {
   variantLabel,
 } from '@/components/admin/rate-display'
 import { lenderDisplayName } from '@/config/lenders'
-import { matchKnowledge, promoTone, type KnowledgeLenderEntry } from '@/lib/rates-shared'
+import { matchKnowledge, type KnowledgeLenderEntry } from '@/lib/rates-shared'
 import { fmtShortDate } from '@/lib/dates'
 
 export default function RatesLenders({
@@ -287,9 +288,12 @@ function LenderBrowseCard({
   onOpen: () => void
 }) {
   const chip = 'text-[11px] font-semibold px-2 py-0.5 rounded-full'
-  const soonestOffer = offers.length
-    ? offers.reduce((a, b) => (a.days_left <= b.days_left ? a : b))
-    : null
+  // Prefer the soonest DATED offer; a lender with only no-clock offers still
+  // surfaces one (with its loud warning), never a NaN countdown.
+  const dated = offers.filter(o => typeof o.days_left === 'number')
+  const soonestOffer = dated.length
+    ? dated.reduce((a, b) => ((a.days_left as number) <= (b.days_left as number) ? a : b))
+    : (offers[0] ?? null)
   return (
     <button
       onClick={onOpen}
@@ -349,10 +353,16 @@ function LenderBrowseCard({
         {card.newestAsOf ? fmtShortDate(card.newestAsOf) : 'undated'}
       </p>
 
-      <div className="flex flex-wrap gap-1.5 mt-2">
+      <div className="flex flex-wrap items-center gap-1.5 mt-2">
         {soonestOffer && (
-          <span className={`${chip} ${promoTone(soonestOffer.days_left) === 'red' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-900'}`}>
-            promo, {soonestOffer.days_left}d left
+          <span className="inline-flex items-center gap-1">
+            <span className={`${chip} bg-amber-100 text-amber-900`}>promo</span>
+            <OfferWindowBadge
+              variant="chip"
+              started={null}
+              expiry={(soonestOffer.expiry as string | null) ?? null}
+              daysLeft={typeof soonestOffer.days_left === 'number' ? soonestOffer.days_left : null}
+            />
           </span>
         )}
         {card.hasCashback && <span className={`${chip} bg-emerald-100 text-emerald-800`}>cash back</span>}
@@ -463,16 +473,21 @@ function LenderPage({
 
       {/* Active offers */}
       {offers.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5" data-testid="lender-offers">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5" data-testid="lender-offers">
           {offers.map((o, i) => (
-            <span
-              key={i}
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                promoTone(o.days_left) === 'red' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-900'
-              }`}
-              title={typeof o.offer.description === 'string' ? o.offer.description : undefined}
-            >
-              {o.offer.description ? String(o.offer.description).slice(0, 40) : 'Promo'} &middot; {o.days_left}d left
+            <span key={i} className="inline-flex items-center gap-1">
+              <span
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900"
+                title={typeof o.offer.description === 'string' ? o.offer.description : undefined}
+              >
+                {o.offer.description ? String(o.offer.description).slice(0, 40) : 'Promo'}
+              </span>
+              <OfferWindowBadge
+                variant="chip"
+                started={null}
+                expiry={(o.expiry as string | null) ?? null}
+                daysLeft={typeof o.days_left === 'number' ? o.days_left : null}
+              />
             </span>
           ))}
         </div>

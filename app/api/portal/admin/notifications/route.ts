@@ -16,6 +16,7 @@ import {
   credentialExpiryNotifications,
   externalGateDecisionNotifications,
   formIntakeNotifications,
+  pendingOfferNotifications,
   sheetReviewNotifications,
   syncFreshnessNotifications,
   type NotificationCategory,
@@ -32,7 +33,7 @@ import {
 } from '@/lib/notifications-store'
 import { listCredentials } from '@/lib/compliance'
 import { getFormIntakeFailures, getFormIntakeStatus, getN8nStatus } from '@/lib/status'
-import { getAgentIdByEmail, getAuditEntries, getRateSheetQueue } from '@/lib/underwriting'
+import { getAgentIdByEmail, getAuditEntries, getOfferQueue, getRateSheetQueue } from '@/lib/underwriting'
 import { isDemoMode } from '@/lib/demo'
 
 export const dynamic = 'force-dynamic'
@@ -58,7 +59,11 @@ export async function GET() {
 
   // Workbench-backed categories share one agent-id lookup.
   let agentId: string | null = null
-  if (visibleKeys.has('sheet_review') || visibleKeys.has('gate_decision_external')) {
+  if (
+    visibleKeys.has('sheet_review') ||
+    visibleKeys.has('pending_offers') ||
+    visibleKeys.has('gate_decision_external')
+  ) {
     try {
       const a = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
       if (a.configured && a.ok) agentId = a.data
@@ -71,6 +76,15 @@ export async function GET() {
     try {
       const q = await getRateSheetQueue(agentId)
       if (q.configured && q.ok) inputs.push(...sheetReviewNotifications(q.data))
+    } catch {
+      /* degrade */
+    }
+  }
+
+  if (agentId && visibleKeys.has('pending_offers')) {
+    try {
+      const q = await getOfferQueue(agentId)
+      if (q.configured && q.ok) inputs.push(...pendingOfferNotifications(q.data))
     } catch {
       /* degrade */
     }

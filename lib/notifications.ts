@@ -14,12 +14,13 @@ import type { Permission } from '@/config/authority'
 import type { ComplianceCredential } from '@/lib/compliance'
 import type { FormIntakeFailureRow } from '@/lib/status'
 import type { WorkflowStatusRow } from '@/lib/status'
-import type { SheetQueueCard, AuditEntry } from '@/lib/underwriting'
+import type { SheetQueueCard, OfferQueueCard, AuditEntry } from '@/lib/underwriting'
 
 // ─── Categories ─────────────────────────────────────────────────────────────
 
 export const NOTIFICATION_CATEGORIES = [
   'sheet_review',
+  'pending_offers',
   'sync_freshness',
   'form_intake',
   'credential_expiry',
@@ -41,6 +42,12 @@ export const CATEGORIES: readonly CategoryConfig[] = [
     key: 'sheet_review',
     label: 'Rate sheets to review',
     description: 'A lender rate sheet has been extracted and is waiting on the approvals desk.',
+    permission: 'approvals.view',
+  },
+  {
+    key: 'pending_offers',
+    label: 'Offers to review',
+    description: 'A promotional offer was extracted from Roam intel and is waiting on the approvals desk.',
     permission: 'approvals.view',
   },
   {
@@ -119,6 +126,26 @@ export function sheetReviewNotifications(sheets: SheetQueueCard[]): Notification
         '. Approve or hold on the desk.',
       href: '/portal/admin/approvals',
       createdAt: s.asOfDate ?? '',
+    }
+  })
+}
+
+/** One notification per extracted offer awaiting approval (keyed by the offer
+ * row). An offer with no stated expiry says so — that is the field the desk
+ * exists to stop from being overlooked. */
+export function pendingOfferNotifications(offers: OfferQueueCard[]): NotificationInput[] {
+  return offers.map(o => {
+    const who = o.lenderName ?? o.lenderSlug
+    return {
+      dedupKey: `pending_offers:${o.id}`,
+      category: 'pending_offers',
+      title: `Offer ready to review — ${who}`,
+      body:
+        `${o.offerName}. ` +
+        (o.expiry ? `Expires ${o.expiry}.` : 'No stated end date; confirm before quoting.') +
+        ' Approve or reject on the desk.',
+      href: '/portal/admin/approvals?tab=offers',
+      createdAt: o.createdAt ?? '',
     }
   })
 }
