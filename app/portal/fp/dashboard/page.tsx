@@ -252,7 +252,8 @@ export default function FPDashboardPage() {
             No recent activity yet.
           </div>
         ) : (
-          <table className="w-full text-left">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="font-body text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Client</th>
@@ -294,7 +295,8 @@ export default function FPDashboardPage() {
                 )
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
     </div>

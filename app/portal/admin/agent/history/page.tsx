@@ -3,6 +3,8 @@
 
 import Link from 'next/link'
 import { requirePermission } from '@/lib/authz'
+import { isDemoMode } from '@/lib/demo'
+import DemoNotAvailable from '@/components/admin/DemoNotAvailable'
 import { listConversations } from '@/lib/agent/store'
 import { fmtDateTime } from '@/lib/dates'
 
@@ -10,6 +12,8 @@ export const dynamic = 'force-dynamic'
 
 export default async function AgentHistoryPage() {
   await requirePermission('agent.use')
+  if (isDemoMode()) return <DemoNotAvailable surface="Ask Fox history" />
+
   const res = await listConversations()
   const conversations = res.configured && res.ok ? res.data : []
 

@@ -8,6 +8,7 @@
 import { ADMIN_NAV, PORTAL_QUICK_LINKS } from '@/config/admin-nav'
 import { can, getSessionUser } from '@/lib/authz'
 import AdminShell, { type ShellNavItem } from '@/components/admin/AdminShell'
+import { isDemoMode } from '@/lib/demo'
 import { redirect } from 'next/navigation'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     sessionTag: i.arrivesInSession,
   }))
   const portalLinks = can(user, 'portals.view-as') ? PORTAL_QUICK_LINKS : []
+  // Session 9: demo mode is honored only for admins with the flag set; the
+  // predicate itself is env-fenced and cookie-signed (lib/demo.ts).
+  const demoMode = can(user, 'demo.mode') && isDemoMode()
 
   return (
     <AdminShell
@@ -31,6 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       portalLinks={portalLinks}
       userName={user.name}
       roleLabel={user.roles.join(', ')}
+      demoMode={demoMode}
     >
       {children}
     </AdminShell>

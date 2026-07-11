@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 10, 2026 (Session 8 shipped: Multi-user hardening — role baselines live and verified per role on dev-instance users, zero role-literal gates repo-wide, effective-access view on Settings, view-as governed and FOXCA-logged with structural read-only, provisioning wizard at Settings → People consuming POST /api/gates/agents, offboarding with persisted checklist; nothing deletes)
+## Last Updated: July 10, 2026 (Session 9 shipped — THE FINALE: PWA with a security-first service worker that never caches authenticated content, notification center over five producers incl. off-portal CLI gate decisions, cmd-K global search, admin-only demo mode with zero real reads at the fetcher boundary, finale sweep (mock pages removed, Daily Deal Briefing retired, partner shells made responsive, roadmap graduated). The original nine-session map is complete.)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -587,6 +587,119 @@ lives under Audit Log (/portal/admin/audit/view-as, audit.view).
   as a second factor on password sign-ins; the production custom sign-in
   form only handles first factors. If production ever turns MFA on, the
   sign-in page needs a second-factor step.
+
+### Session 9: The finale — PWA, notifications, search, demo mode (2026-07-10)
+- PWA. app/layout.tsx gained the manifest link, appleWebApp hints, and a
+  Viewport export (themeColor navy #032133); public/manifest.webmanifest
+  (start_url /portal/admin, standalone). On-brand icon set generated
+  deterministically (navy squircle + lime "F", maskable variants inside
+  the safe zone) at public/icons/* + public/apple-touch-icon.png +
+  app/icon.png (favicon). components/ServiceWorkerRegister.tsx registers
+  /sw.js once from the root layout; components/InstallHint.tsx is the
+  polite, dismissible (localStorage fox_install_dismissed_v1),
+  never-nag hint on both the admin and partner shells (iOS Share-sheet
+  variant; hidden when standalone). middleware.ts publicRoutes adds
+  /offline (extensionless, so not auto-exempt).
+  - SERVICE WORKER CACHING POSTURE — SECURITY CONTRACT (public/sw.js, do
+    NOT let a future session "optimize" borrower data into a cache):
+    static assets (/_next/static, /icons, /assets, and hashed .css/.js/
+    .woff2/.png/.svg) are cache-first; the offline page + manifest + icons
+    are precached (STATIC_ASSETS — NEVER a /portal or /api entry). EVERY
+    request whose path starts with /api or /portal is NETWORK-ONLY and
+    never read from or written to the cache (an isCacheable() guard is
+    called before every cache.put, and returns false for /api and /portal).
+    Navigations are network-first with the cached /offline page as the
+    only offline fallback — a /portal navigation response is never cached.
+    tests/pwa.test.ts asserts this statically over the SW source.
+    DEV-ONLY NOTE: because the SW caches /_next/static cache-first and dev
+    chunk URLs are not content-hashed, a local dev server can serve a stale
+    component chunk after an edit; unregister the SW / clear caches to see
+    fresh code. Production uses hashed URLs, so this cannot happen there.
+- Notification center. FOXCA migration 20260710220000 (applied live):
+  notifications (dedup_key unique, append), notification_reads (per-user),
+  notification_prefs (per-category) — RLS on, no policies, table grants
+  revoked (functions-only), six security-definer functions granted anon.
+  lib/notifications-store.ts is the client twin of lib/people-store.ts;
+  lib/notifications.ts is the PURE producer layer (five mappers, tested)
+  over signals the portal already computes: sheet_review (getRateSheetQueue),
+  credential_expiry (credentialTone 60/14), form_intake (formIntakeLight),
+  sync_freshness (getN8nStatus errors), and gate_decision_external — audit
+  rows whose action is a decision and actor !== 'portal' (a CLI/terminal
+  decision), so the desk sees decisions made outside it. Route
+  app/api/portal/admin/notifications gates deals.view, then filters
+  categories by each one's own permission (approvals.view / compliance.view
+  / status.view). NO new authority key. components/admin/NotificationBell.tsx
+  (mounted once in the AdminShell top bar) polls 60s; NotificationSettings
+  mounts on Settings (#notifications) for the per-category toggles. Live
+  proof: 30 real notifications surfaced incl. "michael decided
+  rates.sheet_approved" (a real off-portal decision).
+- Global search / cmd-K. lib/search.ts (pure: nav filter, deal ranking,
+  group-status), app/api/portal/admin/search (gates deals.view; deals =
+  getDealsSummary + getAllDealsSlim joined, contacts = searchZohoContacts
+  with longest-token retry, partners = listAllPartners behind
+  partners.provision; each source time-boxed ~1200ms and reports
+  'degraded' rather than hanging). components/admin/CommandPalette.tsx
+  (mounted once) owns the ⌘K/Ctrl-K + '/' listener, groups results
+  (nav local + deals/contacts/partners from the route + knowledge via the
+  browser-token knowledge proxy), keyboard nav, recent items. Knowledge
+  degrades honestly where the browser gates token can't mint (dev instance
+  has no 'gates' JWT template; production does).
+- Demo mode. Admin-only (authority key demo.mode) AND env-fenced
+  (DEMO_MODE_ENABLED). lib/demo.ts: isDemoMode() (env flag + HMAC-signed
+  fox_demo session cookie under SESSION_SECRET, mirrors lib/auth.ts),
+  setDemoCookie/clearDemoCookie, DemoWriteBlocked. Fixtures replace data AT
+  THE FETCHER BOUNDARY (lib/demo-fixtures.ts): ~27 workbench read fetchers
+  in lib/underwriting.ts return fixtures BEFORE any uwFetch; the four
+  borrower-adjacent-but-unlisted fetchers (getAuditEntries,
+  getComplianceAttentionDeals, getNumberLinks, getDealIdByFileRef) are
+  guarded too, and searchZohoContacts/searchZohoDealsByWord/
+  getZohoDealsByContactId/getZohoDealById return empty in demo, so NO real
+  name or file ref appears on ANY page (bell + cmd-K included — the
+  notifications route returns freshly-produced fictional notifications in
+  demo and never lists the persisted real ones). Writes throw
+  DemoWriteBlocked (3 Zoho writes; 5 gate decisions + provisionWorkbenchAgent;
+  Ask Fox chat short-circuits to a labeled canned reply). Decision controls
+  are HIDDEN in demo (canDecide &&= !isDemoMode() on the approvals page and
+  the deal room). LENDER reference data (rates_reference + knowledge via
+  lib/gates.ts gateGet) intentionally stays real — it is not borrower data.
+  DemoBanner (persistent lime/navy, in the AdminShell sticky top chrome),
+  DemoToggle on Settings. tests/demo.test.ts asserts zero real reads (fetch
+  spy) + writes throw. app/api/portal/admin/demo (POST enter/exit, gates
+  demo.mode + demoModeAvailable). RUNTIME ENV: DEMO_MODE_ENABLED (Vercel;
+  server-only, not NEXT_PUBLIC). Distinct from the public /demo/fp
+  lead-gen sandbox (that is a separate route tree; admin demo mode reuses
+  the real admin pages via the cookie).
+- Finale sweep. Deleted app/portal/clients + app/portal/reports (legacy
+  hardcoded mocks) and unwired them from PortalLayoutClient (zero
+  references remain). DAILY DEAL BRIEFING DECISION — RETIRE: workflow
+  dh1qIttAuctSQ7L0 has been INACTIVE since inception (zero recorded
+  executions per the 2026-07-09 live check) and its whole payload (tasks
+  due, pipeline by stage, renewals) is now served live by the admin Home
+  rail; reactivating it would duplicate the rail into a 5:45am email with
+  no added signal. Left inactive by decision; not deleted (the config
+  registry row stays for the Status page). PortalLayoutClient.tsx made
+  responsive (was desktop-only fixed w-64 sidebar + ml-64: now hidden
+  lg:flex sidebar + lg:ml-64 main + a mobile drawer mirroring AdminShell;
+  desktop behavior unchanged; the admin 6-pill portal switcher hides below
+  sm — the drawer carries it). FP dashboard Recent Activity table wrapped
+  in overflow-x-auto + min-w. globals.css body gained overflow-x: clip
+  (not hidden — clip preserves sticky/fixed) as a backstop. Roadmap page
+  graduated: Session 9 shipped, "the original map is complete", and a
+  living forward BACKLOG list.
+- Verified live (dev instance, TEST admin, removed after): PWA assets
+  serve (manifest/sw/offline/icons 200); bell shows real notifications
+  incl. a real CLI decision; cmd-K returns grouped deal/partner results
+  with slow-source honesty; demo mode renders DEMO-F000x deals + Sample
+  Bank with the banner, no decision buttons, no real data in bell/search;
+  exit restores real data; 375px admin + partner shells have zero
+  horizontal scroll and working drawers. Suite at 208 tests (pwa 8,
+  notifications 9, search 11, demo 9 added). Build green.
+- Guardrails held: readonly workbench (all new reads go through the
+  existing wrapper; no new writes to the workbench), gates-only workbench
+  mutation, FOXCA narrow functions only, Clerk backend server-side only,
+  middleware publicRoutes unchanged except the additive /offline, env via
+  dashboard/REST, no ANTHROPIC_API_KEY in build subprocesses, portals
+  spot-checked and unaffected.
 
 ### End-of-session closing ritual (STANDING RULE, Session 5)
 Every build session ends by updating all three, together, before the
@@ -1345,6 +1458,53 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-10 — Admin Command Center Session 9 (THE FINALE: PWA, notifications, search, demo)
+- PWA shipped: on-brand generated icon set (maskable variants), manifest,
+  a SECURITY-FIRST service worker (static cache-first; every /api and
+  /portal request network-only and never cached — isCacheable guard +
+  tests/pwa.test.ts; offline fallback page), install hints on admin +
+  partner shells, SW registration + Viewport/appleWebApp metadata in the
+  root layout, /offline added to middleware publicRoutes. Caching posture
+  documented in the Session 9 section as a standing security contract.
+- Notification center shipped: FOXCA migration 20260710220000 (applied
+  live; RLS+functions-only posture), lib/notifications(.ts/-store.ts),
+  the bell (mounted once in the top bar, 60s poll) + per-category toggles
+  on Settings. Five producers from existing signals; the
+  gate_decision_external producer surfaces CLI/off-portal decisions
+  (actor !== 'portal') — proven live by a real "michael decided
+  rates.sheet_approved" notification. No new authority key (rides
+  deals.view + per-category permission filtering).
+- Global search shipped: cmd-K palette (mounted once) over lib/search.ts
+  + /api/portal/admin/search — deals (workbench refs + Zoho names),
+  contacts, partners, knowledge (client, browser-token), and navigation;
+  grouped, keyboard-driven, debounced, per-source 'degraded' honesty
+  (proven live). 
+- Demo mode shipped: authority key demo.mode + DEMO_MODE_ENABLED env
+  fence; signed fox_demo cookie; fixtures at the fetcher boundary so ZERO
+  real workbench/Zoho reads and no borrower data on any surface
+  (bell + cmd-K included); writes throw DemoWriteBlocked; decision
+  controls hidden; persistent banner; lender rates/knowledge stay real by
+  design. tests/demo.test.ts asserts zero reads + blocked writes. Proven
+  live end to end (DEMO-F000x book, exit restores real data).
+- Finale sweep: /portal/clients + /portal/reports deleted and unwired
+  (zero refs); Daily Deal Briefing RETIRED by decision (inactive since
+  inception; Home rail serves it live); PortalLayoutClient made
+  responsive (mobile drawer; desktop unchanged); FP table + globals
+  overflow-x: clip backstop; roadmap graduated ("original map complete" +
+  forward BACKLOG). 375px sweep: admin + partner shells zero horizontal
+  scroll, drawers work.
+- New modules: lib/search.ts, lib/notifications.ts, lib/notifications-store.ts,
+  lib/demo.ts, lib/demo-fixtures.ts, components/admin/{CommandPalette,
+  NotificationBell,NotificationSettings,DemoBanner,DemoToggle}.tsx,
+  components/{InstallHint,ServiceWorkerRegister}.tsx, public/{sw.js,
+  manifest.webmanifest,icons/*}, app/offline. Suite 208 tests; build
+  green. Delivered by a parallel discovery workflow → a 4-agent
+  implementation workflow (disjoint file sets) → my shell integration +
+  demo hardening → an adversarial review workflow. Guardrails held
+  (readonly workbench, gates-only writes, FOXCA narrow functions, Clerk
+  server-side, publicRoutes additive-only). THE ORIGINAL NINE-SESSION MAP
+  IS COMPLETE.
 
 ### 2026-07-10 — Admin Command Center Session 8 (Multi-user hardening)
 - Roles went live: shipped baselines recorded and exactly asserted

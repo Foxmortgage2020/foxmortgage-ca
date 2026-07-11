@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Users,
   UserPlus,
-  BarChart2,
   FolderOpen,
   GraduationCap,
   Shield,
@@ -22,16 +21,17 @@ import {
   MessageSquare,
   BookOpen,
   ClipboardList,
+  Menu,
+  X,
 } from 'lucide-react'
 import type { ImpersonationContext } from '@/lib/auth'
 import PartnerPicker from '@/components/PartnerPicker'
+import InstallHint from '@/components/InstallHint'
 import { PortalImpersonationProvider } from '@/lib/portal-impersonation'
 
 const partnerNavItems = [
   { label: 'Dashboard', href: '/portal/dashboard', icon: LayoutDashboard },
-  { label: 'Clients', href: '/portal/clients', icon: Users },
   { label: 'Add Referral', href: '/portal/add-referral', icon: UserPlus },
-  { label: 'Reports', href: '/portal/reports', icon: BarChart2 },
   { label: 'Assets', href: '/portal/assets', icon: FolderOpen },
   { label: 'Training', href: '/portal/training', icon: GraduationCap },
   { label: 'Compliance', href: '/portal/compliance', icon: Shield },
@@ -91,9 +91,7 @@ const mortgageAgentNavItems = [
 
 const partnerPageTitles: Record<string, string> = {
   '/portal/dashboard': 'Dashboard',
-  '/portal/clients': 'Clients',
   '/portal/add-referral': 'Add Referral',
-  '/portal/reports': 'Reports',
   '/portal/assets': 'Marketing Assets',
   '/portal/training': 'Training',
   '/portal/compliance': 'Compliance',
@@ -153,6 +151,9 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
   const router = useRouter()
   const { signOut } = useClerk()
   const { user } = useUser()
+
+  // Mobile drawer state (the desktop sidebar is unaffected by this).
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   // Partner-picker state — only used by admin
   const [pickerOpen, setPickerOpen] = useState<PickerRole | null>(null)
@@ -243,7 +244,6 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     if (pathname.startsWith('/portal/mortgage-agent/clients/')) pageTitle = 'Client File'
   } else {
     pageTitle = partnerPageTitles[pathname] || 'Portal'
-    if (pathname.startsWith('/portal/clients/')) pageTitle = 'Client File'
   }
 
   // ─── Identity badge — reflect impersonated partner when impersonating ──────
@@ -402,159 +402,213 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     router.refresh()
   }
 
-  return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 bottom-0 w-64 bg-navy text-white flex flex-col z-40">
-        <div className="px-6 py-6 border-b border-white/10">
-          <Link href="/" className="font-heading font-bold text-xl">
-            Fox <span className="text-lime">Mortgage</span>
-          </Link>
-          <p className="text-xs text-gray-400 mt-1">Strategic Mortgage Monitoring</p>
-        </div>
+  // The sidebar's inner content (brand + nav + footer) is rendered in two
+  // places: the fixed desktop sidebar and the mobile slide-in drawer. When
+  // rendered inside the drawer, onNavigate closes the drawer after any nav
+  // action. Desktop passes nothing, so behavior there is identical to before.
+  const sidebarInner = (onNavigate?: () => void) => (
+    <>
+      <div className="px-6 py-6 border-b border-white/10">
+        <Link href="/" onClick={onNavigate} className="font-heading font-bold text-xl">
+          Fox <span className="text-lime">Mortgage</span>
+        </Link>
+        <p className="text-xs text-gray-400 mt-1">Strategic Mortgage Monitoring</p>
+      </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isBase =
-              item.href === '/portal/dashboard' ||
-              item.href === '/portal/investor/dashboard' ||
-              item.href === '/portal/admin'
-            const active =
-              pathname === item.href || (!isBase && pathname.startsWith(item.href + '/'))
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm font-body transition-colors ${
-                  active ? 'bg-lime text-navy font-semibold' : 'text-gray-300 hover:bg-white/10'
-                }`}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            )
-          })}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {navItems.map((item) => {
+          const isBase =
+            item.href === '/portal/dashboard' ||
+            item.href === '/portal/investor/dashboard' ||
+            item.href === '/portal/admin'
+          const active =
+            pathname === item.href || (!isBase && pathname.startsWith(item.href + '/'))
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm font-body transition-colors ${
+                active ? 'bg-lime text-navy font-semibold' : 'text-gray-300 hover:bg-white/10'
+              }`}
+            >
+              <item.icon className="w-4 h-4" />
+              {item.label}
+            </Link>
+          )
+        })}
 
-          {/* Admin tools section */}
-          {isAdminPortal && (
-            <div className="border-t border-white/10 pt-3 mt-3">
-              <p className="text-gray-500 text-xs uppercase tracking-wider px-4 mb-2 font-body">
-                Admin Tools
-              </p>
-              {adminToolsNavItems.map((item) => {
-                const isBase = item.href === '/portal/bookkeeping'
-                const active =
-                  pathname === item.href || (!isBase && pathname.startsWith(item.href + '/'))
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm font-body transition-colors ${
-                      active ? 'bg-lime text-navy font-semibold' : 'text-gray-300 hover:bg-white/10'
-                    }`}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    {item.label}
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Admin portal switcher in sidebar */}
-          {isAdminPortal && (
-            <div className="border-t border-white/10 pt-3 mt-3">
-              <p className="text-gray-500 text-xs uppercase tracking-wider px-4 mb-2 font-body">
-                Switch to Portal
-              </p>
-              <button
-                onClick={() => router.push('/portal/fp/dashboard')}
-                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                Financial Planner
-              </button>
-              <button
-                onClick={() => router.push('/portal/realtor/dashboard')}
-                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
-              >
-                <Users className="w-4 h-4" />
-                Realtor
-              </button>
-              <button
-                onClick={() => router.push('/portal/lawyer/dashboard')}
-                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
-              >
-                <Users className="w-4 h-4" />
-                Lawyer
-              </button>
-              <button
-                onClick={() => router.push('/portal/mortgage-agent/dashboard')}
-                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
-              >
-                <Users className="w-4 h-4" />
-                Mortgage Agent
-              </button>
-              <button
-                onClick={() => router.push('/portal/investor/dashboard')}
-                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
-              >
-                <TrendingUp className="w-4 h-4" />
-                Investor
-              </button>
-            </div>
-          )}
-
-          {/* Admin dashboard link when viewing sub-portals */}
-          {isAdmin && !isAdminPortal && (
-            <div className="border-t border-white/10 pt-3 mt-3">
-              <button
-                onClick={() => router.push('/portal/admin')}
-                className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                Admin Dashboard
-              </button>
-            </div>
-          )}
-        </nav>
-
-        <div className="px-4 py-4 border-t border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-lime/20 text-lime flex items-center justify-center font-heading font-bold text-xs">
-              {displayInitials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-white truncate">{displayName}</div>
-              <div className="text-[10px] bg-lime/20 text-lime px-2 py-0.5 rounded-full inline-block mt-0.5">
-                {roleLabel}
-              </div>
-              {isImpersonating && (
-                <div className="text-[10px] text-amber-200/80 mt-1 font-body">
-                  (via Admin)
-                </div>
-              )}
-            </div>
+        {/* Admin tools section */}
+        {isAdminPortal && (
+          <div className="border-t border-white/10 pt-3 mt-3">
+            <p className="text-gray-500 text-xs uppercase tracking-wider px-4 mb-2 font-body">
+              Admin Tools
+            </p>
+            {adminToolsNavItems.map((item) => {
+              const isBase = item.href === '/portal/bookkeeping'
+              const active =
+                pathname === item.href || (!isBase && pathname.startsWith(item.href + '/'))
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm font-body transition-colors ${
+                    active ? 'bg-lime text-navy font-semibold' : 'text-gray-300 hover:bg-white/10'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </Link>
+              )
+            })}
           </div>
-          <button
-            onClick={() => signOut({ redirectUrl: '/portal/sign-in' })}
-            className="flex items-center gap-2 text-gray-400 hover:text-white text-xs mt-3 font-body cursor-pointer"
-          >
-            <LogOut className="w-3 h-3" />
-            Sign Out
-          </button>
+        )}
+
+        {/* Admin portal switcher in sidebar */}
+        {isAdminPortal && (
+          <div className="border-t border-white/10 pt-3 mt-3">
+            <p className="text-gray-500 text-xs uppercase tracking-wider px-4 mb-2 font-body">
+              Switch to Portal
+            </p>
+            <button
+              onClick={() => { router.push('/portal/fp/dashboard'); onNavigate?.() }}
+              className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Financial Planner
+            </button>
+            <button
+              onClick={() => { router.push('/portal/realtor/dashboard'); onNavigate?.() }}
+              className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+            >
+              <Users className="w-4 h-4" />
+              Realtor
+            </button>
+            <button
+              onClick={() => { router.push('/portal/lawyer/dashboard'); onNavigate?.() }}
+              className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+            >
+              <Users className="w-4 h-4" />
+              Lawyer
+            </button>
+            <button
+              onClick={() => { router.push('/portal/mortgage-agent/dashboard'); onNavigate?.() }}
+              className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+            >
+              <Users className="w-4 h-4" />
+              Mortgage Agent
+            </button>
+            <button
+              onClick={() => { router.push('/portal/investor/dashboard'); onNavigate?.() }}
+              className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+            >
+              <TrendingUp className="w-4 h-4" />
+              Investor
+            </button>
+          </div>
+        )}
+
+        {/* Admin dashboard link when viewing sub-portals */}
+        {isAdmin && !isAdminPortal && (
+          <div className="border-t border-white/10 pt-3 mt-3">
+            <button
+              onClick={() => { router.push('/portal/admin'); onNavigate?.() }}
+              className="flex items-center gap-3 py-2 px-4 rounded-lg w-full text-gray-400 hover:text-lime hover:bg-white/5 transition-colors text-sm font-body"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Admin Dashboard
+            </button>
+          </div>
+        )}
+      </nav>
+
+      <div className="px-4 py-4 border-t border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-lime/20 text-lime flex items-center justify-center font-heading font-bold text-xs">
+            {displayInitials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-white truncate">{displayName}</div>
+            <div className="text-[10px] bg-lime/20 text-lime px-2 py-0.5 rounded-full inline-block mt-0.5">
+              {roleLabel}
+            </div>
+            {isImpersonating && (
+              <div className="text-[10px] text-amber-200/80 mt-1 font-body">
+                (via Admin)
+              </div>
+            )}
+          </div>
         </div>
+        <button
+          onClick={() => signOut({ redirectUrl: '/portal/sign-in' })}
+          className="flex items-center gap-2 text-gray-400 hover:text-white text-xs mt-3 font-body cursor-pointer"
+        >
+          <LogOut className="w-3 h-3" />
+          Sign Out
+        </button>
+      </div>
+    </>
+  )
+
+  return (
+    <div className="min-h-screen">
+      {/* Mobile top bar (below lg) */}
+      <header className="lg:hidden sticky top-0 z-40 bg-navy text-white flex items-center justify-between px-4 h-14">
+        <button
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open navigation"
+          className="p-1.5 -ml-1.5 rounded hover:bg-white/10"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <Link href="/" className="font-heading font-bold">
+          Fox <span className="text-lime">Mortgage</span>
+        </Link>
+        <div className="w-8 h-8 rounded-full bg-lime/20 text-lime flex items-center justify-center font-heading font-bold text-xs">
+          {displayInitials}
+        </div>
+      </header>
+
+      {/* Mobile drawer (below lg) */}
+      {drawerOpen && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setDrawerOpen(false)}
+            aria-hidden="true"
+          />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-navy text-white flex flex-col shadow-xl">
+            <button
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close navigation"
+              className="absolute top-4 right-3 z-10 p-2 rounded hover:bg-white/10 text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {sidebarInner(() => setDrawerOpen(false))}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar (lg+) */}
+      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-navy text-white flex-col z-40">
+        {sidebarInner()}
       </aside>
 
       {/* Main area */}
-      <div className="ml-64 flex-1 flex flex-col min-h-screen bg-gray-50">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8">
+      <div className="lg:ml-64 flex-1 flex flex-col min-h-screen bg-gray-50">
+        {/* Top bar. On mobile it pins BELOW the 56px navy bar (top-14) so the
+            two sticky headers stack instead of overlapping; on desktop there is
+            no navy bar, so it pins at the top. */}
+        <header className="sticky top-14 lg:top-0 z-30 bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 lg:px-8">
           <h1 className="font-heading font-bold text-navy text-lg">{pageTitle}</h1>
 
-          {/* Portal Switcher */}
+          {/* Portal Switcher. Hidden below sm — the full pill row (up to six
+              for an admin) overflows a phone; the same switcher lives in the
+              mobile drawer's "Switch to Portal" section. */}
           {showSwitcher && (
-            <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+            <div className="hidden sm:flex items-center gap-1 bg-gray-100 rounded-full p-1">
               {isAdmin && (
                 <button
                   ref={adminPillRef}
@@ -634,7 +688,7 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
 
         {/* Impersonation banner — admin viewing as a specific partner */}
         {showImpersonationBanner && impersonation && (
-          <div className="bg-amber-50 border-b border-amber-300 px-8 py-2 flex items-center justify-between text-sm font-body">
+          <div className="bg-amber-50 border-b border-amber-300 px-4 lg:px-8 py-2 flex items-center justify-between text-sm font-body">
             <span className="text-amber-900">
               👁 Viewing as{' '}
               <span className="font-semibold">{impersonation.partnerName}</span>
@@ -657,7 +711,7 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
 
         {/* Admin viewing banner — admin on a sub-portal but NOT impersonating */}
         {showAdminBanner && (
-          <div className="bg-navy/5 border-b border-navy/10 px-8 py-2 flex items-center justify-between text-sm font-body">
+          <div className="bg-navy/5 border-b border-navy/10 px-4 lg:px-8 py-2 flex items-center justify-between text-sm font-body">
             <span className="text-navy/60">
               👁️ Viewing as Admin &mdash;{' '}
               <span className="font-semibold text-navy">
@@ -685,7 +739,12 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
 
         {/* Page content. Provider lets pages greet the impersonated partner
             by name (the impersonation cookie is server-only). */}
-        <main className="flex-1 p-8">
+        {/* Session 9: the same polite, dismissible install hint the admin
+            shell carries — a partner adding their portal to their home
+            screen was always part of the plan. */}
+        <InstallHint variant="partner" />
+
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <PortalImpersonationProvider value={impersonation}>
             {children}
           </PortalImpersonationProvider>

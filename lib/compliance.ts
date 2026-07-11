@@ -10,6 +10,19 @@
 // Records never delete. Credentials retire, complaints change status,
 // policies version; compliance_events is the append-only trail.
 
+// Demo mode (Session 9): every compliance READ returns a fictional/empty
+// result before any FOXCA RPC (no real complaint, policy, or ack — which
+// name real clients and staff — reaches a demo screen), and every WRITE
+// rejects with DemoWriteBlocked before any RPC (the FSRA register is never
+// mutated in a demo).
+import { isDemoMode, DemoWriteBlocked } from '@/lib/demo'
+import { demoResult, demoCredentials } from '@/lib/demo-fixtures'
+
+// Empty read result used for the compliance registers in demo mode.
+function demoEmpty<T>(): ComplianceResult<T[]> {
+  return { configured: true, ok: true, data: [] }
+}
+
 export type ComplianceResult<T> =
   | { configured: false }
   | { configured: true; ok: true; data: T }
@@ -135,6 +148,7 @@ export interface ComplianceEvent {
 // ─── Credentials ────────────────────────────────────────────────────────────
 
 export function listCredentials(): Promise<ComplianceResult<ComplianceCredential[]>> {
+  if (isDemoMode()) return Promise.resolve(demoResult(demoCredentials))
   return rpc('compliance_credentials_list', {})
 }
 
@@ -147,6 +161,7 @@ export function saveCredential(input: {
   notes: string | null
   actor: string
 }): Promise<ComplianceResult<string>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('saveCredential'))
   return rpc('compliance_credential_save', {
     p_id: input.id,
     p_name: input.name,
@@ -159,12 +174,14 @@ export function saveCredential(input: {
 }
 
 export function retireCredential(id: string, note: string | null, actor: string): Promise<ComplianceResult<boolean>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('retireCredential'))
   return rpc('compliance_credential_retire', { p_id: id, p_note: note, p_actor: actor })
 }
 
 // ─── Complaints and incidents ───────────────────────────────────────────────
 
 export function listComplaints(): Promise<ComplianceResult<ComplianceComplaint[]>> {
+  if (isDemoMode()) return Promise.resolve(demoEmpty<ComplianceComplaint>())
   return rpc('compliance_complaints_list', {})
 }
 
@@ -175,6 +192,7 @@ export function createComplaint(input: {
   reference: string | null
   actor: string
 }): Promise<ComplianceResult<string>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('createComplaint'))
   return rpc('compliance_complaint_create', {
     p_received_on: input.receivedOn,
     p_source: input.source,
@@ -190,20 +208,24 @@ export function setComplaintStatus(
   note: string | null,
   actor: string,
 ): Promise<ComplianceResult<boolean>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('setComplaintStatus'))
   return rpc('compliance_complaint_set_status', { p_id: id, p_status: status, p_note: note, p_actor: actor })
 }
 
 // ─── Policies and acknowledgments ───────────────────────────────────────────
 
 export function listPolicies(): Promise<ComplianceResult<CompliancePolicy[]>> {
+  if (isDemoMode()) return Promise.resolve(demoEmpty<CompliancePolicy>())
   return rpc('compliance_policies_list', {})
 }
 
 export function listPolicyVersions(policyId: string): Promise<ComplianceResult<CompliancePolicyVersion[]>> {
+  if (isDemoMode()) return Promise.resolve(demoEmpty<CompliancePolicyVersion>())
   return rpc('compliance_policy_versions_list', { p_policy_id: policyId })
 }
 
 export function listPolicyAcks(): Promise<ComplianceResult<CompliancePolicyAck[]>> {
+  if (isDemoMode()) return Promise.resolve(demoEmpty<CompliancePolicyAck>())
   return rpc('compliance_policy_acks_list', {})
 }
 
@@ -213,6 +235,7 @@ export function createPolicy(input: {
   effectiveOn: string | null
   actor: string
 }): Promise<ComplianceResult<string>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('createPolicy'))
   return rpc('compliance_policy_create', {
     p_title: input.title,
     p_body_md: input.bodyMd,
@@ -229,6 +252,7 @@ export function updatePolicy(input: {
   status: 'active' | 'retired'
   actor: string
 }): Promise<ComplianceResult<number>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('updatePolicy'))
   return rpc('compliance_policy_update', {
     p_id: input.id,
     p_title: input.title,
@@ -245,6 +269,7 @@ export function ackPolicy(
   actor: string,
   clerkId: string | null,
 ): Promise<ComplianceResult<boolean>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('ackPolicy'))
   return rpc('compliance_policy_ack', {
     p_policy_id: policyId,
     p_version: version,
@@ -259,5 +284,6 @@ export function listEvents(
   recordType: 'credential' | 'complaint' | 'policy',
   recordId: string,
 ): Promise<ComplianceResult<ComplianceEvent[]>> {
+  if (isDemoMode()) return Promise.resolve(demoEmpty<ComplianceEvent>())
   return rpc('compliance_events_list', { p_record_type: recordType, p_record_id: recordId })
 }

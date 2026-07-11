@@ -1,0 +1,55 @@
+{
+  "name": "Fox Mortgage Command Center",
+  "short_name": "Fox Mortgage",
+  "description": "The Fox Mortgage admin command center — pipeline, approvals, rates, and compliance in one place.",
+  "start_url": "/portal/admin",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#032133",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Approvals desk",
+      "short_name": "Approvals",
+      "url": "/portal/admin/approvals"
+    },
+    {
+      "name": "Deals",
+      "short_name": "Deals",
+      "url": "/portal/admin/deals"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail } from '@/lib/underwriting'
 import { getApprovalsData } from '@/lib/approvals-data'
 import { gatesConfigured } from '@/lib/gates'
+import { isDemoMode } from '@/lib/demo'
 import ApprovalsDesk from '@/components/admin/ApprovalsDesk'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,7 @@ export default async function ApprovalsPage({
   searchParams?: Record<string, string | string[] | undefined>
 }) {
   const user = await requirePermission('approvals.view')
+  const demo = isDemoMode()
   const rawTab = typeof searchParams?.tab === 'string' ? searchParams.tab : undefined
   const initialTab = TAB_KEYS.find(t => t === rawTab) ?? 'statements'
 
@@ -66,10 +68,12 @@ export default async function ApprovalsPage({
           initial={data}
           initialTab={initialTab}
           canDecide={{
-            statements: can(user, 'approvals.statement.decide'),
-            sheets: can(user, 'approvals.ratesheet.decide'),
-            flags: can(user, 'flags.disposition'),
-            shadow: can(user, 'shadow.score'),
+            // Session 9: demo mode is read-only — no decision controls render
+            // (the server also rejects any write with DemoWriteBlocked).
+            statements: !demo && can(user, 'approvals.statement.decide'),
+            sheets: !demo && can(user, 'approvals.ratesheet.decide'),
+            flags: !demo && can(user, 'flags.disposition'),
+            shadow: !demo && can(user, 'shadow.score'),
           }}
         />
       </div>

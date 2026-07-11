@@ -4,6 +4,8 @@
 
 import Link from 'next/link'
 import { requirePermission } from '@/lib/authz'
+import { isDemoMode } from '@/lib/demo'
+import DemoNotAvailable from '@/components/admin/DemoNotAvailable'
 import { getOffboardingRecord } from '@/lib/people-store'
 import OffboardChecklist from '@/components/admin/OffboardChecklist'
 
@@ -26,6 +28,8 @@ function fmtToronto(iso: string): string {
 
 export default async function OffboardRecordPage({ params }: { params: { id: string } }) {
   await requirePermission('people.manage')
+  if (isDemoMode()) return <DemoNotAvailable surface="Offboarding records" />
+
 
   const res = await getOffboardingRecord(params.id)
   const record = res.configured && res.ok ? res.data : null

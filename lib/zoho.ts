@@ -20,6 +20,10 @@ import {
   lookupMagicLink,
 } from '@/lib/cache'
 import { getPartnerConfigByKind } from '@/lib/partner-types'
+// Demo mode (Session 9): the admin partners list + docs reads return
+// fictional fixtures before any getZohoToken()/fetch() call.
+import { isDemoMode, DemoWriteBlocked } from '@/lib/demo'
+import { demoPartners, demoPartnerDocuments } from '@/lib/demo-fixtures'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
@@ -224,6 +228,7 @@ function normalizePartnerListItem(r: any): PartnerListItem {
  * Returns [] if the org has no Partner records.
  */
 export async function listAllPartners(): Promise<PartnerListItem[]> {
+  if (isDemoMode()) return demoPartners
   const cacheKey = 'all'
   const cached = partnersCache.get(cacheKey) as PartnerListItem[] | undefined
   if (cached !== undefined) return cached
@@ -264,6 +269,7 @@ export async function listAllPartners(): Promise<PartnerListItem[]> {
  * independently if needed.
  */
 export async function listAllPartnerDocuments(): Promise<PartnerDocument[]> {
+  if (isDemoMode()) return demoPartnerDocuments
   const cacheKey = 'docs:all'
   const cached = partnersCache.get(cacheKey) as PartnerDocument[] | undefined
   if (cached !== undefined) return cached
@@ -300,6 +306,7 @@ export async function listAllPartnerDocuments(): Promise<PartnerDocument[]> {
  * detail page is just viewing one investor's holdings.
  */
 export async function getDealsByPartner(partnerId: string): Promise<any[]> {
+  if (isDemoMode()) return []
   return getInvestorPositions(partnerId)
 }
 
@@ -383,6 +390,7 @@ export async function getPartnerDocuments(
   partnerId: string,
   statuses?: string[],
 ): Promise<PartnerDocument[]> {
+  if (isDemoMode()) return []
   const hintIds = getDocumentHints(partnerId)
 
   // Run the search + hint-by-id fetches in parallel. A failure on any
@@ -469,6 +477,7 @@ export interface CreatePartnerDocumentInput {
  * the sanitized 503.
  */
 export async function createPartnerDocument(input: CreatePartnerDocumentInput): Promise<string> {
+  if (isDemoMode()) throw new DemoWriteBlocked('createPartnerDocument')
   const token = await getZohoToken()
   const today = new Date().toISOString().slice(0, 10)
   const payload: Record<string, unknown> = {
@@ -506,6 +515,7 @@ export async function createPartnerDocument(input: CreatePartnerDocumentInput): 
  * to backfill File_URL after the attachment upload succeeds.
  */
 export async function updatePartnerDocument(documentId: string, patch: Record<string, unknown>): Promise<void> {
+  if (isDemoMode()) throw new DemoWriteBlocked('updatePartnerDocument')
   const token = await getZohoToken()
   const res = await fetch(`${ZOHO_API}/Partner_Documents/${documentId}`, {
     method: 'PUT',
@@ -562,6 +572,7 @@ export async function uploadAttachment(
   file: Blob,
   fileName: string,
 ): Promise<string> {
+  if (isDemoMode()) throw new DemoWriteBlocked('uploadAttachment')
   const token = await getZohoToken()
   const form = new FormData()
   form.append('file', file, fileName)
@@ -617,6 +628,7 @@ export async function fetchAttachment(
  * outer try/catch can return the standard sanitized 503.
  */
 export async function getPartner(partnerId: string): Promise<PartnerProfile | null> {
+  if (isDemoMode()) return null
   const token = await getZohoToken()
   const url = `${ZOHO_API}/Partners/${partnerId}?fields=${PARTNER_PROFILE_FIELDS}`
   const res = await fetch(url, {
@@ -645,6 +657,7 @@ export async function updatePartner(
   partnerId: string,
   patch: Record<string, unknown>,
 ): Promise<void> {
+  if (isDemoMode()) throw new DemoWriteBlocked('updatePartner')
   const token = await getZohoToken()
   const res = await fetch(`${ZOHO_API}/Partners/${partnerId}`, {
     method: 'PUT',
@@ -668,6 +681,7 @@ export async function updatePartner(
  * module — Zoho silently drops unknowns.
  */
 export async function createPartner(payload: Record<string, unknown>): Promise<string> {
+  if (isDemoMode()) throw new DemoWriteBlocked('createPartner')
   const token = await getZohoToken()
   const res = await fetch(`${ZOHO_API}/Partners`, {
     method: 'POST',

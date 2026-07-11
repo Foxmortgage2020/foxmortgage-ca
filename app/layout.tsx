@@ -1,7 +1,8 @@
 import { ClerkProvider } from '@clerk/nextjs'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Poppins, Montserrat } from 'next/font/google'
 import './globals.css'
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -21,6 +22,18 @@ export const metadata: Metadata = {
   title: 'Fox Mortgage | Strategic Mortgage Monitoring | Ontario',
   description: 'Michael Fox, Mortgage Agent Level 2 at BRX Mortgage. Strategic Mortgage Monitoring for Ontario homeowners. Fergus, Guelph, Wellington County.',
   keywords: 'mortgage agent Ontario, mortgage monitoring, Fergus mortgage, Guelph mortgage, BRX Mortgage, Strategic Mortgage Monitoring',
+  // Session 9 (PWA): the manifest, apple-touch icon, and standalone
+  // web-app hints. The favicon is served from app/icon.png (Next
+  // convention). Icons live in public/icons/ (generated on-brand).
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Fox Mortgage',
+    statusBarStyle: 'default',
+  },
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     title: 'Fox Mortgage | Your Mortgage, Monitored. Every Day.',
     description: 'Strategic Mortgage Monitoring for Ontario homeowners. Never miss a savings opportunity.',
@@ -31,6 +44,14 @@ export const metadata: Metadata = {
   },
 }
 
+// Session 9: Next 14 splits themeColor + viewport out of metadata. Navy
+// brand chrome on the installed app; standard device-width scaling.
+export const viewport: Viewport = {
+  themeColor: '#032133',
+  width: 'device-width',
+  initialScale: 1,
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -39,6 +60,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${poppins.variable} ${montserrat.variable}`}>
       <body className="antialiased">
+        <ServiceWorkerRegister />
         <ClerkProvider
           // Clerk v5: afterSignInUrl/afterSignUpUrl are deprecated.
           // Use *FallbackRedirectUrl so per-flow redirects (e.g. the

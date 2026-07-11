@@ -10,6 +10,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { can, requirePermission } from '@/lib/authz'
+import { isDemoMode } from '@/lib/demo'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { isTerminalWorkbenchDeal } from '@/config/pipeline'
 import {
@@ -162,7 +163,9 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const openFlags = flags.filter(f => f.status === 'open')
   const pendingStmtDocs = stmtDocs.filter(d => d.fields.some(f => f.status === 'extracted'))
   const terminal = isTerminalWorkbenchDeal(deal)
-  const canDecideConditions = can(user, 'conditions.decide')
+  // Session 9: demo mode is read-only — hide the condition decision controls
+  // (the server also rejects any write with DemoWriteBlocked).
+  const canDecideConditions = can(user, 'conditions.decide') && !isDemoMode()
 
   return (
     <div className="max-w-4xl">

@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-10',
+    title: 'Session 9: The finale — an app, a bell, a search bar, and a demo',
+    detail:
+      'The command center becomes an installable app. Add it to your home screen from admin or a partner portal; a security-first service worker caches the shell and static assets but never a page or an API response carrying client data, and an offline screen stands in when you lose signal. A notification bell now gathers five kinds of signal the portal already computes — new rate sheets to review, sync-freshness alarms, form-intake failures, credential renewals entering the 60- and 14-day windows, and gate decisions made from the command line — so the desk and the terminal are one world; each category is a toggle, per-user read state is remembered, and nothing replaces the existing emails. Press ⌘K anywhere to search deals, contacts, partners, lender knowledge, and the navigation itself, grouped and keyboard-driven, honest when a source is slow. And a new admin-only demo mode swaps the whole platform to believable fictional data — zero real clients on screen, every write disabled — so the command center can be shown to a prospect with nothing real exposed. The finale sweep retired the last mock pages and the dormant daily-briefing email (the Home rail serves it live now), made the partner portals fully responsive, and marked the original nine-session map complete.',
+  },
+  {
+    date: '2026-07-10',
     title: 'Session 8: Multi-user hardening',
     detail:
       'The platform is ready for its second human before the second human exists. Roles are live and verified: ops, underwriting reviewer, and agent each see exactly their surface, every admin page gates on a permission key, and Settings gains an effective-access view (pick a role, see everything it reaches). View-as is now a governed capability: a picker under the portals nav, structurally read-only (controls absent, server refuses writes), every session logged with viewer and viewed under Audit Log. Provisioning is a wizard at Settings → People — staff, partner (Zoho id picked, never typed), and agent (workbench half through the Gates API with its honest setup checklist). Offboarding is one two-tap action: access disabled and sessions revoked immediately, with a persisted cleanup checklist built from what the system knows. Nothing deletes.',

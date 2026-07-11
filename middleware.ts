@@ -20,6 +20,10 @@ export default authMiddleware({
     '/tools/(.*)',
     '/portal/sign-in',
     '/portal/sign-in/(.*)',
+    // Session 9 (PWA): the offline fallback page the service worker serves
+    // when a navigation fails. Extensionless, so the matcher does not
+    // auto-exempt it; it holds no data and must render without auth.
+    '/offline',
     // Public demo FP portal (Build B lead-gen): sandboxed, read-only sample
     // pages under /demo. No auth — this is the destination outreach links point
     // to so a planner can preview the portal before signing anything.

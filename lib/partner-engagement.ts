@@ -9,6 +9,7 @@
 
 import { clerkClient } from '@clerk/nextjs/server'
 import { createCache } from '@/lib/cache'
+import { isDemoMode } from '@/lib/demo'
 
 export interface PartnerEngagement {
   hasAccount: boolean
@@ -67,6 +68,9 @@ async function getClerkUserIndex(): Promise<ClerkUserIndex | null> {
 export async function getPartnerEngagementMap(
   partners: { id: string; email: string | null }[],
 ): Promise<PartnerEngagementResult> {
+  // Session 9: demo mode reads no real Clerk user index (the Partners list
+  // shows fictional partners; engagement simply reads "not read").
+  if (isDemoMode()) return { ok: false, map: new Map<string, PartnerEngagement>() }
   const index = await getClerkUserIndex()
   const map = new Map<string, PartnerEngagement>()
   if (!index) return { ok: false, map }

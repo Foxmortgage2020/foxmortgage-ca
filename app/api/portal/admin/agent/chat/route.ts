@@ -7,6 +7,7 @@
 // for the knowledge reads exactly like the desk.
 
 import { apiPermission } from '@/lib/authz'
+import { isDemoMode } from '@/lib/demo'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail } from '@/lib/underwriting'
 import {
@@ -37,6 +38,33 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, message: gate.message }, { status: gate.status })
   }
   const user = gate.user
+
+  // Demo mode (Session 9): short-circuit to a single clearly-labeled canned
+  // reply. No Anthropic call, no tools, no conversation store — the NDJSON
+  // shape matches what AgentChat parses (meta → text delta → done).
+  if (isDemoMode()) {
+    const encoder = new TextEncoder()
+    const demoText =
+      "[Demo] I'd normally pull this from Zoho and the workbench — in demo mode I'm showing a sample answer."
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const send = (event: Record<string, unknown>) =>
+          controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'))
+        send({ type: 'meta', conversationId: 'demo', turnSeq: 1 })
+        send({ type: 'text', delta: demoText })
+        send({ type: 'done', conversationId: 'demo' })
+        controller.close()
+      },
+    })
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        'content-type': 'application/x-ndjson; charset=utf-8',
+        'cache-control': 'no-store',
+        'x-conversation-id': 'demo',
+      },
+    })
+  }
 
   const body = (await req.json().catch(() => null)) as {
     conversationId?: string

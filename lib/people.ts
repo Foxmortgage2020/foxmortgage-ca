@@ -7,6 +7,9 @@
 
 import { clerkClient } from '@clerk/nextjs/server'
 import { normalizeRoles } from '@/config/authority'
+// Session 9: provisioning + offboarding are hard-blocked in demo mode so a
+// demo can never create or ban a real Clerk user.
+import { isDemoMode } from '@/lib/demo'
 
 export interface PersonRow {
   clerkUserId: string
@@ -61,6 +64,7 @@ export async function createProvisionedUser(input: {
   lastName: string
   publicMetadata: Record<string, unknown>
 }): Promise<CreateUserResult> {
+  if (isDemoMode()) return { ok: false, status: 502, message: 'Provisioning is disabled in demo mode.' }
   try {
     const created: any = await clerkClient.users.createUser({
       emailAddress: [input.email],
@@ -95,6 +99,7 @@ export type BanResult =
 // session sweep after a successful ban still counts as disabled (banned
 // users cannot refresh their sessions).
 export async function banAndRevokeUser(userId: string): Promise<BanResult> {
+  if (isDemoMode()) return { ok: false, message: 'Offboarding is disabled in demo mode.' }
   try {
     await clerkClient.users.banUser(userId)
   } catch (err: any) {

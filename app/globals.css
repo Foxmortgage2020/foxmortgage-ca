@@ -16,6 +16,12 @@
     font-family: var(--font-montserrat);
     color: #032133;
     background: #ffffff;
+    /* Session 9 backstop: no page should ever scroll horizontally. The
+       shells are responsive so this rarely fires, but a stray over-wide
+       descendant is clipped rather than forcing a body scroll. `clip`
+       (not `hidden`) is deliberate — it does NOT create a scroll
+       container, so sticky headers and fixed sidebars keep working. */
+    overflow-x: clip;
   }
 
   h1, h2, h3, h4, h5, h6 {

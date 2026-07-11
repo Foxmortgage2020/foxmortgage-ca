@@ -3,9 +3,12 @@
 // Session 2's gates API enforces the same keys server-side.
 
 import Link from 'next/link'
-import { requirePermission } from '@/lib/authz'
+import { requirePermission, can } from '@/lib/authz'
 import { PERMISSIONS, ROLES, type Role } from '@/config/authority'
 import { effectiveAccess } from '@/lib/effective-access'
+import { isDemoMode, demoModeAvailable } from '@/lib/demo'
+import NotificationSettings from '@/components/admin/NotificationSettings'
+import DemoToggle from '@/components/admin/DemoToggle'
 
 export const dynamic = 'force-dynamic'
 
@@ -212,6 +215,24 @@ export default async function SettingsPage({
           </div>
         </div>
       </div>
+
+      {/* Session 9: notification category preferences (which categories
+          badge the bell). The bell's gear links straight to #notifications. */}
+      <div className="mt-6">
+        <NotificationSettings />
+      </div>
+
+      {/* Session 9: demo mode — admin only, env-fenced. */}
+      {can(user, 'demo.mode') && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mt-6">
+          <h2 className="font-heading text-navy font-bold text-base">Demo mode</h2>
+          <p className="text-gray-500 font-body text-sm mt-0.5 mb-4">
+            Swaps the command center to bundled fictional fixtures — zero real reads, writes
+            disabled — for showing the platform to a prospect with no client on screen.
+          </p>
+          <DemoToggle active={isDemoMode()} available={demoModeAvailable()} />
+        </div>
+      )}
     </div>
   )
 }

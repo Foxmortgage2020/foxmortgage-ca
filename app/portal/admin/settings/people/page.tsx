@@ -4,6 +4,8 @@
 
 import Link from 'next/link'
 import { requirePermission } from '@/lib/authz'
+import { isDemoMode } from '@/lib/demo'
+import DemoNotAvailable from '@/components/admin/DemoNotAvailable'
 import { listClerkPeople, type PersonRow } from '@/lib/people'
 import {
   listOffboardingRecords,
@@ -16,6 +18,8 @@ export const dynamic = 'force-dynamic'
 
 export default async function PeoplePage() {
   const user = await requirePermission('people.manage')
+  if (isDemoMode()) return <DemoNotAvailable surface="People" />
+
 
   let people: PersonRow[] = []
   let clerkOk = true

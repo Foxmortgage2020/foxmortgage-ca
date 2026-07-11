@@ -24,6 +24,10 @@ import {
 } from '@/config/pipeline'
 import type { StageVolume } from '@/lib/pacing'
 import type { RevenueDeal } from '@/lib/revenue'
+// Demo mode (Session 9): reads return fictional fixtures and writes throw
+// before any getZohoToken()/fetch() call, so demo mode never touches Zoho.
+import { isDemoMode, blockInDemo } from '@/lib/demo'
+import { demoSlimDeals, demoRevenueDeals, demoOpenTasks, demoLeads } from '@/lib/demo-fixtures'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
@@ -48,6 +52,7 @@ function dealAmount(d: any): number {
 }
 
 export async function getAllDealsSlim(): Promise<SlimDeal[]> {
+  if (isDemoMode()) return demoSlimDeals
   const cached = slimDealsCache.get('all')
   if (cached !== undefined) return cached
 
@@ -207,6 +212,7 @@ const TASK_FIELDS = 'Subject,Due_Date,Priority,Status'
 // not_equal on Status, so the query filters on Due_Date and completed tasks
 // drop out client-side. Falls back to a plain sorted list if search fails.
 export async function getTasksDue(): Promise<OpenTask[]> {
+  if (isDemoMode()) return demoOpenTasks
   const token = await getZohoToken()
   const today = torontoTodayYMD()
 
@@ -311,6 +317,7 @@ const numOrNull = (v: unknown): number | null =>
   v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v)
 
 export async function getAllDealsRevenue(): Promise<RevenueDeal[]> {
+  if (isDemoMode()) return demoRevenueDeals
   const cached = revenueDealsCache.get('all')
   if (cached !== undefined) return cached
 
@@ -374,6 +381,7 @@ export interface SlimLead {
 const leadsCache = createCache<string, SlimLead[]>({ max: 2, ttlMs: 5 * 60 * 1000 })
 
 export async function getLeadsSlim(): Promise<SlimLead[]> {
+  if (isDemoMode()) return demoLeads
   const cached = leadsCache.get('all')
   if (cached !== undefined) return cached
 
@@ -466,6 +474,9 @@ export async function searchZohoContacts(
   query: string,
   by: 'word' | 'email' | 'phone',
 ): Promise<AgentZohoContact[]> {
+  // Demo: never query real Zoho contacts (a global-search contact hit would
+  // otherwise surface a real name). Empty is the honest demo answer.
+  if (isDemoMode()) return []
   const rows = await zohoSearch('Contacts', {
     [by]: query,
     fields: 'Full_Name,Email,Phone,Mobile',
@@ -481,11 +492,13 @@ export async function searchZohoContacts(
 }
 
 export async function searchZohoDealsByWord(word: string): Promise<AgentZohoDeal[]> {
+  if (isDemoMode()) return []
   const rows = await zohoSearch('Potentials', { word, fields: AGENT_DEAL_FIELDS, per_page: '10' })
   return rows.map(normalizeAgentDeal)
 }
 
 export async function getZohoDealsByContactId(contactId: string): Promise<AgentZohoDeal[]> {
+  if (isDemoMode()) return []
   const rows = await zohoSearch('Potentials', {
     criteria: `(Contact_Name:equals:${contactId})`,
     fields: AGENT_DEAL_FIELDS,
@@ -495,6 +508,7 @@ export async function getZohoDealsByContactId(contactId: string): Promise<AgentZ
 }
 
 export async function getZohoDealById(dealId: string): Promise<AgentZohoDeal | null> {
+  if (isDemoMode()) return null
   const token = await getZohoToken()
   const res = await fetch(`${ZOHO_API}/Potentials/${dealId}?fields=${AGENT_DEAL_FIELDS}`, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
@@ -526,6 +540,7 @@ export async function updateZohoRecordFields(
   recordId: string,
   fields: Record<string, unknown>,
 ): Promise<void> {
+  if (isDemoMode()) blockInDemo('updateZohoRecordFields')
   const token = await getZohoToken()
   const res = await fetch(`${ZOHO_API}/${module}/${recordId}`, {
     method: 'PUT',
@@ -560,6 +575,7 @@ export interface CreateTaskInput {
 }
 
 export async function createZohoTask(input: CreateTaskInput): Promise<string> {
+  if (isDemoMode()) blockInDemo('createZohoTask')
   const token = await getZohoToken()
   const payload: Record<string, unknown> = { Subject: input.subject }
   if (input.description) payload.Description = input.description
@@ -595,6 +611,7 @@ export async function createZohoTask(input: CreateTaskInput): Promise<string> {
 // Used only by the live verification flow to close a TEST task it just
 // created (status update through the same write path).
 export async function completeZohoTask(taskId: string): Promise<void> {
+  if (isDemoMode()) blockInDemo('completeZohoTask')
   const token = await getZohoToken()
   const res = await fetch(`${ZOHO_API}/Tasks/${taskId}`, {
     method: 'PUT',

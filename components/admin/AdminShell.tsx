@@ -9,6 +9,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { useClerk } from '@clerk/nextjs'
+import CommandPalette from '@/components/admin/CommandPalette'
+import NotificationBell from '@/components/admin/NotificationBell'
+import DemoBanner from '@/components/admin/DemoBanner'
+import InstallHint from '@/components/InstallHint'
 import {
   Activity,
   BookOpen,
@@ -72,10 +76,20 @@ type Props = {
   // Session 8: the footer chip prints the actual roles, not an Admin
   // literal — an ops user reads "ops" down there.
   roleLabel?: string
+  // Session 9: when demo mode is on the server passes true so the whole
+  // command center wears the fictional-data banner.
+  demoMode?: boolean
   children: React.ReactNode
 }
 
-export default function AdminShell({ items, portalLinks, userName, roleLabel, children }: Props) {
+export default function AdminShell({
+  items,
+  portalLinks,
+  userName,
+  roleLabel,
+  demoMode = false,
+  children,
+}: Props) {
   const pathname = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { signOut } = useClerk()
@@ -177,23 +191,6 @@ export default function AdminShell({ items, portalLinks, userName, roleLabel, ch
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile top bar */}
-      <header className="lg:hidden sticky top-0 z-40 bg-navy text-white flex items-center justify-between px-4 h-14">
-        <button
-          onClick={() => setDrawerOpen(true)}
-          aria-label="Open navigation"
-          className="p-1.5 -ml-1.5 rounded hover:bg-white/10"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-        <Link href="/portal/admin" className="font-heading font-bold">
-          Fox <span className="text-lime">Mortgage</span>
-        </Link>
-        <div className="w-8 h-8 rounded-full bg-lime/20 text-lime flex items-center justify-center font-heading font-bold text-xs">
-          {initials}
-        </div>
-      </header>
-
       {/* Mobile drawer */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
@@ -228,6 +225,33 @@ export default function AdminShell({ items, portalLinks, userName, roleLabel, ch
 
       {/* Content */}
       <main className="lg:ml-60 min-h-screen">
+        {/* Sticky top chrome — one wrapper so the demo banner (when on)
+            stacks above a single navy top bar without two sticky elements
+            fighting for top:0. The bar hosts the ONE command palette + bell
+            (mounted once here, so the ⌘K listener and the 60s poll never
+            double up); the hamburger + brand + avatar show only on mobile. */}
+        <div className="sticky top-0 z-40">
+          <DemoBanner active={demoMode} />
+          <header className="bg-navy text-white flex items-center gap-2 h-14 px-3 lg:px-6">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open navigation"
+              className="lg:hidden p-1.5 rounded hover:bg-white/10"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <Link href="/portal/admin" className="lg:hidden font-heading font-bold">
+              Fox <span className="text-lime">Mortgage</span>
+            </Link>
+            <div className="flex-1" />
+            <CommandPalette navItems={items} />
+            <NotificationBell />
+            <div className="lg:hidden w-8 h-8 rounded-full bg-lime/20 text-lime flex items-center justify-center font-heading font-bold text-xs">
+              {initials}
+            </div>
+          </header>
+        </div>
+        <InstallHint variant="admin" />
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>

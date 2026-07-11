@@ -162,11 +162,31 @@ const SESSIONS: {
   },
   {
     n: '9',
-    title: 'PWA and polish (the finale)',
-    status: 'next',
+    title: 'The finale — PWA, notifications, search, demo mode',
+    status: 'shipped',
     repo: 'foxmortgage-ca',
-    items: ['PWA manifest, mobile polish, and the wrap-up pass'],
+    items: [
+      'PWA: on-brand manifest + icon set (maskable), a security-first service worker that never caches an authenticated response, an offline fallback, and polite dismissible install hints on the admin and partner shells',
+      'Notification center: a bell + badge backed by a FOXCA table (per-user read state, per-category toggles) producing five categories from signals the portal already computes — including off-portal CLI gate decisions, so the desk and the terminal are one world',
+      'Global search: cmd-K across deals (workbench refs + Zoho names), contacts and partners (Zoho), lender knowledge, and navigation — grouped, keyboard-driven, debounced server-side, honest when a source is slow',
+      'Demo mode: an admin-only, env-fenced toggle that swaps the whole command center to fictional fixtures at the fetcher boundary — zero real reads, writes disabled, a persistent banner — the recruiting instrument with no client on screen',
+      'Finale sweep: legacy mock pages removed, the Daily Deal Briefing retired (the Home rail serves it live), the partner shell made responsive, and the roadmap graduated',
+    ],
   },
+]
+
+// The forward list once the original nine-session map is complete: the
+// side-quests and follow-ups decided along the way. Kept honest and current.
+const BACKLOG: { title: string; note: string }[] = [
+  { title: 'Parser history backfill', note: 'Backfill the rate-quote parser over the full sheet history so superseded books read complete.' },
+  { title: 'Five compliance workbench fields + penalty methodology', note: 'fox-underwriting to add suitability, exit-strategy, identity-verification, disclosure-delivered, and package-state fields, plus a penalty-methodology field on machine profiles (the compare tray lights up when it lands).' },
+  { title: 'Fox Grade', note: 'A single practice-health grade rolling up pacing, pipeline, compliance posture, and partner health.' },
+  { title: 'Dialpad-automatic Call Review', note: "Ask Fox's v2: transcripts flowing in through the existing n8n call pipeline, no paste." },
+  { title: 'RLS-per-user before direct credentials', note: 'Per-user row-level security on the FOXCA stores before any partner gets a direct (non-service) key.' },
+  { title: 'Pipeline agent scoping', note: 'Scope the ingest/intel CLI paths off agent 1 before a second agent’s deals flow (from the gates setup_remaining contract).' },
+  { title: 'Identity-linkage columns', note: 'A holder id on compliance credentials and a Clerk id on the workbench agents row, so offboarding matches exactly instead of by name/email.' },
+  { title: 'MFA second factor', note: 'A second-factor step on the custom sign-in form for when production turns MFA on.' },
+  { title: 'Reinstate path', note: 'A decision + UI for un-disabling an offboarded person (today one-way; reinstate is a Clerk-dashboard action).' },
 ]
 
 const STATUS_CHIP: Record<SessionStatus, { label: string; cls: string }> = {
@@ -233,11 +253,31 @@ export default async function RoadmapPage() {
         ))}
       </div>
 
-      <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-heading text-navy font-bold text-base mb-2">After the build</h2>
+      <div className="mt-8 bg-lime/10 border border-lime/40 rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-lime font-bold text-lg">&#10003;</span>
+          <h2 className="font-heading text-navy font-bold text-base">The original map is complete.</h2>
+        </div>
         <p className="text-sm font-body text-gray-600">
-          Post-build options are tracked as they are decided and this page updates each session.
-          Section names in the sidebar are stable; a rename requires a CLAUDE.md note.
+          Nine sessions (plus the hotfix and the workbench micro-sessions) took the command center
+          from an audit to an installable, multi-user, demo-ready operations platform. What follows
+          is the living forward list — the side-quests and follow-ups decided along the way.
+        </p>
+      </div>
+
+      <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
+        <h2 className="font-heading text-navy font-bold text-base mb-3">Forward backlog</h2>
+        <ul className="space-y-3">
+          {BACKLOG.map(b => (
+            <li key={b.title} className="text-sm font-body">
+              <span className="text-navy font-semibold">{b.title}</span>
+              <span className="text-gray-500"> — {b.note}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">
+          Tracked as decided; this page updates each session. Section names in the sidebar are
+          stable; a rename requires a CLAUDE.md note.
         </p>
       </div>
     </div>

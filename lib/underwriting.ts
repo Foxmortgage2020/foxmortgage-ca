@@ -32,6 +32,39 @@
 import { createCache } from '@/lib/cache'
 import { torontoTodayYMD, ymdAddDays } from '@/lib/dates'
 import { isTerminalWorkbenchDeal } from '@/config/pipeline'
+// Demo mode (Session 9): each read fetcher below short-circuits to a
+// fictional fixture as its FIRST statement, before any uwFetch/network
+// call, so demo mode performs ZERO real workbench reads.
+import { isDemoMode, DEMO_AGENT_ID } from '@/lib/demo'
+import {
+  demoResult,
+  demoDeals,
+  demoDealDetail,
+  demoDealConditions,
+  demoDealFlags,
+  demoDealStatementDocs,
+  demoDealShadowHistory,
+  demoDealBorrowers,
+  demoDealIncomeCalcs,
+  demoDealRatioCalcs,
+  demoDealDocuments,
+  demoDealAudit,
+  demoOpenFlags,
+  demoConditionsDue,
+  demoOpenConditionCounts,
+  demoPendingStatementReviews,
+  demoPendingSheetReviews,
+  demoShadowQueue,
+  demoRateQuoteStats,
+  demoIntakeFreshness,
+  demoStatementQueue,
+  demoDiscrepancyFlags,
+  demoRateSheetQueue,
+  demoOpenFlagCards,
+  demoLastDecided,
+  demoOpenFlagCountsByDeal,
+  demoShadowScoredDimCounts,
+} from '@/lib/demo-fixtures'
 
 export type UwResult<T> =
   | { configured: false }
@@ -145,6 +178,7 @@ function mapResult<A, B>(res: UwResult<A[]>, fn: (rows: A[]) => B): UwResult<B> 
 const agentIdCache = createCache<string, string>({ max: 8, ttlMs: 10 * 60 * 1000 })
 
 export async function getAgentIdByEmail(email: string): Promise<UwResult<string>> {
+  if (isDemoMode()) return demoResult(DEMO_AGENT_ID)
   if (!workbenchConfigured()) return { configured: false }
   const cached = agentIdCache.get(email)
   if (cached) return { configured: true, ok: true, data: cached }
@@ -176,6 +210,7 @@ export interface OpenFlag {
 // excluded here; they stay visible in the deal list, the deal room, and
 // the Approvals closed-files section. Lender-level flags (null deal) stay.
 export async function getOpenFlags(agentId: string): Promise<UwResult<OpenFlag[]>> {
+  if (isDemoMode()) return demoResult(demoOpenFlags)
   const res = await uwSelect<any>('flags', {
     select: 'id,severity,kind,created_at,deal_id,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
@@ -210,6 +245,7 @@ export interface PendingStatementReview {
 export async function getPendingStatementReviews(
   agentId: string,
 ): Promise<UwResult<PendingStatementReview[]>> {
+  if (isDemoMode()) return demoResult(demoPendingStatementReviews)
   const res = await uwSelect<any>('statement_fields', {
     select: 'document_id,doc_class,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
@@ -246,6 +282,7 @@ export interface PendingSheetReview {
 export async function getPendingSheetReviews(
   agentId: string,
 ): Promise<UwResult<PendingSheetReview[]>> {
+  if (isDemoMode()) return demoResult(demoPendingSheetReviews)
   const res = await uwSelect<any>('rate_quotes', {
     select: 'intel_item_id,lender_slug,as_of_date',
     agent_id: `eq.${agentId}`,
@@ -329,6 +366,7 @@ export async function getConditionsDue(
   agentId: string,
   horizonDays: number,
 ): Promise<UwResult<ConditionsDue>> {
+  if (isDemoMode()) return demoResult(demoConditionsDue)
   const res = await uwSelect<any>('conditions', {
     select: 'id,text,owner,status,due_date,cond_number,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
@@ -372,6 +410,7 @@ export async function getConditionsDue(
 export async function getOpenConditionCounts(
   agentId: string,
 ): Promise<UwResult<Record<string, number>>> {
+  if (isDemoMode()) return demoResult(demoOpenConditionCounts)
   const res = await uwSelect<any>('conditions', {
     select: 'deal_id',
     agent_id: `eq.${agentId}`,
@@ -396,6 +435,7 @@ export interface WorkbenchDeal {
 }
 
 export async function getDealsSummary(agentId: string): Promise<UwResult<WorkbenchDeal[]>> {
+  if (isDemoMode()) return demoResult(demoDeals)
   const res = await uwSelect<any>('deals', {
     select: 'id,file_ref,stage,closing_date,zoho_potential_id,status,updated_at',
     agent_id: `eq.${agentId}`,
@@ -423,6 +463,7 @@ export interface IntakeFreshness {
 }
 
 export async function getIntakeFreshness(agentId: string): Promise<UwResult<IntakeFreshness>> {
+  if (isDemoMode()) return demoResult(demoIntakeFreshness)
   const [deals, intake] = await Promise.all([
     uwSelect<any>('deals', {
       select: 'updated_at',
@@ -507,6 +548,7 @@ const stmtFieldRow = (r: any): StatementFieldRow => ({
 })
 
 export async function getStatementQueue(agentId: string): Promise<UwResult<StatementQueueCard[]>> {
+  if (isDemoMode()) return demoResult(demoStatementQueue)
   const res = await uwSelect<any>('statement_fields', {
     select:
       'id,document_id,doc_class,deal_id,field_name,value_text,value_numeric,unit,source_page,source_snippet,confidence,held_reason,status,deals(file_ref,stage,status)',
@@ -555,6 +597,7 @@ export interface DiscrepancyFlag {
 }
 
 export async function getOpenDiscrepancyFlags(agentId: string): Promise<UwResult<DiscrepancyFlag[]>> {
+  if (isDemoMode()) return demoResult(demoDiscrepancyFlags)
   const res = await uwSelect<any>('flags', {
     select: 'id,deal_id,detail,deals(file_ref)',
     agent_id: `eq.${agentId}`,
@@ -616,6 +659,7 @@ export interface SheetQueueCard {
 }
 
 export async function getRateSheetQueue(agentId: string): Promise<UwResult<SheetQueueCard[]>> {
+  if (isDemoMode()) return demoResult(demoRateSheetQueue)
   const res = await uwSelect<any>('rate_quotes', {
     select:
       'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,held_reason',
@@ -681,6 +725,7 @@ export interface OpenFlagCard {
 }
 
 export async function getOpenFlagCards(agentId: string): Promise<UwResult<OpenFlagCard[]>> {
+  if (isDemoMode()) return demoResult(demoOpenFlagCards)
   const res = await uwSelect<any>('flags', {
     select: 'id,severity,kind,deal_id,created_at,detail,evidence_refs,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
@@ -730,6 +775,7 @@ export interface ShadowQueueCard {
 export const SHADOW_DIMENSIONS_ORDER = ['checklist', 'income', 'ratios', 'shortlist'] as const
 
 export async function getShadowQueue(agentId: string): Promise<UwResult<ShadowQueueCard[]>> {
+  if (isDemoMode()) return demoResult(demoShadowQueue)
   const [dealsRes, scoresRes] = await Promise.all([
     uwSelect<any>('deals', {
       select: 'id,file_ref,stage,status,closing_date',
@@ -808,6 +854,7 @@ const DECISION_ACTIONS: Record<keyof LastDecided, string[]> = {
 }
 
 export async function getLastDecided(agentId: string): Promise<UwResult<LastDecided>> {
+  if (isDemoMode()) return demoResult(demoLastDecided)
   const all = Object.values(DECISION_ACTIONS).flat()
   const res = await uwSelect<any>('audit_log', {
     select: 'action,created_at',
@@ -830,6 +877,7 @@ export async function getLastDecided(agentId: string): Promise<UwResult<LastDeci
 // ─── Deals list enrichments ─────────────────────────────────────────────────
 
 export async function getOpenFlagCountsByDeal(agentId: string): Promise<UwResult<Record<string, number>>> {
+  if (isDemoMode()) return demoResult(demoOpenFlagCountsByDeal)
   const res = await uwSelect<any>('flags', {
     select: 'deal_id',
     agent_id: `eq.${agentId}`,
@@ -847,6 +895,7 @@ export async function getOpenFlagCountsByDeal(agentId: string): Promise<UwResult
 
 // Distinct dimensions scored per deal (0..4) for the shadow marker.
 export async function getShadowScoredDimCounts(agentId: string): Promise<UwResult<Record<string, number>>> {
+  if (isDemoMode()) return demoResult(demoShadowScoredDimCounts)
   const res = await uwSelect<any>('shadow_scores', {
     select: 'deal_id,dimension',
     agent_id: `eq.${agentId}`,
@@ -886,6 +935,7 @@ export interface DealDetail {
 }
 
 export async function getDealDetail(agentId: string, dealId: string): Promise<UwResult<DealDetail | null>> {
+  if (isDemoMode()) return demoResult(demoDealDetail(dealId))
   const res = await uwSelect<any>('deals', {
     select:
       'id,file_ref,deal_type,stage,status,purchase_price,mortgage_amount,closing_date,lender,product,zoho_potential_id,finmo_app_id,created_at,updated_at',
@@ -929,6 +979,7 @@ export interface DealConditionRow extends ConditionRow {
 }
 
 export async function getDealConditions(agentId: string, dealId: string): Promise<UwResult<DealConditionRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealConditions(dealId))
   const res = await uwSelect<any>('conditions', {
     select: 'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck',
     agent_id: `eq.${agentId}`,
@@ -972,6 +1023,7 @@ export async function getComplianceAttentionDeals(
   complianceCategories: readonly string[],
   todayYMD: string,
 ): Promise<UwResult<ComplianceAttentionDeal[]>> {
+  if (isDemoMode()) return demoResult([])
   const [flagsRes, condsRes] = await Promise.all([
     uwSelect<any>('flags', {
       select: 'deal_id,severity,deals(file_ref)',
@@ -1026,6 +1078,7 @@ export interface DealFlagRow {
 }
 
 export async function getDealFlags(agentId: string, dealId: string): Promise<UwResult<DealFlagRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealFlags(dealId))
   const res = await uwSelect<any>('flags', {
     select: 'id,severity,kind,status,detail,created_at,resolution,reason,resolved_at',
     agent_id: `eq.${agentId}`,
@@ -1066,6 +1119,7 @@ export interface DealStatementDoc {
 }
 
 export async function getDealStatementDocs(agentId: string, dealId: string): Promise<UwResult<DealStatementDoc[]>> {
+  if (isDemoMode()) return demoResult(demoDealStatementDocs(dealId))
   const fieldsRes = await uwSelect<any>('statement_fields', {
     select:
       'id,document_id,doc_class,field_name,value_text,value_numeric,unit,source_page,source_snippet,confidence,held_reason,status',
@@ -1127,6 +1181,7 @@ export interface DealShadowScore {
 }
 
 export async function getDealShadowHistory(agentId: string, dealId: string): Promise<UwResult<DealShadowScore[]>> {
+  if (isDemoMode()) return demoResult(demoDealShadowHistory(dealId))
   const res = await uwSelect<any>('shadow_scores', {
     select: 'id,dimension,agreement,system_value,michael_value,disagreement_note,ruling_ref,scored_at',
     agent_id: `eq.${agentId}`,
@@ -1164,6 +1219,7 @@ export interface BorrowerRow {
 }
 
 export async function getDealBorrowers(agentId: string, dealId: string): Promise<UwResult<BorrowerRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealBorrowers(dealId))
   const res = await uwSelect<any>('borrowers', {
     select: 'id,role,full_name,dob,marital_status,employment',
     agent_id: `eq.${agentId}`,
@@ -1195,6 +1251,7 @@ export interface IncomeCalcRow {
 }
 
 export async function getDealIncomeCalcs(agentId: string, dealId: string): Promise<UwResult<IncomeCalcRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealIncomeCalcs(dealId))
   const res = await uwSelect<any>('income_calcs', {
     select: 'id,borrower_id,lender_slug,basis,result_annual,calc_version,inputs_hash,created_at',
     agent_id: `eq.${agentId}`,
@@ -1231,6 +1288,7 @@ export interface RatioCalcRow {
 }
 
 export async function getDealRatioCalcs(agentId: string, dealId: string): Promise<UwResult<RatioCalcRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealRatioCalcs(dealId))
   const res = await uwSelect<any>('ratio_calcs', {
     select: 'id,lender_slug,qual_rate,pmt_contract,pmt_stress,gds,tds,ltv,calc_version,inputs_hash,created_at',
     agent_id: `eq.${agentId}`,
@@ -1266,6 +1324,7 @@ export interface DocumentRow {
 }
 
 export async function getDealDocuments(agentId: string, dealId: string): Promise<UwResult<DocumentRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealDocuments(dealId))
   const res = await uwSelect<any>('documents', {
     select: 'id,doc_type,source,received_at,review_status,created_at',
     agent_id: `eq.${agentId}`,
@@ -1474,6 +1533,7 @@ export interface IntelItemRow {
 }
 
 export async function getIntelItems(agentId: string): Promise<UwResult<IntelItemRow[]>> {
+  if (isDemoMode()) return demoResult([])
   const itemsRes = await uwSelect<any>('lender_intel_items', {
     select: 'id,lender_slug_guess,doc_class_guess,item_kind,file_name,message_text,status,received_at',
     agent_id: `eq.${agentId}`,
@@ -1533,6 +1593,7 @@ export interface SheetReviewEvent {
 }
 
 export async function getSheetReviewEvents(agentId: string, limit = 100): Promise<UwResult<SheetReviewEvent[]>> {
+  if (isDemoMode()) return demoResult([])
   const res = await uwSelect<any>('rate_sheet_reviews', {
     select: 'id,decision,decided_at,quotes_total,lender_intel_items(lender_slug_guess,file_name)',
     agent_id: `eq.${agentId}`,
@@ -1560,6 +1621,7 @@ export interface AgentRow {
 }
 
 export async function getAgents(): Promise<UwResult<AgentRow[]>> {
+  if (isDemoMode()) return demoResult([])
   const res = await uwSelect<any>('agents', {
     select: '*',
     order: 'name.asc',
@@ -1591,6 +1653,7 @@ export interface NumberLinkRow {
 }
 
 export async function getNumberLinks(agentId: string): Promise<UwResult<NumberLinkRow[]>> {
+  if (isDemoMode()) return demoResult([])
   const res = await uwSelect<any>('number_links', {
     select: 'id,phone_last10,label,source,zoho_contact_id,zoho_partner_id,created_at',
     agent_id: `eq.${agentId}`,
@@ -1652,6 +1715,10 @@ export async function getAuditEntries(
   limit: number,
   offset: number,
 ): Promise<UwResult<{ rows: AuditEntry[]; total: number | null }>> {
+  if (isDemoMode()) {
+    const rows = demoDeals.flatMap(d => demoDealAudit(d.id))
+    return demoResult({ rows, total: rows.length })
+  }
   const params: Record<string, string> = {
     select: 'id,created_at,actor,actor_clerk_id,actor_email,action,deal_id,detail,deals(file_ref)',
     agent_id: `eq.${agentId}`,
@@ -1687,6 +1754,7 @@ export async function getAuditEntries(
 }
 
 export async function getDealAudit(agentId: string, dealId: string, limit = 25): Promise<UwResult<AuditEntry[]>> {
+  if (isDemoMode()) return demoResult(demoDealAudit(dealId))
   const res = await uwSelect<any>('audit_log', {
     select: 'id,created_at,actor,actor_clerk_id,actor_email,action,deal_id,detail',
     agent_id: `eq.${agentId}`,
@@ -1699,6 +1767,9 @@ export async function getDealAudit(agentId: string, dealId: string, limit = 25):
 
 // Resolve a deal file ref to its workbench id (audit viewer filter).
 export async function getDealIdByFileRef(agentId: string, fileRef: string): Promise<UwResult<string | null>> {
+  // Demo: resolve any (fictional) file ref to the first demo deal so a
+  // search hit opens a demo deal room; no real workbench lookup runs.
+  if (isDemoMode()) return demoResult(demoDeals[0]?.id ?? null)
   const res = await uwSelect<any>('deals', {
     select: 'id',
     agent_id: `eq.${agentId}`,
@@ -1731,6 +1802,7 @@ export async function getPendingQuoteTypeCounts(
 }
 
 export async function getRateQuoteStats(agentId: string): Promise<UwResult<RateQuoteStats>> {
+  if (isDemoMode()) return demoResult(demoRateQuoteStats)
   const res = await uwSelect<any>('rate_quotes', {
     select: 'status,as_of_date',
     agent_id: `eq.${agentId}`,

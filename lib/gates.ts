@@ -20,6 +20,12 @@
 //   4. Logs carry method, path (with record id), status, and duration.
 //      Never tokens, never notes, never payloads.
 
+// Demo mode (Session 9): every decision/provision write below returns a
+// rejected DemoWriteBlocked before any Gates API call. The knowledge and
+// rates-reference GETs stay real — they are reference material, not
+// borrower data — so a demo walkthrough still shows live lender knowledge.
+import { isDemoMode, DemoWriteBlocked } from '@/lib/demo'
+
 export type GateErrorKind =
   | 'auth'
   | 'forbidden'
@@ -159,6 +165,7 @@ export function decideStatement(
   token: string | null,
   note?: string,
 ): Promise<GateResult<StatementDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideStatement'))
   return gateCall(`/api/gates/statements/${documentId}/decision`, withNote({ action }, note), token)
 }
 
@@ -185,6 +192,7 @@ export function decideRateSheet(
   token: string | null,
   note?: string,
 ): Promise<GateResult<RateSheetDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideRateSheet'))
   return gateCall(`/api/gates/rate-sheets/${intelItemId}/decision`, withNote({ action }, note), token)
 }
 
@@ -206,6 +214,7 @@ export function disposeFlag(
   token: string | null,
   note?: string,
 ): Promise<GateResult<FlagDispositionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('disposeFlag'))
   return gateCall(`/api/gates/flags/${flagId}/disposition`, withNote({ disposition }, note), token)
 }
 
@@ -233,6 +242,7 @@ export function scoreShadow(
   token: string | null,
   note?: string,
 ): Promise<GateResult<ShadowScoreResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('scoreShadow'))
   return gateCall(`/api/gates/shadow/${dealId}/score`, withNote({ dimension, agree }, note), token)
 }
 
@@ -262,6 +272,7 @@ export function decideCondition(
   token: string | null,
   note?: string,
 ): Promise<GateResult<ConditionDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideCondition'))
   return gateCall(`/api/gates/conditions/${conditionId}/decision`, withNote({ action }, note), token)
 }
 
@@ -292,6 +303,7 @@ export function provisionWorkbenchAgent(
   input: { name: string; email: string; fsraLicence: string; officePhone?: string },
   token: string | null,
 ): Promise<GateResult<AgentProvisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('provisionWorkbenchAgent'))
   const body: Record<string, unknown> = {
     name: input.name,
     email: input.email,

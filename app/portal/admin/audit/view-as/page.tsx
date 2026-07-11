@@ -6,6 +6,8 @@
 
 import Link from 'next/link'
 import { requirePermission } from '@/lib/authz'
+import { isDemoMode } from '@/lib/demo'
+import DemoNotAvailable from '@/components/admin/DemoNotAvailable'
 import { viewAsList, type ViewAsSession } from '@/lib/people-store'
 
 export const dynamic = 'force-dynamic'
@@ -48,6 +50,8 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default async function ViewAsLogPage() {
   await requirePermission('audit.view')
+  if (isDemoMode()) return <DemoNotAvailable surface="View-as sessions" />
+
 
   const res = await viewAsList(200)
 

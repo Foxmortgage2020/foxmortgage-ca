@@ -59,6 +59,11 @@ export const PERMISSIONS = {
   // /api/gates/agents (fox-underwriting micro-session 4). Key name is a
   // CONTRACT with that API; admin only on both sides.
   'agents.provision': ['admin'],
+  // Session 9: demo mode — swaps the command center to bundled fictional
+  // fixtures (zero real reads) for recruiting. Admin only, and additionally
+  // fenced by the DEMO_MODE_ENABLED env flag so it cannot be turned on in a
+  // project where the flag is unset.
+  'demo.mode': ['admin'],
   // ── Additive view keys (Session 1) ─────────────────────────────────────
   // Nav and page gating for sections the original matrix carries no key
   // for. All seeded admin-only except where a broader default is safe.
@@ -99,6 +104,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'settings.manage': 'See Settings and the authority matrix',
   'people.manage': 'Provision and offboard people (staff, partners, agents)',
   'agents.provision': 'Create the workbench half of a new agent (Gates API)',
+  'demo.mode': 'Switch the command center to fictional demo data',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',
   'intel.view': 'See the lender intel feed',
