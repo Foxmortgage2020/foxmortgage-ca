@@ -8,6 +8,8 @@ import { requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail, getIntelItems, type UwResult } from '@/lib/underwriting'
 import { fmtDateTime } from '@/lib/dates'
+import LenderMark from '@/components/admin/LenderMark'
+import { lenderDisplayName } from '@/config/lenders'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,9 +108,16 @@ export default async function IntelPage({
           items.map(item => (
             <div key={item.id} className="bg-white border border-gray-200 rounded-xl p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-body font-semibold text-navy">
-                  {item.lenderSlugGuess ?? 'unidentified lender'}
-                </span>
+                {item.lenderSlugGuess ? (
+                  <span className="flex items-center gap-1.5">
+                    <LenderMark slug={item.lenderSlugGuess} size={22} />
+                    <span className="text-sm font-body font-semibold text-navy">
+                      {lenderDisplayName(item.lenderSlugGuess)}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-sm font-body font-semibold text-gray-400">unidentified lender</span>
+                )}
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                   {item.itemKind}
                 </span>

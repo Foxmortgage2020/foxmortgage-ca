@@ -15,6 +15,8 @@
 
 import { useMemo, useState } from 'react'
 import type { RateQuoteBrowserRow } from '@/lib/underwriting'
+import LenderMark from '@/components/admin/LenderMark'
+import { lenderDisplayName } from '@/config/lenders'
 import {
   RATE_TYPES,
   RATE_TYPE_LABEL,
@@ -125,7 +127,7 @@ export default function RatesBrowser({
           <option value="">All lenders</option>
           {lenders.map(l => (
             <option key={l} value={l}>
-              {l}
+              {lenderDisplayName(l)}
             </option>
           ))}
         </select>
@@ -204,7 +206,12 @@ export default function RatesBrowser({
                     key={q.id}
                     className={`border-b border-gray-50 ${q.status === 'superseded' ? 'text-gray-400' : ''}`}
                   >
-                    <td className="py-2 px-4 font-semibold text-navy">{q.lenderSlug}</td>
+                    <td className="py-2 px-4 font-semibold text-navy">
+                      <span className="flex items-center gap-1.5">
+                        <LenderMark slug={q.lenderSlug} size={20} />
+                        {lenderDisplayName(q.lenderSlug)}
+                      </span>
+                    </td>
                     <td className="py-2 px-2 capitalize">
                       {label(q.productClass)}
                       {q.cashbackPct !== null && (

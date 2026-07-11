@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import { isStaleAsOf, KNOWLEDGE_STALE_DAYS } from '@/lib/knowledge'
 import type { KnowledgeLenderSummary } from '@/lib/gates'
+import LenderMark from '@/components/admin/LenderMark'
 
 export default function KnowledgeIndex({ todayYMD }: { todayYMD: string }) {
   const { data, error, loading, retry } = useKnowledgeFetch<{ lenders: KnowledgeLenderSummary[] }>(
@@ -41,6 +42,7 @@ export default function KnowledgeIndex({ todayYMD }: { todayYMD: string }) {
             className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-navy/40 transition-colors"
           >
             <div className="flex flex-wrap items-center gap-2">
+              <LenderMark slug={l.slug} name={l.name} size={26} />
               <h2 className="font-heading font-bold text-navy text-base">{l.name}</h2>
               <span className="text-[11px] text-gray-400 uppercase">{l.slug}</span>
             </div>

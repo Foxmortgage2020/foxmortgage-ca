@@ -173,6 +173,19 @@ const SESSIONS: {
       'Finale sweep: legacy mock pages removed, the Daily Deal Briefing retired (the Home rail serves it live), the partner shell made responsive, and the roadmap graduated',
     ],
   },
+  {
+    n: '10',
+    title: 'Rates v3: tabs, lender browse, logos, and the promos board',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'Rates restructured into four URL-addressable tabs (Scenario default, Lenders, Promos, All quotes); the scenario lender-card click fixed with a real affordance and a scroll-to-top drill-in',
+      'LenderMark: a real logo from public/lenders/ or an on-brand navy-and-lime monogram fallback, everywhere a lender is named; no manifest to maintain',
+      'Lenders tab: browse the approved book with honest per-class headline rates and the deepest floating discount (adjustable and variable kept apart), plus the three-state coverage map (live / awaiting approval / coverage pending)',
+      'Promos tab: the offer book as its own board, soonest to expire first, each card citing its announcement; saved scenarios per user through FOXCA narrow functions',
+      'A test locks the client rate PDF against ever disclosing lender compensation to a borrower',
+    ],
+  },
 ]
 
 // The forward list once the original nine-session map is complete: the

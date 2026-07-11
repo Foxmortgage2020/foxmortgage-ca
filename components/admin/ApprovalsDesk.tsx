@@ -19,6 +19,8 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import { fmtDiscount } from '@/lib/scenario'
+import LenderMark from '@/components/admin/LenderMark'
+import { lenderDisplayName } from '@/config/lenders'
 import type { ApprovalsData } from '@/lib/approvals-data'
 import type {
   DiscrepancyFlag,
@@ -703,8 +705,9 @@ export default function ApprovalsDesk({
               return (
                 <div key={card.intelItemId} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
                   <div className="flex flex-wrap items-center gap-2">
+                    {card.lenderSlug && <LenderMark slug={card.lenderSlug} size={26} />}
                     <h3 className="font-heading font-bold text-navy text-base capitalize">
-                      {card.lenderSlug ?? 'Unknown lender'}
+                      {card.lenderSlug ? lenderDisplayName(card.lenderSlug) : 'Unknown lender'}
                     </h3>
                     {card.asOfDate && <Chip tone="gray">sheet {card.asOfDate}</Chip>}
                     <Chip tone="gray">{card.quotes.length} quotes</Chip>

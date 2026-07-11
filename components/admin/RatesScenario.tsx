@@ -22,7 +22,7 @@
 // explanations come from the reference payload, never the sheet label.
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   AMORTIZATIONS,
@@ -33,7 +33,6 @@ import {
   RATE_TYPES,
   RATE_TYPE_LABEL,
   conventionText,
-  fmtDiscount,
   fmtMoneyFull,
   lenderResults,
   ltvPct,
@@ -49,7 +48,6 @@ import {
   summaryLine,
   termLabel,
   type OfferShape,
-  type QuoteRateDisplay,
   type RatesReference,
   type Scenario,
 } from '@/lib/scenario'
@@ -57,7 +55,17 @@ import type { RateQuoteFullRow, SheetProvenance } from '@/lib/underwriting'
 import type { KnowledgeOffer } from '@/lib/gates'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
-import RatesBrowser from '@/components/admin/RatesBrowser'
+import LenderMark from '@/components/admin/LenderMark'
+import {
+  CashbackChip,
+  RateHeadline,
+  TypeBadge,
+  rateHeadlineText,
+  rateLineText,
+  rateSubline,
+  variantLabel,
+} from '@/components/admin/rate-display'
+import { lenderDisplayName } from '@/config/lenders'
 import { fmtShortDate } from '@/lib/dates'
 
 const MAX_PINS = 3
@@ -84,123 +92,6 @@ interface KnowledgeLenderEntry {
   quote_slugs?: string[]
 }
 
-function variantLabel(variant: string | null): string {
-  if (!variant) return 'standard'
-  return variant.replace(/-/g, ' ').replace('ltv', 'LTV ')
-}
-
-// ─── Floating display atoms ─────────────────────────────────────────────────
-
-// Adjustable and variable are different client-facing products: the badge
-// colors and words never mix, and each carries the mechanism explanation
-// from the rates-reference payload as its tooltip.
-function TypeBadge({
-  rateType,
-  reference,
-  lenderSlug,
-  size = 'sm',
-}: {
-  rateType: 'fixed' | 'adjustable' | 'variable'
-  reference: RatesReference | null
-  lenderSlug: string
-  size?: 'sm' | 'md'
-}) {
-  if (rateType === 'fixed') return null
-  const note = mechanismForLender(reference, lenderSlug)
-  const pending = mechanismPending(note)
-  const base = note?.note ?? conventionText(reference, rateType) ?? 'Mechanism note not loaded yet.'
-  const tip = `${base}${note?.as_of ? ` (note as of ${note.as_of})` : ''}${
-    pending ? ' Pending lender confirmation.' : ''
-  }`
-  const cls =
-    rateType === 'adjustable'
-      ? 'bg-sky-100 text-sky-900 border border-sky-200'
-      : 'bg-violet-100 text-violet-900 border border-violet-200'
-  return (
-    <span
-      title={tip}
-      aria-label={tip}
-      className={`inline-flex items-center gap-1 rounded-full font-semibold cursor-help ${cls} ${
-        size === 'md' ? 'text-xs px-2.5 py-1' : 'text-[11px] px-2 py-0.5'
-      }`}
-      data-testid={`type-badge-${rateType}`}
-    >
-      {RATE_TYPE_LABEL[rateType]}
-      {pending && <span className="opacity-70">(mechanism pending)</span>}
-    </span>
-  )
-}
-
-function CashbackChip({ pct }: { pct: number | null }) {
-  if (pct === null) return null
-  return (
-    <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-      {pct}% cash back
-    </span>
-  )
-}
-
-// The rate as it renders everywhere: fixed plain, floating discount-first
-// with the effective rate labeled by the prime as-of it used, and the
-// honest prime-unavailable state when the reference is unreachable.
-function rateSubline(d: QuoteRateDisplay): string | null {
-  switch (d.kind) {
-    case 'floating-printed':
-      return `${d.rate.toFixed(2)}% printed on the sheet`
-    case 'floating-computed':
-      return `effective ${d.effective.toFixed(2)}% at prime ${d.primeValue.toFixed(2)}% as of ${d.primeAsOf}${
-        d.overridden ? ' (lender prime)' : ''
-      }`
-    case 'floating-no-prime':
-      return 'prime unavailable, discount shown alone'
-    default:
-      return null
-  }
-}
-
-export function rateHeadlineText(d: QuoteRateDisplay): string {
-  switch (d.kind) {
-    case 'fixed':
-      return `${d.rate.toFixed(2)}%`
-    case 'floating-printed':
-      return d.discount !== null ? fmtDiscount(d.discount) : `${d.rate.toFixed(2)}%`
-    case 'floating-computed':
-    case 'floating-no-prime':
-      return fmtDiscount(d.discount)
-    case 'unpriced':
-      return 'not priced'
-  }
-}
-
-function RateHeadline({ display, size = 'lg' }: { display: QuoteRateDisplay; size?: 'lg' | 'md' }) {
-  const sub = rateSubline(display)
-  return (
-    <div className="text-right">
-      <p className={`font-heading font-bold text-navy ${size === 'lg' ? 'text-3xl' : 'text-2xl'}`}>
-        {rateHeadlineText(display)}
-      </p>
-      {sub && <p className="text-[11px] text-gray-500 font-body mt-0.5 max-w-[180px]">{sub}</p>}
-    </div>
-  )
-}
-
-// One-line rate string for the compare tray, the product detail dl, and
-// screenshots. Same vocabulary as RateHeadline, compact.
-export function rateLineText(d: QuoteRateDisplay): string {
-  switch (d.kind) {
-    case 'fixed':
-      return `${d.rate.toFixed(2)}%`
-    case 'floating-printed':
-      return `${d.discount !== null ? `${fmtDiscount(d.discount)}, ` : ''}${d.rate.toFixed(2)}% printed on the sheet`
-    case 'floating-computed':
-      return `${fmtDiscount(d.discount)}, effective ${d.effective.toFixed(2)}% at prime ${d.primeValue.toFixed(2)}% as of ${d.primeAsOf}${d.overridden ? ' (lender prime)' : ''}`
-    case 'floating-no-prime':
-      return `${fmtDiscount(d.discount)}, prime unavailable`
-    case 'unpriced':
-      return 'not priced'
-  }
-}
-
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function RatesScenario({
@@ -220,7 +111,6 @@ export default function RatesScenario({
     return scenarioFromParams(raw)
   }, [sp])
 
-  const view = sp.get('view') === 'table' ? 'table' : 'cards'
   const lenderParam = sp.get('lender')
   const productParam = sp.get('product')
   const fromFile = sp.get('from')
@@ -268,9 +158,28 @@ export default function RatesScenario({
       else params.set(k, v)
     }
     const url = `${pathname}?${params.toString()}`
-    if (push) router.push(url, { scroll: false })
+    // Drill-ins (push) scroll to the top of the new level so the interaction
+    // reads as a clean navigation. Part 0 fix: the previous scroll:false on a
+    // push meant clicking a card below the fold swapped in the shorter lender
+    // view without moving the viewport, so the drill-in read as "nothing
+    // happened". Filter changes (replace) still hold the scroll.
+    if (push) router.push(url)
     else router.replace(url, { scroll: false })
   }
+
+  // Recall a saved scenario: apply its params fresh at level 1 (drop any open
+  // lender/product/pins), keep the active tab, restore its source file.
+  const recallScenario = useCallback(
+    (paramsQuery: string, savedFrom: string | null) => {
+      const params = new URLSearchParams()
+      const tab = sp.get('tab')
+      if (tab) params.set('tab', tab)
+      new URLSearchParams(paramsQuery).forEach((v, k) => params.set(k, v))
+      if (savedFrom) params.set('from', savedFrom)
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [router, pathname, sp],
+  )
 
   function setScenario(next: Scenario) {
     const params = new URLSearchParams(sp.toString())
@@ -301,64 +210,41 @@ export default function RatesScenario({
         </div>
       )}
 
-      {/* View toggle */}
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden" role="tablist">
-          <button
-            onClick={() => navigate({ view: null })}
-            className={`px-4 py-2 text-sm font-body font-semibold ${view === 'cards' ? 'bg-navy text-white' : 'bg-white text-navy'}`}
-            data-testid="view-cards"
-          >
-            Scenario
-          </button>
-          <button
-            onClick={() => navigate({ view: 'table' })}
-            className={`px-4 py-2 text-sm font-body font-semibold ${view === 'table' ? 'bg-navy text-white' : 'bg-white text-navy'}`}
-            data-testid="view-table"
-          >
-            Table
-          </button>
-        </div>
-        {view === 'cards' && (
-          <p className="text-xs text-gray-400 font-body hidden sm:block">
-            Every rate shows its sheet date. Best rate sorts first, always.
+      {/* Saved scenarios: name and recall the shapes Michael runs often. */}
+      <SavedScenariosBar
+        currentParams={new URLSearchParams(scenarioToParams(scenario)).toString()}
+        currentFrom={fromFile}
+        onRecall={recallScenario}
+      />
+
+      {/* Prime status: the label every computed effective rate leans on. */}
+      <div className="mb-4" data-testid="prime-status">
+        {reference?.prime ? (
+          <p className="text-xs text-gray-500 font-body">
+            Prime {reference.prime.value.toFixed(2)}% as of {reference.prime.as_of}
+            {reference.lender_overrides && Object.keys(reference.lender_overrides).length > 0
+              ? `, with ${Object.keys(reference.lender_overrides).length} lender override${
+                  Object.keys(reference.lender_overrides).length === 1 ? '' : 's'
+                }`
+              : ''}
+            . Effective rates for floating quotes are computed against this prime at display time.
           </p>
+        ) : referenceUnavailable ? (
+          <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p className="text-xs text-amber-800 font-body">
+              Prime reference unavailable right now. Floating quotes show their discount alone, and no
+              effective rate or floating payment renders until it loads.
+            </p>
+            <button onClick={referenceRes.retry} className="shrink-0 text-xs font-semibold text-amber-800 underline py-1.5">
+              Retry
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 font-body">Loading prime reference…</p>
         )}
       </div>
 
-      {/* Prime status: the label every computed effective rate leans on. */}
-      {view === 'cards' && (
-        <div className="mb-4" data-testid="prime-status">
-          {reference?.prime ? (
-            <p className="text-xs text-gray-500 font-body">
-              Prime {reference.prime.value.toFixed(2)}% as of {reference.prime.as_of}
-              {reference.lender_overrides && Object.keys(reference.lender_overrides).length > 0
-                ? `, with ${Object.keys(reference.lender_overrides).length} lender override${
-                    Object.keys(reference.lender_overrides).length === 1 ? '' : 's'
-                  }`
-                : ''}
-              . Effective rates for floating quotes are computed against this prime at display time.
-            </p>
-          ) : referenceUnavailable ? (
-            <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              <p className="text-xs text-amber-800 font-body">
-                Prime reference unavailable right now. Floating quotes show their discount alone,
-                and no effective rate or floating payment renders until it loads.
-              </p>
-              <button onClick={referenceRes.retry} className="shrink-0 text-xs font-semibold text-amber-800 underline py-1.5">
-                Retry
-              </button>
-            </div>
-          ) : (
-            <p className="text-xs text-gray-400 font-body">Loading prime reference…</p>
-          )}
-        </div>
-      )}
-
-      {view === 'table' ? (
-        <RatesBrowser quotes={quotes} initialLender={lenderParam ?? undefined} reference={reference} />
-      ) : (
-        <div className="lg:grid lg:grid-cols-[290px_1fr] lg:gap-5">
+      <div className="lg:grid lg:grid-cols-[290px_1fr] lg:gap-5">
           {/* Scenario rail */}
           <ScenarioRail scenario={scenario} setScenario={setScenario} pct={pct} selectCls={selectCls} />
 
@@ -373,7 +259,7 @@ export default function RatesScenario({
                 {results.length === 0 && (
                   <p className="text-sm text-gray-500 font-body col-span-full bg-white border border-gray-200 rounded-xl p-5">
                     No approved quotes match this scenario. Widen the term, rate type, or product
-                    class; the table view shows the full approved set.
+                    class; the All quotes tab shows the full approved set.
                   </p>
                 )}
                 {results.map((r, i) => {
@@ -383,12 +269,17 @@ export default function RatesScenario({
                     <button
                       key={r.lenderSlug}
                       onClick={() => navigate({ lender: r.lenderSlug }, true)}
-                      className="text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-navy/40"
+                      className="group text-left bg-white border border-gray-200 rounded-xl p-4 cursor-pointer transition hover:border-navy hover:shadow-md focus:outline-none focus:ring-2 focus:ring-navy/30"
                       data-testid={`rate-lender-${r.lenderSlug}`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-heading font-bold text-navy">{k?.name ?? r.lenderSlug}</span>
-                        {i === 0 && <span className={`${chip} bg-lime text-navy`}>best rate</span>}
+                        <span className="flex items-center gap-2 min-w-0">
+                          <LenderMark slug={r.lenderSlug} name={k?.name} size={26} />
+                          <span className="font-heading font-bold text-navy truncate">
+                            {k?.name ?? lenderDisplayName(r.lenderSlug)}
+                          </span>
+                        </span>
+                        {i === 0 && <span className={`${chip} bg-lime text-navy shrink-0`}>best rate</span>}
                       </div>
                       {r.headline ? (
                         <div className="mt-2 flex items-end justify-between gap-2">
@@ -442,6 +333,12 @@ export default function RatesScenario({
                           </span>
                         )}
                       </div>
+                      <div className="mt-3 flex items-center gap-1 text-xs font-body font-semibold text-navy/70 group-hover:text-navy">
+                        View products
+                        <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+                          &rsaquo;
+                        </span>
+                      </div>
                     </button>
                   )
                 })}
@@ -478,7 +375,6 @@ export default function RatesScenario({
             )}
           </div>
         </div>
-      )}
 
       {pinnedQuotes.length > 0 && (
         <CompareTray
@@ -491,6 +387,182 @@ export default function RatesScenario({
           onClear={() => navigate({ pins: null })}
         />
       )}
+    </div>
+  )
+}
+
+// ─── Saved scenarios ─────────────────────────────────────────────────────────
+// Michael runs the same handful of shapes repeatedly. Name one and it lands
+// here for one-tap recall. Stored per user in FOXCA through narrow functions;
+// nothing deletes (retire). Hidden entirely when the store is not configured.
+
+interface SavedRow {
+  id: string
+  name: string
+  params: string
+  fromFile: string | null
+}
+
+function SavedScenariosBar({
+  currentParams,
+  currentFrom,
+  onRecall,
+}: {
+  currentParams: string
+  currentFrom: string | null
+  onRecall: (params: string, fromFile: string | null) => void
+}) {
+  const [rows, setRows] = useState<SavedRow[]>([])
+  const [configured, setConfigured] = useState<boolean | null>(null)
+  const [naming, setNaming] = useState(false)
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch('/api/portal/admin/rates/scenarios', { cache: 'no-store' })
+      const json = (await res.json().catch(() => null)) as
+        | { ok: boolean; configured?: boolean; scenarios?: SavedRow[] }
+        | null
+      if (json?.ok) {
+        setConfigured(json.configured !== false)
+        setRows(Array.isArray(json.scenarios) ? json.scenarios : [])
+      } else {
+        setConfigured(false)
+      }
+    } catch {
+      setConfigured(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  async function save() {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/portal/admin/rates/scenarios', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'save', name: trimmed, params: currentParams, from: currentFrom }),
+      })
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
+      if (!res.ok || !json?.ok) throw new Error(json?.error ?? `Save failed (${res.status})`)
+      setName('')
+      setNaming(false)
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function retire(id: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/portal/admin/rates/scenarios', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'retire', id }),
+      })
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null
+      if (!res.ok || !json?.ok) throw new Error(json?.error ?? `Could not remove (${res.status})`)
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not remove')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Store not configured (or unreachable): stay silent, this is an optional
+  // convenience, not a core surface.
+  if (configured === false) return null
+
+  return (
+    <div className="mb-4" data-testid="saved-scenarios">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-body font-semibold text-gray-500">Saved scenarios</span>
+        {rows.map(r => (
+          <span
+            key={r.id}
+            className="inline-flex items-center gap-1 rounded-full border border-navy/20 bg-white pl-2.5 pr-1 py-1"
+          >
+            <button
+              onClick={() => onRecall(r.params, r.fromFile)}
+              className="text-xs font-body font-semibold text-navy hover:text-lime cursor-pointer"
+              title={r.fromFile ? `Recall (from file ${r.fromFile})` : 'Recall this scenario'}
+              data-testid={`saved-recall-${r.id}`}
+            >
+              {r.name}
+            </button>
+            <button
+              onClick={() => retire(r.id)}
+              disabled={busy}
+              aria-label={`Remove ${r.name}`}
+              className="text-gray-300 hover:text-red-500 text-sm leading-none px-1 cursor-pointer disabled:opacity-50"
+            >
+              &times;
+            </button>
+          </span>
+        ))}
+        {rows.length === 0 && !naming && (
+          <span className="text-xs text-gray-400 font-body">none yet</span>
+        )}
+        {naming ? (
+          <span className="inline-flex items-center gap-1.5">
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') void save()
+                if (e.key === 'Escape') {
+                  setNaming(false)
+                  setName('')
+                }
+              }}
+              placeholder="Name this scenario"
+              maxLength={80}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-xs font-body w-44 focus:outline-none focus:border-navy"
+              data-testid="saved-name-input"
+            />
+            <button
+              onClick={() => void save()}
+              disabled={busy || !name.trim()}
+              className="text-xs font-semibold bg-navy text-white rounded-lg px-2.5 py-1 cursor-pointer disabled:opacity-50"
+              data-testid="saved-confirm"
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={() => {
+                setNaming(false)
+                setName('')
+              }}
+              className="text-xs text-gray-500 underline cursor-pointer"
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => setNaming(true)}
+            className="text-xs font-semibold text-navy border border-navy/30 rounded-lg px-2.5 py-1 hover:border-navy cursor-pointer"
+            data-testid="saved-open"
+          >
+            + Save this scenario
+          </button>
+        )}
+      </div>
+      {error && <p className="text-[11px] text-red-600 font-body mt-1">{error}</p>}
     </div>
   )
 }
@@ -826,7 +898,12 @@ function LenderLevel({
           </span>
         )}
       </div>
-      <h2 className="font-heading text-navy font-bold text-xl mt-2">{knowledge?.name ?? lenderSlug}</h2>
+      <div className="flex items-center gap-2.5 mt-2">
+        <LenderMark slug={lenderSlug} name={knowledge?.name} size={34} />
+        <h2 className="font-heading text-navy font-bold text-xl">
+          {knowledge?.name ?? lenderDisplayName(lenderSlug)}
+        </h2>
+      </div>
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Promo offers with structured terms render as first-class,
             visually distinct results beside the sheet quotes. */}
@@ -956,7 +1033,7 @@ function ProductLevel({
   const decidedDay = provenance?.decidedAt ? provenance.decidedAt.slice(0, 10) : null
   const mechanism = quote.rateType !== 'fixed' ? mechanismForLender(reference, quote.lenderSlug) : null
   const rows: [string, string][] = [
-    ['Lender', knowledge?.name ?? quote.lenderSlug],
+    ['Lender', knowledge?.name ?? lenderDisplayName(quote.lenderSlug)],
     ['Product class', productClassLabel(quote.productClass)],
     ['Variant', variantLabel(quote.variant)],
     ['Term', termLabel(quote.termMonths)],
@@ -978,11 +1055,17 @@ function ProductLevel({
   return (
     <div className="mt-4" data-testid={`product-detail-${quote.id}`}>
       <button onClick={onBack} className="text-sm font-body font-semibold text-navy underline hover:text-lime">
-        &larr; Back to {knowledge?.name ?? quote.lenderSlug}
+        &larr; Back to {knowledge?.name ?? lenderDisplayName(quote.lenderSlug)}
       </button>
       <div className="mt-3 bg-white border border-gray-200 rounded-xl p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <LenderMark slug={quote.lenderSlug} name={knowledge?.name} size={24} />
+              <span className="font-heading font-bold text-navy text-sm">
+                {knowledge?.name ?? lenderDisplayName(quote.lenderSlug)}
+              </span>
+            </div>
             <h2 className="font-heading text-navy font-bold text-xl capitalize">
               {productClassLabel(quote.productClass)} &middot; {variantLabel(quote.variant)} &middot;{' '}
               {termLabel(quote.termMonths)}
@@ -1253,10 +1336,13 @@ function CompareTray({
                     const k = knowledgeFor(q.lenderSlug)
                     return (
                       <th key={q.id} className="text-left py-1.5 pr-3">
-                        <span className="font-bold">{k?.name ?? q.lenderSlug}</span>
+                        <span className="flex items-center gap-1.5">
+                          <LenderMark slug={q.lenderSlug} name={k?.name} size={20} />
+                          <span className="font-bold">{k?.name ?? lenderDisplayName(q.lenderSlug)}</span>
+                        </span>
                         <button
                           onClick={() => onUnpin(q.id)}
-                          className="ml-2 text-[11px] text-white/60 underline"
+                          className="mt-1 text-[11px] text-white/60 underline"
                           aria-label={`Unpin ${q.lenderSlug}`}
                         >
                           unpin

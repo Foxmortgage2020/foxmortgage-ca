@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 10, 2026 (Session 9 shipped — THE FINALE: PWA with a security-first service worker that never caches authenticated content, notification center over five producers incl. off-portal CLI gate decisions, cmd-K global search, admin-only demo mode with zero real reads at the fetcher boundary, finale sweep (mock pages removed, Daily Deal Briefing retired, partner shells made responsive, roadmap graduated). The original nine-session map is complete.)
+## Last Updated: July 11, 2026 (Rates v3 shipped — the Rates page became four URL-addressable tabs (Scenario default / Lenders / Promos / All quotes); a `<LenderMark>` component renders a real logo from public/lenders/ or an on-brand navy+lime monogram fallback everywhere a lender is named; the Lenders tab browses the approved book with honest per-class headline rates and deepest floating discounts plus a three-state coverage map; the Promos tab is the offer board; saved scenarios persist per user in FOXCA; the scenario lender-card click was root-caused and fixed (affordance + scroll-to-top drill-in, NOT a broken handler); and a test locks the client PDF against ever disclosing compensation. Session 9 (below) was THE FINALE of the original nine-session map; Rates v3 is a post-finale enhancement session.)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -1458,6 +1458,114 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-11 — Rates v3 (tabs, lender browse, logos, promos board, saved scenarios)
+- Part 0 root cause (git-verified, stated in the report): the scenario
+  lender-card click was NEVER a broken handler. The `<button
+  onClick={navigate({lender},true)}>` is byte-identical across Session 5 and
+  Session 6 (git diff proved it); Session 6 only rewrote the card's inner
+  rate rendering. What failed was (a) affordance — a `<button>` gets
+  `cursor:default` in Tailwind v3 (Preflight sets no pointer) and the only
+  hover cue was a faint border tint, so the card read as a static tile; and
+  (b) the drill-in used `router.push(url, {scroll:false})`, so clicking a
+  card below the fold swapped in the shorter lender view without moving the
+  viewport and read as "nothing happened". Fix: unmistakable affordance
+  (cursor-pointer, hover shadow + border, a "View products ›" chevron) and
+  drill-in pushes now scroll to top (filter changes still hold scroll).
+- Rates is four URL-addressable tabs (?tab=scenario|lenders|promos|all),
+  Scenario default; components/admin/RatesTabs.tsx owns the tab bar,
+  sessionStorage tab memory (URL wins; a ?from deal prefill always forces
+  Scenario), and renders each tab. The Session 5 cards/table toggle was
+  removed from RatesScenario; the dense table (RatesBrowser) is now the
+  "All quotes" tab (fetches the prime reference itself).
+- config/lenders.ts: display names keyed by the QUOTE slug (a THIRD slug
+  space, distinct from knowledge slugs fn/td and the penalty slugs in
+  lib/lenders.ts). Verified live against rate_quotes: the 23 hand-written
+  names cover EVERY distinct real lender_slug in the book exactly (mcap,
+  first-national, strive, rfa, scotia, merix, unionlink, rmg,
+  first-national-excalibur, neo, cmls, npx, highclere, nbc-optimum,
+  haventree, b2b, bridgewater, kootenay, shinhan, manulife, coast-capital,
+  radius, home-trust); test-portal intentionally unnamed and excluded.
+  Unknown future slugs fall back to a title-cased slug (lenderInitials +
+  lenderDisplayName pure, unit-tested).
+- components/admin/LenderMark.tsx (client): renders /lenders/{slug}.svg →
+  .png → an on-brand navy circle + lime ring monogram fallback (the DEFAULT
+  state, not an error). onError chain terminates at step 2 (a span, no
+  loop). No manifest: drop a file into public/lenders/ and it appears with
+  no code change. Wired everywhere a lender is named: the scenario result
+  cards / lender level / product detail / compare tray, RatesLenders, the
+  approvals sheet cards, the intel feed, RatesBrowser, and both knowledge
+  pages. NOT added to the client PDF (trademarked assets on a client-facing
+  doc is a separate decision left to Michael). public/lenders/ ships empty
+  (monogram everywhere) by design. IMPORTANT for Michael: a
+  `Lender Logos/` folder of 21 PNG/JPEG logos named by DISPLAY NAME already
+  sits in the repo root (untracked). To light them up, rename to the quote
+  slug + .png/.svg under public/lenders/ (e.g. "MCAP.png" → mcap.png,
+  "First National.png" → first-national.png, "RFA.jpeg" → convert to
+  rfa.png since the fallback chain is svg→png only). Several of those logos
+  (MCAN, Marathon, Meridian, Peoples Bank, QuestBank, First Ontario, TD) are
+  for lenders not yet in the book; they light up when those quote slugs
+  appear.
+- lib/lender-browse.ts (pure, tested): the Lenders tab model. Cards print
+  the best approved FIXED rate PER product class (never one unqualified
+  "lowest") and the deepest floating discount with adjustable and variable
+  kept apart; only approved rows count; TEST lender excluded; staleness at
+  30 days. lenderCoverage partitions lenders into three disjoint states —
+  live (has approved quotes), awaiting your approval (has extracted sheets,
+  no approved yet; links to /portal/admin/approvals?tab=sheets), and
+  coverage pending (intel captured, no quotes and no pending — format has no
+  parser yet). Live cards carry an awaiting nudge when a live lender also
+  has pending sheets. NOTE the book today has 0 extracted rows, so the
+  awaiting state is currently empty; superseded history exists for mcap
+  (168), first-national (47), strive (54), rfa (7), scotia (2).
+- components/admin/RatesLenders.tsx (lender cards + coverage groups + lender
+  page: products grouped by rate type then term, term/class/rate-type
+  filters, superseded toggle, "price a deal with this lender" → scenario
+  tab, product rows deep-link to the scenario product detail). Cross-link
+  discipline: the lender page keys on the quote slug; promo deep links use
+  the knowledge entry's quote_slugs alias first, then the offer slug.
+- components/admin/RatesPromos.tsx (the offer board): active offers sorted
+  by expiry ascending, amber inside 14 days / red inside 5, conditions
+  verbatim behind an expand, provenance = the announcement (never a sheet).
+  DATA LIMIT recorded: the offers endpoint serves ONLY active offers
+  ("Expired offers are never served by the workbench"), so the
+  recently-expired toggle renders the honest attempt-and-fallback state and
+  lights up automatically if the endpoint ever returns expired entries.
+- Saved scenarios (Part 5): FOXCA migration 20260711000000
+  (saved_scenarios; RLS on, no policies, table grants revoked, three narrow
+  security-definer functions granted to anon; nothing hard-deletes — retire
+  flips status). Applied live and round-trip verified (create → per-user
+  list → retire; cross-user isolation held; anon has function EXECUTE, NOT
+  table SELECT; TEST rows retired, retained). lib/saved-scenarios-store.ts
+  is the only client (twin of notifications-store); the route
+  app/api/portal/admin/rates/scenarios gates rates.view (NO new authority
+  key — scenarios are already inside that key's scope), keys on
+  gate.user.userId, canonicalizes params server-side, and short-circuits in
+  demo mode (never lists or writes real saved scenarios). The
+  SavedScenariosBar sits above the scenario rail; hidden when the store is
+  unconfigured.
+- Part 6 (compliance guard): the client PDF already omitted the structured
+  comp field (the compare tray shows it on screen; the PDF never did).
+  Locked with a test in tests/rates-pdf.test.ts that inflates the PDF's
+  content streams, hex-decodes the drawn text, and asserts a sentinel comp
+  figure, "bps", and "Compensation" never appear across fixed/floating/cash
+  back and prime-unavailable inputs (non-vacuous: it also asserts a known
+  heading IS present).
+- Extracted components/admin/rate-display.tsx (TypeBadge, CashbackChip,
+  RateHeadline, rate formatters, variantLabel) so the three tabs share one
+  honest rate-rendering source; lib/rates-shared.ts holds the
+  KnowledgeLenderEntry type + matchKnowledge + promoTone.
+- Verified: tsc clean, production build green, 227 unit tests green
+  (tests/lender-browse 9, tests/lenders-config 5, PDF comp guard +2), dev
+  server boots and serves with no errors, live FOXCA migration + UW slug
+  audit done through the read-only paths. Authenticated tab screenshots
+  require Michael's Clerk session (agent cannot authenticate); the
+  LenderMark monogram fallback + logo-swap were proven with a faithful
+  component design preview. Guardrails held: readonly workbench (all reads
+  through the existing role; no workbench writes), FOXCA via narrow
+  functions only, currentUser(), middleware publicRoutes untouched, no
+  ANTHROPIC_API_KEY in build subprocesses, no lender logos on the client
+  PDF, partners spot-checked (PortalLayoutClient/knowledge pages unaffected).
 
 ### 2026-07-10 — Admin Command Center Session 9 (THE FINALE: PWA, notifications, search, demo)
 - PWA shipped: on-brand generated icon set (maskable variants), manifest,

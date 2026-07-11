@@ -4,12 +4,49 @@
 // RATES_PDF_OUT=/path/dir to also write the artifacts for eyes-on review
 // (used for the session evidence screenshots).
 
+import zlib from 'node:zlib'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { PDFArray, PDFDocument, PDFName } from 'pdf-lib'
 import { generateRatesPdf, ratesPdfFilename } from '@/lib/rates-pdf'
 import { DEFAULT_SCENARIO, type RatesReference, type Scenario } from '@/lib/scenario'
 import type { RateQuoteFullRow } from '@/lib/underwriting'
+
+// pdf-lib draws every glyph run as a Flate-compressed content stream with
+// text stored as hex string literals (<hex> Tj). To audit what the client
+// actually sees, inflate each page's content stream and hex-decode the
+// literals back to text. Used by the compensation guard below.
+async function extractPdfText(bytes: Uint8Array): Promise<string> {
+  const doc = await PDFDocument.load(bytes)
+  let raw = ''
+  for (const page of doc.getPages()) {
+    const contents = page.node.get(PDFName.of('Contents'))
+    const resolved = doc.context.lookup(contents)
+    const refs = resolved instanceof PDFArray ? resolved.asArray() : [contents]
+    for (const ref of refs) {
+      const stream = doc.context.lookup(ref) as { contents?: Uint8Array } | undefined
+      if (!stream?.contents) continue
+      let dec: Buffer
+      try {
+        dec = zlib.inflateSync(Buffer.from(stream.contents))
+      } catch {
+        dec = Buffer.from(stream.contents)
+      }
+      raw += dec.toString('latin1')
+    }
+  }
+  let text = ''
+  const re = /<([0-9A-Fa-f]+)>/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(raw)) !== null) {
+    const hex = m[1]
+    for (let i = 0; i + 1 < hex.length; i += 2) {
+      text += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16))
+    }
+  }
+  return text
+}
 
 const REF: RatesReference = {
   prime: { value: 4.45, as_of: '2026-07-09', source: 'CMLS sheet July 9, 2026' },
@@ -146,4 +183,82 @@ describe('rates PDF across the floating vocabulary', () => {
   it('names the file by date only, never client data', () => {
     expect(ratesPdfFilename('2026-07-10')).toBe('rates-comparison-2026-07-10.pdf')
   })
+})
+
+// Compliance guard (Rates v3 Part 6): lender compensation is a regulated
+// topic. The compare tray shows basis points to Michael, but the CLIENT PDF
+// must never show compensation to a borrower. Every pinned quote below
+// carries a distinctive sentinel comp figure (9137 bps) that appears in no
+// other field; the generated document must contain none of it, nor the
+// words "bps" or "Compensation", under any input shape.
+describe('client PDF never discloses compensation', () => {
+  const SENTINEL = 9137
+  const comped = (over: Partial<RateQuoteFullRow>) => q({ compBps: SENTINEL, ...over })
+
+  const INPUT_SHAPES: { label: string; quotes: RateQuoteFullRow[]; reference: RatesReference | null }[] = [
+    {
+      label: 'fixed + floating + cash back, prime available',
+      reference: REF,
+      quotes: [
+        comped({ id: 'TEST-fx', lenderSlug: 'scotia', rate: 4.19, rateType: 'fixed' }),
+        comped({ id: 'TEST-arm', lenderSlug: 'mcap', rateType: 'adjustable', rate: null, primeVariance: -0.75 }),
+        comped({
+          id: 'TEST-cb',
+          lenderSlug: 'mcap',
+          rateType: 'adjustable',
+          rate: null,
+          primeVariance: -0.15,
+          cashbackPct: 3,
+          programNotes: 'Cash back is 3% of the mortgage amount, advanced at closing.',
+        }),
+      ],
+    },
+    {
+      label: 'floating only, prime unavailable',
+      reference: null,
+      quotes: [
+        comped({ id: 'TEST-v', lenderSlug: 'scotia', rateType: 'variable', rate: null, primeVariance: -0.9 }),
+      ],
+    },
+    {
+      // The real leak vector: compensation text riding inside the verbatim
+      // extracted free-text fields (source snippet + program notes), not just
+      // the structured compBps. The snippet must not print at all; the program
+      // note's comp clause must be scrubbed.
+      label: 'compensation text hidden in extracted free-text fields',
+      reference: REF,
+      quotes: [
+        comped({
+          id: 'TEST-leak',
+          lenderSlug: 'mcap',
+          rateType: 'fixed',
+          rate: 4.19,
+          cashbackPct: 3,
+          sourceSnippet: '3yr fixed 4.19% -- finder fee 9137 bps to the broker',
+          programNotes:
+            'Cash back is 3% of the mortgage amount, advanced at closing.\nCompensation is 9137 bps paid to the broker.\nClawback applies on prepayment.',
+        }),
+      ],
+    },
+  ]
+
+  for (const shape of INPUT_SHAPES) {
+    it(`omits compensation for: ${shape.label}`, async () => {
+      const bytes = await generateRatesPdf({
+        scenario: SCENARIO,
+        quotes: shape.quotes,
+        lenderInfo: LENDER_INFO,
+        reference: shape.reference,
+        generatedDate: '2026-07-10',
+        sourceFileRef: null,
+      })
+      const text = await extractPdfText(bytes)
+      // Extraction is non-vacuous: a known heading must be present, so an
+      // empty pull can never make the guard pass silently.
+      expect(text).toContain('FOX MORTGAGE')
+      expect(text).not.toContain(String(SENTINEL))
+      expect(text.toLowerCase()).not.toContain('bps')
+      expect(text).not.toContain('Compensation')
+    })
+  }
 })

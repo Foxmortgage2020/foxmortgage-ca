@@ -13,6 +13,7 @@ import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import { isStaleAsOf, KNOWLEDGE_STALE_DAYS, profileFigureRows, profileKnownGaps } from '@/lib/knowledge'
 import type { KnowledgeLenderDetail } from '@/lib/gates'
 import PromoCountdowns from '@/components/admin/PromoCountdowns'
+import LenderMark from '@/components/admin/LenderMark'
 
 // House-style markdown mapping: navy headings, readable body, bordered
 // GFM tables that scroll inside their own container on phones.
@@ -75,6 +76,7 @@ export default function LenderKnowledge({
     <div className="space-y-4">
       {/* Header chips */}
       <div className="flex flex-wrap items-center gap-2">
+        <LenderMark slug={data.slug} name={data.name} size={34} />
         <h1 className="font-heading text-navy text-2xl font-bold">{data.name}</h1>
         {data.as_of && <span className="text-xs font-body text-gray-500">profile as of {data.as_of}</span>}
         {stale && (

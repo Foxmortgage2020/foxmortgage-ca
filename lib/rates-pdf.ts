@@ -91,6 +91,19 @@ function pdfSafe(s: string): string {
   return s.replace(/−/g, '-').replace(/·/g, '-')
 }
 
+// Compensation is a regulated disclosure and NEVER goes to a borrower. The
+// structured comp field is already omitted from this document; this scrubs any
+// compensation / finder-fee / basis-point figure that rode along inside a
+// verbatim extracted field (program notes) before it is drawn. Asserted by
+// tests/rates-pdf.test.ts against these very fields.
+function redactComp(s: string): string {
+  return s
+    .replace(/\bfinder'?s?\s*fees?\b[^.\n]*/gi, '[removed]')
+    .replace(/\bcompensation\b[^.\n]*/gi, '[removed]')
+    .replace(/\bcomp\b\s*[:=]?\s*\d[^.\n]*/gi, '[removed]')
+    .replace(/\b\d+(?:\.\d+)?\s*bps\b/gi, '[removed]')
+}
+
 export async function generateRatesPdf(input: RatesPdfInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create()
   doc.setTitle('Rate comparison')
@@ -305,7 +318,7 @@ export async function generateRatesPdf(input: RatesPdfInput): Promise<Uint8Array
         NAVY,
         12,
       )
-      para(q.programNotes!, 8.5, GRAY, 11)
+      para(redactComp(q.programNotes!), 8.5, GRAY, 11)
       y -= 5
     }
     y -= 6
@@ -317,9 +330,12 @@ export async function generateRatesPdf(input: RatesPdfInput): Promise<Uint8Array
   text('Where these rates come from', { size: 12, font: bold })
   y -= 16
   for (const q of cols) {
-    const snippet = q.sourceSnippet.length > 90 ? `${q.sourceSnippet.slice(0, 90)}...` : q.sourceSnippet
+    // The raw extracted snippet is deliberately NOT printed on a client
+    // document: it is an unredacted sheet fragment that can carry a lender
+    // compensation column. Structured provenance (date, page, confidence,
+    // approval) carries the credibility without the leak vector.
     para(
-      `${nameFor(q)}: rate sheet dated ${q.asOfDate ?? 'undated'}, page ${q.sourcePage}, reading "${snippet}" (extraction confidence ${q.confidence}). Approved by Michael through the audited review gate.`,
+      `${nameFor(q)}: rate sheet dated ${q.asOfDate ?? 'undated'}, page ${q.sourcePage} (extraction confidence ${q.confidence}). Approved by Michael through the audited review gate.`,
       8.5,
       GRAY,
       11,
