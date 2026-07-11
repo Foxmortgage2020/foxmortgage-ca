@@ -1459,6 +1459,39 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ## Session Ledger
 
+### 2026-07-11 — Rates v3 follow-up: lender logos wired into public/lenders/
+- Wired the 21-file `Lender Logos/` folder (root, named by display name)
+  into public/lenders/ using the QUOTE-slug convention <LenderMark> reads.
+  All are PNG now (RFA.jpeg converted to rfa.png via `sips`; the fallback
+  chain is svg→png). Mapping by category:
+  - IN THE BOOK (14, live immediately): mcap, first-national, strive, rfa,
+    scotia, merix, unionlink, rmg, neo, cmls, highclere, haventree, b2b,
+    radius.
+  - INTEL-confirmed coverage-pending slug (3, light up when they get
+    approved quotes): first-ontario, meridian, quest (the file was
+    "QuestBank.png" but the live intel slug is `quest`, not `questbank` —
+    mapped to the real slug).
+  - GUESSED future slugs (4, not in the book and not in intel; slug is a
+    best-guess slugification, VERIFY when the lender enters the book):
+    mcan (MCAN.png), marathon (Marathon.png), td (TD.png), peoples-bank
+    (Peoples Bank.png — most uncertain: could be `peoples` or
+    `peoples-trust`).
+  - Files could not fully map: none — all 21 placed. The 4 "guessed" ones
+    are placed but flagged above; a wrong guess is harmless (the asset
+    sits unused until the real slug appears).
+  - 9 book lenders keep the monogram fallback (no logo file): npx,
+    nbc-optimum, bridgewater, shinhan, manulife, coast-capital,
+    home-trust, kootenay, first-national-excalibur. NOTE:
+    first-national-excalibur (45 approved quotes) shows an "FN" monogram;
+    per the wiring instruction only First National.png → first-national.png
+    was mapped, so if you want Excalibur on the FN logo, copy
+    public/lenders/first-national.png to
+    public/lenders/first-national-excalibur.png (one file, same brand).
+  - Verified: all 21 are valid PNGs and render in the real <LenderMark>
+    img box (rounded, object-contain, white bg); monogram fallback intact
+    for unmatched slugs (screenshotted). The `Lender Logos/` source folder
+    is left in place (untracked); public/lenders/*.png are committed.
+
 ### 2026-07-11 — Rates v3 (tabs, lender browse, logos, promos board, saved scenarios)
 - Part 0 root cause (git-verified, stated in the report): the scenario
   lender-card click was NEVER a broken handler. The `<button

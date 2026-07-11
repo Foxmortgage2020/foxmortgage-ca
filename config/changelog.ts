@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-11',
+    title: 'Lender logos are live',
+    detail:
+      'Twenty-one lender logos are now dropped in, so most lenders show their real mark across Rates, Knowledge, Intel, and the approvals desk instead of a monogram. Lenders without a logo keep the on-brand monogram, and any logo added later appears on its own with no code change.',
+  },
+  {
+    date: '2026-07-11',
     title: 'Rates v3: tabs, lender browse, logos, and the promos board',
     detail:
       'Rates is now four tabs. Scenario still answers who wins a deal and stays the default (the find-rates button from a deal room lands here with its file banner), and its lender cards now open with an unmistakable click — a pointer, a hover lift, a chevron, and a drill-in that scrolls to the top. A new Lenders tab browses the whole approved book with no scenario: each lender shows its best rate per product class and its deepest floating discount (adjustable and variable kept apart, never one misleading lowest number), and the cards group into three honest states — live, awaiting your approval (links to the sheets queue), and coverage pending (a sheet was captured but its format has no parser yet). A new Promos tab is the offer book on its own board, soonest to expire first, each card citing the announcement it came from. Every lender now carries a mark: a real logo the moment one is dropped into public/lenders/, an on-brand navy-and-lime monogram until then, shown everywhere a lender is named. Michael can name and save the scenarios he runs often and recall them in a tap. And the client rate PDF is now guarded by a test that proves it never shows lender compensation to a borrower.',
