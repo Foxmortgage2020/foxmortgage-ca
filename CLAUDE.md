@@ -1491,6 +1491,17 @@ Savings_Identified, Last_Activity_Time, Term_Years
     img box (rounded, object-contain, white bg); monogram fallback intact
     for unmatched slugs (screenshotted). The `Lender Logos/` source folder
     is left in place (untracked); public/lenders/*.png are committed.
+  - ADDENDUM (same day): Michael added 12 more logos; folder is now 33
+    files, public/lenders/ holds 33 PNGs. New (all validated + rendered):
+    IN THE BOOK now on logos — first-national-excalibur (the earlier "FN"
+    monogram, now a real Excalibur acorn), nbc-optimum (file "NB Optimum"),
+    npx, bridgewater, shinhan, manulife, home-trust (file "Hometrust").
+    INTEL coverage-pending now on logos — aspire, duca, eq, bloom (Bloom.jpg
+    converted to bloom.png). GUESSED future slug — wealthone (WealthOne.png;
+    not in book/intel, verify slug when it enters the book). After this,
+    only TWO book lenders remain on the monogram (no logo file):
+    coast-capital and kootenay. Intel coverage-pending lenders still without
+    a logo (monogram): cmi-us, sdc, sequence, servus, tru.
 
 ### 2026-07-11 — Rates v3 (tabs, lender browse, logos, promos board, saved scenarios)
 - Part 0 root cause (git-verified, stated in the report): the scenario

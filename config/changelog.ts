@@ -15,7 +15,7 @@ export const PLATFORM_NOTES: PlatformNote[] = [
     date: '2026-07-11',
     title: 'Lender logos are live',
     detail:
-      'Twenty-one lender logos are now dropped in, so most lenders show their real mark across Rates, Knowledge, Intel, and the approvals desk instead of a monogram. Lenders without a logo keep the on-brand monogram, and any logo added later appears on its own with no code change.',
+      'Thirty-three lender logos are now dropped in, so nearly every lender shows its real mark across Rates, Knowledge, Intel, and the approvals desk instead of a monogram. Lenders without a logo keep the on-brand monogram, and any logo added later appears on its own with no code change.',
   },
   {
     date: '2026-07-11',
