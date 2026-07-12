@@ -124,8 +124,19 @@ export function commissionForecast(
   model: CompModel,
   todayYMD: string,
   isOpenStage: (stage: string) => boolean,
+  // Stale open deals (un-groomed debt) are excluded from the forecast entirely
+  // so openDealCount and the buckets reflect only real active pipeline. The
+  // page passes lib/pipeline-hygiene's predicate; the default no-op keeps the
+  // function's older callers (and tests) unchanged. With staleness on, the
+  // pastDated bucket means only "active but the close date recently lapsed"
+  // (0-90 days past), a genuine date-hygiene nudge — long-dead files are gone.
+  isStale: (deal: { closingDate: string | null; createdTime: string | null }) => boolean = () => false,
+  // NOTE: isStale precedes horizonMonths. A future caller copying the old
+  // 5-arg form and appending a positional horizonMonths would land it in the
+  // isStale slot; the guard below degrades that to a no-op rather than crash.
   horizonMonths = 8,
 ): ForecastResult {
+  const stale = typeof isStale === 'function' ? isStale : () => false
   const currentMonth = todayYMD.slice(0, 7)
   const months = new Map<string, ForecastMonth>(
     monthRange(currentMonth, horizonMonths).map(m => [
@@ -139,6 +150,7 @@ export function commissionForecast(
 
   for (const d of deals) {
     if (!d.stage || !isOpenStage(d.stage)) continue
+    if (stale(d)) continue
     openDealCount += 1
     const weight = weights[d.stage] ?? 0
     const rev = dealRevenue(d, model)
@@ -238,6 +250,75 @@ export function fundedInWindow(
   return deals.filter(
     d => isFunded(d.stage) && d.closingDate != null && d.closingDate.slice(0, 7) >= startMonth,
   )
+}
+
+// ─── Funded by year (the Practice History chart) ────────────────────────────
+
+export interface FundedYear {
+  year: number
+  volume: number
+  count: number
+}
+
+// Funded volume and count per calendar year, ascending, bucketed on the
+// literal Closing_Date year prefix — never Date-parsed, so a Jan-1 close never
+// rolls back to the prior Dec 31 across the UTC boundary. Both funded stage
+// spellings are covered because the caller passes isFundedStage. This is the
+// same basis as computeFundedYTD, so the chart's current-year bar and the
+// pacing card's Funded YTD agree to the dollar.
+export function fundedByYear(
+  deals: RevenueDeal[],
+  isFunded: (stage: string) => boolean,
+): FundedYear[] {
+  const byYear = new Map<number, FundedYear>()
+  for (const d of deals) {
+    if (!isFunded(d.stage) || !d.closingDate) continue
+    const m = d.closingDate.match(/^(\d{4})-\d{2}-\d{2}/)
+    if (!m) continue
+    const year = Number(m[1])
+    const row = byYear.get(year) ?? { year, volume: 0, count: 0 }
+    row.volume += d.amount
+    row.count += 1
+    byYear.set(year, row)
+  }
+  return Array.from(byYear.values()).sort((a, b) => a.year - b.year)
+}
+
+export interface PracticeHistoryYearRow {
+  year: number
+  volume: number
+  count: number
+  isCurrent: boolean
+  partial: boolean
+}
+
+// The contiguous year series the Practice History chart draws: every year
+// from the first funded year through the current year, gaps filled with zero
+// so the axis never skips a year. The current year is flagged (its bar takes
+// the funded-plus-projection split) and 2021 is flagged partial — the
+// earliest funded record is April 2021, so the year has no Jan-Mar history.
+export function practiceHistoryYears(
+  deals: RevenueDeal[],
+  isFunded: (stage: string) => boolean,
+  currentYear: number,
+): PracticeHistoryYearRow[] {
+  const funded = fundedByYear(deals, isFunded)
+  if (funded.length === 0) return []
+  const first = funded[0].year
+  const last = Math.max(currentYear, funded[funded.length - 1].year)
+  const byYear = new Map(funded.map(y => [y.year, y]))
+  const out: PracticeHistoryYearRow[] = []
+  for (let yr = first; yr <= last; yr++) {
+    const f = byYear.get(yr)
+    out.push({
+      year: yr,
+      volume: f?.volume ?? 0,
+      count: f?.count ?? 0,
+      isCurrent: yr === currentYear,
+      partial: yr === 2021,
+    })
+  }
+  return out
 }
 
 // ─── Mix breakdowns (render only real coverage) ─────────────────────────────

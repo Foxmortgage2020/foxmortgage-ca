@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MapPin, ArrowRight } from 'lucide-react';
 import PortalErrorState from '@/components/PortalErrorState';
 import { usePortalImpersonation } from '@/lib/portal-impersonation';
+import { isFundedStage } from '@/config/pipeline';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(n);
@@ -75,7 +76,12 @@ export default function InvestorOpportunitiesPage() {
     return <PortalErrorState message={loadError} onRetry={loadOpportunities} />;
   }
 
-  const availableOpps = opportunities.filter((o) => o.Stage !== 'Funded' && o.Stage !== 'Closed');
+  // isFundedStage covers BOTH funded spellings ('Funded' and 'Mortgage
+  // Funded'); the bare `!== 'Funded'` check here used to leak legacy
+  // Mortgage-Funded deals into the available list.
+  const availableOpps = opportunities.filter(
+    (o) => !isFundedStage(o.Stage ?? '') && o.Stage !== 'Closed',
+  );
 
   const renderCard = (opp: any) => {
     const amount = opp.Amount || opp.Investor_Amount || 0;

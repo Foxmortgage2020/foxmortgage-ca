@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-12',
+    title: 'Pipeline truth, and the Practice History chart',
+    detail:
+      'The pipeline was counting things that are not deals. Forty-nine property records sat in an Additional Properties stage, and two dozen dead files from 2021 and 2022 sat open in Options and Pending, never closed and never marked lost. Together they inflated every open-pipeline figure and, worse, flipped goal pacing to read ahead of target when the true position was behind. The fix is a self-defending pipeline: property records stay out by stage, and any open file whose close date is more than 90 days past, or that has sat open more than 180 days without moving, drops into a visible, groomable stale bucket on Revenue that links straight to Zoho. Nothing is deleted; groom a file and it leaves the bucket on the next read. The active pipeline now reconciles to 8 real files worth $4.71M, the weighted pipeline fell from $4.14M to $2.19M, and the pace reads honestly behind. Both funded stage names are covered everywhere ("Mortgage Funded" for the history, "Funded" for 2026), and one investor-page filter that missed one of them is fixed. The Practice History chart is also back on Revenue: funded volume by year from 2021 with deal counts on every bar, the current year split into funded-to-date solid and the weighted pipeline stacked above it as a hatched projection so a forecast is never read as an actual, the three 2026 milestones marked plainly at the right edge, and no trend line pretending the automation has moved numbers it cannot have moved yet. A one-tap export renders it as a slide-ready image in the house style with the Fox mark, for the room of mortgage professionals it was built for.',
+  },
+  {
     date: '2026-07-11',
     title: 'The offers desk: promotional offers become approvable',
     detail:

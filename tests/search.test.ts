@@ -60,6 +60,7 @@ const zd = (over: Partial<SlimDeal>): SlimDeal => ({
   stage: 'Underwriting In Progress',
   amount: 500000,
   closingDate: null,
+  createdTime: null,
   ...over,
 })
 

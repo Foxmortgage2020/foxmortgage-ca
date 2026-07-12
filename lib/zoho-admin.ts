@@ -24,6 +24,7 @@ import {
 } from '@/config/pipeline'
 import type { StageVolume } from '@/lib/pacing'
 import type { RevenueDeal } from '@/lib/revenue'
+import { classifyOpenDeals, type StaleReason } from '@/lib/pipeline-hygiene'
 // Demo mode (Session 9): reads return fictional fixtures and writes throw
 // before any getZohoToken()/fetch() call, so demo mode never touches Zoho.
 import { isDemoMode, blockInDemo } from '@/lib/demo'
@@ -37,9 +38,13 @@ export interface SlimDeal {
   stage: string
   amount: number
   closingDate: string | null
+  // Created_Time (Y-M-D). Feeds the pipeline staleness rule's age arm — the
+  // reliable stand-in for a last-activity signal Zoho does not provide here
+  // (Last_Activity_Time is Finmo-mass-synced; see lib/pipeline-hygiene.ts).
+  createdTime: string | null
 }
 
-const SLIM_DEAL_FIELDS = 'Deal_Name,Stage,Amount,Total_Loan_Amount,Closing_Date'
+const SLIM_DEAL_FIELDS = 'Deal_Name,Stage,Amount,Total_Loan_Amount,Closing_Date,Created_Time'
 
 // One shared 2-minute cache absorbs the burst of widgets on a single Home
 // render plus quick refreshes. Failures are never cached.
@@ -80,6 +85,7 @@ export async function getAllDealsSlim(): Promise<SlimDeal[]> {
         stage: String(d.Stage ?? '').trim(),
         amount: dealAmount(d),
         closingDate: typeof d.Closing_Date === 'string' ? d.Closing_Date : null,
+        createdTime: typeof d.Created_Time === 'string' ? d.Created_Time.slice(0, 10) : null,
       })
     }
     if (data?.info?.more_records !== true) break
@@ -97,26 +103,55 @@ export interface PipelineStageRow {
   volume: number
 }
 
+// A stale deal, carried out for the groomable bucket the Revenue page shows.
+export interface StalePipelineDeal {
+  id: string
+  dealName: string
+  stage: string
+  amount: number
+  closingDate: string | null
+  createdTime: string | null
+  staleReason: StaleReason
+}
+
 export interface PipelineView {
-  // Ordered stages from the Daily Deal Briefing, present-or-not.
+  // Ordered stages from the Daily Deal Briefing, present-or-not. ACTIVE only.
   ordered: PipelineStageRow[]
   // Any other open stages, alphabetical — new picklist values stay visible.
   other: PipelineStageRow[]
   // Summary buckets (Additional Properties): count only, no volume claims.
   summary: { stage: string; count: number }[]
+  // Active pipeline: open stages, stale deals removed. These are the figures
+  // every pipeline surface reconciles to (8 files / $4,714,240 at 2026-07-12).
   openCount: number
   openVolume: number
+  // The stale bucket: open deals the staleness rule excluded, surfaced for
+  // grooming (never deleted). See lib/pipeline-hygiene.ts.
+  stale: StalePipelineDeal[]
+  staleCount: number
+  staleVolume: number
 }
 
-export function computePipeline(deals: SlimDeal[]): PipelineView {
-  const byStage = new Map<string, PipelineStageRow>()
+// todayYMD anchors the staleness rule; both callers pass torontoTodayYMD().
+export function computePipeline(deals: SlimDeal[], todayYMD: string): PipelineView {
   const summaryCounts = new Map<string, number>()
+  const open: SlimDeal[] = []
   for (const d of deals) {
     if (!d.stage || isTerminalStage(d.stage)) continue
     if (isSummaryStage(d.stage)) {
       summaryCounts.set(d.stage, (summaryCounts.get(d.stage) ?? 0) + 1)
       continue
     }
+    open.push(d)
+  }
+
+  // Split real active pipeline from un-groomed debt. Only active deals count
+  // toward stage volumes, openCount, openVolume, and (via pipelineStageVolumes)
+  // the weighted pipeline and the pace.
+  const { active, stale } = classifyOpenDeals(open, todayYMD)
+
+  const byStage = new Map<string, PipelineStageRow>()
+  for (const d of active) {
     const row = byStage.get(d.stage) ?? { stage: d.stage, count: 0, volume: 0 }
     row.count += 1
     row.volume += d.amount
@@ -129,13 +164,33 @@ export function computePipeline(deals: SlimDeal[]): PipelineView {
   const other = Array.from(byStage.values())
     .filter(r => !orderedNames.includes(r.stage))
     .sort((a, b) => a.stage.localeCompare(b.stage))
-  const open = [...ordered, ...other]
+  const activeRows = [...ordered, ...other]
+
+  const staleDeals: StalePipelineDeal[] = stale
+    .map(d => ({
+      id: d.id,
+      dealName: d.dealName,
+      stage: d.stage,
+      amount: d.amount,
+      closingDate: d.closingDate,
+      createdTime: d.createdTime,
+      staleReason: d.staleReason,
+    }))
+    .sort(
+      (a, b) =>
+        (a.closingDate ?? '9999').localeCompare(b.closingDate ?? '9999') ||
+        a.dealName.localeCompare(b.dealName),
+    )
+
   return {
     ordered,
     other,
     summary: Array.from(summaryCounts.entries()).map(([stage, count]) => ({ stage, count })),
-    openCount: open.reduce((s, r) => s + r.count, 0),
-    openVolume: open.reduce((s, r) => s + r.volume, 0),
+    openCount: activeRows.reduce((s, r) => s + r.count, 0),
+    openVolume: activeRows.reduce((s, r) => s + r.volume, 0),
+    stale: staleDeals,
+    staleCount: staleDeals.length,
+    staleVolume: staleDeals.reduce((s, d) => s + d.amount, 0),
   }
 }
 

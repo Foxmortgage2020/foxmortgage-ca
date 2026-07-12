@@ -55,18 +55,18 @@ export function demoResult<T>(data: T): { configured: true; ok: true; data: T } 
 // ─── Zoho: slim deals (Home pipeline, closings) ─────────────────────────────
 
 export const demoSlimDeals: SlimDeal[] = [
-  { id: 'demo-z-1', dealName: 'Marty McFixture — Purchase', stage: 'Underwriting In Progress', amount: 640000, closingDate: '2026-07-24' },
-  { id: 'demo-z-2', dealName: 'Ada Testwell — Refinance', stage: 'Conditionally Approved', amount: 415000, closingDate: '2026-08-05' },
-  { id: 'demo-z-3', dealName: 'Sample Borrower — Renewal', stage: 'Options', amount: 512000, closingDate: '2026-08-19' },
-  { id: 'demo-z-4', dealName: 'Placeholder Family Trust — Purchase', stage: 'Collecting Documentation', amount: 880000, closingDate: '2026-09-02' },
-  { id: 'demo-z-5', dealName: 'Dummy Holdings Inc — Investment', stage: 'Pending', amount: 305000, closingDate: null },
-  { id: 'demo-z-6', dealName: 'Faux Renner — Purchase', stage: 'Approved', amount: 725000, closingDate: '2026-07-30' },
-  { id: 'demo-z-7', dealName: 'Testina Mockford — Refinance', stage: 'Qualification', amount: 268000, closingDate: '2026-09-16' },
-  { id: 'demo-z-8', dealName: 'Example Estates — Purchase', stage: 'Options', amount: 1150000, closingDate: '2026-10-01' },
-  { id: 'demo-z-9', dealName: 'Sandbox Singh — Renewal', stage: 'Underwriting In Progress', amount: 398000, closingDate: '2026-08-11' },
-  { id: 'demo-z-10', dealName: 'Prototype Partners — Purchase', stage: 'Funded', amount: 560000, closingDate: '2026-06-18' },
-  { id: 'demo-z-11', dealName: 'Mockwell Chen — Purchase', stage: 'Funded', amount: 472000, closingDate: '2026-05-27' },
-  { id: 'demo-z-12', dealName: 'Fixture Fields — Refinance', stage: 'Mortgage Funded', amount: 331000, closingDate: '2026-04-14' },
+  { id: 'demo-z-1', dealName: 'Marty McFixture — Purchase', stage: 'Underwriting In Progress', amount: 640000, closingDate: '2026-07-24', createdTime: '2026-05-30' },
+  { id: 'demo-z-2', dealName: 'Ada Testwell — Refinance', stage: 'Conditionally Approved', amount: 415000, closingDate: '2026-08-05', createdTime: '2026-06-04' },
+  { id: 'demo-z-3', dealName: 'Sample Borrower — Renewal', stage: 'Options', amount: 512000, closingDate: '2026-08-19', createdTime: '2026-06-10' },
+  { id: 'demo-z-4', dealName: 'Placeholder Family Trust — Purchase', stage: 'Collecting Documentation', amount: 880000, closingDate: '2026-09-02', createdTime: '2026-06-20' },
+  { id: 'demo-z-5', dealName: 'Dummy Holdings Inc — Investment', stage: 'Pending', amount: 305000, closingDate: null, createdTime: '2026-06-25' },
+  { id: 'demo-z-6', dealName: 'Faux Renner — Purchase', stage: 'Approved', amount: 725000, closingDate: '2026-07-30', createdTime: '2026-06-09' },
+  { id: 'demo-z-7', dealName: 'Testina Mockford — Refinance', stage: 'Qualification', amount: 268000, closingDate: '2026-09-16', createdTime: '2026-06-28' },
+  { id: 'demo-z-8', dealName: 'Example Estates — Purchase', stage: 'Options', amount: 1150000, closingDate: '2026-10-01', createdTime: '2026-06-15' },
+  { id: 'demo-z-9', dealName: 'Sandbox Singh — Renewal', stage: 'Underwriting In Progress', amount: 398000, closingDate: '2026-08-11', createdTime: '2026-06-01' },
+  { id: 'demo-z-10', dealName: 'Prototype Partners — Purchase', stage: 'Funded', amount: 560000, closingDate: '2026-06-18', createdTime: '2026-03-02' },
+  { id: 'demo-z-11', dealName: 'Mockwell Chen — Purchase', stage: 'Funded', amount: 472000, closingDate: '2026-05-27', createdTime: '2026-02-19' },
+  { id: 'demo-z-12', dealName: 'Fixture Fields — Refinance', stage: 'Mortgage Funded', amount: 331000, closingDate: '2026-04-14', createdTime: '2026-01-08' },
 ]
 
 // ─── Zoho: revenue deals (Revenue, Partners, funnel) ────────────────────────

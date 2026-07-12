@@ -17,6 +17,7 @@ import {
   STAGE_WEIGHTS,
 } from '@/config/pipeline'
 import { computePacing, weightedPipelineVolume } from '@/lib/pacing'
+import { isStaleOpenDeal } from '@/lib/pipeline-hygiene'
 import {
   computePipeline,
   getAllDealsRevenue,
@@ -32,14 +33,21 @@ import {
   leadsBySource,
   mixBreakdown,
   monthLabel,
+  practiceHistoryYears,
   type RevenueDeal,
 } from '@/lib/revenue'
 import { getBusinessLinePnl } from '@/lib/pnl'
-import { fmtMoney, fmtMoneyCompact, torontoAsOfDate, torontoTodayYMD } from '@/lib/dates'
+import { fmtMoney, fmtMoneyCompact, fmtShortDate, torontoAsOfDate, torontoTodayYMD } from '@/lib/dates'
+import PracticeHistoryChart from '@/components/admin/PracticeHistoryChart'
 
 export const dynamic = 'force-dynamic'
 
 const isOpenStage = (stage: string) => !isTerminalStage(stage) && !isSummaryStage(stage)
+const zohoDealUrl = (id: string) => `https://crm.zoho.com/crm/org906105026/tab/Potentials/${id}`
+const STALE_REASON_LABEL: Record<'lapsed' | 'dormant', string> = {
+  lapsed: 'close date lapsed 90+ days',
+  dormant: 'open 180+ days, no movement',
+}
 
 // The single assumptions line every estimated figure points at.
 function modelAssumptions(): string {
@@ -132,8 +140,15 @@ export default async function RevenuePage() {
   // ── Shared computations ────────────────────────────────────────────────────
   const fundedT12 = fundedInWindow(deals, todayYMD, isFundedStage)
   const trend = fundedTrend(deals, todayYMD, COMP_MODEL, isFundedStage)
-  const forecast = commissionForecast(deals, STAGE_WEIGHTS, COMP_MODEL, todayYMD, isOpenStage)
-  const pipeline = computePipeline(deals)
+  const forecast = commissionForecast(
+    deals,
+    STAGE_WEIGHTS,
+    COMP_MODEL,
+    todayYMD,
+    isOpenStage,
+    d => isStaleOpenDeal(d, todayYMD),
+  )
+  const pipeline = computePipeline(deals, todayYMD)
   const fundedYTD = deals.reduce(
     (acc, d) => {
       if (!isFundedStage(d.stage) || !d.closingDate?.startsWith(`${year}-`)) return acc
@@ -149,6 +164,9 @@ export default async function RevenuePage() {
     asOf: torontoAsOfDate(),
   })
   const gapFiles = filesToCloseGap(-pacing.delta, fundedT12)
+
+  // Practice history: funded volume by year, 2021 to present.
+  const years = practiceHistoryYears(deals, isFundedStage, year)
 
   const mixes = [
     mixBreakdown(fundedT12, 'Purpose', d => d.transactionType),
@@ -167,6 +185,37 @@ export default async function RevenuePage() {
   return (
     <div className="space-y-5">
       <Header />
+
+      {/* ── Practice history ── */}
+      <SectionCard
+        title="Practice history"
+        chip={
+          <Link
+            href="/portal/admin/revenue/export"
+            className="text-xs font-semibold text-navy hover:text-lime border border-navy/20 rounded-lg px-2.5 py-1"
+          >
+            Download slide &rarr;
+          </Link>
+        }
+      >
+        <p className="text-xs text-gray-500 font-body mb-3">
+          Funded volume by year, both funded stage names, with deal counts. The current year is
+          split: funded to date solid, the weighted pipeline stacked above it as a hatched
+          projection so a forecast is never read as an actual. The three 2026 milestones sit at the
+          right edge; the funded bars cannot have responded to them yet, and the chart does not
+          pretend otherwise.
+        </p>
+        {years.length > 0 ? (
+          <PracticeHistoryChart
+            years={years}
+            weightedPipeline={weighted}
+            activeFiles={pipeline.openCount}
+            asOfLabel={`as of ${fmtShortDate(todayYMD)}, ${year}`}
+          />
+        ) : (
+          <p className="text-sm text-gray-400 font-body">No funded history to chart.</p>
+        )}
+      </SectionCard>
 
       {/* ── Goal pacing, deep view ── */}
       <SectionCard title={`Goal pacing ${year}`}>
@@ -213,8 +262,70 @@ export default async function RevenuePage() {
           Target {fmtMoney(ANNUAL_FUNDED_TARGET)} for the year, {fmtMoneyCompact(ANNUAL_FUNDED_TARGET / 12)} a
           month straight-line. Funded volume is the recorded deal amount on funded stages; the
           weighted pipeline multiplies open-stage volume by the stage weights in
-          config/pipeline.ts.
+          config/pipeline.ts, over the active pipeline only. Stale files are held out (below), so
+          the pace reflects real live deals rather than un-groomed debt.
         </p>
+      </SectionCard>
+
+      {/* ── Active pipeline and the stale bucket ── */}
+      <SectionCard title="Active pipeline and the stale bucket">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+          <Stat
+            label="Active pipeline"
+            value={fmtMoney(pipeline.openVolume)}
+            sub={`${pipeline.openCount} live file${pipeline.openCount === 1 ? '' : 's'}`}
+          />
+          <Stat
+            label="Held out as stale"
+            value={fmtMoney(pipeline.staleVolume)}
+            sub={`${pipeline.staleCount} file${pipeline.staleCount === 1 ? '' : 's'}`}
+            tone={pipeline.staleCount > 0 ? 'warn' : undefined}
+          />
+          <Stat
+            label="Additional Properties"
+            value={String(pipeline.summary.reduce((s, x) => s + x.count, 0))}
+            sub="tracked records, never pipeline"
+          />
+        </div>
+        <p className="text-xs text-gray-500 font-body mb-3">
+          A deal is held out of active pipeline when its close date is more than 90 days past, or it
+          was created more than 180 days ago and has not moved. Activity timestamps here are
+          Finmo-synced to one shared value, so deal age stands in for a real last-activity signal.
+          Nothing is deleted; groom these in Zoho and they leave the bucket on the next read.
+        </p>
+        {pipeline.stale.length > 0 ? (
+          <div className="overflow-x-auto">
+            <div className="min-w-[520px] space-y-1">
+              {pipeline.stale.map(d => (
+                <div
+                  key={d.id}
+                  className="flex items-center gap-2 text-xs font-body border-t border-gray-100 py-1.5"
+                >
+                  <a
+                    href={zohoDealUrl(d.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 truncate text-navy hover:text-lime"
+                  >
+                    {d.dealName}
+                  </a>
+                  <span className="w-40 text-gray-400 truncate hidden sm:block">{d.stage}</span>
+                  <span className="w-24 text-right text-gray-500">
+                    {d.closingDate ? fmtShortDate(d.closingDate) : 'no close date'}
+                  </span>
+                  <span className="w-44 text-right text-amber-700">
+                    {STALE_REASON_LABEL[d.staleReason]}
+                  </span>
+                  <span className="w-14 text-right text-gray-500">{fmtMoneyCompact(d.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 font-body">
+            No stale files. Every open deal is real active pipeline.
+          </p>
+        )}
       </SectionCard>
 
       {/* ── Commission pipeline forecast ── */}

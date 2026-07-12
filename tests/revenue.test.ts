@@ -12,14 +12,17 @@ import {
   commissionForecast,
   dealRevenue,
   filesToCloseGap,
+  fundedByYear,
   fundedTrend,
   leadsBySource,
   MIN_MIX_COVERAGE,
   mixBreakdown,
   monthAdd,
   pacingByMonth,
+  practiceHistoryYears,
   type RevenueDeal,
 } from '@/lib/revenue'
+import { isStaleOpenDeal } from '@/lib/pipeline-hygiene'
 
 const TODAY = '2026-07-10'
 const isOpen = (stage: string) => !isTerminalStage(stage) && !isSummaryStage(stage)
@@ -152,6 +155,57 @@ describe('commission forecast', () => {
     const aug = f.months.find(m => m.month === '2026-08')!
     expect(aug.expectedRevenue).toBeCloseTo(8_000 * 0.75, 2)
     expect(aug.actualBasisCount).toBe(1)
+  })
+
+  it('excludes stale deals entirely when an isStale predicate is supplied', () => {
+    const withStale = [
+      deal({ id: 'a', stage: 'Underwriting In Progress', closingDate: '2026-07-25', createdTime: '2026-05-01', amount: 400_000 }),
+      deal({ id: 'c', stage: 'Pending', closingDate: '2022-05-01', createdTime: '2022-01-01', amount: 300_000 }), // lapsed
+      deal({ id: 'z', stage: 'Options', closingDate: null, createdTime: '2022-01-01', amount: 200_000 }), // dormant
+    ]
+    const f = commissionForecast(
+      withStale,
+      STAGE_WEIGHTS,
+      MODEL,
+      TODAY,
+      isOpen,
+      d => isStaleOpenDeal(d, TODAY),
+    )
+    // Only the fresh, future-dated deal survives; the stale ones are not
+    // counted in openDealCount nor bucketed as pastDated/undated.
+    expect(f.openDealCount).toBe(1)
+    expect(f.pastDated.count).toBe(0)
+    expect(f.undated.count).toBe(0)
+  })
+})
+
+describe('funded by year and the practice history series', () => {
+  it('buckets funded volume by close year, both stage spellings, ascending', () => {
+    const deals = [
+      deal({ stage: 'Mortgage Funded', closingDate: '2021-04-09', amount: 600_000 }),
+      deal({ stage: 'Mortgage Funded', closingDate: '2021-12-15', amount: 400_000 }),
+      deal({ stage: 'Funded', closingDate: '2026-01-19', amount: 745_500 }),
+      deal({ stage: 'Conditionally Approved', closingDate: '2026-02-01', amount: 999 }), // not funded
+      deal({ stage: 'Mortgage Funded', closingDate: null, amount: 1 }), // no close date, skipped
+    ]
+    expect(fundedByYear(deals, isFundedStage)).toEqual([
+      { year: 2021, volume: 1_000_000, count: 2 },
+      { year: 2026, volume: 745_500, count: 1 },
+    ])
+  })
+
+  it('fills the contiguous year range and flags the current year and the partial 2021', () => {
+    const deals = [
+      deal({ stage: 'Mortgage Funded', closingDate: '2021-05-01', amount: 500_000 }),
+      deal({ stage: 'Mortgage Funded', closingDate: '2023-05-01', amount: 300_000 }), // gap at 2022
+      deal({ stage: 'Funded', closingDate: '2026-05-01', amount: 200_000 }),
+    ]
+    const rows = practiceHistoryYears(deals, isFundedStage, 2026)
+    expect(rows.map(r => r.year)).toEqual([2021, 2022, 2023, 2024, 2025, 2026])
+    expect(rows.find(r => r.year === 2022)).toMatchObject({ volume: 0, count: 0 })
+    expect(rows.find(r => r.year === 2026)!.isCurrent).toBe(true)
+    expect(rows.find(r => r.year === 2021)!.partial).toBe(true)
+    expect(rows.find(r => r.year === 2023)!.partial).toBe(false)
   })
 })
 

@@ -198,6 +198,18 @@ const SESSIONS: {
       'Pending offers feed the Home attention rail and the notification bell; lender_offers is the 18th granted read table',
     ],
   },
+  {
+    n: '12',
+    title: 'Pipeline truth, and the Practice History chart',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'A self-defending pipeline: Additional Properties stay out by stage, and any open file whose close date is more than 90 days past, or that has sat open more than 180 days without moving, drops into a visible, groomable stale bucket on Revenue that links to Zoho (activity timestamps are Finmo-synced to one value, so deal age is the reliable proxy). Nothing is deleted',
+      'The active pipeline reconciles to 8 real files worth $4.71M; the weighted pipeline fell from $4.14M to $2.19M and the pace now reads honestly behind target, not ahead',
+      'Both funded stage names are covered everywhere (grep-verified), and one investor-page filter that missed "Mortgage Funded" is fixed',
+      'The Practice History chart is restored on Revenue: funded volume by year from 2021 with deal counts, the current year split into funded solid and weighted pipeline hatched (a projection, never an actual), the three 2026 milestones marked plainly at the right edge, and no trend device; a one-tap export renders it as a slide-ready image in the house style with the Fox mark',
+    ],
+  },
 ]
 
 // The forward list once the original nine-session map is complete: the

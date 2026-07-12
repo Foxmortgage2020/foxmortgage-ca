@@ -188,7 +188,7 @@ export default async function AdminHome() {
   const todayYMD = torontoTodayYMD()
   const year = Number(todayYMD.slice(0, 4))
 
-  const pipeline = deals ? computePipeline(deals) : null
+  const pipeline = deals ? computePipeline(deals, todayYMD) : null
   const funded = deals ? computeFundedYTD(deals, year) : null
   const weighted = pipeline
     ? weightedPipelineVolume(pipelineStageVolumes(pipeline), STAGE_WEIGHTS)
@@ -517,6 +517,15 @@ export default async function AdminHome() {
                     {s.stage}: {s.count} tracked records (not counted as pipeline)
                   </p>
                 ))}
+                {pipeline.staleCount > 0 && (
+                  <p className="text-xs text-amber-700 font-body mt-2">
+                    {pipeline.staleCount} stale file{pipeline.staleCount === 1 ? '' : 's'} (
+                    {fmtMoneyCompact(pipeline.staleVolume)}) held out of pipeline.{' '}
+                    <Link href="/portal/admin/revenue" className="underline hover:text-navy">
+                      Groom on Revenue
+                    </Link>
+                  </p>
+                )}
               </div>
             ) : (
               <QuietNote>Zoho pipeline data is unavailable right now. Check Status.</QuietNote>

@@ -40,13 +40,45 @@ export const TERMINAL_STAGES = [
 ] as const
 
 // Tracking buckets, not pipeline. Shown as a summary count row only and
-// excluded from volume and weighting (49 property-tracking records live
-// under Additional Properties).
+// excluded from volume and weighting. These are property-tracking records
+// attached to other files (e.g. "64 Starview Crescent - BRXM-F020743"),
+// not deals; counting them as pipeline is the single largest pollutant.
+// Live count 2026-07-12: 49 records in the Additional Properties stage.
+// NOTE: a related class of ~7 records is *mis-staged* under Options with a
+// "... - Additional Property" name (created 2022, no close date). The
+// stage filter cannot catch those; the staleness rule below does (they are
+// all long dormant). See lib/pipeline-hygiene.ts.
 export const SUMMARY_STAGES = ['Additional Properties'] as const
 
 // Stages that count as funded production. Both spellings are live in Zoho:
-// 'Mortgage Funded' carries the pre-2026 history, 'Funded' carries 2026+.
+// 'Mortgage Funded' carries the pre-2026 history (48 deals, through Oct 2025),
+// 'Funded' carries 2026+ (6 deals). Every funded query MUST run through
+// isFundedStage so both spellings are covered — grep-verified 2026-07-12.
 export const FUNDED_STAGES = ['Mortgage Funded', 'Funded'] as const
+
+// ─── Pipeline staleness (self-defending against un-groomed debt) ────────────
+// Deals that never funded and were never marked lost accumulate in open
+// stages (Options, Pending) and silently inflate every open-pipeline figure.
+// At discovery (2026-07-12) 23 of 31 open deals were this class of debt: 15
+// genuine 2021-2022 files with past close dates, 7 property records mis-staged
+// in Options, and one 2024 file with a rolled-forward future close date.
+//
+// A deal in an open stage is treated as STALE (excluded from active pipeline,
+// counted in a visible, groomable stale bucket) when EITHER:
+//   - its Closing_Date is more than STALE_CLOSING_DAYS in the past, or
+//   - it was Created more than STALE_CREATED_DAYS ago and is still open.
+//
+// The second arm stands in for the brief's "no activity in 180 days". A true
+// last-activity signal is unavailable: Last_Activity_Time is Finmo-sync
+// populated with one shared timestamp on every deal, and Stage_Modified_Time
+// is null everywhere (CLAUDE.md, verified live). Deal age since creation is
+// the only trustworthy proxy for a file that has sat open with no forward
+// movement. Stale means surfaced-for-grooming, never deleted; a legitimately
+// slow file that trips the age arm stays fully visible in the stale bucket.
+// The rule reconciles the live active pipeline to exactly 8 files
+// ($4,714,240), the confirmed answer. Pure predicate: lib/pipeline-hygiene.ts.
+export const STALE_CLOSING_DAYS = 90
+export const STALE_CREATED_DAYS = 180
 
 // Probability weights for the goal pacing widget's weighted pipeline.
 // Open-stage volume times weight approximates expected funded volume.

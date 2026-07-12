@@ -777,6 +777,29 @@ checks navigate instead of clicking.
   Funded, Mortgage Lost) PLUS 'Funded' and 'Cancelled', so funded volume never
   double-counts as open pipeline. Additional Properties is a summary bucket, never
   pipeline or weighting. Config: `config/pipeline.ts`.
+- FULL STAGE VOCABULARY (live COQL, 2026-07-12, 205 deals): Mortgage Funded 48
+  (funded, 2021-04 through 2025-10), Funded 6 (funded, 2026-01 through 2026-06),
+  Mortgage Lost 19, Archive 33, Closed 9, Lost 4, Cancelled 6 (all terminal),
+  Additional Properties 49 (summary, property attachments not deals), and the 31
+  OPEN: Options 14, Pending 8, Conditionally Approved 3, Application Started 3,
+  Underwriting In Progress 1, Collecting Documentation 1, Approved 1. Funded by
+  year (Closing_Date basis): 2021 12/$6,231,323.30, 2022 12/$6,698,671.57, 2023
+  6/$3,969,050, 2024 5/$5,790,000, 2025 13/$5,944,767, 2026 6/$3,280,925.94.
+- PIPELINE STALENESS (2026-07-12, config/pipeline.ts STALE_CLOSING_DAYS 90 /
+  STALE_CREATED_DAYS 180 + pure lib/pipeline-hygiene.ts, unit-tested): of the 31
+  open deals only 8 are real active pipeline ($4,714,239.74 ≈ $4.71M); the other
+  23 are un-groomed debt (15 genuine 2021-2022 files with past close dates, 7
+  "- Additional Property" records mis-staged in Options, and BRXM-F025547 with a
+  future close date but created 2024). An open deal is STALE when its Closing_Date
+  is >90 days past OR it was Created >180 days ago. The created-age arm stands in
+  for "no activity 180d" because Last_Activity_Time is Finmo-mass-synced to one
+  value and Stage_Modified_Time is null (no usable per-deal activity signal).
+  computePipeline(deals, todayYMD) partitions active vs stale and returns the
+  stale bucket; SlimDeal gained createdTime (SLIM_DEAL_FIELDS gained Created_Time).
+  Stale is surfaced-for-grooming on Revenue (linked to Zoho), never deleted, never
+  hidden. BEFORE/AFTER: weighted pipeline $4,138,534.80 → $2,194,123.10; pace vs
+  $12M +$1,074,255 (read ahead) → -$870,156 (actually behind). The stale/ghost
+  records were flipping the pace from behind to ahead.
 - Stage weights seeded per the Session 1 brief plus additive mappings for live stages
   the seed vocabulary predates (Pending .05, Qualification .05, Options .30,
   Approved .75).
@@ -1461,6 +1484,80 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-12 — Pipeline truth (staleness rule) and the Practice History chart
+- The mandate: three data problems were distorting every open-pipeline figure
+  going into a presentation, plus a chart to restore and a slide export to
+  build. All figures verified live against Zoho by read-only COQL (via the MCP
+  connector, which unlike the app's refresh token carries COQL scope); NO Zoho
+  writes this session (Michael is grooming the records himself).
+- Part 1 — pipeline pollution, fixed self-defendingly:
+  - Additional Properties (49 records) already excluded as a summary stage
+    (config/pipeline.ts SUMMARY_STAGES); reason recorded there and above.
+  - NEW staleness rule (config/pipeline.ts STALE_CLOSING_DAYS 90 /
+    STALE_CREATED_DAYS 180; pure predicate lib/pipeline-hygiene.ts, unit-tested):
+    an open deal is stale when Closing_Date is >90 days past OR Created_Time is
+    >180 days ago. The created-age arm substitutes for the brief's "no activity
+    180d" because Last_Activity_Time is Finmo-mass-synced (every deal shows one
+    shared value) and Stage_Modified_Time is null — no usable per-deal activity
+    signal exists (documented data limitation, not a shortcut).
+  - RECONCILIATION (the money anchor, tests/pipeline-hygiene.test.ts): the 31
+    open deals split into exactly 8 real active files ($4,714,239.74) and 23
+    stale (15 dead 2021-2022 files with past close dates, 7 "- Additional
+    Property" records mis-staged in Options that the stage filter cannot catch,
+    and BRXM-F025547 which has a FUTURE close but was created 2024). The 8:
+    Islam, Fensham, Stafford, Mehmi, Spek, Kerr, Bannerman, Crnkovic.
+  - computePipeline(deals, todayYMD) now partitions active vs stale and returns
+    the stale bucket; SlimDeal + SLIM_DEAL_FIELDS gained createdTime/Created_Time.
+    Both Home and Revenue pass todayYMD. The Revenue commissionForecast excludes
+    stale (new optional isStale param, default no-op keeps other callers/tests
+    unchanged). Stale is a visible, groomable bucket on Revenue (each row links to
+    the Zoho record); Home's pipeline card shows the stale count. Nothing deleted.
+- Part 2 — funded vocabulary and the double count:
+  - Full stage vocabulary with counts and date ranges recorded (Pipeline + pacing
+    decisions section above). No live double count exists: 'Funded' is in
+    TERMINAL_STAGES (the load-bearing guard, config/pipeline.ts), so the 6 Funded
+    2026 deals count in funded-YTD and are excluded from open pipeline. Impact if
+    that line were removed: $3,280,925.94 double-counted. Grep-verified that every
+    funded/terminal check across the admin surfaces covers BOTH spellings; the one
+    single-spelling defect (app/portal/investor/(active)/opportunities/page.tsx,
+    'Funded' only) is fixed to use isFundedStage.
+- Part 3 — Practice History chart (components/admin/PracticeHistoryChart.tsx,
+  bespoke inline SVG, server-rendered): funded volume by year 2021-present with
+  deal counts; the current year split into funded-to-date solid navy and the
+  corrected weighted pipeline stacked above as a lime hatch labeled a projection
+  (a forecast can never read as an actual); 2021 flagged partial (earliest funded
+  Apr 2021); the three milestones (config/milestones.ts: FoxSocial onboarded
+  2026-03, FoxSocial full capacity 2026-07, AI underwriting live 2026-07) rendered
+  plainly at the right edge with the honest "weeks old, mortgages take 60-90 days"
+  note; a dashed complete-years average line (horizontal reference, not a trend);
+  NO trend line/curve/projection device. lib/revenue.ts gained fundedByYear +
+  practiceHistoryYears (contiguous year fill). config/targets.ts already carried
+  $12,000,000 with no placeholder.
+- Part 4 — the export (app/portal/admin/revenue/export + PracticeHistorySlide.tsx
+  wrapping the chart in one self-contained SVG with the Fox mark, title, and
+  licence footer): a client Download PNG (SVG rasterized at 2.5x with the brand
+  fonts embedded from the page's own @font-face, graceful fallback) plus Print /
+  Save as PDF with print-isolation CSS. foreignObject was replaced with plain
+  <text> so the raster never blanks or taints the canvas.
+- BEFORE/AFTER stated (every affected surface): open pipeline 31 files /
+  $11,576,445 → 8 files / $4,714,240; weighted pipeline $4,138,535 → $2,194,123;
+  combined $7,419,461 → $5,475,049; pace vs $12M +$1,074,255 (read AHEAD) →
+  -$870,156 (actually BEHIND, day 193/365, straight-line target $6,345,205).
+  The widget had been reporting ahead of pace on the strength of ghost deals.
+- Verification: tsc clean, production build green, full suite green (256 tests;
+  the tests/pipeline-hygiene reconciliation anchor + revenue fundedByYear/
+  practiceHistoryYears/forecast-stale-exclusion added). The chart + export slide
+  were rendered with the real verified figures and screenshotted (faithful,
+  house style, honest split). Live authenticated page screenshots need Michael's
+  Clerk session (the agent cannot authenticate). Adversarial money-figures review
+  run per standing policy.
+- Guardrails held: no Zoho writes (COQL reads only), readonly workbench untouched,
+  no estimate rendered as an actual (projection hatched + labeled), no trend
+  device, currentUser() unaffected, env unchanged, copy rules (no em dashes / no
+  exclamation points / "finds" not "surfaces" / Mortgage Agent Level 2) in all new
+  UI copy, portals spot-checked (only the one investor filter touched, for the
+  better).
 
 ### 2026-07-11 — The offers desk (offers become approvable; the Promos tab goes live)
 - Prerequisite consumed: the fox-underwriting promo pipeline session.
