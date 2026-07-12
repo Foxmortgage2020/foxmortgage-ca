@@ -83,7 +83,7 @@ export function ratesPdfFilename(generatedDate: string): string {
   return `rates-comparison-${generatedDate}.pdf`
 }
 
-function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+export function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const out: string[] = []
   for (const rawLine of text.split('\n')) {
     const words = rawLine.split(/\s+/).filter(Boolean)
@@ -106,7 +106,10 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
 }
 
 // Helvetica has no U+2212; the client PDF prints the ASCII form.
-function pdfSafe(s: string): string {
+// Exported so the savings-analysis PDF (lib/savings-pdf.ts) prints through
+// the SAME ascii-safe path — one document generator's habits never drift
+// from the other's.
+export function pdfSafe(s: string): string {
   return s.replace(/−/g, '-').replace(/·/g, '-')
 }
 
@@ -115,7 +118,9 @@ function pdfSafe(s: string): string {
 // compensation / finder-fee / basis-point figure that rode along inside a
 // verbatim extracted field (program notes) before it is drawn. Asserted by
 // tests/rates-pdf.test.ts against these very fields.
-function redactComp(s: string): string {
+// Exported so the savings-analysis PDF scrubs compensation through the SAME
+// regexes — asserted by tests/rates-pdf.test.ts and tests/savings-pdf.test.ts.
+export function redactComp(s: string): string {
   return s
     .replace(/\bfinder'?s?\s*fees?\b[^.\n]*/gi, '[removed]')
     .replace(/\bcompensation\b[^.\n]*/gi, '[removed]')

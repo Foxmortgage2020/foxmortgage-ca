@@ -41,9 +41,14 @@ import {
   getPendingSheetReviews,
   getPendingStatementReviews,
   getRateQuoteStats,
+  getRateQuotesFull,
   getShadowQueue,
   type UwResult,
 } from '@/lib/underwriting'
+import { recentUploads, rawRowsForUpload, smmStoreConfigured } from '@/lib/smm-store'
+import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
+import { analyzeMortgage } from '@/lib/smm-analysis'
+import type { BookQuote } from '@/lib/smm-match'
 import { listCredentials } from '@/lib/compliance'
 import { credentialTone } from '@/lib/compliance-logic'
 import {
@@ -252,6 +257,52 @@ export default async function AdminHome() {
     : 0
   const canRenewals = can(user, 'renewals.view')
 
+  // Opportunities: the act-now count from the latest Strategic Mortgage
+  // Monitoring export (opportunities.view only). Read-only; degrades silently.
+  const canOpps = can(user, 'opportunities.view')
+  let oppActNow: { count: number; netBenefit: number } | null = null
+  if (canOpps && smmStoreConfigured()) {
+    try {
+      const uploadsR = await recentUploads(3)
+      const uploads = uploadsR.configured && uploadsR.ok ? uploadsR.data : []
+      const cur = uploads.find(u => !u.superseded) ?? uploads[0] ?? null
+      if (cur) {
+        const [rowsR, quotesR] = await Promise.all([
+          rawRowsForUpload(cur.id),
+          agentId ? getRateQuotesFull(agentId) : Promise.resolve(null),
+        ])
+        if (rowsR.configured && rowsR.ok) {
+          const book: BookQuote[] =
+            quotesR && quotesR.configured && quotesR.ok
+              ? quotesR.data.map(q => ({
+                  rate: q.rate,
+                  rateType: q.rateType,
+                  termMonths: q.termMonths,
+                  productClass: q.productClass,
+                  asOfDate: q.asOfDate,
+                  status: q.status,
+                  lenderSlug: q.lenderSlug,
+                  primeVariance: q.primeVariance,
+                }))
+              : []
+          const { mortgages } = collapseCoBorrowers(rowsR.data.map(parseSmmRow))
+          let count = 0
+          let net = 0
+          for (const m of mortgages) {
+            const { analysis } = analyzeMortgage(m.primary, book, todayYMD)
+            if (analysis.bucket === 'act_now') {
+              count++
+              net += analysis.netBenefit ?? 0
+            }
+          }
+          if (count > 0) oppActNow = { count, netBenefit: net }
+        }
+      }
+    } catch {
+      oppActNow = null
+    }
+  }
+
   const flags = val(flagsR) ?? []
   const conds = val(condsR)
   const condCounts = val(condCountsR) ?? {}
@@ -349,6 +400,25 @@ export default async function AdminHome() {
         <AttentionRow
           left={`${fmtMoney(missingMaturityVol)} invisible to the renewal system until backfilled`}
           right="untracked"
+        />
+      </AttentionCard>,
+    )
+  }
+
+  // Monitoring opportunities worth a call: positive Fox net benefit after the
+  // early-break penalty, from the latest export.
+  if (oppActNow) {
+    attentionCards.push(
+      <AttentionCard
+        key="opps-act-now"
+        tone="amber"
+        title="Monitoring opportunities to call"
+        count={oppActNow.count}
+        href="/portal/admin/opportunities"
+      >
+        <AttentionRow
+          left={`${fmtMoney(oppActNow.netBenefit)} estimated net benefit across act-now files`}
+          right="call them"
         />
       </AttentionCard>,
     )

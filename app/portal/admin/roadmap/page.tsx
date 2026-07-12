@@ -199,6 +199,19 @@ const SESSIONS: {
     ],
   },
   {
+    n: '14',
+    title: 'Opportunities: the Strategic Mortgage Monitoring engine',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'A new Opportunities section turns the monthly monitoring CSV into a call pipeline. Upload is persist-first (every raw row captured to FOXCA before any parse), then parsed with a strict sign convention (positive savings = act now, negative = costs, a dash stays uncomputed and never a zero), dollar-one placeholder detection, co-borrower collapse keeping every borrower, and lender normalization to the book. Verified against the live export: 41 mortgages from 49 rows, 1 placeholder, 0 parse failures, 0 unmapped lenders, 0 sign violations',
+      'Fox’s own analysis sits beside the service’s figure: the best gate-approved comparable with its sheet date, the payment change from the validated engine, the early-break penalty framed honestly (3MI for floating; IRD-vs-3MI for fixed with the lender method named or the gap stated), break-even, and a net benefit after the penalty that buckets the board (act now / marginal / stay put / insufficient) ranked by dollars. A low rate near maturity is told to WAIT, never sold a switch; disagreement between Fox and the service is flagged',
+      'Each card opens the priced scenario in one tap, preps a call, sets a portal-side status (FOXCA), and downloads a grade-six savings-analysis PDF with compensation scrubbed from every line and wait-for-maturity framing where it applies (download only, no send path)',
+      'Backfill matches each file to Zoho (email, then phone, then name) and proposes filling only the EMPTY maturity dates and rates the export knows and the CRM does not — confirm one at a time or all at once, every value recomputed server-side from the persisted export and a live Zoho read (client values never trusted), each write recorded to a new FOXCA backfill audit; conflicts are shown, never overwritten; Lender_Name is a Zoho lookup so it is reported as a gap, not written',
+      'The Renewals lapsed alarm now reconciles against the export: still-with-lender past maturity is a recoverable auto-renewal (the highest-value call), lender-changed is flagged won-or-lost-unknown, unmonitored is not in the export, and a retention signal is computed. Home gained an act-now opportunities rail line',
+    ],
+  },
+  {
     n: '13',
     title: 'The Renewal Radar',
     status: 'shipped',

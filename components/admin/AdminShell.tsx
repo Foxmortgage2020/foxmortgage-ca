@@ -34,6 +34,7 @@ import {
   ScrollText,
   Settings,
   Shield,
+  TrendingUp,
   Users,
   X,
 } from 'lucide-react'
@@ -43,6 +44,7 @@ const ICONS: Record<string, typeof LayoutDashboard> = {
   FolderOpen,
   ClipboardList,
   RefreshCw,
+  TrendingUp,
   Percent,
   Radar,
   BookOpen,

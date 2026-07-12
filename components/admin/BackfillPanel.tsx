@@ -1,0 +1,328 @@
+'use client'
+
+// Backfill review: scan candidates in small batches (Zoho rate-limit + timeout
+// safe), then approve fills per deal. The client sends only field KEYS to apply;
+// the server recomputes the values from the persisted export and the live Zoho
+// read, so a stale or tampered value can never be written. Conflicts are shown
+// read-only — the server would refuse to write them anyway.
+
+import { useState } from 'react'
+
+export interface BackfillCandidate {
+  householdId: string
+  name: string
+  maturityDate: string | null
+  rate: number | null
+  lenderDisplay: string
+}
+
+interface Fill {
+  field: string
+  value: string | number
+}
+interface Conflict {
+  field: string
+  zohoValue: string
+  exportValue: string
+}
+interface DealView {
+  dealId: string
+  dealName: string
+  stage: string | null
+  current: { Maturity_Date: string | null; Mortgage_Rate: number | null }
+  fills: Fill[]
+  conflicts: Conflict[]
+}
+type ScanResult =
+  | { householdId: string; status: 'not_in_upload' }
+  | { householdId: string; name: string; status: 'error'; message: string }
+  | { householdId: string; name: string; status: 'ambiguous' | 'unmatched'; candidates: { id: string; fullName: string }[]; export: unknown }
+  | { householdId: string; name: string; status: 'matched'; matchedBy: string | null; contact: { id: string }; deals: DealView[]; export: unknown }
+
+const CHUNK = 6
+const FIELD_LABEL: Record<string, string> = { Maturity_Date: 'Maturity date', Mortgage_Rate: 'Mortgage rate' }
+
+function fmtFill(f: Fill): string {
+  if (f.field === 'Mortgage_Rate') return `${f.value}%`
+  return String(f.value)
+}
+
+export default function BackfillPanel({
+  uploadId,
+  candidates,
+  canManage,
+}: {
+  uploadId: string
+  candidates: BackfillCandidate[]
+  canManage: boolean
+}) {
+  const [scanning, setScanning] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [results, setResults] = useState<ScanResult[]>([])
+  const [scanned, setScanned] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function scan() {
+    setScanning(true)
+    setErr(null)
+    setResults([])
+    setProgress(0)
+    const ids = candidates.map(c => c.householdId)
+    const acc: ScanResult[] = []
+    try {
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK)
+        const res = await fetch('/api/portal/admin/opportunities/backfill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uploadId, householdIds: chunk }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setErr(data.message ?? 'Scan failed.')
+          break
+        }
+        acc.push(...(data.results ?? []))
+        setResults([...acc])
+        setProgress(Math.min(i + CHUNK, ids.length))
+      }
+      setScanned(true)
+    } catch {
+      setErr('Network error during scan.')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const matched = results.filter((r): r is Extract<ScanResult, { status: 'matched' }> => r.status === 'matched')
+  const withFills = matched.filter(r => r.deals.some(d => d.fills.length > 0))
+  const withConflicts = matched.filter(r => r.deals.some(d => d.conflicts.length > 0))
+  const ambiguous = results.filter(r => r.status === 'ambiguous')
+  const unmatched = results.filter(r => r.status === 'unmatched')
+  const errored = results.filter(r => r.status === 'error')
+
+  const nameByHid = new Map(candidates.map(c => [c.householdId, c.name]))
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={scan}
+            disabled={scanning || candidates.length === 0}
+            className="text-sm font-semibold text-white bg-navy rounded-lg px-4 py-2 hover:bg-navy/90 disabled:opacity-50"
+          >
+            {scanning ? `Scanning ${progress}/${candidates.length}…` : scanned ? 'Re-scan' : `Scan ${candidates.length} files`}
+          </button>
+          {scanned && !scanning && (
+            <p className="text-sm font-body text-gray-500">
+              {withFills.length} with fillable gaps · {withConflicts.length} with conflicts · {ambiguous.length} ambiguous ·{' '}
+              {unmatched.length} unmatched{errored.length ? ` · ${errored.length} errored` : ''}
+            </p>
+          )}
+        </div>
+        {err && <p className="mt-2 text-sm font-body text-red-600">{err}</p>}
+        {scanning && (
+          <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-lime transition-all" style={{ width: `${(progress / Math.max(candidates.length, 1)) * 100}%` }} />
+          </div>
+        )}
+      </div>
+
+      {withFills.length > 0 && (
+        <section>
+          <h2 className="font-heading font-bold text-navy text-lg mb-2">Ready to fill</h2>
+          <div className="space-y-2">
+            {withFills.map(r => (
+              <MatchedCard key={r.householdId} result={r} uploadId={uploadId} canManage={canManage} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {withConflicts.length > 0 && (
+        <section>
+          <h2 className="font-heading font-bold text-navy text-lg mb-2">Conflicts to review</h2>
+          <p className="text-xs font-body text-gray-400 mb-2">
+            Both Zoho and the export hold a value and they differ. Nothing is proposed; resolve these in Zoho.
+          </p>
+          <div className="space-y-2">
+            {withConflicts.map(r => (
+              <div key={r.householdId} className="border border-amber-200 bg-amber-50/50 rounded-xl px-4 py-3">
+                <p className="font-heading font-bold text-navy text-sm">{r.name}</p>
+                {r.deals.flatMap(d =>
+                  d.conflicts.map(c => (
+                    <p key={`${d.dealId}-${c.field}`} className="text-xs font-body text-amber-800 mt-1">
+                      {d.dealName}: {FIELD_LABEL[c.field] ?? c.field} — Zoho{' '}
+                      <span className="font-semibold">{c.zohoValue}</span> vs export{' '}
+                      <span className="font-semibold">{c.exportValue}</span>
+                    </p>
+                  )),
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(ambiguous.length > 0 || unmatched.length > 0 || errored.length > 0) && scanned && (
+        <section>
+          <h2 className="font-heading font-bold text-navy text-lg mb-2">Not matched</h2>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 text-sm font-body text-gray-600 space-y-2">
+            {ambiguous.length > 0 && (
+              <p>
+                <span className="font-semibold text-navy">{ambiguous.length} ambiguous</span> — more than one Zoho contact
+                matched; open Zoho to pick: {ambiguous.map(r => nameByHid.get(r.householdId) ?? r.householdId).slice(0, 8).join(', ')}
+                {ambiguous.length > 8 ? '…' : ''}
+              </p>
+            )}
+            {unmatched.length > 0 && (
+              <p>
+                <span className="font-semibold text-navy">{unmatched.length} unmatched</span> — no Zoho contact found
+                (often a prospect not yet in the CRM).
+              </p>
+            )}
+            {errored.length > 0 && (
+              <p className="text-red-600">
+                <span className="font-semibold">{errored.length} errored</span> during lookup; re-scan to retry.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {scanned && withFills.length === 0 && withConflicts.length === 0 && !scanning && (
+        <p className="text-sm font-body text-gray-400">No empty fields to fill from this export. Everything matched is already complete.</p>
+      )}
+    </div>
+  )
+}
+
+function MatchedCard({
+  result,
+  uploadId,
+  canManage,
+}: {
+  result: Extract<ScanResult, { status: 'matched' }>
+  uploadId: string
+  canManage: boolean
+}) {
+  return (
+    <div className="border border-gray-200 rounded-xl bg-white px-4 py-3">
+      <p className="font-heading font-bold text-navy text-sm">
+        {result.name}
+        {result.matchedBy && <span className="text-gray-400 font-normal"> · matched by {result.matchedBy}</span>}
+      </p>
+      <div className="mt-2 space-y-2">
+        {result.deals
+          .filter(d => d.fills.length > 0)
+          .map(d => (
+            <DealFill key={d.dealId} householdId={result.householdId} deal={d} uploadId={uploadId} canManage={canManage} />
+          ))}
+      </div>
+    </div>
+  )
+}
+
+function DealFill({
+  householdId,
+  deal,
+  uploadId,
+  canManage,
+}: {
+  householdId: string
+  deal: DealView
+  uploadId: string
+  canManage: boolean
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set(deal.fills.map(f => f.field)))
+  const [armed, setArmed] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  function toggle(field: string) {
+    setSelected(s => {
+      const n = new Set(s)
+      if (n.has(field)) n.delete(field)
+      else n.add(field)
+      return n
+    })
+    setArmed(false)
+  }
+
+  async function apply() {
+    if (!armed) {
+      setArmed(true)
+      setTimeout(() => setArmed(false), 4000)
+      return
+    }
+    setArmed(false)
+    setBusy(true)
+    setMsg(null)
+    try {
+      const res = await fetch('/api/portal/admin/opportunities/backfill/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadId, householdId, dealId: deal.dealId, fields: Array.from(selected) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setDone(`Wrote ${(data.written ?? []).map((f: string) => FIELD_LABEL[f] ?? f).join(', ')}.`)
+        if (data.auditWarning) setMsg(data.auditWarning)
+      } else {
+        setMsg(data.message ?? 'Did not write.')
+      }
+    } catch {
+      setMsg('Network error.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="rounded-lg border border-green-200 bg-green-50/60 px-3 py-2">
+        <p className="text-xs font-body text-green-800">
+          <span className="font-semibold">{deal.dealName}</span> — {done}
+        </p>
+        {msg && <p className="text-[11px] font-body text-amber-700 mt-0.5">{msg}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2">
+      <p className="text-xs font-body text-gray-500 mb-1.5">
+        {deal.dealName}
+        {deal.stage ? <span className="text-gray-400"> · {deal.stage}</span> : null}
+      </p>
+      <div className="space-y-1">
+        {deal.fills.map(f => (
+          <label key={f.field} className="flex items-center gap-2 text-xs font-body text-navy cursor-pointer">
+            <input type="checkbox" checked={selected.has(f.field)} onChange={() => toggle(f.field)} disabled={!canManage || busy} className="accent-navy" />
+            <span>
+              Set <span className="font-semibold">{FIELD_LABEL[f.field] ?? f.field}</span> to{' '}
+              <span className="font-semibold text-green-700">{fmtFill(f)}</span>{' '}
+              <span className="text-gray-400">(currently empty)</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {canManage ? (
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <button
+            onClick={apply}
+            disabled={busy || selected.size === 0}
+            className={`text-[11px] font-semibold rounded-lg px-3 py-1 border disabled:opacity-50 ${armed ? 'bg-navy text-white border-navy' : 'text-navy border-navy/25 hover:border-navy'}`}
+          >
+            {busy ? 'Writing…' : armed ? `Confirm: write ${selected.size} field${selected.size === 1 ? '' : 's'}?` : `Backfill ${selected.size} field${selected.size === 1 ? '' : 's'}`}
+          </button>
+          {msg && <span className="text-[11px] font-body text-red-600">{msg}</span>}
+        </div>
+      ) : (
+        <p className="mt-1.5 text-[11px] font-body text-gray-400">Review only — manage permission needed to write.</p>
+      )}
+    </div>
+  )
+}

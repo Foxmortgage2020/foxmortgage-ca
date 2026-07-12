@@ -468,3 +468,27 @@ export function getLenderBySlug(slug: string): Lender | null {
   if (!lender || !lender.active) return null
   return lender
 }
+
+/**
+ * Find a lender's prepayment methodology by slug OR display name, tolerantly:
+ * exact slug, then exact name, then a name prefix match (so "RFA" resolves to
+ * "RFA Mortgage Corporation" and "Lendwise" to "Lendwise Mortgages"). Returns
+ * null where no methodology is on file — the honest "not documented" state the
+ * Opportunities analysis renders rather than asserting a confident penalty.
+ */
+export function lenderMethodologyFor(nameOrSlug: string | null | undefined): Lender | null {
+  const q = (nameOrSlug ?? '').trim().toLowerCase()
+  if (!q) return null
+  const bySlug = LENDERS.find((l) => l.active && l.slug === q)
+  if (bySlug) return bySlug
+  const byName = LENDERS.find((l) => l.active && l.name.toLowerCase() === q)
+  if (byName) return byName
+  return (
+    LENDERS.find(
+      (l) =>
+        l.active &&
+        l.slug !== 'other' &&
+        (l.name.toLowerCase().startsWith(q) || q.startsWith(l.name.toLowerCase())),
+    ) ?? null
+  )
+}

@@ -53,6 +53,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
       'Every funded deal by maturity window, with the payment-shock preview and the lapsed alarm, so no renewal slips again.',
   },
   {
+    label: 'Opportunities',
+    href: '/portal/admin/opportunities',
+    iconKey: 'TrendingUp',
+    permission: 'opportunities.view',
+    description:
+      'The Strategic Mortgage Monitoring export as a pipeline: who to call by dollars, Fox’s analysis beside the service’s figure, with scenario prefill, backfill, and a savings report.',
+  },
+  {
     label: 'Rates',
     href: '/portal/admin/rates',
     iconKey: 'Percent',

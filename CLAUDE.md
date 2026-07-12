@@ -1,6 +1,8 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 11, 2026 (The offers desk shipped — promotional offers become approvable in the portal. A fifth "Offers" tab on /portal/admin/approvals (?tab=offers) decides the 23 pending offers through the gate (POST /api/gates/offers/[offerId]/decision, new authority key approvals.offer.decide); each card renders the priced elements as identity, the extraction evidence with page citations, the conditions verbatim, and — the point of the session — the WINDOW loudly, because 19 of the 23 pending offers have a NULL expiry and an offer with no clock outlives its terms. lender_offers is the 18th granted read table. The Promos tab, the scenario promo chips, the lender pages, and the client PDF all render the null-expiry warning (never a bare dash), the full priced detail, and permissive matching where eligibility was not extracted; a winning offer sorts first in scenario results; the client PDF carries a pinned offer's conditions and expiry with compensation scrubbed from every offer string. Rates v3 (below) and Session 9 preceded this.)
+## Last Updated: July 12, 2026 (Opportunities — the Strategic Mortgage Monitoring engine shipped. A new /portal/admin/opportunities section turns Michael's monthly SMM CSV export into a call pipeline: persist-first upload to FOXCA (smm_uploads/smm_rows before any parse), parsing with a tested sign convention (dash → null, never zero), $1 placeholder detection, co-borrower collapse, and lender normalization (config/smm-lender-aliases.ts). Fox's own analysis sits beside the service's figure — best gate-approved comparable with sheet date, payment delta from the shared engine, honest penalty framing (3MI floating; IRD-vs-3MI fixed with per-lender method or the gap), break-even, net benefit — bucketed act_now/marginal/stay_put/insufficient by dollars; a low rate near maturity is told to WAIT, never sold a switch. Backfill matches to Zoho (email>phone>name) and fills only EMPTY Maturity_Date/Mortgage_Rate via the confirmed-action apply route (values recomputed server-side, never trusted from the client; new FOXCA smm_backfill_events audit; Lender_Name excluded — it's a lookup). A savings-analysis PDF reuses the rates-PDF generator's redactComp/pdfSafe (compensation scrubbed from every line, wait-for-maturity framing). Renewals gained lapsed reconciliation against the export (still-with-lender/lender-changed/unmonitored + retention signal); Home gained an act-now rail line. Verified live: 41 mortgages from 49 rows, 1 placeholder, 0 parse failures, 0 unmapped lenders; Nicholas Aitken's 1.99% RFA file (maturity 2026-10-01) correctly told to wait, with maturity + rate proposed as backfills. The Renewal Radar and Pipeline truth (below) preceded this.
+
+PII DISCIPLINE (STANDING RULE from this session): the real SMM client export lives OUTSIDE the repo (~/fox-local/SMM/) and is gitignored (SMM/). It is NEVER copied into the repo tree, committed, or logged; the committed test suite runs on a SYNTHETIC fixture (tests/fixtures/smm-sample*.csv) with the exact column structure. Local verification against the real file reports counts/buckets/outcomes only — the sole named exception is Nicholas Aitken (Michael is working that file). The smm-store logs function+status+counts, never row payloads.)
 
 NOTE: Sections below dated April or May 2026 have drifted. docs/portal-audit-2026-07.md
 is the corrected baseline for routes, env vars, and module names as of July 2026.
@@ -1484,6 +1486,88 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-12 — Opportunities: the Strategic Mortgage Monitoring engine
+- The mandate: turn Michael's monthly SMM CSV export (real client PII, kept
+  OUTSIDE the repo at ~/fox-local/SMM/, gitignored) into a call pipeline, the
+  Renewal Radar's sibling, reusing its FOXCA + confirmed-action plumbing. PII
+  discipline held throughout: the real file was NEVER copied into the repo,
+  committed, or logged; the committed suite runs on synthetic fixtures
+  (tests/fixtures/smm-sample*.csv, exact column structure); local verification
+  reported counts/buckets/outcomes only (Aitken the sole permitted name).
+- Model (pure, unit-tested): lib/smm.ts (parseCsv RFC-4180, parseMoney/Percent
+  with dash→null-never-zero, isPlaceholder ≤$1, collapseCoBorrowers by
+  address|balance|maturity, checkSignConvention with a sub-2%/+$500 sanity trip,
+  penaltyEstimate (3MI always; IRD-vs-3MI framing for fixed with per-lender
+  method or honest gap), analyzeOpportunity → FoxAnalysis with netBenefit =
+  monthlySaving×horizon − penalty and act_now/marginal/stay_put/insufficient at
+  ±MARGINAL_BAND 1500, diffUploads). config/smm-lender-aliases.ts normalizeLender
+  (the real export's lender strings all map — 0 unmapped live). lib/smm-match.ts
+  (decideMatch email>phone>name, proposeBackfill empty-fields-only with conflicts
+  listed never proposed, WRITABLE_SCALAR_BACKFILL_FIELDS = Maturity_Date +
+  Mortgage_Rate ONLY (Lender_Name is a Zoho lookup, excluded), reconcileLapsed +
+  retentionSummary, bestFixedComparable approved+dated+non-test, name-index
+  helpers). lib/smm-analysis.ts analyzeMortgage = the ONE per-mortgage path both
+  the board and the PDF route use (no drift). Tests: tests/smm.test.ts (26),
+  tests/smm-match.test.ts (16), tests/smm-analysis.test.ts (4),
+  tests/savings-pdf.test.ts (8). Suite 315 green.
+- Persistence: FOXCA migration 20260712120000 (smm_uploads/smm_rows persist-first
+  + smm_opportunity_status; 7 functions) applied last session; this session added
+  20260712140000 (smm_backfill_events; smm_backfill_record + _recent), applied
+  live to skfeivzhqvrefnkqjwtj. House posture verified live with the anon key:
+  direct table select on smm_backfill_events refused 42501, smm_backfill_events_recent
+  RPC returns []. lib/smm-store.ts is the only client (twin of renewals-store);
+  logs function+status+counts, never row payloads.
+- Upload (POST .../opportunities/upload, opportunities.manage, demo-refused):
+  persist-first — createUpload + insertRawRows BEFORE parse, then parse/collapse/
+  sign-check + finalizeUpload with a notes summary. Board
+  (/portal/admin/opportunities): parses the latest non-superseded upload, reads
+  the approved book (read-only role) for bestFixedComparable, computes Fox's
+  analysis per mortgage beside the service figure, buckets ranked by netBenefit,
+  delta vs the prior upload, per-card scenario prefill + Prep-a-call + status
+  (FOXCA, enumerated). Home rail gained an act-now line (opportunities.view).
+- Backfill: SCAN route (POST .../backfill, opportunities.view) matches a small
+  client-chunked batch to Zoho (searchZohoContacts email→phone→name, short-
+  circuited) and computes empty-field proposals per deal; APPLY route (POST
+  .../backfill/apply, opportunities.manage, demo-refused) is the ONLY write path
+  — re-reads the persisted export AND live Zoho, recomputes proposeBackfill,
+  writes only approved-key fills still empty at write time through
+  updateZohoRecordFields('Potentials'), records who/record/fields to
+  smm_backfill_events (failed attempts too). Client sends field KEYS only; the
+  server owns every value. BackfillPanel scans with a progress bar and confirms
+  per deal with a two-tap.
+- Savings PDF (GET .../opportunities/[householdId]/pdf, opportunities.view,
+  demo-refused): lib/savings-pdf.ts reuses lib/rates-pdf.ts's exported
+  redactComp/pdfSafe/wrap (compensation scrubbed from EVERY string field:
+  client name, lender names, penalty framing, note — tested with a 9137-bps
+  sentinel across act-now/stay-put/insufficient shapes), grade-6 copy, and the
+  wait-for-maturity recommendation when netBenefit ≤ 0 (never a manufactured
+  saving). Filename savings-analysis-[date].pdf, download only, no send path.
+- Renewals lapsed reconciliation: the Lapsed alarm now matches each lapsed deal
+  to the latest export by borrower name (in memory, no per-deal Zoho call) and
+  classifies still_with_lender (recoverable auto-renewal, highest-value call),
+  lender_changed (won-or-lost unknown), or unmonitored, with a retention signal
+  and conflicts flagged never overwritten.
+- Live real-file verification (outcomes only, PII-safe): 41 mortgages from 49
+  raw rows (8 co-borrower dups collapsed), 1 placeholder, 0 parse failures, 0
+  unmapped lenders, 0 sign violations. Nicholas Aitken (the one permitted name):
+  1.99% fixed, RFA (mapped), maturity 2026-10-01 → bucket stay_put (netBenefit
+  −$1,788, so wait for maturity, NOT act_now), backfill proposes Maturity_Date
+  2026-10-01 + Mortgage_Rate 1.99 into empty Zoho. ACCEPTANCE CAVEAT (honest,
+  per the UI-test discipline): a live backfill WRITE + status decision through
+  the real UI on a marked TEST record could NOT be run — the agent cannot
+  authenticate to Clerk, and writing to a real Zoho record is out of bounds. The
+  write path mirrors the live-proven renewals confirmed-action route exactly and
+  is unit-covered; manual step for Michael: scan the board, confirm a backfill
+  on a file whose Zoho maturity is genuinely empty, and confirm the
+  smm_backfill_events row + the Zoho value.
+- Guardrails held: readonly workbench (comparable via getRateQuotesFull through
+  the existing role; no workbench writes), Zoho writes ONLY through the
+  confirmed-action apply route with enumerated fields, approved quotes only,
+  every rate carries its sheet date, adjustable/variable never conflated,
+  estimates labeled, the calculator reused never forked, currentUser(),
+  middleware publicRoutes untouched, no ANTHROPIC_API_KEY in build subprocesses,
+  demo mode reads/writes nothing real. tsc clean, build green, 315 tests.
 
 ### 2026-07-12 — The Renewal Radar (renewals become visible; the leak is closed)
 - The mandate: the practice was losing renewals silently. All figures verified

@@ -83,6 +83,12 @@ export const PERMISSIONS = {
   // keys), written through the confirmed-action Zoho write path.
   'renewals.view': ['admin'],
   'renewals.decide': ['admin'],
+  // Session (SMM Opportunities): the opportunities board carries client PII
+  // (monitored mortgages), so it stays admin-only. opportunities.manage gates
+  // the CSV upload, the Zoho backfill proposals/executes, and the portal-side
+  // opportunity status writes.
+  'opportunities.view': ['admin'],
+  'opportunities.manage': ['admin'],
   'status.view': ['admin', 'ops', 'underwriting-reviewer'],
   // Session 4: acknowledging a triaged form-intake failure is a write on
   // this repo's own FOXCA project; admin only.
@@ -120,6 +126,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'revenue.view': 'See revenue, forecast, and the comp model',
   'renewals.view': 'See the Renewal Radar (funded deals by maturity window)',
   'renewals.decide': 'Record a renewal status action (writes to Zoho)',
+  'opportunities.view': 'See the Strategic Mortgage Monitoring opportunity board',
+  'opportunities.manage': 'Upload the monitoring export, backfill Zoho, and set opportunity status',
   'status.view': 'See platform status',
   'status.acknowledge': 'Acknowledge form-intake failures',
   'bookkeeping.view': 'See bookkeeping pages',

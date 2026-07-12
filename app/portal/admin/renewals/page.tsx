@@ -24,6 +24,15 @@ import {
 } from '@/lib/renewals'
 import { isDemoMode } from '@/lib/demo'
 import { fmtMoney, fmtMoneyCompact, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
+import { recentUploads, rawRowsForUpload, smmStoreConfigured } from '@/lib/smm-store'
+import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
+import {
+  findExportByName,
+  indexMortgagesByName,
+  reconcileLapsed,
+  retentionSummary,
+  type Reconciliation,
+} from '@/lib/smm-match'
 import RenewalCard from '@/components/admin/RenewalCard'
 
 export const dynamic = 'force-dynamic'
@@ -92,6 +101,39 @@ export default async function RenewalsPage() {
 
   const lapsedNoOutcome = buckets.lapsed.deals.filter(hasNoOutcome)
   const lapsedNoOutcomeVol = lapsedNoOutcome.reduce((s, d) => s + d.amount, 0)
+
+  // ── Lapsed reconciliation against the latest monitoring export (in memory;
+  // no per-deal Zoho call). Classifies each lapsed deal still-with-lender
+  // (recoverable auto-renewal), lender-changed (moved; won or lost unknown), or
+  // unmonitored (not in the export). Never computes from a stale figure — the
+  // recon only flags conflicts; it does not overwrite. ──
+  let recons: { deal: RenewalDeal; recon: Reconciliation }[] = []
+  let hasExport = false
+  if (smmStoreConfigured() && buckets.lapsed.deals.length > 0) {
+    try {
+      const uploadsR = await recentUploads(3)
+      const uploads = uploadsR.configured && uploadsR.ok ? uploadsR.data : []
+      const currentUpload = uploads.find(u => !u.superseded) ?? uploads[0] ?? null
+      if (currentUpload) {
+        const rowsR = await rawRowsForUpload(currentUpload.id)
+        if (rowsR.configured && rowsR.ok) {
+          hasExport = true
+          const { mortgages } = collapseCoBorrowers(rowsR.data.map(parseSmmRow))
+          const idx = indexMortgagesByName(mortgages)
+          recons = buckets.lapsed.deals.map(d => ({
+            deal: d,
+            recon: reconcileLapsed(
+              { lender: d.lenderName, rate: d.mortgageRate, maturity: d.maturityDate },
+              findExportByName(d.contactName, idx),
+            ),
+          }))
+        }
+      }
+    } catch {
+      recons = []
+    }
+  }
+  const retention = retentionSummary(recons.map(r => r.recon))
 
   const cardProps = (d: RenewalDeal, tone: 'red' | 'amber' | 'gray' | 'green') => ({
     deal: d,
@@ -182,6 +224,11 @@ export default async function RenewalsPage() {
         )}
       </section>
 
+      {/* ── Lapsed reconciliation against the monitoring export ── */}
+      {buckets.lapsed.deals.length > 0 && (
+        <LapsedReconciliation recons={recons} retention={retention} hasExport={hasExport} zohoDealUrl={zohoDealUrl} />
+      )}
+
       {/* ── Action now (0-130 days) ── */}
       <BucketSection title="Action now" tone="amber" hint="Zero to 130 days to maturity. The 120-day rate-hold window opens inside this. Michael must engage." bucket={buckets.action} cardProps={cardProps} cardTone="amber" />
 
@@ -265,6 +312,90 @@ function Header() {
         the buckets are why none of them slips again.
       </p>
     </div>
+  )
+}
+
+function LapsedReconciliation({
+  recons,
+  retention,
+  hasExport,
+  zohoDealUrl,
+}: {
+  recons: { deal: RenewalDeal; recon: Reconciliation }[]
+  retention: ReturnType<typeof retentionSummary>
+  hasExport: boolean
+  zohoDealUrl: (id: string) => string
+}) {
+  if (!hasExport) {
+    return (
+      <section className="bg-white border border-gray-200 rounded-xl p-5">
+        <h2 className="font-heading font-bold text-navy text-base mb-1">Lapsed reconciliation</h2>
+        <p className="text-sm font-body text-gray-500">
+          Upload a Strategic Mortgage Monitoring export on the{' '}
+          <Link href="/portal/admin/opportunities" className="text-navy underline hover:text-lime">Opportunities</Link>{' '}
+          page to reconcile these lapsed files against what the monitoring service still sees.
+        </p>
+      </section>
+    )
+  }
+  const recoverable = recons.filter(r => r.recon.recoverable)
+  const recoverableVol = recoverable.reduce((s, r) => s + r.deal.amount, 0)
+  const retentionPct = retention.total > 0 ? Math.round((retention.stillWithLender / retention.total) * 100) : null
+  const label: Record<string, { text: string; cls: string }> = {
+    still_with_lender: { text: 'still with lender', cls: 'text-green-700 bg-green-50 border-green-200' },
+    lender_changed: { text: 'lender changed', cls: 'text-amber-800 bg-amber-50 border-amber-200' },
+    unmonitored: { text: 'unmonitored', cls: 'text-gray-600 bg-gray-50 border-gray-200' },
+  }
+  return (
+    <section className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+        <h2 className="font-heading font-bold text-navy text-base">Lapsed reconciliation</h2>
+        <span className="text-xs font-body text-gray-500">
+          reconciled against the latest monitoring export by borrower name
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        <BookStat label="Still with lender" value={String(retention.stillWithLender)} sub={`${fmtMoney(recoverableVol)} recoverable`} tone={undefined} />
+        <BookStat label="Lender changed" value={String(retention.lenderChanged)} sub="won or lost — unknown" />
+        <BookStat label="Unmonitored" value={String(retention.unmonitored)} sub="not in the export" />
+        <BookStat label="Retention signal" value={retentionPct == null ? 'n/a' : `${retentionPct}%`} sub="still with lender / matched" />
+      </div>
+      <p className="text-xs font-body text-gray-500 mb-3">
+        Still-with-lender past maturity is almost certainly an automatic lender renewal &mdash; recoverable, and the
+        highest-value calls on the board. Lender-changed means the client moved; the data cannot say whether the deal was
+        written or lost. Conflicts below are flagged, never overwritten.
+      </p>
+      <div className="border border-gray-100 rounded-lg divide-y divide-gray-100 overflow-x-auto">
+        {recons.map(({ deal, recon }) => (
+          <div key={deal.id} className="flex items-start justify-between gap-3 px-3 py-2 text-xs font-body min-w-[520px]">
+            <div className="flex-1 min-w-0">
+              <span className="text-navy font-semibold">{deal.contactName ?? deal.dealName}</span>
+              <span className="text-gray-400"> · {fmtMoneyCompact(deal.amount)}</span>
+              {recon.conflicts.length > 0 && (
+                <div className="mt-0.5 text-amber-800">
+                  {recon.conflicts.map(c => (
+                    <span key={c.field} className="mr-2">
+                      {c.field}: Zoho <span className="font-semibold">{c.zohoValue}</span> vs export{' '}
+                      <span className="font-semibold">{c.exportValue}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <span className="flex items-center gap-2 shrink-0">
+              <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${label[recon.reconClass].cls}`}>
+                {label[recon.reconClass].text}
+              </span>
+              <a href={zohoDealUrl(deal.id)} target="_blank" rel="noreferrer" className="text-navy hover:text-lime">Zoho</a>
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] font-body text-gray-400 mt-2">
+        Matching is by borrower name; a name the export does not carry reconciles as unmonitored. A conflict never
+        triggers a write &mdash; resolve it in Zoho, or from the Opportunities backfill where the CRM field is empty.
+      </p>
+    </section>
   )
 }
 
