@@ -24,11 +24,12 @@ import {
 } from '@/config/pipeline'
 import type { StageVolume } from '@/lib/pacing'
 import type { RevenueDeal } from '@/lib/revenue'
+import type { RenewalDeal } from '@/lib/renewals'
 import { classifyOpenDeals, type StaleReason } from '@/lib/pipeline-hygiene'
 // Demo mode (Session 9): reads return fictional fixtures and writes throw
 // before any getZohoToken()/fetch() call, so demo mode never touches Zoho.
 import { isDemoMode, blockInDemo } from '@/lib/demo'
-import { demoSlimDeals, demoRevenueDeals, demoOpenTasks, demoLeads } from '@/lib/demo-fixtures'
+import { demoSlimDeals, demoRevenueDeals, demoOpenTasks, demoLeads, demoRenewalDeals } from '@/lib/demo-fixtures'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
@@ -577,6 +578,93 @@ export async function getZohoDealById(dealId: string): Promise<AgentZohoDeal | n
   const data = await res.json()
   const d = data?.data?.[0]
   return d ? normalizeAgentDeal(d) : null
+}
+
+// ─── The Renewal Radar: funded deals with maturity ──────────────────────────
+// Read-only pull of every funded deal (both stage spellings) with the renewal
+// fields. Split into those with a maturity date (the buckets) and those
+// without (the missing-maturity block). Fields verified live 2026-07-12.
+
+const RENEWAL_FIELDS =
+  'Deal_Name,Contact_Name,Amount,Total_Loan_Amount,Maturity_Date,Mortgage_Rate,Rate_Type,Term_Years,Amortization_Years,Payment_Amount,Renewal_Status,Renewal_In_Progress,Renewal_Opted_Out,Lender_Name,Stage'
+
+const renewalDealsCache = createCache<string, RenewalDeal[]>({ max: 2, ttlMs: 2 * 60 * 1000 })
+
+function normalizeRenewalDeal(d: any): RenewalDeal {
+  return {
+    id: d.id,
+    dealName: d.Deal_Name ?? '(untitled)',
+    contactName: d.Contact_Name?.name ?? null,
+    amount: dealAmount(d),
+    maturityDate: typeof d.Maturity_Date === 'string' ? d.Maturity_Date : null,
+    mortgageRate: d.Mortgage_Rate != null ? Number(d.Mortgage_Rate) : null,
+    rateType: d.Rate_Type ?? null,
+    termYears: d.Term_Years != null ? Number(d.Term_Years) : null,
+    amortizationYears: d.Amortization_Years != null ? Number(d.Amortization_Years) : null,
+    paymentAmount: d.Payment_Amount != null ? Number(d.Payment_Amount) : null,
+    renewalStatus: d.Renewal_Status ?? null,
+    renewalInProgress: Boolean(d.Renewal_In_Progress),
+    renewalOptedOut: Boolean(d.Renewal_Opted_Out),
+    lenderName: d.Lender_Name?.name ?? null,
+  }
+}
+
+export interface RenewalDealsResult {
+  withMaturity: RenewalDeal[]
+  missingMaturity: RenewalDeal[]
+}
+
+async function fetchFundedRenewalDeals(): Promise<RenewalDeal[]> {
+  const cached = renewalDealsCache.get('all')
+  if (cached !== undefined) return cached
+  const token = await getZohoToken()
+  const all: RenewalDeal[] = []
+  let page = 1
+  while (page <= 20) {
+    const url = `${ZOHO_API}/Potentials?fields=${RENEWAL_FIELDS}&per_page=200&page=${page}&sort_by=Modified_Time&sort_order=desc`
+    const res = await fetch(url, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      cache: 'no-store',
+    })
+    if (res.status === 204) break
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error('[zoho-admin] renewals pull error:', res.status, text.substring(0, 200))
+      throw new Error(`Zoho renewals pull failed with status ${res.status}`)
+    }
+    const data = await res.json()
+    for (const d of data?.data ?? []) {
+      if (!isFundedStage(String(d.Stage ?? '').trim())) continue
+      all.push(normalizeRenewalDeal(d))
+    }
+    if (data?.info?.more_records !== true) break
+    page += 1
+  }
+  renewalDealsCache.set('all', all)
+  return all
+}
+
+export async function getRenewalDeals(): Promise<RenewalDealsResult> {
+  const all = isDemoMode() ? demoRenewalDeals : await fetchFundedRenewalDeals()
+  return {
+    withMaturity: all.filter(d => d.maturityDate),
+    missingMaturity: all.filter(d => !d.maturityDate),
+  }
+}
+
+// Fetch one funded deal's renewal shape (for the status write route's audit).
+export async function getRenewalDealById(dealId: string): Promise<RenewalDeal | null> {
+  if (isDemoMode()) return demoRenewalDeals.find(d => d.id === dealId) ?? null
+  const token = await getZohoToken()
+  const res = await fetch(`${ZOHO_API}/Potentials/${dealId}?fields=${RENEWAL_FIELDS}`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 204 || res.status === 404) return null
+  if (!res.ok) throw new Error(`Zoho deal read failed with status ${res.status}`)
+  const data = await res.json()
+  const d = data?.data?.[0]
+  return d ? normalizeRenewalDeal(d) : null
 }
 
 // ─── Ask Fox: confirmed-action writes ───────────────────────────────────────

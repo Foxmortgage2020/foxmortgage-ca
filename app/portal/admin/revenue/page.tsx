@@ -18,14 +18,19 @@ import {
 } from '@/config/pipeline'
 import { computePacing, weightedPipelineVolume } from '@/lib/pacing'
 import { isStaleOpenDeal } from '@/lib/pipeline-hygiene'
+import { isDemoMode } from '@/lib/demo'
 import {
   computePipeline,
   getAllDealsRevenue,
   getLeadsSlim,
+  getRenewalDeals,
   pipelineStageVolumes,
   type SlimLead,
 } from '@/lib/zoho-admin'
+import { getAdminDashboardPayload, listAllPartners, classifyPartnerType } from '@/lib/zoho'
+import { renewalBook } from '@/lib/renewals'
 import {
+  attributedFundedByType,
   commissionForecast,
   filesToCloseGap,
   fundedInWindow,
@@ -34,6 +39,7 @@ import {
   mixBreakdown,
   monthLabel,
   practiceHistoryYears,
+  practiceKpis,
   type RevenueDeal,
 } from '@/lib/revenue'
 import { getBusinessLinePnl } from '@/lib/pnl'
@@ -123,6 +129,19 @@ export default async function RevenuePage() {
   }
   const pnl = await getBusinessLinePnl()
 
+  // Practice KPIs, partner tiles, recent referrals, and the renewal book.
+  // getAdminDashboardPayload is reused for partner counts + recent referrals
+  // (no staleness concern); the funded KPIs are computed from the corrected
+  // year series, not its deal metrics; the renewal book is fresh from Zoho.
+  // getAdminDashboardPayload / listAllPartners are NOT demo-guarded, so they
+  // are skipped in demo mode; getRenewalDeals returns fictional fixtures.
+  const demo = isDemoMode()
+  const [dashboard, partners, renewals] = await Promise.all([
+    demo ? Promise.resolve(null) : getAdminDashboardPayload().catch(() => null),
+    demo ? Promise.resolve(null) : listAllPartners().catch(() => null),
+    getRenewalDeals().catch(() => null),
+  ])
+
   if (!deals) {
     return (
       <div>
@@ -167,6 +186,13 @@ export default async function RevenuePage() {
 
   // Practice history: funded volume by year, 2021 to present.
   const years = practiceHistoryYears(deals, isFundedStage, year)
+  const kpis = practiceKpis(years)
+  const partnerTypeById = new Map((partners ?? []).map(p => [p.id, classifyPartnerType(p.partnerType)]))
+  const attributed = attributedFundedByType(deals, partnerTypeById, isFundedStage)
+  const attributedByKey = new Map(attributed.rows.map(r => [r.type, r]))
+  const book = renewals ? renewalBook(renewals.withMaturity, todayYMD) : null
+  const byType = dashboard?.partners.byType ?? null
+  const recentReferrals = dashboard?.deals?.recentReferrals ?? []
 
   const mixes = [
     mixBreakdown(fundedT12, 'Purpose', d => d.transactionType),
@@ -215,6 +241,101 @@ export default async function RevenuePage() {
         ) : (
           <p className="text-sm text-gray-400 font-body">No funded history to chart.</p>
         )}
+      </SectionCard>
+
+      {/* ── Practice at a glance (all-time, corrected) ── */}
+      <SectionCard title="Practice at a glance">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <Stat label="Funded, all time" value={fmtMoney(kpis.totalVolume)} sub={`${kpis.totalCount} deals`} />
+          <Stat label="Average deal" value={fmtMoney(kpis.avgDealSize)} />
+          <Stat
+            label="Best year"
+            value={kpis.bestYear ? fmtMoneyCompact(kpis.bestYear.volume) : 'n/a'}
+            sub={kpis.bestYear ? String(kpis.bestYear.year) : ''}
+          />
+          <Stat
+            label="Years active"
+            value={String(kpis.yearsActive)}
+            sub={kpis.firstYear ? `since ${kpis.firstYear}` : ''}
+          />
+          <Stat
+            label="Renewal book"
+            value={book ? fmtMoneyCompact(book.underManagement.volume) : 'n/a'}
+            sub={book ? `${book.underManagement.count} under management` : 'unavailable'}
+          />
+        </div>
+        <p className="text-[11px] text-gray-400 font-body mt-2">
+          Funded totals cover both funded stage names, corrected for property records and ghost
+          deals. 2021 may be partial: the earliest funded record is April 2021.
+        </p>
+      </SectionCard>
+
+      {/* ── Renewal book (the number the practice has never seen) ── */}
+      <SectionCard
+        title="Renewal book"
+        chip={
+          <Link href="/portal/admin/renewals" className="text-xs font-semibold text-navy hover:text-lime border border-navy/20 rounded-lg px-2.5 py-1">
+            Renewals &rarr;
+          </Link>
+        }
+      >
+        {book ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Stat label="Under management" value={fmtMoney(book.underManagement.volume)} sub={`${book.underManagement.count} funded files not yet matured`} />
+            <Stat label="Maturing next 12 months" value={fmtMoney(book.maturingNext12.volume)} sub={`${book.maturingNext12.count} files`} />
+            <Stat label="Lapsed" value={fmtMoney(book.lapsed.volume)} sub={`${book.lapsed.count} files, no recorded outcome`} tone={book.lapsed.count > 0 ? 'bad' : undefined} />
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 font-body">The renewal read is unavailable right now.</p>
+        )}
+      </SectionCard>
+
+      {/* ── Referral partners ── */}
+      <SectionCard title="Referral partners">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {([
+            ['realtor', 'Realtors'],
+            ['financialPlanner', 'Financial planners'],
+            ['lawyer', 'Lawyers'],
+            ['mortgageAgent', 'Mortgage agents'],
+            ['investor', 'Investors'],
+          ] as const).map(([key, label]) => {
+            const count = byType ? byType[key] : null
+            const vol = attributedByKey.get(key)?.volume ?? 0
+            return (
+              <Stat
+                key={key}
+                label={label}
+                value={count != null ? String(count) : 'n/a'}
+                sub={vol > 0 ? `${fmtMoneyCompact(vol)} funded` : 'no funded attributed'}
+              />
+            )
+          })}
+        </div>
+        <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 font-body mt-3">
+          Attribution rides the Referral_Partner field on the deal, recorded on{' '}
+          {attributed.totalCount} of {kpis.totalCount} funded files ({kpis.totalCount > 0 ? Math.round((attributed.totalCount / kpis.totalCount) * 100) : 0}%),
+          so attributed volume is a floor, not the whole picture. Counts are partner records by type.
+        </p>
+
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-navy mb-1.5">Recent referrals</p>
+          {recentReferrals.length === 0 ? (
+            <p className="text-xs text-gray-400 font-body">No attributed referrals to show.</p>
+          ) : (
+            <div className="space-y-1">
+              {recentReferrals.slice(0, 6).map(r => (
+                <div key={r.dealId} className="flex items-center justify-between gap-3 text-xs font-body border-t border-gray-100 py-1">
+                  <span className="text-navy truncate">{r.borrower}</span>
+                  <span className="flex items-center gap-2 shrink-0 text-gray-500">
+                    <span>{r.partner ?? 'unattributed'}</span>
+                    <span className="text-gray-400">{r.stage}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </SectionCard>
 
       {/* ── Goal pacing, deep view ── */}

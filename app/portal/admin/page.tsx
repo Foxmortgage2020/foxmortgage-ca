@@ -23,11 +23,13 @@ import {
   computeFundedYTD,
   computePipeline,
   getAllDealsSlim,
+  getRenewalDeals,
   getTasksDue,
   pipelineStageVolumes,
   type OpenTask,
   type SlimDeal,
 } from '@/lib/zoho-admin'
+import { bucketRenewals, renewalBook } from '@/lib/renewals'
 import {
   getAgentIdByEmail,
   getConditionsDue,
@@ -148,6 +150,37 @@ function QuietNote({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-gray-400 font-body py-2">{children}</p>
 }
 
+function KpiCell({
+  label,
+  value,
+  sub,
+  href,
+  tone,
+}: {
+  label: string
+  value: string
+  sub?: string
+  href: string
+  tone?: 'good' | 'bad'
+}) {
+  return (
+    <Link
+      href={href}
+      className="block border border-gray-200 rounded-lg px-3 py-2 bg-white hover:border-navy/40 transition-colors"
+    >
+      <p className="text-[10px] font-body text-gray-400 uppercase tracking-wide truncate">{label}</p>
+      <p
+        className={`font-heading font-bold text-base ${
+          tone === 'good' ? 'text-green-600' : tone === 'bad' ? 'text-red-600' : 'text-navy'
+        }`}
+      >
+        {value}
+      </p>
+      {sub && <p className="text-[10px] font-body text-gray-500 truncate">{sub}</p>}
+    </Link>
+  )
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default async function AdminHome() {
@@ -161,7 +194,7 @@ export default async function AdminHome() {
   const workbenchOff = !agentRes.configured
   const workbenchErr = agentRes.configured && !agentRes.ok ? agentRes.error : null
 
-  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, stmtsR, sheetsR, offersR, shadowR, wbDealsR, ratesR, freshR, credsR] =
+  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, stmtsR, sheetsR, offersR, shadowR, wbDealsR, ratesR, freshR, credsR, renewalsRes] =
     await Promise.all([
       getAllDealsSlim()
         .then(d => ({ ok: true as const, data: d }))
@@ -180,6 +213,9 @@ export default async function AdminHome() {
       agentId ? getRateQuoteStats(agentId) : null,
       agentId ? getIntakeFreshness(agentId) : null,
       listCredentials(),
+      getRenewalDeals()
+        .then(r => ({ ok: true as const, data: r }))
+        .catch(() => ({ ok: false as const, data: null })),
     ])
 
   const deals: SlimDeal[] | null = dealsRes.ok ? dealsRes.data : null
@@ -205,6 +241,16 @@ export default async function AdminHome() {
 
   const closingsAttention = deals ? computeClosings(deals, CLOSINGS_ATTENTION_DAYS) : []
   const closingsStrip = deals ? computeClosings(deals, CLOSINGS_STRIP_DAYS) : []
+
+  // Renewals: the rail alarm and the KPI-strip numbers (renewals.view only).
+  const renewals = renewalsRes.ok ? renewalsRes.data : null
+  const renewalBuckets = renewals ? bucketRenewals(renewals.withMaturity, todayYMD) : null
+  const renewalBookData = renewals ? renewalBook(renewals.withMaturity, todayYMD) : null
+  const missingMaturityCount = renewals ? renewals.missingMaturity.length : 0
+  const missingMaturityVol = renewals
+    ? renewals.missingMaturity.reduce((s, d) => s + d.amount, 0)
+    : 0
+  const canRenewals = can(user, 'renewals.view')
 
   const flags = val(flagsR) ?? []
   const conds = val(condsR)
@@ -257,6 +303,56 @@ export default async function AdminHome() {
   })
 
   const attentionCards: React.ReactNode[] = []
+
+  // Renewals rank near the top: they cost money when missed.
+  if (canRenewals && renewalBuckets && renewalBuckets.lapsed.count > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="renewals-lapsed"
+        tone="red"
+        title="Lapsed renewals"
+        count={renewalBuckets.lapsed.count}
+        href="/portal/admin/renewals"
+      >
+        <AttentionRow
+          left={`${fmtMoney(renewalBuckets.lapsed.volume)} matured with no recorded outcome`}
+          right="the leak"
+        />
+      </AttentionCard>,
+    )
+  }
+  if (canRenewals && renewalBuckets && renewalBuckets.action.count > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="renewals-action"
+        tone="amber"
+        title="Renewals in the action window"
+        count={renewalBuckets.action.count}
+        href="/portal/admin/renewals"
+      >
+        <AttentionRow
+          left={`${fmtMoney(renewalBuckets.action.volume)} maturing within 130 days`}
+          right="engage now"
+        />
+      </AttentionCard>,
+    )
+  }
+  if (canRenewals && missingMaturityCount > 0) {
+    attentionCards.push(
+      <AttentionCard
+        key="renewals-missing"
+        tone="amber"
+        title="Funded deals with no maturity date"
+        count={missingMaturityCount}
+        href="/portal/admin/renewals"
+      >
+        <AttentionRow
+          left={`${fmtMoney(missingMaturityVol)} invisible to the renewal system until backfilled`}
+          right="untracked"
+        />
+      </AttentionCard>,
+    )
+  }
 
   if (conds && conds.overdue.length > 0) {
     attentionCards.push(
@@ -469,6 +565,44 @@ export default async function AdminHome() {
           )
         )}
       </div>
+
+      {/* Compact KPI strip: a glance, not a dashboard. Each number links out. */}
+      {(can(user, 'revenue.view') || canRenewals) && (
+        <div className="mb-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {can(user, 'revenue.view') && funded && (
+            <KpiCell label="Funded YTD" value={fmtMoneyCompact(funded.volume)} sub={`${funded.count} files`} href="/portal/admin/revenue" />
+          )}
+          {can(user, 'revenue.view') && pacing && (
+            <KpiCell
+              label={`Pace vs ${fmtMoneyCompact(pacing.annualTarget)}`}
+              value={`${pacing.onPace ? '+' : '-'}${fmtMoneyCompact(Math.abs(pacing.delta))}`}
+              sub={pacing.onPace ? 'ahead' : 'behind'}
+              tone={pacing.onPace ? 'good' : 'bad'}
+              href="/portal/admin/revenue"
+            />
+          )}
+          {pipeline && (
+            <KpiCell label="Active pipeline" value={`${pipeline.openCount} files`} sub={fmtMoneyCompact(pipeline.openVolume)} href="/portal/admin/deals" />
+          )}
+          {canRenewals && renewalBuckets && (
+            <KpiCell
+              label="Renewals to action"
+              value={`${renewalBuckets.action.count} files`}
+              sub={fmtMoneyCompact(renewalBuckets.action.volume)}
+              href="/portal/admin/renewals"
+            />
+          )}
+          {canRenewals && renewalBuckets && (
+            <KpiCell
+              label="Lapsed renewals"
+              value={`${renewalBuckets.lapsed.count} files`}
+              sub={fmtMoneyCompact(renewalBuckets.lapsed.volume)}
+              tone={renewalBuckets.lapsed.count > 0 ? 'bad' : undefined}
+              href="/portal/admin/renewals"
+            />
+          )}
+        </div>
+      )}
 
       {/* Pipeline + Tasks */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

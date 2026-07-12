@@ -2658,6 +2658,7 @@ export interface AdminDashboardPayload {
       lawyer: number
       investor: number
       financialPlanner: number
+      mortgageAgent: number
       untyped: number
     }
   }
@@ -2883,11 +2884,14 @@ function computeAdminDealMetrics(deals: any[], now: Date = new Date()): AdminDea
 // Map a raw Partner_Type picklist value onto a dashboard bucket. Unset or
 // unrecognized types fall into 'untyped'. Substring match (case-insensitive)
 // so picklist label drift like "Financial Planner (FP)" still classifies.
-function classifyPartnerType(
+export function classifyPartnerType(
   raw: string | null,
 ): keyof AdminDashboardPayload['partners']['byType'] {
   if (!raw) return 'untyped'
   const s = raw.toLowerCase()
+  // Mortgage agent is checked before the others so "Mortgage Agent" does not
+  // fall through to untyped.
+  if (s.includes('mortgage agent') || s.includes('mortgage-agent')) return 'mortgageAgent'
   if (s.includes('realtor')) return 'realtor'
   if (s.includes('lawyer')) return 'lawyer'
   if (s.includes('financial')) return 'financialPlanner'
@@ -2909,6 +2913,7 @@ export async function getAdminDashboardPayload(): Promise<AdminDashboardPayload>
     lawyer: 0,
     investor: 0,
     financialPlanner: 0,
+    mortgageAgent: 0,
     untyped: 0,
   }
   let total = 0

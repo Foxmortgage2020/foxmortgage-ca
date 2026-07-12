@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { COMP_MODEL, COMP_MODEL_VERSION, type CompModel } from '@/config/comp'
 import { isFundedStage, isSummaryStage, isTerminalStage, STAGE_WEIGHTS } from '@/config/pipeline'
 import {
+  attributedFundedByType,
   commissionForecast,
   dealRevenue,
   filesToCloseGap,
@@ -20,6 +21,7 @@ import {
   monthAdd,
   pacingByMonth,
   practiceHistoryYears,
+  practiceKpis,
   type RevenueDeal,
 } from '@/lib/revenue'
 import { isStaleOpenDeal } from '@/lib/pipeline-hygiene'
@@ -206,6 +208,42 @@ describe('funded by year and the practice history series', () => {
     expect(rows.find(r => r.year === 2026)!.isCurrent).toBe(true)
     expect(rows.find(r => r.year === 2021)!.partial).toBe(true)
     expect(rows.find(r => r.year === 2023)!.partial).toBe(false)
+  })
+
+  it('practiceKpis totals, average, best year, and years active', () => {
+    const years = [
+      { year: 2021, volume: 6_231_323.3, count: 12, isCurrent: false, partial: true },
+      { year: 2022, volume: 6_698_671.57, count: 12, isCurrent: false, partial: false },
+      { year: 2026, volume: 3_280_925.94, count: 6, isCurrent: true, partial: false },
+    ]
+    // The contiguous filler is what the page passes; here the shape is enough.
+    const k = practiceKpis(years)
+    expect(k.totalVolume).toBeCloseTo(16_210_920.81, 2)
+    expect(k.totalCount).toBe(30)
+    expect(k.avgDealSize).toBeCloseTo(16_210_920.81 / 30, 2)
+    expect(k.bestYear).toEqual({ year: 2022, volume: 6_698_671.57 })
+    expect(k.yearsActive).toBe(6) // 2021..2026 inclusive
+  })
+
+  it('attributedFundedByType groups funded volume by the referral partner type', () => {
+    const map = new Map<string, string>([
+      ['p1', 'realtor'],
+      ['p2', 'financialPlanner'],
+    ])
+    const deals = [
+      deal({ stage: 'Mortgage Funded', amount: 500_000, referralPartnerId: 'p1' }),
+      deal({ stage: 'Funded', amount: 300_000, referralPartnerId: 'p1' }),
+      deal({ stage: 'Mortgage Funded', amount: 200_000, referralPartnerId: 'p2' }),
+      deal({ stage: 'Mortgage Funded', amount: 999_999, referralPartnerId: null }), // no partner, excluded
+      deal({ stage: 'Options', amount: 100_000, referralPartnerId: 'p1' }), // not funded, excluded
+      deal({ stage: 'Mortgage Funded', amount: 50_000, referralPartnerId: 'pX' }), // unknown partner -> untyped
+    ]
+    const { rows, totalVolume, totalCount } = attributedFundedByType(deals, map, isFundedStage)
+    expect(totalCount).toBe(4)
+    expect(totalVolume).toBeCloseTo(1_050_000, 2)
+    expect(rows.find(r => r.type === 'realtor')).toEqual({ type: 'realtor', count: 2, volume: 800_000 })
+    expect(rows.find(r => r.type === 'financialPlanner')?.volume).toBe(200_000)
+    expect(rows.find(r => r.type === 'untyped')?.volume).toBe(50_000)
   })
 })
 

@@ -77,6 +77,12 @@ export const PERMISSIONS = {
   // contract (knowledge is reference material, not tenant data).
   'knowledge.view': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
   'revenue.view': ['admin'],
+  // Session (Renewal Radar): the renewals page carries client PII (names,
+  // rates, balances), so it stays admin-only. renewals.decide gates the
+  // enumerated status writes (same admin-only posture as the other decide
+  // keys), written through the confirmed-action Zoho write path.
+  'renewals.view': ['admin'],
+  'renewals.decide': ['admin'],
   'status.view': ['admin', 'ops', 'underwriting-reviewer'],
   // Session 4: acknowledging a triaged form-intake failure is a write on
   // this repo's own FOXCA project; admin only.
@@ -112,6 +118,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'intel.view': 'See the lender intel feed',
   'knowledge.view': 'See lender knowledge and the changelog',
   'revenue.view': 'See revenue, forecast, and the comp model',
+  'renewals.view': 'See the Renewal Radar (funded deals by maturity window)',
+  'renewals.decide': 'Record a renewal status action (writes to Zoho)',
   'status.view': 'See platform status',
   'status.acknowledge': 'Acknowledge form-intake failures',
   'bookkeeping.view': 'See bookkeeping pages',

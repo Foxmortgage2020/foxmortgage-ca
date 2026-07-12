@@ -1485,6 +1485,97 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ## Session Ledger
 
+### 2026-07-12 — The Renewal Radar (renewals become visible; the leak is closed)
+- The mandate: the practice was losing renewals silently. All figures verified
+  live by read-only COQL via the MCP connector (the app refresh token lacks
+  COQL scope). NO n8n workflow modified; NO Zoho status write against a real
+  client (proven on a created-and-deleted TEST deal only).
+- Renewal fields on the Deals module (live 2026-07-12): Renewal_Status (STRICT
+  picklist: Attempted To Contact Once/Twice/Three Times, Renewed Elsewhere, No
+  Longer Needs Mortgage, Ready To Renew - Sent New Application; NO retained/won
+  value, NO in-discussion value), Renewal_In_Progress (bool), Renewal_Opted_Out
+  (bool), Renewal_Sequence_Stage (int), Last_Renewal_Email_Date (date),
+  Amortization_Years (int, MIXED UNITS live), Payment_Amount (currency). ALL
+  renewal fields sit null/false/0 across every one of the 97 maturity-bearing
+  deals — the automation has never written one.
+- Part 1 — /portal/admin/renewals (renewals.view, admin; renewals.decide gates
+  writes). lib/renewals.ts is the pure model (bucketFor/bucketRenewals/
+  renewalBook/paymentShock/bestApprovedFixed/RENEWAL_ACTIONS/termYearsLabel,
+  unit-tested tests/renewals.test.ts). Funded = Mortgage Funded + Funded stage
+  with a maturity date. Buckets (TODAY 2026-07-12): Lapsed 18 files $11,004,023
+  (2026 subtotal $3,569,023 matches the brief exactly; the full total exceeds
+  the brief's ~$8.76M because it includes 3 older 2023 maturities the brief did
+  not name — more honest), Action now (0-130d) 8 files $4,368,600, Monitoring
+  (130-150d) 0, Watching (150+d) 22 files $13,583,615, Resolved 0. Lapsed is a
+  red non-collapsible alarm sorted by amount. Missing-maturity block at the top:
+  6 funded deals ($2,958,500) with no maturity date, persists until empty.
+- The renewal card (components/admin/RenewalCard.tsx, client for the two-tap
+  status actions): payment-shock preview (current Mortgage_Rate vs best approved
+  FIXED rate from getRateQuotesFull via the read-only role, monthly payment
+  delta from lib/mortgage-engine monthlyPayment at a stated 25yr amort on the
+  original balance, both sides same amort to isolate the rate; honest "not on
+  file" when Mortgage_Rate null; sheet date shown), one-tap Prep a call
+  (/portal/admin/agent?prep=<contact or file ref>), deal-room link where a
+  workbench file matches (zoho id join, same as Home), Open in Zoho, Term_Years
+  rendered as months (60=5yr) with anomalies flagged (300 = amortization in the
+  term field; 5 = a year count in a months field), and the enumerated status
+  actions.
+- Status write path: POST /api/portal/admin/renewals/[dealId]/status gates
+  renewals.decide, refuses demo, takes ONLY an enumerated action key, maps it
+  server-side to a fixed valid payload (RENEWAL_ACTIONS: only real picklist
+  values + booleans, no free text), writes through updateZohoRecordFields (the
+  single confirmed-action Zoho write fn), and records who+when to FOXCA
+  renewal_events. GAP REPORTED: no "retained/won" picklist value exists, so a
+  retention cannot be recorded (a disabled-affordance note on the page + a Zoho
+  follow-up). FOXCA migration 20260712000000_renewal_events (applied live to
+  skfeivzhqvrefnkqjwtj): RLS on, no policies, grants revoked, three narrow
+  security-definer functions granted anon; lib/renewals-store.ts is the only
+  client (twin of notifications-store). Posture verified live: function record +
+  list work via the anon key; direct table select refuses 42501.
+- Part 2 — Home: rail gains lapsed renewals (red), the action window (amber),
+  and missing maturities (amber), ranked near the top; a compact 5-number KPI
+  strip (funded YTD, signed pace vs $12M, active pipeline, renewals to action,
+  lapsed renewals) each linking out. Notifications: two producers
+  (renewal_crossing at 0-130d, renewal_lapsed) in lib/notifications.ts, gated on
+  renewals.view, wired into the route (getRenewalDeals is demo-guarded so it
+  runs in demo over fixtures). demoRenewalDeals fixture added so demo never
+  leaks a real client.
+- Part 3 — Revenue: restored all-time practice KPIs (practiceKpis over the
+  corrected year series — funded volume/count, avg deal, best year, years
+  active), the renewal book KPI (under management $17.95M / next 12mo $7.71M /
+  lapsed $11.0M), partner tiles by type (byType extended with mortgageAgent;
+  classifyPartnerType now maps it) with per-type attributed funded volume
+  (attributedFundedByType over the corrected deals), recent referrals, and the
+  attribution caveat once. getAdminDashboardPayload is reused for partner counts
+  + recent referrals ONLY (not its uncorrected inProgress/currentYearPipeline);
+  it and listAllPartners are NOT demo-guarded, so the page skips them in demo.
+- Part 4 — SMM investigation (report only, no n8n change): the Strategic
+  Mortgage Monitoring renewal drip (150-day lead, six-email drip writing
+  Renewal_Status/Sequence_Stage/Last_Renewal_Email_Date) DOES NOT EXIST as an
+  n8n workflow. The only renewal-adjacent workflows are SMM Lead Enrollment
+  Webhook (JO7ZXIY1MKogKXzj, new-lead email alerts), SMM Lead Monitor
+  (CZ1zh0gKvkQuTBMc, new-enrollment checks), and IRM Investor Deal Monitor
+  (investor payouts to a briefing) — none reads borrower Maturity_Date on a
+  150-day lead or writes any renewal field. Combined with the pristine-null
+  renewal fields across all 97 deals, the automation has never fired. The portal
+  makes the failure visible regardless of whether the drip is ever built.
+- Verified: tsc clean, production build green, 274 unit tests green (renewals 16,
+  revenue +2 practiceKpis/attributed), FOXCA audit proven live, the Zoho status
+  write proven on a created-and-deleted TEST deal (Renewal_Status
+  'Attempted To Contact Once' accepted + read back + cleaned up), the renewal
+  cards + buckets + payment shock rendered with real figures and screenshotted.
+  Authenticated page screenshots need Michael's Clerk session (agent cannot
+  authenticate); acceptance #5's through-the-UI two-tap is the one manual step,
+  everything under it proven.
+- Guardrails held: readonly workbench (best-rate read through the existing role;
+  no workbench writes), Zoho writes only through updateZohoRecordFields with
+  enumerated payloads, demo mode leak-free (Revenue partner fetches skipped, the
+  renewal fetcher demo-guarded), no estimate rendered as an actual (payment
+  shock labeled, sheet date carried), currentUser(), middleware publicRoutes
+  untouched, no ANTHROPIC_API_KEY in build subprocesses, copy rules in all new
+  UI copy (no em dashes / no exclamation points / "finds" not "surfaces" /
+  Mortgage Agent Level 2 / Strategic Mortgage Monitoring never the vendor name).
+
 ### 2026-07-12 — Pipeline truth (staleness rule) and the Practice History chart
 - The mandate: three data problems were distorting every open-pipeline figure
   going into a presentation, plus a chart to restore and a slide export to

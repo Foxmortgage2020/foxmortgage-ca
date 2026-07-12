@@ -199,6 +199,19 @@ const SESSIONS: {
     ],
   },
   {
+    n: '13',
+    title: 'The Renewal Radar',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'A new Renewals section reads every funded deal by maturity window: Lapsed (matured, no outcome, a red non-collapsible alarm sorted by amount), Action now (0-130 days), Monitoring (130-150), Watching (150+), and Resolved. Reconciles live to 18 lapsed files ($11.0M), 8 action files ($4.37M), and a $17.95M renewal book',
+      'A missing-maturity block lists every funded deal with no maturity date (6, $2.96M) and persists until empty. Each renewal card carries the payment-shock preview (file rate against the best approved fixed rate with its sheet date, monthly change from the validated engine, honest where the current rate is not on file), a one-tap Ask Fox call prep, and enumerated status actions written to Zoho through the confirmed-action path, recorded with who and when in a new FOXCA audit',
+      'Home gained lapsed-renewal, action-window, and missing-maturity rail alarms plus a compact five-number KPI strip; the bell fires on the crossing and lapse transitions',
+      'Revenue restored the practice KPIs (funded all time, average deal, best year, years active), partner tiles by type with attributed volume and the caveat once, recent referrals, and the renewal book, all reconciled to the corrected data',
+      'Investigation: the Strategic Mortgage Monitoring renewal drip does not exist as an n8n workflow, and all four renewal fields sit null across every deal, so it has never fired. Reported, nothing modified. Zoho also has no picklist value for a renewal won with us, so retention cannot be recorded yet',
+    ],
+  },
+  {
     n: '12',
     title: 'Pipeline truth, and the Practice History chart',
     status: 'shipped',

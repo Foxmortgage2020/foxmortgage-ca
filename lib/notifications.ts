@@ -15,6 +15,7 @@ import type { ComplianceCredential } from '@/lib/compliance'
 import type { FormIntakeFailureRow } from '@/lib/status'
 import type { WorkflowStatusRow } from '@/lib/status'
 import type { SheetQueueCard, OfferQueueCard, AuditEntry } from '@/lib/underwriting'
+import { RENEWAL_ACTION_DAYS, daysToMaturity, hasNoOutcome, isResolved, type RenewalDeal } from '@/lib/renewals'
 
 // ─── Categories ─────────────────────────────────────────────────────────────
 
@@ -25,6 +26,8 @@ export const NOTIFICATION_CATEGORIES = [
   'form_intake',
   'credential_expiry',
   'gate_decision_external',
+  'renewal_crossing',
+  'renewal_lapsed',
 ] as const
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number]
@@ -73,6 +76,18 @@ export const CATEGORIES: readonly CategoryConfig[] = [
     label: 'Form intake failures',
     description: 'A public form submission was captured but did not reach Zoho.',
     permission: 'status.view',
+  },
+  {
+    key: 'renewal_crossing',
+    label: 'Renewals entering the action window',
+    description: 'A funded deal has crossed 130 days to maturity; the rate-hold window is open.',
+    permission: 'renewals.view',
+  },
+  {
+    key: 'renewal_lapsed',
+    label: 'Renewals lapsed',
+    description: 'A funded deal matured with no recorded renewal outcome.',
+    permission: 'renewals.view',
   },
 ] as const
 
@@ -243,6 +258,56 @@ export function externalGateDecisionNotifications(
         ? `/portal/admin/deals?ref=${encodeURIComponent(r.dealRef)}`
         : '/portal/admin/audit',
       createdAt: r.createdAt,
+    })
+  }
+  return out
+}
+
+function renewalMoney(n: number): string {
+  return '$' + Math.round(n).toLocaleString('en-CA')
+}
+
+/** One per funded deal that has crossed into the action window (0-130 days to
+ * maturity, not resolved). Keyed by deal id so it fires once as it crosses. */
+export function renewalCrossingNotifications(
+  deals: RenewalDeal[],
+  todayYMD: string,
+): NotificationInput[] {
+  const out: NotificationInput[] = []
+  for (const d of deals) {
+    if (!d.maturityDate || isResolved(d)) continue
+    const days = daysToMaturity(d.maturityDate, todayYMD)
+    if (days < 0 || days > RENEWAL_ACTION_DAYS) continue
+    out.push({
+      dedupKey: `renewal_crossing:${d.id}`,
+      category: 'renewal_crossing',
+      title: `${d.contactName ?? d.dealName} renewal is in the action window`,
+      body: `${renewalMoney(d.amount)} matures ${d.maturityDate}, ${days} days out. The rate-hold window is open; engage now.`,
+      href: '/portal/admin/renewals',
+      createdAt: d.maturityDate,
+    })
+  }
+  return out
+}
+
+/** One per funded deal that matured with no recorded outcome (a lapse). Keyed
+ * by deal id so it fires once when it lapses. */
+export function renewalLapsedNotifications(
+  deals: RenewalDeal[],
+  todayYMD: string,
+): NotificationInput[] {
+  const out: NotificationInput[] = []
+  for (const d of deals) {
+    if (!d.maturityDate || isResolved(d) || !hasNoOutcome(d)) continue
+    const days = daysToMaturity(d.maturityDate, todayYMD)
+    if (days >= 0) continue
+    out.push({
+      dedupKey: `renewal_lapsed:${d.id}`,
+      category: 'renewal_lapsed',
+      title: `${d.contactName ?? d.dealName} renewal has lapsed`,
+      body: `${renewalMoney(d.amount)} matured ${d.maturityDate}, ${Math.abs(days)} days ago, with no recorded outcome.`,
+      href: '/portal/admin/renewals',
+      createdAt: d.maturityDate,
     })
   }
   return out

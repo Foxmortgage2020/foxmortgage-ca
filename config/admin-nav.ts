@@ -45,6 +45,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
       'One queue for statement reviews, rate sheet reviews, and shadow scores, with decisions recorded through the gates API.',
   },
   {
+    label: 'Renewals',
+    href: '/portal/admin/renewals',
+    iconKey: 'RefreshCw',
+    permission: 'renewals.view',
+    description:
+      'Every funded deal by maturity window, with the payment-shock preview and the lapsed alarm, so no renewal slips again.',
+  },
+  {
     label: 'Rates',
     href: '/portal/admin/rates',
     iconKey: 'Percent',

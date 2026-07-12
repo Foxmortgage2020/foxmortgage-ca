@@ -321,6 +321,83 @@ export function practiceHistoryYears(
   return out
 }
 
+// ─── All-time practice KPIs (from the corrected year series) ─────────────────
+
+export interface PracticeKpis {
+  totalVolume: number
+  totalCount: number
+  avgDealSize: number
+  bestYear: { year: number; volume: number } | null
+  firstYear: number | null
+  lastYear: number | null
+  yearsActive: number
+}
+
+export function practiceKpis(years: PracticeHistoryYearRow[]): PracticeKpis {
+  if (years.length === 0) {
+    return {
+      totalVolume: 0,
+      totalCount: 0,
+      avgDealSize: 0,
+      bestYear: null,
+      firstYear: null,
+      lastYear: null,
+      yearsActive: 0,
+    }
+  }
+  const totalVolume = years.reduce((s, y) => s + y.volume, 0)
+  const totalCount = years.reduce((s, y) => s + y.count, 0)
+  const best = years.reduce((a, b) => (b.volume > a.volume ? b : a))
+  const first = years[0].year
+  const last = years[years.length - 1].year
+  return {
+    totalVolume,
+    totalCount,
+    avgDealSize: totalCount > 0 ? totalVolume / totalCount : 0,
+    bestYear: { year: best.year, volume: best.volume },
+    firstYear: first,
+    lastYear: last,
+    yearsActive: last - first + 1,
+  }
+}
+
+// ─── Attributed funded volume by partner type ────────────────────────────────
+// Funded deals with a referral partner, grouped by the partner's classified
+// type. partnerTypeById maps a referral partner id to a type key; deals whose
+// partner is not in the map count as 'untyped'. Both funded stage spellings are
+// covered because the caller passes isFundedStage.
+
+export interface AttributedTypeRow {
+  type: string
+  count: number
+  volume: number
+}
+
+export function attributedFundedByType(
+  deals: RevenueDeal[],
+  partnerTypeById: Map<string, string>,
+  isFunded: (stage: string) => boolean,
+): { rows: AttributedTypeRow[]; totalVolume: number; totalCount: number } {
+  const map = new Map<string, AttributedTypeRow>()
+  let totalVolume = 0
+  let totalCount = 0
+  for (const d of deals) {
+    if (!isFunded(d.stage) || !d.referralPartnerId) continue
+    const type = partnerTypeById.get(d.referralPartnerId) ?? 'untyped'
+    const row = map.get(type) ?? { type, count: 0, volume: 0 }
+    row.count += 1
+    row.volume += d.amount
+    map.set(type, row)
+    totalVolume += d.amount
+    totalCount += 1
+  }
+  return {
+    rows: Array.from(map.values()).sort((a, b) => b.volume - a.volume),
+    totalVolume,
+    totalCount,
+  }
+}
+
 // ─── Mix breakdowns (render only real coverage) ─────────────────────────────
 // A dimension renders as a mix chart only when at least MIN_MIX_COVERAGE of
 // the funded window carries a value (Part 1: Transaction_Type 100%,

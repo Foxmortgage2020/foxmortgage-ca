@@ -17,11 +17,14 @@ import {
   externalGateDecisionNotifications,
   formIntakeNotifications,
   pendingOfferNotifications,
+  renewalCrossingNotifications,
+  renewalLapsedNotifications,
   sheetReviewNotifications,
   syncFreshnessNotifications,
   type NotificationCategory,
   type NotificationInput,
 } from '@/lib/notifications'
+import { getRenewalDeals } from '@/lib/zoho-admin'
 import {
   getPrefs,
   listNotificationsForUser,
@@ -128,6 +131,23 @@ export async function GET() {
     try {
       const n = await getN8nStatus()
       if (n.configured) inputs.push(...syncFreshnessNotifications(n.rows))
+    } catch {
+      /* degrade */
+    }
+  }
+
+  // Renewals: getRenewalDeals is demo-guarded (fictional in demo), so this
+  // producer runs in demo mode too, over fixtures.
+  if (visibleKeys.has('renewal_crossing') || visibleKeys.has('renewal_lapsed')) {
+    try {
+      const r = await getRenewalDeals()
+      const today = torontoTodayYMD()
+      if (visibleKeys.has('renewal_crossing')) {
+        inputs.push(...renewalCrossingNotifications(r.withMaturity, today))
+      }
+      if (visibleKeys.has('renewal_lapsed')) {
+        inputs.push(...renewalLapsedNotifications(r.withMaturity, today))
+      }
     } catch {
       /* degrade */
     }

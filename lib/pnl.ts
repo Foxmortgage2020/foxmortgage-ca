@@ -22,6 +22,8 @@
 //     ]
 //   }
 
+import { isDemoMode } from '@/lib/demo'
+
 export interface PnlClassRow {
   name: string
   revenue: number
@@ -75,6 +77,12 @@ export function parsePnlPayload(json: unknown): PnlMonth[] | null {
 }
 
 export async function getBusinessLinePnl(): Promise<PnlResult> {
+  // Demo mode must never render real business P&L: the tile shows its
+  // not-connected state regardless of the webhook env var. (Financials sit
+  // outside the "lender reference data stays real" demo carve-out.)
+  if (isDemoMode()) {
+    return { state: 'not-connected', requirements: PNL_REQUIREMENTS }
+  }
   const url = process.env.N8N_QBO_PNL_WEBHOOK_URL
   if (!url) {
     return { state: 'not-connected', requirements: PNL_REQUIREMENTS }

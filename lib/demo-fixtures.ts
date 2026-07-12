@@ -42,6 +42,7 @@ import type {
 } from '@/lib/underwriting'
 import type { SlimDeal, OpenTask, SlimLead } from '@/lib/zoho-admin'
 import type { RevenueDeal } from '@/lib/revenue'
+import type { RenewalDeal } from '@/lib/renewals'
 import type { PartnerListItem, PartnerDocument } from '@/lib/zoho'
 import type { ComplianceCredential } from '@/lib/compliance'
 
@@ -51,6 +52,39 @@ import type { ComplianceCredential } from '@/lib/compliance'
 export function demoResult<T>(data: T): { configured: true; ok: true; data: T } {
   return { configured: true, ok: true, data }
 }
+
+// ─── Zoho: renewal deals (the Renewal Radar) — all fictional ────────────────
+
+function renewalFixture(over: Partial<RenewalDeal>): RenewalDeal {
+  return {
+    id: 'demo-r',
+    dealName: 'DEMO',
+    contactName: null,
+    amount: 500000,
+    maturityDate: null,
+    mortgageRate: null,
+    rateType: 'Fixed',
+    termYears: 60,
+    amortizationYears: 25,
+    paymentAmount: null,
+    renewalStatus: null,
+    renewalInProgress: false,
+    renewalOptedOut: false,
+    lenderName: null,
+    ...over,
+  }
+}
+
+export const demoRenewalDeals: RenewalDeal[] = [
+  renewalFixture({ id: 'demo-r-1', dealName: 'DEMO-F0101', contactName: 'Marty McFixture', amount: 500000, maturityDate: '2026-02-01', mortgageRate: 5.49 }),
+  renewalFixture({ id: 'demo-r-2', dealName: 'DEMO-F0102', contactName: 'Ada Testwell', amount: 320000, maturityDate: '2026-05-01', mortgageRate: 6.2 }),
+  renewalFixture({ id: 'demo-r-3', dealName: 'DEMO-F0103', contactName: 'Sample Borrower', amount: 640000, maturityDate: '2026-09-10', mortgageRate: 2.14, rateType: 'Variable' }),
+  renewalFixture({ id: 'demo-r-4', dealName: 'DEMO-F0104', contactName: 'Placeholder Family Trust', amount: 880000, maturityDate: '2026-10-20', mortgageRate: 1.89, lenderName: 'Sample Bank' }),
+  renewalFixture({ id: 'demo-r-5', dealName: 'DEMO-F0105', contactName: 'Faux Renner', amount: 415000, maturityDate: '2026-11-25', mortgageRate: 4.55 }),
+  renewalFixture({ id: 'demo-r-6', dealName: 'DEMO-F0106', contactName: 'Example Estates', amount: 1150000, maturityDate: '2027-06-01', mortgageRate: 3.24 }),
+  renewalFixture({ id: 'demo-r-7', dealName: 'DEMO-F0107', contactName: 'Dummy Holdings Inc', amount: 300000, maturityDate: '2025-12-01', renewalStatus: 'Renewed Elsewhere' }),
+  renewalFixture({ id: 'demo-r-8', dealName: 'DEMO-F0108', contactName: 'Prototype Partners', amount: 560000, maturityDate: null, mortgageRate: 4.04 }),
+]
 
 // ─── Zoho: slim deals (Home pipeline, closings) ─────────────────────────────
 
