@@ -13,7 +13,8 @@ import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail, getRateQuotesFull } from '@/lib/underwriting'
 import { getKnowledgeLenders, getKnowledgeOffers, getRatesReference } from '@/lib/gates'
 import type { KnowledgeOffer } from '@/lib/gates'
-import { scenarioFromParams, offerScenarioResult, type OfferShape, type RatesReference } from '@/lib/scenario'
+import { scenarioFromParams, offerScenarioResult, scenarioVerdict, type OfferShape, type RatesReference } from '@/lib/scenario'
+import { includedInClientDoc, resolveProvince, type ProvinceFact } from '@/lib/eligibility'
 import { offerRatesText } from '@/lib/offers'
 import { generateRatesPdf, ratesPdfFilename, type PdfLenderInfo, type PdfOfferInput } from '@/lib/rates-pdf'
 import { torontoTodayYMD } from '@/lib/dates'
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
   if (!quotesRes.configured || !quotesRes.ok) {
     return NextResponse.json({ error: 'Quotes not readable just now.' }, { status: 503 })
   }
-  const pinned = quotePins
+  const approvedPins = quotePins
     .map(id => quotesRes.data.find(q => q.id === id))
     .filter((q): q is NonNullable<typeof q> => Boolean(q) && q!.status === 'approved')
 
@@ -67,11 +68,12 @@ export async function POST(req: Request) {
   // from the knowledge endpoints through the browser-minted token the tray
   // forwards. Pinned offers come from the SAME token, from the approved-offers
   // endpoint only, so a pending offer can never reach a client document.
-  const lenderInfo: Record<string, PdfLenderInfo | null> = {}
-  for (const q of pinned) lenderInfo[q.lenderSlug] = null
   let reference: RatesReference | null = null
   const offerInputs: PdfOfferInput[] = []
+  let liveProvinces: Map<string, ProvinceFact> | null = null
+  const withheld: string[] = []
   const token = req.headers.get('x-gates-token')
+  const knLenders: { slug: string; name: string; as_of: string | null; quote_slugs?: string[]; provinces?: ProvinceFact['provinces']; provinces_source?: string | null; provinces_as_of?: string | null }[] = []
   if (token) {
     const [kn, refRes, offRes] = await Promise.all([
       getKnowledgeLenders(token),
@@ -79,12 +81,21 @@ export async function POST(req: Request) {
       offerPins.length > 0 ? getKnowledgeOffers(token) : Promise.resolve(null),
     ])
     if (kn.ok) {
-      const lenders =
-        (kn.data as { lenders?: { slug: string; name: string; as_of: string | null; quote_slugs?: string[] }[] })
-          .lenders ?? []
-      for (const q of pinned) {
-        const match = lenders.find(l => l.slug === q.lenderSlug || l.quote_slugs?.includes(q.lenderSlug))
-        if (match) lenderInfo[q.lenderSlug] = { name: match.name, asOf: match.as_of ?? null }
+      const lenders = (kn.data as { lenders?: typeof knLenders }).lenders ?? []
+      knLenders.push(...lenders)
+      // Live provinces override the server mirror for the client-doc gate.
+      liveProvinces = new Map()
+      for (const l of lenders) {
+        if (l.provinces !== undefined) {
+          liveProvinces.set(l.slug, {
+            provinces: l.provinces,
+            source: l.provinces_source ?? '',
+            asOf: l.provinces_as_of ?? '',
+          })
+          for (const qs of l.quote_slugs ?? []) {
+            liveProvinces.set(qs, { provinces: l.provinces, source: l.provinces_source ?? '', asOf: l.provinces_as_of ?? '' })
+          }
+        }
       }
     }
     if (refRes.ok && refRes.data && typeof refRes.data === 'object') {
@@ -96,11 +107,24 @@ export async function POST(req: Request) {
         const match = served.find(o => (o.offer as OfferShape).id === oid)
         if (!match) continue
         const shape = match.offer as OfferShape
+        // Client-doc fail-closed rule, applied to OFFERS too (not just quotes):
+        // an offer whose lender is not province-CONFIRMED eligible must never
+        // reach a client document, and an offer the scenario rules out is not
+        // included. Same posture as the quote pins above.
+        const offerSlug = match.lender ?? ''
+        if (resolveProvince(offerSlug, scenario.subjectProvince, liveProvinces).status !== 'eligible') {
+          withheld.push(offerSlug || 'offer')
+          continue
+        }
         const scResult = offerScenarioResult(shape, scenario)
+        if (!scResult) {
+          // ruled_out or unpriceable for this scenario — not on a client doc.
+          continue
+        }
         offerInputs.push({
           lenderName: match.lender_name || match.lender,
           description: typeof shape.description === 'string' ? shape.description : 'Promotional offer',
-          ratePct: scResult ? scResult.ratePct : null,
+          ratePct: scResult.ratePct,
           ratesText: offerRatesText(shape),
           conditions: Array.isArray(shape.predicates)
             ? (shape.predicates as unknown[]).filter((p): p is string => typeof p === 'string')
@@ -112,9 +136,30 @@ export async function POST(req: Request) {
     }
   }
 
+  // Client-doc fail-closed rule: a pinned quote reaches this client PDF only
+  // when it is province-CONFIRMED eligible and not a restricted program
+  // (includedInClientDoc). A province-unknown or restricted pin is withheld,
+  // even though the tray shows it on screen. Live provinces (from the forwarded
+  // token) override the server mirror; without a token the mirror applies.
+  const pinned = approvedPins.filter(q => {
+    const ok = includedInClientDoc(scenarioVerdict(q, scenario, { liveProvinces }))
+    if (!ok) withheld.push(q.lenderSlug)
+    return ok
+  })
+  const lenderInfo: Record<string, PdfLenderInfo | null> = {}
+  for (const q of pinned) {
+    const match = knLenders.find(l => l.slug === q.lenderSlug || l.quote_slugs?.includes(q.lenderSlug))
+    lenderInfo[q.lenderSlug] = match ? { name: match.name, asOf: match.as_of ?? null } : null
+  }
+
   if (pinned.length === 0 && offerInputs.length === 0) {
     return NextResponse.json(
-      { error: 'None of the pinned items are approved quotes or offers (a token is needed to include offers).' },
+      {
+        error:
+          withheld.length > 0
+            ? 'The pinned products cannot go on a client document yet: their provincial availability is not confirmed, or they are restricted programs. Confirm availability, then regenerate.'
+            : 'None of the pinned items are approved quotes or offers (a token is needed to include offers).',
+      },
       { status: 422 },
     )
   }

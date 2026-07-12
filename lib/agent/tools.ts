@@ -45,6 +45,7 @@ import {
   mechanismPending,
   offerScenarioResult,
   quoteRateDisplay,
+  scenarioExclusions,
   type OfferShape,
   type RatesReference,
   type Scenario,
@@ -455,10 +456,20 @@ async function runSearchRates(input: any, ctx: AgentToolContext): Promise<ToolEx
   }
 
   const results = lenderResults(quotes, scenario, reference)
-  const lenders = results.slice(0, 5).map(r => ({
+  const exclusions = scenarioExclusions(quotes, scenario)
+  const lenders = results.slice(0, 5).map(r => {
+    const prov = r.matches[0]?.verdict?.province
+    const provinceConfirmed = prov?.status === 'eligible'
+    return {
     lender: names[r.lenderSlug] ?? r.lenderSlug,
     lender_slug: r.lenderSlug,
     matching_products: r.count,
+    // Province status: the agent must never quote an unconfirmed lender to a
+    // client. Structural-ineligible lenders are already excluded upstream.
+    province_confirmed: provinceConfirmed,
+    province_note: provinceConfirmed
+      ? null
+      : 'Provincial availability NOT confirmed for this lender — do not quote it to a client; say availability is being confirmed.',
     top_matches: r.matches.slice(0, 4).map(m => {
       const q = m.quote
       const d = quoteRateDisplay(q, reference)
@@ -483,7 +494,8 @@ async function runSearchRates(input: any, ctx: AgentToolContext): Promise<ToolEx
         assumed_notes: m.assumed,
       }
     }),
-  }))
+    }
+  })
 
   // Structured offers that fit the scenario, with the countdown.
   const matchingOffers = (offers ?? [])
@@ -524,7 +536,19 @@ async function runSearchRates(input: any, ctx: AgentToolContext): Promise<ToolEx
         rate_type: scenario.rateType ?? 'any',
         amount: scenario.amount,
         amortization_years: scenario.amortizationYears,
+        subject_province: scenario.subjectProvince,
       },
+      // Eligibility exclusions applied (already removed from the matches above).
+      // The agent surfaces these honestly and never quotes an excluded lender.
+      excluded: {
+        not_licensed_in_province: exclusions.provinceIneligible.map(x => `${x.slug} (${x.provinces})`),
+        restricted_programs: exclusions.programRestricted.map(x => `${x.slug} (${x.requirements.join(', ')})`),
+        channel_not_held: exclusions.channelUnavailable,
+        transaction_ineligible: exclusions.transactionMismatch,
+        province_unconfirmed: exclusions.provinceUnknown,
+      },
+      eligibility_note:
+        'Kootenay and Coast Capital are BC credit unions, excluded from every Ontario scenario. Lenders whose province is unconfirmed appear with province_confirmed=false — mention them internally but never quote them to a client until confirmed.',
       prime: reference?.prime
         ? { value: reference.prime.value, as_of: reference.prime.as_of }
         : 'unavailable (floating quotes carry their discount only; no effective rates)',

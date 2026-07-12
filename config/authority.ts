@@ -89,6 +89,10 @@ export const PERMISSIONS = {
   // opportunity status writes.
   'opportunities.view': ['admin'],
   'opportunities.manage': ['admin'],
+  // Session (lender eligibility + constraints): per-client lender constraints
+  // and restricted-product pin confirmations are client-facing decisions, so
+  // admin only. Reads are gated on rates.view (the surfaces that show them).
+  'constraints.manage': ['admin'],
   'status.view': ['admin', 'ops', 'underwriting-reviewer'],
   // Session 4: acknowledging a triaged form-intake failure is a write on
   // this repo's own FOXCA project; admin only.
@@ -128,6 +132,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'renewals.decide': 'Record a renewal status action (writes to Zoho)',
   'opportunities.view': 'See the Strategic Mortgage Monitoring opportunity board',
   'opportunities.manage': 'Upload the monitoring export, backfill Zoho, and set opportunity status',
+  'constraints.manage': 'Record and retire per-client lender constraints and restricted-product pin confirmations',
   'status.view': 'See platform status',
   'status.acknowledge': 'Acknowledge form-intake failures',
   'bookkeeping.view': 'See bookkeeping pages',

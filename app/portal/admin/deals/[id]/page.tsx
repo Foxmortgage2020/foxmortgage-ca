@@ -25,12 +25,18 @@ import {
   getDealRatioCalcs,
   getDealShadowHistory,
   getDealStatementDocs,
+  getRateQuotesFull,
   isPermissionRefusal,
   type UwResult,
 } from '@/lib/underwriting'
 import ConditionsPanel from '@/components/admin/ConditionsPanel'
 import ComplianceCard from '@/components/admin/ComplianceCard'
-import { scenarioParamsFromDeal } from '@/lib/scenario'
+import ClientConstraints from '@/components/admin/ClientConstraints'
+import { scenarioFromParams, scenarioParamsFromDeal, scenarioVerdict } from '@/lib/scenario'
+import { activeConstraints } from '@/lib/constraints'
+import { constraintsFor } from '@/lib/constraints-store'
+import { dealConstraintCost, costSentence } from '@/lib/constraint-cost'
+import { lenderDisplayName } from '@/config/lenders'
 import { fmtDateTime, fmtMoney, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
@@ -167,6 +173,62 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // (the server also rejects any write with DemoWriteBlocked).
   const canDecideConditions = can(user, 'conditions.decide') && !isDemoMode()
 
+  // Part 4 — suitability documentation: an active client constraint with its
+  // reason AND a quantified cost is the documented suitability assessment FSRA
+  // names. Fetch the active constraints and compute the cost from the eligible
+  // fixed book (province + program filtered), then hand the top one to the
+  // compliance card, which counts it toward documented posture.
+  const clientKey = deal.zohoPotentialId ?? deal.fileRef
+  const constraintsRes = await constraintsFor(clientKey)
+  const activeList = activeConstraints(
+    constraintsRes.configured && constraintsRes.ok ? constraintsRes.data : [],
+  )
+  let complianceConstraint: {
+    type: (typeof activeList)[number]['type']
+    lenderLabel: string
+    reason: string
+    costSentence: string
+    actingEmail: string
+    createdAt: string
+  } | null = null
+  if (activeList.length > 0) {
+    const scenario = scenarioFromParams(
+      scenarioParamsFromDeal({
+        fileRef: deal.fileRef,
+        dealType: deal.dealType,
+        mortgageAmount: deal.mortgageAmount,
+        purchasePrice: deal.purchasePrice,
+      }),
+    )
+    const quotesR = await getRateQuotesFull(agentId)
+    const book = quotesR.configured && quotesR.ok ? quotesR.data : []
+    const eligibleAll = book
+      .filter(q => q.status === 'approved' && q.rateType === 'fixed' && q.rate != null && q.productClass === scenario.productClass)
+      .filter(q => scenarioVerdict(q, scenario).category === 'eligible')
+      .map(q => ({ lenderSlug: q.lenderSlug, rate: q.rate as number, termMonths: q.termMonths }))
+    // Compare like terms: the standard 5-year (60mo) subset, so a 1-year teaser
+    // never masquerades as a lender's best against another lender's 5-year.
+    const sameTerm = eligibleAll.filter(q => q.termMonths === 60)
+    const eligibleFixed = (sameTerm.length > 0 ? sameTerm : eligibleAll).map(q => ({ lenderSlug: q.lenderSlug, rate: q.rate }))
+    const cost = dealConstraintCost(eligibleFixed, lenderDisplayName, activeList, deal.mortgageAmount, 25, 60)
+    // Documented suitability requires a real trade-off: the constraint actually
+    // costs the client something (a non-optimal choice for a stated reason). A
+    // zero-cost preference is a note, not a suitability assessment, so it never
+    // upgrades the compliance posture. Attribute the cost to the constraint that
+    // drives it (the exclusion or requirement), not just the first one recorded.
+    if (cost && cost.monthlyDelta > 0) {
+      const driver = activeList.find(c => c.type === 'excluded' || c.type === 'required') ?? activeList[0]
+      complianceConstraint = {
+        type: driver.type,
+        lenderLabel: driver.lenderLabel ?? driver.lenderSlug,
+        reason: driver.reason,
+        costSentence: costSentence(cost),
+        actingEmail: driver.actingEmail,
+        createdAt: driver.createdAt,
+      }
+    }
+  }
+
   return (
     <div className="max-w-4xl">
       {/* Snapshot header */}
@@ -272,6 +334,16 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
           conditions={conds}
           flags={flags}
           todayYMD={today}
+          constraint={complianceConstraint}
+        />
+
+        {/* Client lender constraints (Part 2): per-client rules keyed to a
+            stable client key (Zoho potential id, or the file ref when none).
+            Reads from FOXCA; recording needs constraints.manage and is refused
+            in demo (both enforced server-side). */}
+        <ClientConstraints
+          clientKey={deal.zohoPotentialId ?? deal.fileRef}
+          canManage={can(user, 'constraints.manage')}
         />
 
         {/* Borrowers (granted 2026-07-09; masked values render exactly as stored) */}

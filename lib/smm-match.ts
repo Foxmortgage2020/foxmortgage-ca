@@ -5,7 +5,7 @@
 // field; conflicts are listed for Michael, never resolved automatically.
 
 import { normalizeLender } from '@/config/smm-lender-aliases'
-import type { Comparable, SmmMortgage } from '@/lib/smm'
+import type { Comparable, SmmMortgage, TransactionKind } from '@/lib/smm'
 
 // ─── Matching (email > phone > name) ────────────────────────────────────────
 export interface ZohoContactLite {
@@ -221,6 +221,10 @@ export function retentionSummary(recons: Reconciliation[]): RetentionSummary {
   }
 }
 
+// A mortgage rate below this is not a real rate; it guards the computed floating
+// effective rate against data-entry errors (a bad prime variance).
+export const SANE_RATE_FLOOR = 0.5
+
 // ─── Best gate-approved comparable (approved quotes only) ────────────────────
 export interface BookQuote {
   rate: number | null
@@ -231,6 +235,16 @@ export interface BookQuote {
   status: string
   lenderSlug: string
   primeVariance: number | null
+  // Eligibility inputs (for the eligible-comparable filter). Optional so older
+  // callers/tests still typecheck; when absent, derivation runs on variant.
+  variant?: string | null
+  programNotes?: string | null
+  borrowerRequirement?: string | null
+  clientCommitment?: string | null
+  channelRequirement?: string | null
+  transactionTypes?: string[] | null
+  eligibilityUnknown?: boolean | null
+  eligibilitySource?: string | null
 }
 
 export function insuranceToProductClass(ins: string | null): string {
@@ -301,4 +315,72 @@ export function bestFloatingDiscount(
   if (use.length === 0) return null
   const best = use.reduce((a, b) => (b.primeVariance! < a.primeVariance! ? b : a))
   return { variance: best.primeVariance!, lender: lenderName(best.lenderSlug), asOf: best.asOfDate }
+}
+
+// ─── Best ELIGIBLE comparable (province + program + transaction filtered) ────
+// The comparable a monitored client can genuinely have: province-eligible (BC
+// credit unions excluded), unrestricted for an ordinary borrower (physician /
+// bundle / channel / undisclosed-restriction rows excluded — fail-closed), and
+// valid for the transaction (a refinance never sees a purchase-only promo). It
+// weighs fixed (printed rate) AND floating (effective = prime + variance,
+// priced with the server prime mirror) and picks the lowest effective rate, so
+// an adjustable client sees the real adjustable best, not a worse fixed. Class
+// is HARD, never assumed: a refinance compares only against `productClass`
+// quotes; if none exist the comparable is null (honest), never a wrong-class rate.
+export function bestEligibleComparable(
+  quotes: BookQuote[],
+  productClass: string,
+  transaction: TransactionKind,
+  lenderName: (slug: string) => string,
+  primeFor: (slug: string) => number,
+  isEligible: (q: BookQuote, transaction: TransactionKind) => boolean,
+  preferredTermMonths = 60,
+): Comparable | null {
+  const priced = quotes
+    .filter(
+      q =>
+        q.status === 'approved' &&
+        q.productClass === productClass && // HARD class match — never assumed
+        q.asOfDate != null &&
+        !q.lenderSlug.toLowerCase().includes('test') &&
+        isEligible(q, transaction),
+    )
+    .map(q => {
+      const isFloating = q.rateType === 'adjustable' || q.rateType === 'variable'
+      let eff: number | null = null
+      let variance: number | null = null
+      let primeUsed: number | null = null
+      if (q.rateType === 'fixed' && q.rate != null && q.rate > 0) {
+        eff = q.rate
+      } else if (isFloating && q.rate != null && q.rate > 0) {
+        // A floating sheet that printed its own rate: prefer the printed figure
+        // (consistent with the rest of the app), and carry the variance for the
+        // label without recomputing.
+        eff = q.rate
+        variance = q.primeVariance
+      } else if (isFloating && q.primeVariance != null) {
+        primeUsed = primeFor(q.lenderSlug)
+        variance = q.primeVariance
+        eff = Math.round((primeUsed + q.primeVariance) * 100) / 100
+      }
+      return { q, eff, variance, primeUsed, isFloating }
+    })
+    // A comparable rate below a sane floor (a data-entry slip like variance
+    // -5.0 -> effective -0.55) is discarded, never chosen as "best": it would
+    // otherwise win the lowest-rate reduce and produce a negative payment.
+    .filter((x): x is { q: BookQuote; eff: number; variance: number | null; primeUsed: number | null; isFloating: boolean } => x.eff != null && x.eff >= SANE_RATE_FLOOR)
+  if (priced.length === 0) return null
+  const term = priced.filter(x => x.q.termMonths === preferredTermMonths)
+  const chosen = (term.length > 0 ? term : priced).reduce((a, b) => (b.eff < a.eff ? b : a))
+  return {
+    rate: chosen.eff,
+    lender: lenderName(chosen.q.lenderSlug),
+    lenderSlug: chosen.q.lenderSlug,
+    asOf: chosen.q.asOfDate,
+    termMonths: chosen.q.termMonths,
+    kind: chosen.isFloating ? 'floating' : 'fixed',
+    variance: chosen.variance,
+    primeUsed: chosen.primeUsed,
+    rateType: chosen.q.rateType,
+  }
 }

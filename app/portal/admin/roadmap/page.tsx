@@ -199,6 +199,20 @@ const SESSIONS: {
     ],
   },
   {
+    n: '15',
+    title: 'Lender eligibility, client constraints, and the cost of a preference',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'The live bug: Kootenay Savings and Coast Capital are BC credit unions that cannot do an Ontario deal, yet Kootenay (deepest floating discount in the book) led almost every floating scenario and was proposed as a real client’s best comparable. Every ranking surface now filters structural eligibility first (scenario, compare tray, opportunities, rates browser Lenders and Promos, Ask Fox, every PDF). Ineligible is excluded not deprioritized; unconfirmed-province lenders show flagged internally and never on a client document (fail-closed). Ported the fox-underwriting eligibility derivation exactly (golden-test parity) because the workbench columns are unpopulated',
+      'Program eligibility: the sub-4% ladder was physician-only / banking-bundle / exclusive-channel and hid the real best rate. Default results are now only what the client can definitely have; qualifier toggles unlock restricted rates, a show-restricted view reveals them with their requirement sentence, and a manual pin records a confirmation before a restricted product reaches a client PDF',
+      'Transaction type determines product class (Part 1c): a monitoring client who breaks is a refinance, priced against conventional only, with an 80% LTV hard cap and a requalification line on the card and client PDF; a switch ports the original class with no penalty. Re-ran the export: 20 of 41 opportunities changed bucket. The client file that surfaced the bug had its comparable corrected from the Kootenay fantasy to First National conventional adjustable P−0.50, 3.95% effective',
+      'Client lender constraints (excluded / required / preferred, each with a required reason, retired with history never deleted), kept in FOXCA, editable from the deal room, applied to eligibility (a required-but-ineligible lender yields an honest empty state). The cost of the preference is computed by the shared engine and quantified as documented suitability on the compliance card',
+      'Ask Fox returns eligible lenders only and never quotes an unconfirmed-province lender to a client (prompt v3). Renewals and the rates browser inherit the filter. Adversarial review run; the client-PDF offer leak, a floating negative-rate guard, and the compliance zero-cost inflation were fixed',
+      'Reported gaps: the workbench eligibility backfill has not populated the approved book (the portal derives); provinces are confirmed for only the 2 BC lenders so client PDFs withhold every comparison until Michael confirms provinces (the visible count drives it); the live cost-of-constraint readout on the scenario board is deferred',
+    ],
+  },
+  {
     n: '14',
     title: 'Opportunities: the Strategic Mortgage Monitoring engine',
     status: 'shipped',

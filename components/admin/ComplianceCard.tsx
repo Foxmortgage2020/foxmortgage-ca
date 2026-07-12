@@ -4,15 +4,23 @@
 // stated verbatim in the tooltip; fields the workbench does not capture
 // yet render as honest gaps and never count toward clear. Server
 // component, render-only.
+//
+// Suitability documentation (Part 4): an active client constraint that
+// carries a reason AND a quantified cost is a documented suitability
+// assessment. Passed in as the optional `constraint` prop, it renders a
+// "Documented suitability" block, drops the suitability line from the
+// uncaptured-gap list, and lets an otherwise gaps-unrecorded file read
+// clear. It never overrides the attention rule.
 
 import Link from 'next/link'
 import {
   POSTURE_LABEL,
   POSTURE_RULE,
-  WORKBENCH_GAP_FIELDS,
   compliancePosture,
   isComplianceCategory,
+  workbenchGapFields,
 } from '@/lib/compliance-logic'
+import { CONSTRAINT_LABEL, type ConstraintType } from '@/lib/constraints'
 import type { DealConditionRow, DealFlagRow } from '@/lib/underwriting'
 import { fmtDateTime, fmtShortDate } from '@/lib/dates'
 
@@ -35,12 +43,23 @@ export default function ComplianceCard({
   conditions,
   flags,
   todayYMD,
+  constraint = null,
 }: {
   stage: string | null
   status: string
   conditions: DealConditionRow[]
   flags: DealFlagRow[]
   todayYMD: string
+  /** The active client constraint with its cost, passed by the deal room. A
+   * reason plus a cost sentence make it a documented suitability assessment. */
+  constraint?: {
+    type: ConstraintType
+    lenderLabel: string
+    reason: string
+    costSentence: string
+    actingEmail: string
+    createdAt: string
+  } | null
 }) {
   const complianceFlags = flags.filter(f => f.kind === 'compliance_gap')
   const openComplianceFlags = complianceFlags.filter(f => f.status === 'open')
@@ -49,10 +68,12 @@ export default function ComplianceCard({
   const overdueComplianceConds = complianceConds.filter(
     c => isOpenCond(c) && c.dueDate !== null && c.dueDate < todayYMD,
   )
+  const documentedSuitability = Boolean(constraint && constraint.reason && constraint.costSentence)
   const posture = compliancePosture({
     openComplianceFlags: openComplianceFlags.length,
     overdueComplianceConditions: overdueComplianceConds.length,
     hasAnyRecorded: conditions.length > 0 || flags.length > 0,
+    documentedSuitability,
   })
 
   const prechecked = conditions.filter(c => c.precheckStatus !== null)
@@ -185,12 +206,33 @@ export default function ComplianceCard({
         </p>
       </div>
 
+      {/* Documented suitability: a constraint with a reason and a cost is a
+          recorded compliance asset, not a gap */}
+      {documentedSuitability && constraint && (
+        <div
+          className="mt-3 bg-green-50 border border-green-100 rounded-lg px-3 py-2.5"
+          data-testid="documented-suitability"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Chip tone="green">Documented suitability</Chip>
+            <span className="text-xs font-semibold text-navy font-body">
+              {CONSTRAINT_LABEL[constraint.type]}: {constraint.lenderLabel}
+            </span>
+          </div>
+          <p className="text-sm text-gray-700 font-body mt-1.5">{constraint.reason}</p>
+          <p className="text-xs text-gray-600 font-body mt-1">{constraint.costSentence}</p>
+          <p className="text-[11px] text-gray-400 font-body mt-1">
+            Recorded by {constraint.actingEmail} {fmtDateTime(constraint.createdAt)}
+          </p>
+        </div>
+      )}
+
       {/* Honest gaps: never fabricated from adjacent data */}
       <div className="mt-3 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5">
         <p className="text-xs font-semibold text-gray-500 font-body">Not yet captured by the workbench</p>
         <p className="text-xs text-gray-500 font-body mt-1">
-          {WORKBENCH_GAP_FIELDS.join('; ')}. These render as gaps rather than guesses and never
-          count toward a clear posture.
+          {workbenchGapFields(documentedSuitability).join('; ')}. These render as gaps rather than guesses
+          and never count toward a clear posture.
         </p>
       </div>
     </div>

@@ -17,9 +17,57 @@
 
 import { PRODUCT_CLASSES, TEST_LENDER_SLUG, type RateType } from '@/lib/scenario'
 import { lenderDisplayName } from '@/config/lenders'
+import { evaluateQuote, type BorrowerRequirement, type ClientCommitment, type TransactionType } from '@/lib/eligibility'
 import type { RateQuoteFullRow } from '@/lib/underwriting'
 
 export const STALE_DAYS = 30
+
+// The Lenders tab shows what an ordinary Ontario borrower can genuinely have:
+// a province-ineligible lender (BC credit unions) never gets a card, and a
+// restricted program (physician / bundle / channel / undisclosed) never sets a
+// browse headline. No transaction context here, so transaction-only promos are
+// left in (they are valid for some transactions). Province-unknown lenders are
+// shown (this is Michael's internal browse), the same as the scenario.
+function browseEligible(q: RateQuoteFullRow): boolean {
+  const v = evaluateQuote(
+    {
+      id: q.id,
+      lenderSlug: q.lenderSlug,
+      variant: q.variant,
+      programNotes: q.programNotes,
+      borrowerRequirement: q.borrowerRequirement as BorrowerRequirement | null,
+      clientCommitment: q.clientCommitment as ClientCommitment | null,
+      channelRequirement: (q.channelRequirement as 'exclusive_partner' | null) ?? null,
+      transactionTypes: q.transactionTypes as TransactionType[] | null,
+      eligibilityUnknown: q.eligibilityUnknown,
+      eligibilitySource: q.eligibilitySource,
+    },
+    'ON',
+    {},
+    null,
+  )
+  return v.category === 'eligible'
+}
+
+/** Lenders excluded from the Lenders tab because they cannot lend in Ontario
+ * (a BC credit union), for the honest exclusion note. */
+export function browseProvinceExcluded(approved: RateQuoteFullRow[]): string[] {
+  const excluded = new Set<string>()
+  for (const q of approved) {
+    if (q.status !== 'approved' || q.lenderSlug === TEST_LENDER_SLUG) continue
+    const v = evaluateQuote(
+      { id: q.id, lenderSlug: q.lenderSlug, variant: q.variant, programNotes: q.programNotes,
+        borrowerRequirement: q.borrowerRequirement as BorrowerRequirement | null,
+        clientCommitment: q.clientCommitment as ClientCommitment | null,
+        channelRequirement: (q.channelRequirement as 'exclusive_partner' | null) ?? null,
+        transactionTypes: q.transactionTypes as TransactionType[] | null,
+        eligibilityUnknown: q.eligibilityUnknown, eligibilitySource: q.eligibilitySource },
+      'ON', {}, null,
+    )
+    if (v.category === 'province_ineligible') excluded.add(q.lenderSlug)
+  }
+  return Array.from(excluded)
+}
 
 /** Minimal shapes so the model tests without the full workbench rows. */
 export interface PendingSheetLite {
@@ -87,6 +135,9 @@ export function lenderCards(
     // Only approved rows are quotable, and the reserved TEST lender never
     // mingles with live browse cards (same posture as the scenario matcher).
     if (q.status !== 'approved' || q.lenderSlug === TEST_LENDER_SLUG) continue
+    // Eligibility: a BC credit union never gets a card; a restricted program
+    // never sets a browse headline (an ordinary Ontario borrower cannot use it).
+    if (!browseEligible(q)) continue
     if (!byLender.has(q.lenderSlug)) byLender.set(q.lenderSlug, [])
     byLender.get(q.lenderSlug)!.push(q)
   }

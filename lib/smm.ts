@@ -336,6 +336,13 @@ export interface Comparable {
   asOf: string | null // sheet date
   termMonths: number
   kind: 'fixed' | 'floating'
+  // Optional enrichments from the eligible comparable (Part 1c): the slug (for a
+  // province-flag on internal cards), the floating discount + the prime it was
+  // priced against (so a computed effective rate is never mistaken for printed).
+  lenderSlug?: string
+  variance?: number | null
+  primeUsed?: number | null
+  rateType?: string
 }
 
 export interface PenaltyEstimate {
@@ -389,6 +396,40 @@ export function penaltyEstimate(
   }
 }
 
+// ─── Transaction type (Part 1c) ─────────────────────────────────────────────
+// Michael's rule: an SMM client who BREAKS their mortgage is a refinance
+// (uninsurable → conventional pricing, a penalty, an 80% LTV cap, full
+// requalification at the stress test). A client at maturity is a switch (the
+// original insurance class ports, no penalty, no requalification). The maturity
+// date decides: within the switch window it is a switch, otherwise (or when the
+// maturity is unknown) it is a refinance — the conservative, higher-priced call.
+export type TransactionKind = 'refinance' | 'switch'
+export const SWITCH_WINDOW_DAYS = 120
+export const MAX_REFI_LTV = 80
+
+export function daysToMaturity(maturityDate: string | null, todayYMD: string): number | null {
+  if (!maturityDate) return null
+  const m = maturityDate.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  const [ty, tm, td] = todayYMD.split('-').map(Number)
+  return Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(ty, tm - 1, td)) / 86_400_000)
+}
+
+export function deriveTransaction(maturityDate: string | null, todayYMD: string): TransactionKind {
+  const days = daysToMaturity(maturityDate, todayYMD)
+  if (days != null && days <= SWITCH_WINDOW_DAYS) return 'switch'
+  return 'refinance'
+}
+
+/** LTV percent from the export's balance and estimated home value, or null when
+ * it cannot be computed (missing / non-positive / implausible value). */
+export function computeLtv(balance: number | null, homeValue: number | null): number | null {
+  if (balance == null || homeValue == null || homeValue <= 0 || balance <= 0) return null
+  const ltv = (balance / homeValue) * 100
+  if (ltv > 200) return null // implausible data
+  return Math.round(ltv * 10) / 10
+}
+
 export interface FoxAnalysis {
   currentPayment: number | null
   newPayment: number | null
@@ -398,8 +439,30 @@ export interface FoxAnalysis {
   penalty: PenaltyEstimate | null
   remainingMonths: number | null
   breakEvenMonths: number | null
-  netBenefit: number | null // saving over remaining term minus penalty
+  netBenefit: number | null // saving over the horizon minus penalty
   bucket: OppBucket
+  // Part 1c context
+  transaction: TransactionKind | null
+  productClass: string | null
+  ltv: number | null
+  /** True when a refinance is blocked by the 80% LTV cap. Excluded from act-now. */
+  ltvBlocked: boolean
+  /** True when this is a refinance: requires requalifying at the stress test. */
+  requalification: boolean
+  /** Whether a break penalty applies (refinance yes, switch no). */
+  penaltyApplies: boolean
+  /** The months the saving was projected over (remaining term for a break; the
+   * new term for a switch). */
+  horizonMonths: number | null
+  /** A plain reason when the opportunity is insufficient/blocked. */
+  blockReason: string | null
+}
+
+export interface AnalyzeOptions {
+  transaction?: TransactionKind
+  productClass?: string
+  /** Precomputed LTV; else computed from the row. */
+  ltv?: number | null
 }
 
 // Standard amortization assumption where the export's is missing/implausible,
@@ -421,29 +484,65 @@ export function remainingTermMonths(maturityDate: string | null, todayYMD: strin
   return months
 }
 
-// Compute Fox's analysis. `comparable` is the best gate-approved comparable
-// (fixed for fixed clients; the page also passes the floating alternative for
-// variable clients but the primary net-benefit math uses the chosen one).
+// Compute Fox's analysis. `comparable` is the best gate-approved ELIGIBLE
+// comparable (of the correct product class for the transaction). Transaction
+// (refinance vs switch), the 80% LTV cap, and whether a penalty applies are all
+// resolved from the export's maturity + balance + value, so the savings figure
+// is what the client can actually have, never an insured rate a refinance can't.
 export function analyzeOpportunity(
   row: SmmParsedRow,
   comparable: Comparable | null,
   methodologyKnown: boolean,
   todayYMD: string,
+  opts: AnalyzeOptions = {},
 ): FoxAnalysis {
-  if (!isAnalyzable(row) || comparable == null) {
-    return {
-      currentPayment: null,
-      newPayment: null,
-      monthlyDelta: null,
-      monthlySaving: null,
-      comparable,
-      penalty: null,
-      remainingMonths: remainingTermMonths(row.maturityDate, todayYMD),
-      breakEvenMonths: null,
-      netBenefit: null,
-      bucket: 'insufficient',
-    }
+  const transaction = opts.transaction ?? deriveTransaction(row.maturityDate, todayYMD)
+  const productClass = opts.productClass ?? null
+  const ltv = opts.ltv !== undefined ? opts.ltv : computeLtv(row.balance, row.homeValue)
+  const requalification = transaction === 'refinance'
+  const penaltyApplies = transaction === 'refinance'
+  const remaining = remainingTermMonths(row.maturityDate, todayYMD)
+
+  const base = {
+    transaction,
+    productClass,
+    ltv,
+    requalification,
+    penaltyApplies,
+    remainingMonths: remaining,
   }
+  const insufficient = (blockReason: string, ltvBlocked = false): FoxAnalysis => ({
+    currentPayment: null,
+    newPayment: null,
+    monthlyDelta: null,
+    monthlySaving: null,
+    comparable,
+    penalty: null,
+    breakEvenMonths: null,
+    netBenefit: null,
+    bucket: 'insufficient',
+    horizonMonths: null,
+    blockReason,
+    ltvBlocked,
+    ...base,
+  })
+
+  if (!isAnalyzable(row)) return insufficient('Not analyzable (placeholder, missing rate, or parse failure).')
+  // A refinance needs a computable LTV; missing/implausible value is a data gap,
+  // never analyzed optimistically.
+  if (transaction === 'refinance' && ltv === null) {
+    return insufficient('Cannot compute LTV (estimated home value is missing or implausible); a refinance cannot be assessed.')
+  }
+  // The 80% LTV cap is a hard block for a refinance, not a warning.
+  if (transaction === 'refinance' && ltv !== null && ltv > MAX_REFI_LTV) {
+    return insufficient(`Above the ${MAX_REFI_LTV}% LTV cap for a refinance (${ltv}%); the client cannot refinance regardless of the savings.`, true)
+  }
+  if (comparable == null) {
+    return insufficient(
+      `No eligible ${productClass ?? ''} comparable is approved for this ${transaction}.`.replace('  ', ' '),
+    )
+  }
+
   const balance = row.balance!
   const rate = row.rate!
   const amort = amortFor(row)
@@ -451,14 +550,29 @@ export function analyzeOpportunity(
   const newPayment = monthlyPayment(balance, comparable.rate, 'semi-annually', amort)
   const monthlyDelta = newPayment - currentPayment
   const monthlySaving = monthlyDelta < 0 ? -monthlyDelta : 0
-  const penalty = penaltyEstimate(balance, rate, row.rateType, methodologyKnown)
-  const remaining = remainingTermMonths(row.maturityDate, todayYMD)
-  // Net benefit over the remaining term: saving across the months left, minus
-  // the cost of breaking now. If maturity is unknown, use a conservative 12
-  // months so we never overstate.
-  const horizon = remaining != null && remaining > 0 ? remaining : 12
-  const netBenefit = monthlySaving * horizon - penalty.estimateForMath
-  const breakEvenMonths = monthlySaving > 0 ? penalty.estimateForMath / monthlySaving : null
+  // Penalty only for a break (refinance); a switch at maturity has none.
+  // For a FIXED break the true penalty is the GREATER of three months' interest
+  // and the interest-rate differential (IRD). The card and the client PDF STATE
+  // that framing, but the BUCKET math uses the 3MI floor, not a computed IRD:
+  // an accurate IRD needs the lender's own comparison rate for the remaining
+  // term (its posted rate, not the best market rate), which the portal does not
+  // have. Approximating IRD from the best comparable overstates it badly (it
+  // maximises the differential) and would flip genuine calls to stay-put — a
+  // worse error on a call-priority list than a slightly optimistic act-now,
+  // which Michael confirms on the call. So 3MI is the floor and the IRD caveat
+  // is disclosed, never guessed into the number.
+  const penalty = penaltyApplies ? penaltyEstimate(balance, rate, row.rateType, methodologyKnown) : null
+  const penaltyForMath = penalty?.estimateForMath ?? 0
+  // Horizon: a break saves over the months LEFT on the current term (before the
+  // client would have renewed anyway); a switch saves over the NEW term.
+  const horizon =
+    transaction === 'switch'
+      ? comparable.termMonths || 60
+      : remaining != null && remaining > 0
+        ? remaining
+        : 12
+  const netBenefit = monthlySaving * horizon - penaltyForMath
+  const breakEvenMonths = monthlySaving > 0 && penaltyForMath > 0 ? penaltyForMath / monthlySaving : null
 
   let bucket: OppBucket
   if (netBenefit > MARGINAL_BAND) bucket = 'act_now'
@@ -472,9 +586,12 @@ export function analyzeOpportunity(
     monthlySaving,
     comparable,
     penalty,
-    remainingMonths: remaining,
     breakEvenMonths,
     netBenefit,
+    horizonMonths: horizon,
+    blockReason: null,
+    ltvBlocked: false,
+    ...base,
     bucket,
   }
 }

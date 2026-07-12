@@ -55,8 +55,20 @@ export interface SavingsPdfInput {
   breakEvenMonths: number | null
   netBenefit: number | null
   remainingMonths: number | null
+  /** The months the net benefit was projected over (remaining term for a break;
+   * the new term for a switch). Drives the act-now copy so the horizon it names
+   * matches the math. */
+  horizonMonths?: number | null
   /** 'act_now' | 'marginal' | 'stay_put' | 'insufficient' */
   bucket: string
+  /** True when a comparable exists but its lender's provincial availability is
+   * not yet confirmed, so it is withheld from this client document (fail-closed).
+   * The PDF prints the honest "confirming availability" state. */
+  provincePending?: boolean
+  /** 'refinance' | 'switch' | null — drives the requalification line. */
+  transaction?: 'refinance' | 'switch' | null
+  /** True when this is a refinance and requalification at the stress test applies. */
+  requalification?: boolean
   /** Optional free-text note; scrubbed before drawing. */
   note?: string | null
 }
@@ -160,6 +172,22 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   }
   y -= 8
 
+  // ── Availability being confirmed: a comparable exists but its lender's
+  // provincial availability is not confirmed, so it is withheld here. ──
+  if (input.provincePending) {
+    heading('What we found')
+    para(
+      'We are confirming which lenders can lend in your province before we put a specific rate in ' +
+        'writing. Michael will follow up with the confirmed options shortly. Nothing here is a ' +
+        'commitment, and we never quote a rate a lender cannot actually offer you.',
+      9.5,
+      GRAY,
+      13,
+    )
+    drawFooter(doc, font, bold, M, width)
+    return doc.save()
+  }
+
   // ── Insufficient data: say so plainly and stop. ──
   if (input.bucket === 'insufficient' || input.comparable == null) {
     heading('What we found')
@@ -195,6 +223,18 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   } else {
     para('Today\'s comparison does not lower your monthly payment.', 9.5, GRAY, 13)
   }
+  // Refinance requalification, stated plainly (Part 1c): a savings promise that
+  // ignores qualification is a promise that cannot be kept.
+  if (input.requalification) {
+    para(
+      'Because this would mean breaking and refinancing your mortgage, you would need to requalify ' +
+        'at the government stress test. This comparison assumes you qualify; Michael will confirm ' +
+        'that with you before anything moves.',
+      9.5,
+      GRAY,
+      13,
+    )
+  }
   y -= 6
 
   // ── What breaking early would cost ──
@@ -226,15 +266,17 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   // ── Recommendation — honest about waiting ──
   heading('What we would do')
   const netPositive = (input.netBenefit ?? 0) > 0
+  const horizon = input.horizonMonths ?? input.remainingMonths
   if (netPositive && input.bucket === 'act_now') {
-    para(
-      `Even after the cost of breaking early, switching now looks worth about ` +
-        `${money(input.netBenefit)}${input.remainingMonths != null ? ` over the ${input.remainingMonths} months left on your term` : ''}. ` +
-        'It is worth a conversation. Michael will confirm the numbers with the lender before you decide.',
-      10,
-      NAVY,
-      14,
-    )
+    // A break (refinance) names the cost of breaking early over the months left;
+    // a switch at maturity has no break cost and looks over the new term.
+    const lead =
+      input.transaction === 'switch'
+        ? `Moving at your renewal looks worth about ${money(input.netBenefit)}` +
+          (horizon != null ? ` over your next ${Math.round(horizon / 12)}-year term` : '')
+        : `Even after the cost of breaking early, switching now looks worth about ${money(input.netBenefit)}` +
+          (horizon != null ? ` over the ${horizon} months left on your term` : '')
+    para(`${lead}. It is worth a conversation. Michael will confirm the numbers with the lender before you decide.`, 10, NAVY, 14)
   } else if (input.bucket === 'marginal') {
     para(
       'The savings and the cost of breaking early are close to even right now. There is no clear ' +

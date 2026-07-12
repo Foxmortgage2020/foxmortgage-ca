@@ -1500,12 +1500,23 @@ export interface RateQuoteFullRow {
   reviewedAt: string | null
   approvedVia: string | null
   heldReason: string | null
+  // Eligibility columns (fox-underwriting migration 0032). The approved book is
+  // not backfilled yet (all null live 2026-07-12), so lib/eligibility.ts derives
+  // from variant/programNotes and prefers these the moment they populate
+  // (keyed on eligibilitySource). Fetched here so the preference works with no
+  // further change when the workbench backfill lands.
+  borrowerRequirement: string | null
+  clientCommitment: string | null
+  channelRequirement: string | null
+  transactionTypes: string[] | null
+  eligibilityUnknown: boolean
+  eligibilitySource: string | null
 }
 
 export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQuoteFullRow[]>> {
   const res = await uwSelect<any>('rate_quotes', {
     select:
-      'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,status,extracted_by,created_at,reviewed_at,approved_via,held_reason',
+      'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,status,extracted_by,created_at,reviewed_at,approved_via,held_reason,borrower_requirement,client_commitment,channel_requirement,transaction_types,eligibility_unknown,eligibility_source',
     agent_id: `eq.${agentId}`,
     status: 'in.(approved,superseded)',
     order: 'as_of_date.desc',
@@ -1536,6 +1547,12 @@ export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQ
       reviewedAt: r.reviewed_at ?? null,
       approvedVia: r.approved_via ?? null,
       heldReason: r.held_reason ?? null,
+      borrowerRequirement: r.borrower_requirement ?? null,
+      clientCommitment: r.client_commitment ?? null,
+      channelRequirement: r.channel_requirement ?? null,
+      transactionTypes: Array.isArray(r.transaction_types) ? r.transaction_types : null,
+      eligibilityUnknown: r.eligibility_unknown === true,
+      eligibilitySource: r.eligibility_source ?? null,
     })),
   )
 }

@@ -15,19 +15,16 @@ import {
   smmStoreConfigured,
 } from '@/lib/smm-store'
 import {
-  analyzeOpportunity,
   collapseCoBorrowers,
   diffUploads,
   hasParseFailure,
-  isAnalyzable,
   isPlaceholder,
   parseSmmRow,
   type FoxAnalysis,
   type SmmMortgage,
 } from '@/lib/smm'
-import { bestFixedComparable, insuranceToProductClass, type BookQuote } from '@/lib/smm-match'
-import { lenderMethodologyFor } from '@/lib/lenders'
-import { lenderDisplayName } from '@/config/lenders'
+import { type BookQuote } from '@/lib/smm-match'
+import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
 import { fmtMoney, torontoTodayYMD } from '@/lib/dates'
 import { isDemoMode } from '@/lib/demo'
 import SmmUpload from '@/components/admin/SmmUpload'
@@ -38,7 +35,6 @@ export const dynamic = 'force-dynamic'
 export interface OppView {
   mortgage: SmmMortgage
   analysis: FoxAnalysis
-  classAssumed: boolean
   serviceSavings: number | null
   serviceRelief: number | null
   scenarioHref: string
@@ -104,34 +100,23 @@ export default async function OpportunitiesPage() {
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
   const quotesR = agentId ? await getRateQuotesFull(agentId) : null
   const book: BookQuote[] =
-    quotesR && quotesR.configured && quotesR.ok
-      ? quotesR.data.map(q => ({
-          rate: q.rate,
-          rateType: q.rateType,
-          termMonths: q.termMonths,
-          productClass: q.productClass,
-          asOfDate: q.asOfDate,
-          status: q.status,
-          lenderSlug: q.lenderSlug,
-          primeVariance: q.primeVariance,
-        }))
-      : []
+    quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
 
-  // Build a view per mortgage.
+  // Build a view per mortgage. Part 1c: transaction type derived from maturity
+  // governs the product class and the whole analysis (analyzeMortgage).
   const views: OppView[] = mortgages.map(m => {
     const p = m.primary
-    const productClass = insuranceToProductClass(p.insuranceType)
-    const { comparable, classAssumed } = bestFixedComparable(book, productClass, lenderDisplayName)
-    const methodologyKnown = lenderMethodologyFor(p.lender.display) != null
-    const analysis = analyzeOpportunity(p, comparable, methodologyKnown, todayYMD)
-    const scenarioParams = new URLSearchParams({ purpose: 'renewal', am: '25', from: p.householdId })
+    const { analysis, productClass, transaction } = analyzeMortgage(p, book, todayYMD)
+    // The scenario prefill purpose follows the transaction so the Rates page
+    // lands on the same class the comparable used.
+    const purpose = transaction === 'refinance' ? 'refinance' : 'transfer'
+    const scenarioParams = new URLSearchParams({ purpose, am: '25', from: p.householdId })
     if (p.balance) scenarioParams.set('amount', String(Math.round(p.balance)))
     if (p.homeValue) scenarioParams.set('value', String(Math.round(p.homeValue)))
     scenarioParams.set('class', productClass)
     return {
       mortgage: m,
       analysis,
-      classAssumed,
       serviceSavings: p.savingsPotential,
       serviceRelief: p.paymentRelief,
       scenarioHref: `/portal/admin/rates?${scenarioParams.toString()}`,
@@ -260,7 +245,6 @@ function Bucket({
               balance={v.mortgage.primary.balance}
               maturity={v.mortgage.primary.maturityDate}
               analysis={v.analysis}
-              classAssumed={v.classAssumed}
               serviceSavings={v.serviceSavings}
               serviceRelief={v.serviceRelief}
               scenarioHref={v.scenarioHref}

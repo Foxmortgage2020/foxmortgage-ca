@@ -379,6 +379,16 @@ export interface KnowledgeLenderSummary {
   as_of: string | null
   has_profile: boolean
   draft: boolean
+  // Provincial availability (fox-underwriting provincial-availability session,
+  // 2026-07-12). `provinces` is an array of 2-letter codes, "national", or
+  // "unknown". Authoritative over the config/lender-provinces.ts server mirror.
+  provinces?: string[] | 'national' | 'unknown'
+  provinces_source?: string | null
+  provinces_as_of?: string | null
+  // Per-lender program definitions and channel access, when the registry
+  // serves them (not yet populated as of 2026-07-12).
+  programs?: Record<string, { description: string | null; source: string | null; as_of: string; documented: boolean }>
+  channel_access?: { status: 'held' | 'not_held'; as_of: string; note: string }
 }
 
 export function getKnowledgeLenders(token: string | null): Promise<GateResult<{ lenders: KnowledgeLenderSummary[] }>> {

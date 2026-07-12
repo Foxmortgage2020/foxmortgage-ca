@@ -1,6 +1,8 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 12, 2026 (Opportunities — the Strategic Mortgage Monitoring engine shipped. A new /portal/admin/opportunities section turns Michael's monthly SMM CSV export into a call pipeline: persist-first upload to FOXCA (smm_uploads/smm_rows before any parse), parsing with a tested sign convention (dash → null, never zero), $1 placeholder detection, co-borrower collapse, and lender normalization (config/smm-lender-aliases.ts). Fox's own analysis sits beside the service's figure — best gate-approved comparable with sheet date, payment delta from the shared engine, honest penalty framing (3MI floating; IRD-vs-3MI fixed with per-lender method or the gap), break-even, net benefit — bucketed act_now/marginal/stay_put/insufficient by dollars; a low rate near maturity is told to WAIT, never sold a switch. Backfill matches to Zoho (email>phone>name) and fills only EMPTY Maturity_Date/Mortgage_Rate via the confirmed-action apply route (values recomputed server-side, never trusted from the client; new FOXCA smm_backfill_events audit; Lender_Name excluded — it's a lookup). A savings-analysis PDF reuses the rates-PDF generator's redactComp/pdfSafe (compensation scrubbed from every line, wait-for-maturity framing). Renewals gained lapsed reconciliation against the export (still-with-lender/lender-changed/unmonitored + retention signal); Home gained an act-now rail line. Verified live: 41 mortgages from 49 rows, 1 placeholder, 0 parse failures, 0 unmapped lenders; Nicholas Aitken's 1.99% RFA file (maturity 2026-10-01) correctly told to wait, with maturity + rate proposed as backfills. The Renewal Radar and Pipeline truth (below) preceded this.
+## Last Updated: July 12, 2026 (Lender eligibility + client constraints shipped. THE LIVE BUG: Kootenay Savings and Coast Capital are BC credit unions (lender-registry.json provinces=['BC']) that cannot do an Ontario deal; Kootenay held the deepest floating discount and led nearly every floating scenario, proposed as a real client's (Sally Ryan) best comparable. FIX — a new lib/eligibility.ts is the single gate for province + program eligibility: resolveProvince (config/lender-provinces.ts server mirror of the workbench registry; live registry overrides on token surfaces; fail-closed — ineligible excluded everywhere, unknown shown flagged internally but EXCLUDED from client docs), deriveEligibility (EXACT port of fox-underwriting src/skills/extract/eligibility.ts, golden-test parity — the workbench 0032 columns EXIST but the backfill NEVER RAN, 949 approved rows all null, so the portal derives from variant+programNotes and prefers the columns via eligibilitySource when populated), channelHeld (HELD_CHANNELS: unionlink only, Michael-confirmed), evaluateQuote → {category: eligible|province_ineligible|province_unknown|channel_unavailable|transaction_mismatch|program_restricted}, includedInRanking/includedInClientDoc. lib/scenario.ts matchQuote=structuralMatch+eligibility gate (attaches verdict), scenarioExclusions for the "N excluded" notes, Scenario gained subjectProvince/borrowerProfiles/commitments/showRestricted (URL params prov/bp/cc/restricted). Wired into: scenario (RatesScenario qualifier toggles + exclusion notes + show-restricted + province flags + requirement sentences), lib/lender-browse.ts (BC + restricted excluded), Ask Fox search_rates (eligible-only, prompt v3 never-quote-unconfirmed), lib/renewals.ts bestApprovedFixed (BC/restricted excluded; switch=no-penalty already correct; insurance-class port has NO Zoho source = documented gap), both client PDFs (savings + rates: withhold province-unknown/ineligible/restricted; rates PDF gates OFFER pins too). PART 1c: transaction from maturity proximity (>120d refinance→conventional+80% LTV hard cap+requalification+penalty; ≤120d switch→original class+no penalty), analyzeMortgage/bestEligibleComparable (fixed+floating via config/prime.ts mirror, SANE_RATE_FLOOR guards a bad variance); re-ran the export: 20/41 opportunities changed bucket; Sally corrected to First National conventional adjustable P−0.50/3.95% (was the Kootenay fantasy). CONSTRAINTS (Parts 2/3/4): lib/constraints.ts (excluded/required/preferred, reason required, retire-not-delete, applyConstraints never overrides eligibility → required-but-ineligible = honest empty state), lib/constraint-cost.ts (computeCostOfConstraint/dealConstraintCost via the shared engine), FOXCA migration 20260712160000 (client_constraints + pin_confirmations, RLS+functions-only, applied+round-trip-verified live), routes under /api/portal/admin/constraints (constraints.manage, demo-refused), ClientConstraints editor in the deal room, ComplianceCard documentedSuitability (a constraint with a reason AND a real cost counts as documented suitability). Adversarial review run; fixed the client-PDF offer province leak, the floating negative-rate guard, the compliance zero-cost inflation, the constraint-cost term mismatch. 360 tests, build green. DEFERRED/REPORTED: the workbench eligibility backfill (portal derives meanwhile); provinces confirmed for only the 2 BC lenders so client PDFs withhold every comparison until Michael confirms provinces in fox-underwriting/knowledge/lender-registry.json (the visible count drives it); the live cost-of-constraint readout + manual toggle on the scenario board; constraint application to the rates surface/PDF. Opportunities engine (below) preceded this.
+
+### Prior header: Opportunities — the Strategic Mortgage Monitoring engine shipped. A new /portal/admin/opportunities section turns Michael's monthly SMM CSV export into a call pipeline: persist-first upload to FOXCA (smm_uploads/smm_rows before any parse), parsing with a tested sign convention (dash → null, never zero), $1 placeholder detection, co-borrower collapse, and lender normalization (config/smm-lender-aliases.ts). Fox's own analysis sits beside the service's figure — best gate-approved comparable with sheet date, payment delta from the shared engine, honest penalty framing (3MI floating; IRD-vs-3MI fixed with per-lender method or the gap), break-even, net benefit — bucketed act_now/marginal/stay_put/insufficient by dollars; a low rate near maturity is told to WAIT, never sold a switch. Backfill matches to Zoho (email>phone>name) and fills only EMPTY Maturity_Date/Mortgage_Rate via the confirmed-action apply route (values recomputed server-side, never trusted from the client; new FOXCA smm_backfill_events audit; Lender_Name excluded — it's a lookup). A savings-analysis PDF reuses the rates-PDF generator's redactComp/pdfSafe (compensation scrubbed from every line, wait-for-maturity framing). Renewals gained lapsed reconciliation against the export (still-with-lender/lender-changed/unmonitored + retention signal); Home gained an act-now rail line. Verified live: 41 mortgages from 49 rows, 1 placeholder, 0 parse failures, 0 unmapped lenders; Nicholas Aitken's 1.99% RFA file (maturity 2026-10-01) correctly told to wait, with maturity + rate proposed as backfills. The Renewal Radar and Pipeline truth (below) preceded this.
 
 PII DISCIPLINE (STANDING RULE from this session): the real SMM client export lives OUTSIDE the repo (~/fox-local/SMM/) and is gitignored (SMM/). It is NEVER copied into the repo tree, committed, or logged; the committed test suite runs on a SYNTHETIC fixture (tests/fixtures/smm-sample*.csv) with the exact column structure. Local verification against the real file reports counts/buckets/outcomes only — the sole named exception is Nicholas Aitken (Michael is working that file). The smm-store logs function+status+counts, never row payloads.)
 
@@ -1486,6 +1488,119 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-12 — Lender eligibility, client constraints, and the cost of a preference
+- THE LIVE BUG (found by Michael on Sally Ryan): Kootenay Savings + Coast
+  Capital are BC credit unions that cannot write an Ontario deal; Kootenay held
+  the deepest floating discount (P−1.91) and led nearly every floating scenario,
+  proposed as her best comparable. Prereq verification (live, read-only role +
+  the local fox-underwriting repo at ~/Desktop/fox-underwriting): the
+  provincial-availability micro-session SHIPPED (knowledge/lender-registry.json
+  serves provinces; only coast-capital=['BC'] + kootenay=['BC'] confirmed, all
+  22 others "unknown"); the eligibility micro-session's migration 0032 is
+  applied (rate_quotes has borrower_requirement/client_commitment/
+  channel_requirement/transaction_types/eligibility_unknown/eligibility_source)
+  but the BACKFILL NEVER RAN — 949 approved rows, ZERO with any eligibility
+  column set. No channel-access registry or program definitions populated.
+- CORE MODEL (mine, careful, tested): lib/eligibility.ts — deriveEligibility +
+  baseStem + all stem maps are an EXACT port of fox-underwriting
+  src/skills/extract/eligibility.ts (golden-test parity, byte-identical logic
+  confirmed by a reviewer diff); the portal derives from variant+programNotes
+  because the workbench columns are empty, and prefers them via eligibilitySource
+  when the backfill lands (effectiveEligibility). resolveProvince over
+  config/lender-provinces.ts (server mirror of the registry; a live registry map,
+  passed on token surfaces, overrides per-slug; UNKNOWN_FACT default = fail-
+  closed). channelHeld (config HELD_CHANNELS: unionlink held per Michael
+  2026-07-12; pmpp/other exclusive channels excluded). evaluateQuote → category
+  {eligible | province_ineligible | province_unknown | channel_unavailable |
+  transaction_mismatch | program_restricted}; includedInRanking (eligible +
+  program_restricted under showRestricted; province-unknown IN, flagged),
+  includedInClientDoc (eligible AND province-confirmed only). REQUIREMENT_SENTENCE
+  fallback for restricted-card sentences (registry programs preferred when
+  populated). tests/eligibility.test.ts (22).
+- SCENARIO (lib/scenario.ts): matchQuote = structuralMatch + the eligibility
+  gate (attaches verdict); scenarioExclusions buckets the excluded lenders for
+  the "N excluded" notes; Scenario gained subjectProvince/borrowerProfiles/
+  commitments/showRestricted with the URL round-trip (prov/bp/cc/restricted).
+  RatesScenario UI (via a build workflow): qualifier toggles (physician/net
+  worth/business-for-self/new-to-Canada + move-banking/quick-close), show-
+  restricted, restricted rows amber with their requirement sentence, province
+  "availability not confirmed" chips, five collapsible exclusion notes. Fail-
+  closed change is intended: an unrecognized variant is now eligibility_unknown
+  → restricted → excluded from default (two scenario tests updated to assert it).
+- PART 1c (transaction → product class): lib/smm.ts deriveTransaction (maturity
+  >120d or unknown = refinance; ≤120d = switch), computeLtv, MAX_REFI_LTV 80 hard
+  block, analyzeOpportunity gained transaction/ltv/ltvBlocked/requalification/
+  penaltyApplies/horizonMonths/blockReason (refinance horizon = remaining,
+  switch = new term; switch no penalty). lib/smm-match.ts bestEligibleComparable
+  (HARD product-class match, eligibility-filtered, fixed printed + floating
+  effective via config/prime.ts mirror, SANE_RATE_FLOOR 0.5 guards a bad
+  variance, prefers a floating quote's printed rate). lib/smm-analysis.ts
+  analyzeMortgage: refinance→conventional, switch→original class; bookQuoteFromRow
+  shared by board+PDF+Home rail. Fixture re-run (real export, PII-safe, counts
+  only): 20 of 41 opportunities change bucket (9 stay_put→marginal, 3
+  stay_put→act_now, 4 stay_put→insufficient [LTV cap / no eligible comparable],
+  4 marginal→act_now). Sally Ryan corrected comparable = First National
+  conventional adjustable P−0.50 → 3.95% (was the Kootenay ~2.54/3.59% fantasy);
+  both her files are refinances under 80% LTV.
+- ASK FOX: search_rates returns eligible lenders only (BC excluded via the
+  scenario gate; province_confirmed flag per lender + an excluded summary),
+  prompt v3 rule 2a (never quote an ineligible or unconfirmed-province lender to
+  a client). RENEWALS: bestApprovedFixed now filters province+program
+  eligibility (switch=transfer); no-penalty already correct; insurance-class
+  port has no Zoho source (documented gap). lib/lender-browse.ts: BC + restricted
+  excluded from the Lenders tab; browseProvinceExcluded for the note.
+- CLIENT-DOC FAIL-CLOSED: savings PDF withholds a province-unknown/ineligible
+  comparable (provincePending state) + prints the requalification line for a
+  refinance; rates PDF filters quote pins AND offer pins through
+  includedInClientDoc/resolveProvince (an offer for a province-unconfirmed lender
+  can no longer print — an adversarial-review HIGH). Since only the 2 BC lenders
+  are province-confirmed today, client PDFs currently withhold every comparison
+  and print the honest "confirming availability" state — the intended fail-closed
+  cost; the Rates unconfirmed-lender count drives Michael to fill the registry.
+- CONSTRAINTS (Parts 2/3/4): lib/constraints.ts (excluded/required/preferred,
+  reason required, retire-not-delete, applyConstraints never overrides eligibility
+  → required-but-ineligible = honest empty state, unit-tested). lib/constraint-
+  cost.ts (computeCostOfConstraint + dealConstraintCost via the shared cent-
+  validated monthlyPayment; same-term comparison after the review flagged a
+  1yr-vs-5yr mismatch). FOXCA migration 20260712160000 (client_constraints +
+  pin_confirmations; RLS on, grants revoked, 6 security-definer functions;
+  applied live + round-trip verified: add→list→retire, retained, 42501 on the
+  table). lib/constraints-store.ts (twin, demo-inert). Routes under
+  /api/portal/admin/constraints (list rates.view; add/retire/pin
+  constraints.manage NEW authority key, demo-refused). ClientConstraints editor
+  in the deal room. ComplianceCard documentedSuitability = a constraint with a
+  reason AND a real (cost>0) trade-off, attributed to the driving
+  excluded/required constraint (both review fixes). tests/constraints.test.ts (13)
+  + tests/constraints-demo.test.ts (2).
+- ADVERSARIAL REVIEW (3 dimensions, plain-text workflow): fixed the client-PDF
+  OFFER province leak (HIGH), the floating negative-rate guard (MEDIUM), the
+  compliance zero-cost-preferred inflation (MEDIUM), the constraint-cost term
+  mismatch (MEDIUM), the savings-PDF switch copy (LOW), printed-floating
+  preference (LOW). Considered-and-reverted: an IRD-in-bucketing estimate — an
+  accurate IRD needs the lender's own comparison rate (not the best market rate),
+  and approximating it overstates the penalty and flips genuine calls to
+  stay-put, a worse error on a call list than a slightly optimistic act-now that
+  Michael confirms on the call; 3MI stays the bucket floor with the IRD caveat
+  disclosed on the card and PDF.
+- Verification: tsc clean, production build green, 360 tests. FOXCA posture +
+  constraints round-trip proven live; the approved-book pricing by class
+  validated live (best unrestricted conventional adjustable = First National
+  P−0.50/3.95%, conventional fixed 4.59%, matching the brief to the cent);
+  eligibility golden parity confirmed against the source. Authenticated page
+  screenshots need Michael's Clerk session (agent cannot authenticate); the
+  savings PDF (refinance + requalification, and the province-pending state) was
+  rendered and eyeballed.
+- Guardrails held: readonly workbench (all reads through the existing role; no
+  workbench writes), FOXCA narrow functions only, Zoho writes only through the
+  confirmed-action routes, approved quotes only with sheet dates,
+  adjustable/variable never conflated, calculator reused never forked, no
+  estimate rendered as an actual (floating effective labeled with the prime
+  mirror as-of; computed figures never on a client PDF today via the province
+  gate), compensation scrubber on every client string, currentUser(), middleware
+  publicRoutes untouched, no ANTHROPIC_API_KEY in build subprocesses, demo mode
+  proven zero-real-reads for the new constraints store (tested), copy rules
+  throughout.
 
 ### 2026-07-12 — Opportunities: the Strategic Mortgage Monitoring engine
 - The mandate: turn Michael's monthly SMM CSV export (real client PII, kept

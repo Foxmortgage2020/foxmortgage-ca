@@ -105,6 +105,7 @@ describe('session 8 role baselines', () => {
       'conditions.decide',
       'agent.execute',
       'compliance.manage',
+      'constraints.manage',
       'status.acknowledge',
       'people.manage',
       'agents.provision',

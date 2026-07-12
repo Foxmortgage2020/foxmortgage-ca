@@ -37,7 +37,6 @@ export default function OpportunityCard({
   balance,
   maturity,
   analysis,
-  classAssumed,
   serviceSavings,
   serviceRelief,
   scenarioHref,
@@ -55,7 +54,6 @@ export default function OpportunityCard({
   balance: number | null
   maturity: string | null
   analysis: FoxAnalysis
-  classAssumed: boolean
   serviceSavings: number | null
   serviceRelief: number | null
   scenarioHref: string
@@ -121,29 +119,38 @@ export default function OpportunityCard({
       {/* Side by side: Fox's analysis | the service's figure */}
       <div className="mt-2 grid sm:grid-cols-2 gap-2">
         <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2">
-          <p className="text-[11px] font-body text-gray-400 uppercase tracking-wide mb-1">Fox&apos;s analysis</p>
+          <p className="text-[11px] font-body text-gray-400 uppercase tracking-wide mb-1">
+            Fox&apos;s analysis
+            {a.transaction && (
+              <span className="ml-1 normal-case text-navy font-semibold">· {a.transaction === 'refinance' ? 'Refinance (break)' : 'Switch'}</span>
+            )}
+          </p>
           {a.bucket === 'insufficient' || a.comparable == null ? (
-            <p className="text-xs font-body text-amber-700">
-              Not analyzable (placeholder, missing rate, or the approved book is unavailable).
-            </p>
+            <p className="text-xs font-body text-amber-700">{a.blockReason ?? 'Not analyzable (placeholder, missing rate, or the approved book is unavailable).'}</p>
           ) : (
             <div className="text-xs font-body space-y-0.5">
               <p>
-                Best approved <span className="text-navy font-semibold">{a.comparable.rate}%</span>{' '}
-                <span className="text-gray-400">{a.comparable.lender}, as of {shortDate(a.comparable.asOf)}{classAssumed ? ', class assumed' : ''}</span>
+                Best eligible {a.comparable.kind === 'floating' ? `${a.comparable.rateType ?? 'floating'} ` : ''}
+                <span className="text-navy font-semibold">{a.comparable.rate}%</span>{' '}
+                {a.comparable.kind === 'floating' && a.comparable.primeUsed != null && (
+                  <span className="text-gray-400">(prime {a.comparable.primeUsed}% {a.comparable.variance != null ? (a.comparable.variance < 0 ? a.comparable.variance : `+${a.comparable.variance}`) : ''}) </span>
+                )}
+                <span className="text-gray-400">{a.comparable.lender}, {a.productClass}, as of {shortDate(a.comparable.asOf)}</span>
               </p>
               <p className="text-gray-600">
                 Payment {money2(a.currentPayment)} → {money2(a.newPayment)}
                 {a.monthlySaving && a.monthlySaving > 0 ? <span className="text-green-700 font-semibold"> ({money2(a.monthlySaving)}/mo saved)</span> : ''}
               </p>
               <p className={`font-heading font-bold ${(a.netBenefit ?? 0) > 0 ? 'text-green-700' : 'text-gray-600'}`}>
-                Net benefit {money(a.netBenefit)}{a.remainingMonths != null ? ` over ${a.remainingMonths} mo` : ''}
+                Net benefit {money(a.netBenefit)}{a.horizonMonths != null ? ` over ${a.horizonMonths} mo` : ''}
               </p>
               {a.penalty && (
                 <p className="text-gray-500">
                   Penalty ~{money(a.penalty.threeMonthsInterest)} (3mo interest){a.breakEvenMonths != null ? `, break-even ${Math.ceil(a.breakEvenMonths)} mo` : ''}
                 </p>
               )}
+              {a.transaction === 'switch' && <p className="text-[10px] text-gray-500">Switch at maturity: no penalty applies.</p>}
+              {a.requalification && <p className="text-[10px] text-amber-700">Refinance: requires requalifying at the stress test; this assumes qualification.</p>}
               {a.penalty && !a.penalty.methodologyKnown && (
                 <p className="text-[10px] text-amber-700">Fixed IRD methodology not documented for this lender; no single penalty asserted.</p>
               )}

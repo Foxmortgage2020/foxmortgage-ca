@@ -23,9 +23,34 @@
 
 import { monthlyPayment } from '@/lib/mortgage-engine'
 import type { RateQuoteFullRow } from '@/lib/underwriting'
+import {
+  evaluateQuote,
+  includedInRanking,
+  type BorrowerRequirement,
+  type ClientCommitment,
+  type EligibilityVerdict,
+  type ProvinceFact,
+  type TransactionType,
+} from '@/lib/eligibility'
 
 export const PURPOSES = ['purchase', 'transfer', 'refinance', 'renewal'] as const
 export type Purpose = (typeof PURPOSES)[number]
+
+// The scenario's purpose maps to a transaction type for quote transaction
+// filtering (Radius promo is purchase/transfer only, MCAP safeguard refinance
+// only). A transfer is a switch in the transaction vocabulary.
+export function purposeToTransaction(purpose: Purpose): TransactionType {
+  return purpose === 'transfer' ? 'transfer' : purpose
+}
+
+// Extra eligibility inputs that only some (client) surfaces have: the live
+// province registry and program definitions from the Gates knowledge endpoint.
+// Server surfaces omit it and fall back to the config mirror — identical to the
+// registry today (only the two BC credit unions are confirmed).
+export interface EligibilityContext {
+  liveProvinces?: Map<string, ProvinceFact> | null
+  livePrograms?: Record<string, string> | null
+}
 
 export const OCCUPANCIES = ['owner_occupied', 'rental'] as const
 export type Occupancy = (typeof OCCUPANCIES)[number]
@@ -71,6 +96,17 @@ export interface Scenario {
   /** Property value in dollars; null until entered. */
   propertyValue: number | null
   amortizationYears: AmortizationYears
+  // ─── Eligibility (2026-07-12) ───
+  /** Subject-property province governs structural eligibility. Ontario is the
+   * default and, today, the only one. */
+  subjectProvince: string
+  /** Borrower-profile qualifiers toggled on (unlock restricted borrower rates). */
+  borrowerProfiles: BorrowerRequirement[]
+  /** Client-commitment qualifiers toggled on (unlock bundle / quick-close). */
+  commitments: ClientCommitment[]
+  /** Reveal restricted products alongside eligible ones, each with its
+   * requirement. Default off: the default set is only what the client can have. */
+  showRestricted: boolean
 }
 
 export const DEFAULT_SCENARIO: Scenario = {
@@ -83,6 +119,10 @@ export const DEFAULT_SCENARIO: Scenario = {
   amount: null,
   propertyValue: null,
   amortizationYears: 25,
+  subjectProvince: 'ON',
+  borrowerProfiles: [],
+  commitments: [],
+  showRestricted: false,
 }
 
 /** Derived and locked: LTV is never editable. Two decimals. */
@@ -298,17 +338,48 @@ export interface QuoteMatch {
   /** Sparse-dimension notes: why this quote could not be ruled out. Empty
    * means every scenario dimension was explicitly satisfied. */
   assumed: string[]
+  /** The eligibility verdict (province, program, channel, transaction). A
+   * match is only returned when the quote is included in ranking, so this is
+   * always 'eligible' or, under show-restricted, 'program_restricted'. */
+  verdict: EligibilityVerdict
 }
 
-export function matchQuote(q: RateQuoteFullRow, s: Scenario): QuoteMatch | null {
+/** Turn a quote row into the shape lib/eligibility.ts consumes. */
+function eligFields(q: RateQuoteFullRow) {
+  return {
+    id: q.id,
+    lenderSlug: q.lenderSlug,
+    variant: q.variant,
+    programNotes: q.programNotes,
+    borrowerRequirement: q.borrowerRequirement as BorrowerRequirement | null,
+    clientCommitment: q.clientCommitment as ClientCommitment | null,
+    channelRequirement: (q.channelRequirement as 'exclusive_partner' | null) ?? null,
+    transactionTypes: q.transactionTypes as TransactionType[] | null,
+    eligibilityUnknown: q.eligibilityUnknown,
+    eligibilitySource: q.eligibilitySource,
+  }
+}
+
+export function scenarioVerdict(q: RateQuoteFullRow, s: Scenario, ctx?: EligibilityContext): EligibilityVerdict {
+  return evaluateQuote(
+    eligFields(q),
+    s.subjectProvince,
+    { borrowerProfiles: s.borrowerProfiles, commitments: s.commitments, transaction: purposeToTransaction(s.purpose) },
+    ctx?.liveProvinces ?? null,
+    ctx?.livePrograms ?? null,
+  )
+}
+
+/** The STRUCTURAL match only: product class, term, rate type, cashback, and the
+ * variant's pricing dimensions. Eligibility is layered on in matchQuote. Kept
+ * separate so scenarioExclusions can categorise structurally-matching quotes
+ * that eligibility then excludes. */
+export function structuralMatch(q: RateQuoteFullRow, s: Scenario): Omit<QuoteMatch, 'verdict'> | null {
   if (q.status !== 'approved') return null
   if (q.lenderSlug === TEST_LENDER_SLUG) return null
   if (q.productClass !== s.productClass) return null
   if (s.termMonths !== null && q.termMonths !== s.termMonths) return null
-  // rate_type is fully populated (default fixed), so the three-way filter
-  // is a hard dimension: no assumed note, no leakage across mechanisms.
   if (s.rateType !== null && q.rateType !== s.rateType) return null
-  // cashback_pct is present-or-null by design: a tier is its own row.
   if (s.cashback === 'only' && q.cashbackPct === null) return null
   if (s.cashback === 'none' && q.cashbackPct !== null) return null
 
@@ -343,13 +414,83 @@ export function matchQuote(q: RateQuoteFullRow, s: Scenario): QuoteMatch | null 
     }
   }
 
-  // Rental scenarios: a quote without an explicit rental marker cannot be
-  // ruled out (most sheets in the inventory carry no occupancy split).
   if (s.occupancy === 'rental' && v.kind !== 'rental') {
     assumed.push('This sheet does not state rental pricing; confirm with the lender.')
   }
 
   return { quote: q, assumed }
+}
+
+export function matchQuote(q: RateQuoteFullRow, s: Scenario, ctx?: EligibilityContext): QuoteMatch | null {
+  const sm = structuralMatch(q, s)
+  if (!sm) return null
+  // Eligibility: exclude province-ineligible / channel-unavailable /
+  // transaction-mismatch / un-unlocked program restrictions. Province-unknown
+  // stays IN (flagged); the client-doc layer excludes it. Show-restricted
+  // reveals program_restricted quotes.
+  const verdict = scenarioVerdict(q, s, ctx)
+  if (!includedInRanking(verdict, s.showRestricted)) return null
+  return { ...sm, verdict }
+}
+
+/** Exclusion summary for the honest "N lenders excluded" note. Evaluates every
+ * quote that STRUCTURALLY matches the scenario and buckets the ones eligibility
+ * excludes, plus the province-unknown lenders that render flagged. Counts are by
+ * distinct lender slug. */
+export interface ScenarioExclusions {
+  provinceIneligible: { slug: string; provinces: string }[]
+  provinceUnknown: string[]
+  channelUnavailable: string[]
+  transactionMismatch: string[]
+  programRestricted: { slug: string; requirements: string[]; requirementSentences: string[] }[]
+}
+
+export function scenarioExclusions(
+  quotes: RateQuoteFullRow[],
+  s: Scenario,
+  ctx?: EligibilityContext,
+): ScenarioExclusions {
+  const ineligible = new Map<string, string>()
+  const unknown = new Set<string>()
+  const channel = new Set<string>()
+  const txn = new Set<string>()
+  const restricted = new Map<string, { requirements: Set<string>; sentences: Set<string> }>()
+  for (const q of quotes) {
+    if (!structuralMatch(q, s)) continue
+    const v = scenarioVerdict(q, s, ctx)
+    switch (v.category) {
+      case 'province_ineligible':
+        ineligible.set(q.lenderSlug, Array.isArray(v.province.provinces) ? v.province.provinces.join(', ') : String(v.province.provinces))
+        break
+      case 'channel_unavailable':
+        channel.add(q.lenderSlug)
+        break
+      case 'transaction_mismatch':
+        txn.add(q.lenderSlug)
+        break
+      case 'program_restricted': {
+        const e = restricted.get(q.lenderSlug) ?? { requirements: new Set(), sentences: new Set() }
+        v.requirementCodes.forEach(c => e.requirements.add(c))
+        v.requirementSentences.forEach(sn => e.sentences.add(sn))
+        restricted.set(q.lenderSlug, e)
+        break
+      }
+      case 'eligible':
+        if (v.province.status === 'unknown') unknown.add(q.lenderSlug)
+        break
+    }
+  }
+  return {
+    provinceIneligible: Array.from(ineligible.entries()).map(([slug, provinces]) => ({ slug, provinces })),
+    provinceUnknown: Array.from(unknown),
+    channelUnavailable: Array.from(channel),
+    transactionMismatch: Array.from(txn),
+    programRestricted: Array.from(restricted.entries()).map(([slug, e]) => ({
+      slug,
+      requirements: Array.from(e.requirements),
+      requirementSentences: Array.from(e.sentences),
+    })),
+  }
 }
 
 export interface LenderResult {
@@ -411,10 +552,11 @@ export function lenderResults(
   quotes: RateQuoteFullRow[],
   s: Scenario,
   ref: RatesReference | null = null,
+  ctx?: EligibilityContext,
 ): LenderResult[] {
   const byLender = new Map<string, QuoteMatch[]>()
   for (const q of quotes) {
-    const m = matchQuote(q, s)
+    const m = matchQuote(q, s, ctx)
     if (!m) continue
     if (!byLender.has(q.lenderSlug)) byLender.set(q.lenderSlug, [])
     byLender.get(q.lenderSlug)!.push(m)
@@ -700,6 +842,10 @@ export function scenarioToParams(s: Scenario): Record<string, string> {
   if (s.cashback !== 'any') p.cb = s.cashback
   if (s.amount) p.amount = String(s.amount)
   if (s.propertyValue) p.value = String(s.propertyValue)
+  if (s.subjectProvince !== 'ON') p.prov = s.subjectProvince
+  if (s.borrowerProfiles.length) p.bp = s.borrowerProfiles.join(',')
+  if (s.commitments.length) p.cc = s.commitments.join(',')
+  if (s.showRestricted) p.restricted = '1'
   return p
 }
 
@@ -751,6 +897,10 @@ export function scenarioFromParams(sp: Record<string, string | string[] | undefi
   const rateType = RATE_TYPES.find(x => x === one('rt')) ?? null
   const cashback = CASHBACK_FILTERS.find(x => x === one('cb')) ?? 'any'
   const am = num('am')
+  const BORROWER = ['physician', 'net_worth', 'new_to_canada', 'business_for_self']
+  const COMMIT = ['banking_bundle', 'quick_close_45d', 'quick_close_60d', 'quick_close_90d']
+  const csv = (k: string, allowed: string[]): string[] =>
+    (one(k) ?? '').split(',').map(x => x.trim()).filter(x => allowed.includes(x))
   return {
     purpose,
     occupancy,
@@ -761,5 +911,9 @@ export function scenarioFromParams(sp: Record<string, string | string[] | undefi
     amount: num('amount'),
     propertyValue: num('value'),
     amortizationYears: am === 30 ? 30 : 25,
+    subjectProvince: (one('prov') ?? 'ON').toUpperCase().slice(0, 2),
+    borrowerProfiles: csv('bp', BORROWER) as BorrowerRequirement[],
+    commitments: csv('cc', COMMIT) as ClientCommitment[],
+    showRestricted: one('restricted') === '1',
   }
 }

@@ -47,7 +47,7 @@ import {
 } from '@/lib/underwriting'
 import { recentUploads, rawRowsForUpload, smmStoreConfigured } from '@/lib/smm-store'
 import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
-import { analyzeMortgage } from '@/lib/smm-analysis'
+import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
 import type { BookQuote } from '@/lib/smm-match'
 import { listCredentials } from '@/lib/compliance'
 import { credentialTone } from '@/lib/compliance-logic'
@@ -273,18 +273,7 @@ export default async function AdminHome() {
         ])
         if (rowsR.configured && rowsR.ok) {
           const book: BookQuote[] =
-            quotesR && quotesR.configured && quotesR.ok
-              ? quotesR.data.map(q => ({
-                  rate: q.rate,
-                  rateType: q.rateType,
-                  termMonths: q.termMonths,
-                  productClass: q.productClass,
-                  asOfDate: q.asOfDate,
-                  status: q.status,
-                  lenderSlug: q.lenderSlug,
-                  primeVariance: q.primeVariance,
-                }))
-              : []
+            quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
           const { mortgages } = collapseCoBorrowers(rowsR.data.map(parseSmmRow))
           let count = 0
           let net = 0

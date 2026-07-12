@@ -28,35 +28,85 @@ const book: BookQuote[] = [
   { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null },
 ]
 
-describe('analyzeMortgage', () => {
-  it('maps insurance type to product class and picks the class comparable', () => {
-    const { analysis, productClass, classAssumed } = analyzeMortgage(row({}), book, TODAY)
-    expect(productClass).toBe('insurable')
-    expect(classAssumed).toBe(false)
-    expect(analysis.comparable?.rate).toBe(4.19) // the insurable comparable, not the cheaper conventional one
+describe('analyzeMortgage (Part 1c transaction → product class)', () => {
+  it('a far-maturity break is a REFINANCE priced against CONVENTIONAL, never the insured/insurable rate', () => {
+    // Insurable client, maturity 2030 (far) → refinance → conventional only.
+    const { analysis, productClass, transaction } = analyzeMortgage(row({}), book, TODAY)
+    expect(transaction).toBe('refinance')
+    expect(productClass).toBe('conventional')
+    expect(analysis.comparable?.rate).toBe(4.09) // the conventional comparable, not insurable 4.19
+    expect(analysis.requalification).toBe(true)
+    expect(analysis.penaltyApplies).toBe(true)
   })
 
-  it('flags a high-rate long-term mortgage as act_now', () => {
+  it('a near-maturity file is a SWITCH: original class ports, no penalty, no requalification', () => {
+    const { analysis, productClass, transaction } = analyzeMortgage(
+      row({ 'Mortgage maturity date': '2026-09-15' }), // < 120 days out
+      book,
+      TODAY,
+    )
+    expect(transaction).toBe('switch')
+    expect(productClass).toBe('insurable') // ported original class
+    expect(analysis.comparable?.rate).toBe(4.19) // the insurable comparable
+    expect(analysis.penalty).toBeNull()
+    expect(analysis.requalification).toBe(false)
+  })
+
+  it('flags a high-rate refinance as act_now on the conventional comparable', () => {
     const { analysis } = analyzeMortgage(row({}), book, TODAY)
     expect(analysis.bucket).toBe('act_now')
     expect(analysis.netBenefit ?? 0).toBeGreaterThan(0)
     expect(analysis.monthlySaving ?? 0).toBeGreaterThan(0)
   })
 
-  it('is insufficient when the book is empty', () => {
-    const { analysis } = analyzeMortgage(row({}), [], TODAY)
-    expect(analysis.bucket).toBe('insufficient')
-    expect(analysis.comparable).toBeNull()
-  })
-
-  it('does not manufacture a saving for a sub-market rate near maturity (wait)', () => {
-    // A 3.49% mortgage with 3 months left: the comparable does not beat it, and
-    // even if it did the penalty would dominate — must not be act_now.
+  it('80% LTV cap hard-blocks a refinance and it is not act_now', () => {
+    // balance 660k / value 700k = 94.3% LTV, a far maturity (refinance).
     const { analysis } = analyzeMortgage(
-      row({ 'Mortgage rate': '3.49%', 'Mortgage maturity date': '2026-10-01' }),
+      row({ 'Mortgage outstanding balance': '$660,000.00', 'Estimated home value': '$700,000.00' }),
       book,
       TODAY,
     )
-    expect(analysis.bucket).not.toBe('act_now')
+    expect(analysis.ltvBlocked).toBe(true)
+    expect(analysis.bucket).toBe('insufficient')
+    expect(analysis.blockReason).toContain('80% LTV')
+  })
+
+  it('a refinance with no home value is insufficient (LTV cannot be computed)', () => {
+    const { analysis } = analyzeMortgage(row({ 'Estimated home value': '-' }), book, TODAY)
+    expect(analysis.bucket).toBe('insufficient')
+    expect(analysis.blockReason).toContain('LTV')
+  })
+
+  it('is insufficient when no eligible conventional comparable is approved', () => {
+    // Only an insured quote in the book → a refinance (conventional) finds none.
+    const insuredOnly: BookQuote[] = [
+      { rate: 3.99, rateType: 'fixed', termMonths: 60, productClass: 'insured', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null },
+    ]
+    const { analysis } = analyzeMortgage(row({}), insuredOnly, TODAY)
+    expect(analysis.comparable).toBeNull()
+    expect(analysis.bucket).toBe('insufficient')
+  })
+
+  it('never picks a garbage-negative floating variance as the comparable (data-error guard)', () => {
+    const withBadVariance: BookQuote[] = [
+      // A data-entry slip: variance -5.0 -> effective -0.55%. Must be discarded.
+      { rate: null, rateType: 'adjustable', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: -5.0 },
+      { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'rfa', primeVariance: null },
+    ]
+    const { analysis } = analyzeMortgage(row({}), withBadVariance, TODAY)
+    // The 4.09 fixed wins; the nonsense negative rate is never the comparable.
+    expect(analysis.comparable?.rate).toBe(4.09)
+    expect((analysis.newPayment ?? 0)).toBeGreaterThan(0) // never a negative payment
+  })
+
+  it('excludes a BC credit union and a physician rate from the comparable', () => {
+    const withRestricted: BookQuote[] = [
+      { rate: 3.2, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'kootenay', primeVariance: null }, // BC
+      { rate: 3.4, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null, variant: 'physician' }, // restricted
+      { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null },
+    ]
+    const { analysis } = analyzeMortgage(row({}), withRestricted, TODAY)
+    // Neither the 3.20 BC nor the 3.40 physician wins; the honest 4.09 does.
+    expect(analysis.comparable?.rate).toBe(4.09)
   })
 })

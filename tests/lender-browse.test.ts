@@ -42,6 +42,12 @@ function q(over: Partial<RateQuoteFullRow>): RateQuoteFullRow {
     reviewedAt: null,
     approvedVia: 'sheet:TEST',
     heldReason: null,
+    borrowerRequirement: null,
+    clientCommitment: null,
+    channelRequirement: null,
+    transactionTypes: null,
+    eligibilityUnknown: false,
+    eligibilitySource: null,
     ...over,
   }
 }

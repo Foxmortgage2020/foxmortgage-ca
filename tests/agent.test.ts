@@ -160,7 +160,13 @@ describe('not captured, never a guess', () => {
     expect(AGENT_SYSTEM_PROMPT).toContain('Never estimate a client\'s balance')
     expect(AGENT_SYSTEM_PROMPT).toContain('APPROVED MEANS APPROVED')
     expect(AGENT_SYSTEM_PROMPT).toContain('THE DESK DECIDES')
-    expect(AGENT_PROMPT_VERSION).toBe(2)
+    expect(AGENT_PROMPT_VERSION).toBe(3)
+  })
+
+  it('the system prompt forbids quoting an ineligible or unconfirmed-province lender to a client (v3)', () => {
+    expect(AGENT_SYSTEM_PROMPT).toContain('ELIGIBLE ONLY')
+    expect(AGENT_SYSTEM_PROMPT).toContain('province_confirmed')
+    expect(AGENT_SYSTEM_PROMPT).toContain('BC credit unions')
   })
 
   it('the system prompt mandates the open-task check before any card (v2)', () => {

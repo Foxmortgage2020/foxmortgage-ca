@@ -13,7 +13,8 @@ import { getAgentIdByEmail, getRateQuotesFull } from '@/lib/underwriting'
 import { rawRowsForUpload, recentUploads, smmStoreConfigured } from '@/lib/smm-store'
 import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
 import type { BookQuote } from '@/lib/smm-match'
-import { analyzeMortgage } from '@/lib/smm-analysis'
+import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
+import { resolveProvince } from '@/lib/eligibility'
 import { generateSavingsPdf, savingsPdfFilename, type SavingsPdfInput } from '@/lib/savings-pdf'
 import { torontoTodayYMD } from '@/lib/dates'
 
@@ -54,23 +55,21 @@ export async function GET(req: Request, { params }: { params: { householdId: str
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
   const quotesR = agentId ? await getRateQuotesFull(agentId) : null
-  const book: BookQuote[] =
-    quotesR && quotesR.configured && quotesR.ok
-      ? quotesR.data.map(q => ({
-          rate: q.rate,
-          rateType: q.rateType,
-          termMonths: q.termMonths,
-          productClass: q.productClass,
-          asOfDate: q.asOfDate,
-          status: q.status,
-          lenderSlug: q.lenderSlug,
-          primeVariance: q.primeVariance,
-        }))
-      : []
+  const book: BookQuote[] = quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
 
   const todayYMD = torontoTodayYMD()
   const { analysis } = analyzeMortgage(p, book, todayYMD)
   const a = analysis
+
+  // Client-facing fail-closed rule: a comparable whose lender's provincial
+  // availability is not CONFIRMED (province-unknown or ineligible) must never
+  // reach a client document. If the comparable's lender is not confirmed
+  // eligible in the subject province, the PDF withholds the named comparison and
+  // prints the honest "confirming availability" state instead.
+  const comparableProvince =
+    a.comparable?.lenderSlug != null ? resolveProvince(a.comparable.lenderSlug, 'ON') : null
+  const comparableConfirmed = comparableProvince?.status === 'eligible'
+  const showComparable = a.comparable != null && comparableConfirmed
 
   const input: SavingsPdfInput = {
     generatedDate: todayYMD,
@@ -80,17 +79,21 @@ export async function GET(req: Request, { params }: { params: { householdId: str
     currentLender: p.lender.display,
     balance: p.balance,
     maturity: p.maturityDate,
-    comparable: a.comparable ? { rate: a.comparable.rate, lender: a.comparable.lender, asOf: a.comparable.asOf } : null,
+    comparable: showComparable ? { rate: a.comparable!.rate, lender: a.comparable!.lender, asOf: a.comparable!.asOf } : null,
+    provincePending: a.comparable != null && !comparableConfirmed,
+    transaction: a.transaction,
+    requalification: a.requalification,
     currentPayment: a.currentPayment,
-    newPayment: a.newPayment,
-    monthlySaving: a.monthlySaving,
+    newPayment: showComparable ? a.newPayment : null,
+    monthlySaving: showComparable ? a.monthlySaving : null,
     penaltyThreeMonthsInterest: a.penalty?.threeMonthsInterest ?? null,
     penaltyFraming: a.penalty?.framing ?? null,
     penaltyMethodologyKnown: a.penalty?.methodologyKnown ?? false,
-    breakEvenMonths: a.breakEvenMonths,
-    netBenefit: a.netBenefit,
+    breakEvenMonths: showComparable ? a.breakEvenMonths : null,
+    netBenefit: showComparable ? a.netBenefit : null,
     remainingMonths: a.remainingMonths,
-    bucket: a.bucket,
+    horizonMonths: a.horizonMonths,
+    bucket: showComparable ? a.bucket : 'insufficient',
     note: null,
   }
 

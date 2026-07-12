@@ -6,6 +6,7 @@
 // basis; nothing here estimates a rate or invents a maturity.
 
 import { monthlyPayment } from '@/lib/mortgage-engine'
+import { evaluateQuote } from '@/lib/eligibility'
 
 // ── The deal shape the renewals surface consumes (normalized from Zoho) ──────
 export interface RenewalDeal {
@@ -196,6 +197,44 @@ export interface ApprovedFixedQuote {
   asOfDate: string | null
   status: string
   lenderSlug: string
+  // Eligibility inputs (optional; derived from variant when absent). A renewal
+  // is a switch, so the benchmark must exclude a lender that cannot lend in
+  // Ontario (Kootenay/Coast Capital) and any restricted program an ordinary
+  // borrower cannot access — the same live bug the Opportunities engine had.
+  variant?: string | null
+  programNotes?: string | null
+  borrowerRequirement?: string | null
+  clientCommitment?: string | null
+  channelRequirement?: string | null
+  transactionTypes?: string[] | null
+  eligibilityUnknown?: boolean | null
+  eligibilitySource?: string | null
+}
+
+/** Whether an approved fixed quote is an eligible renewal benchmark: a switch is
+ * a transfer, so province-ineligible, restricted, and non-transfer-eligible
+ * quotes are excluded. Province-unknown is allowed (this is Michael's internal
+ * benchmark), the same as the Opportunities comparable. Insurance-class porting
+ * is NOT applied: Zoho carries no insurance-class field for a funded deal, so
+ * the benchmark uses the best eligible fixed across classes (documented gap). */
+function renewalBenchmarkEligible(q: ApprovedFixedQuote): boolean {
+  const v = evaluateQuote(
+    {
+      lenderSlug: q.lenderSlug,
+      variant: q.variant ?? null,
+      programNotes: q.programNotes ?? null,
+      borrowerRequirement: (q.borrowerRequirement as any) ?? null,
+      clientCommitment: (q.clientCommitment as any) ?? null,
+      channelRequirement: (q.channelRequirement as any) ?? null,
+      transactionTypes: (q.transactionTypes as any) ?? null,
+      eligibilityUnknown: q.eligibilityUnknown ?? false,
+      eligibilitySource: q.eligibilitySource ?? null,
+    },
+    'ON',
+    { transaction: 'transfer' },
+    null,
+  )
+  return v.category === 'eligible'
 }
 
 export function bestApprovedFixed(
@@ -211,7 +250,8 @@ export function bestApprovedFixed(
       // Every quoted rate must carry its sheet date; a dateless quote is never
       // the benchmark (it would show a rate and a payment with no provenance).
       q.asOfDate != null &&
-      !q.lenderSlug.toLowerCase().includes('test'),
+      !q.lenderSlug.toLowerCase().includes('test') &&
+      renewalBenchmarkEligible(q),
   )
   if (fixed.length === 0) return null
   const preferred = fixed.filter(q => q.termMonths === preferredTermMonths)
