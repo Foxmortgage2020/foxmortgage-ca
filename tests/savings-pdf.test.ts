@@ -84,10 +84,84 @@ describe('savings PDF basics', () => {
 })
 
 describe('savings PDF framing is honest', () => {
-  it('recommends acting when net benefit is positive', async () => {
-    const text = await extractPdfText(await generateSavingsPdf(base({ bucket: 'act_now', netBenefit: 18000 })))
+  it('a fixed break gets NO floor-based conclusion even when the IRD method is documented', async () => {
+    // Knowing the lender's METHOD never produces the FIGURE: the net benefit
+    // is still computed on the 3MI floor either way (adversarial review
+    // 2026-07-13), so the conclusion is withheld for every fixed break; only
+    // the confirm path differs when the method is on file.
+    const text = await extractPdfText(
+      await generateSavingsPdf(base({ bucket: 'act_now', netBenefit: 18000, penaltyMethodologyKnown: true })),
+    )
+    expect(text).not.toContain('worth about')
+    expect(text).not.toContain('pays for itself')
+    expect(text).toContain('That is the minimum')
+    expect(text).toContain('penalty method on file')
+    expect(text).toContain('Michael knows how')
+    expect(text).toContain('Nothing is recommended')
+  })
+
+  it('a switch at maturity keeps its conclusion (no penalty applies, nothing is floor-based)', async () => {
+    const text = await extractPdfText(
+      await generateSavingsPdf(
+        base({
+          bucket: 'act_now',
+          netBenefit: 18000,
+          transaction: 'switch',
+          penaltyThreeMonthsInterest: null,
+          penaltyFraming: null,
+          breakEvenMonths: null,
+          horizonMonths: 60,
+        }),
+      ),
+    )
     expect(text).toContain('worth about')
-    expect(text).toContain('over the 51 months')
+    expect(text).toContain('over your next 5-year term')
+    expect(text).not.toContain('That is the minimum')
+  })
+
+  it('a marginal fixed break qualifies the close-to-even claim to the minimum penalty', async () => {
+    const text = await extractPdfText(
+      await generateSavingsPdf(base({ bucket: 'marginal', netBenefit: 800 })),
+    )
+    expect(text).toContain('minimum penalty')
+    expect(text).toContain('does not clear the bar')
+    expect(text).not.toContain('close to even right now')
+  })
+
+  it('a fixed mortgage with NO documented IRD method gets no net-benefit conclusion', async () => {
+    // The bucket math (3MI floor) is unchanged; what a client is TOLD is.
+    // At the floor the net is positive, but a plausible IRD exceeds the
+    // break-even and flips the answer, so no conclusion is printed.
+    const text = await extractPdfText(
+      await generateSavingsPdf(base({ bucket: 'act_now', netBenefit: 18000, penaltyMethodologyKnown: false })),
+    )
+    expect(text).not.toContain('worth about')
+    expect(text).not.toContain('It is worth a conversation')
+    // The minimum is named in that word, and the break-even penalty is stated
+    // (monthly saving 490 x horizon 51 months = $24,990).
+    expect(text).toContain('That is the minimum')
+    expect(text).toContain('$24,990')
+    expect(text).toContain('Michael requests it')
+    expect(text).toContain('Nothing is recommended')
+    // The floor-based payback line is suppressed with the conclusion.
+    expect(text).not.toContain('pays for itself')
+  })
+
+  it('a floating mortgage keeps its conclusion (three months of interest IS the penalty)', async () => {
+    const text = await extractPdfText(
+      await generateSavingsPdf(
+        base({
+          bucket: 'act_now',
+          netBenefit: 18000,
+          currentRateType: 'variable',
+          penaltyMethodologyKnown: true,
+          penaltyFraming: 'Floating: the penalty is three months of interest.',
+        }),
+      ),
+    )
+    expect(text).toContain('worth about')
+    // Floating never gets the fixed minimum framing.
+    expect(text).not.toContain('That is the minimum')
   })
 
   it('recommends WAITING for maturity when breaking early costs more than it saves', async () => {
@@ -172,6 +246,23 @@ describe('savings PDF never discloses compensation', () => {
         bucket: 'review',
         clientName: `Someone (comp ${SENTINEL} bps)`,
         currentLender: `MERIX -- ${SENTINEL} bps finder fee`,
+      }),
+    },
+    {
+      label: 'comp in the alternative block and the cross-family risk lines',
+      input: base({
+        penaltyMethodologyKnown: true,
+        alternative: {
+          rate: 3.95,
+          rateTypeLabel: `adjustable (comp ${SENTINEL} bps)`,
+          lender: `First National -- finder fee ${SENTINEL} bps`,
+          asOf: '2026-07-09',
+          newPayment: 2100,
+          monthlySaving: 650,
+          riskLine: `This option floats. Compensation ${SENTINEL} bps rides it.`,
+        },
+        crossFamilyRecommended: true,
+        headlineRiskLine: `Headline risk. Comp ${SENTINEL} bps to the broker.`,
       }),
     },
   ]

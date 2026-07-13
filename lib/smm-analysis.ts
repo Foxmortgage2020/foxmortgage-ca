@@ -19,12 +19,16 @@
 
 import {
   analyzeOpportunity,
+  clientRateFamily,
   computeLtv,
   deriveTransaction,
+  RATE_FAMILIES,
+  rateFamilyRiskLine,
   type FoxAnalysis,
   type SmmParsedRow,
   type TransactionKind,
 } from '@/lib/smm'
+import { monthlyPayment } from '@/lib/mortgage-engine'
 import { bestEligibleComparable, insuranceToProductClass, type BookQuote } from '@/lib/smm-match'
 import { lenderMethodologyFor } from '@/lib/lenders'
 import { lenderDisplayName } from '@/config/lenders'
@@ -90,21 +94,94 @@ function comparableEligible(q: BookQuote, transaction: TransactionKind): boolean
   return v.category === 'eligible'
 }
 
-export function analyzeMortgage(row: SmmParsedRow, book: BookQuote[], todayYMD: string): MortgageAnalysis {
+export interface AnalyzeMortgageOptions {
+  /** Michael explicitly approved recommending a different rate family than
+   * the client holds (recorded to the savings-analysis log by the caller).
+   * Without it, the headline is always the client's own family. */
+  crossFamilyApproved?: boolean
+}
+
+export function analyzeMortgage(
+  row: SmmParsedRow,
+  book: BookQuote[],
+  todayYMD: string,
+  opts: AnalyzeMortgageOptions = {},
+): MortgageAnalysis {
   const transaction = deriveTransaction(row.maturityDate, todayYMD)
   const ltv = computeLtv(row.balance, row.homeValue)
   // Refinance is uninsurable → conventional only. Switch ports the client's
   // original class.
   const productClass = transaction === 'refinance' ? 'conventional' : insuranceToProductClass(row.insuranceType)
-  const comparable = bestEligibleComparable(
+  const methodologyKnown = lenderMethodologyFor(row.lender.display) != null
+
+  // Like-for-like by default: the headline comparable is the client's own
+  // rate family. A cheaper cross-family option rides along as a labelled
+  // alternative with its risk line; it becomes the headline ONLY under
+  // Michael's explicit approval, and then carries the risk line itself.
+  const family = clientRateFamily(row.rateType)
+  const otherFamilies = RATE_FAMILIES.filter(f => f !== family)
+  const likeForLike = bestEligibleComparable(
     book,
     productClass,
     transaction,
     lenderDisplayName,
     primeFor,
     comparableEligible,
+    [family],
   )
-  const methodologyKnown = lenderMethodologyFor(row.lender.display) != null
-  const analysis = analyzeOpportunity(row, comparable, methodologyKnown, todayYMD, { transaction, productClass, ltv })
+  const crossFamily = bestEligibleComparable(
+    book,
+    productClass,
+    transaction,
+    lenderDisplayName,
+    primeFor,
+    comparableEligible,
+    otherFamilies,
+  )
+  const crossIsBetter = crossFamily != null && (likeForLike == null || crossFamily.rate < likeForLike.rate)
+  const approved = opts.crossFamilyApproved === true && crossIsBetter
+
+  const comparable = approved ? crossFamily : likeForLike
+  let analysis = analyzeOpportunity(row, comparable, methodologyKnown, todayYMD, { transaction, productClass, ltv })
+
+  // Attach the beside-the-headline option, priced at the SAME remaining
+  // amortization so the two payments compare. Only on a stated analysis: a
+  // blocked file (review/insufficient) states no figure for either option.
+  const remaining = analysis.remainingAmortizationMonths
+  const beside = approved ? likeForLike : crossIsBetter ? crossFamily : null
+  if (analysis.currentPayment != null && remaining != null && beside != null && row.balance != null) {
+    const newPayment = monthlyPayment(row.balance, beside.rate, 'semi-annually', remaining)
+    const monthlyDelta = newPayment - analysis.currentPayment
+    const besideFamily = clientRateFamily(beside.rateType ?? null)
+    const isCross = besideFamily !== family
+    const primeMove =
+      besideFamily === 'adjustable'
+        ? monthlyPayment(row.balance, beside.rate + 0.25, 'semi-annually', remaining) - newPayment
+        : null
+    analysis = {
+      ...analysis,
+      alternative: {
+        comparable: beside,
+        newPayment,
+        monthlyDelta,
+        monthlySaving: monthlyDelta < 0 ? -monthlyDelta : 0,
+        riskLine: isCross ? rateFamilyRiskLine(family, besideFamily, primeMove) : null,
+        crossFamily: isCross,
+      },
+    }
+  }
+  if (approved && analysis.currentPayment != null && analysis.comparable != null && row.balance != null && remaining != null) {
+    const headFamily = clientRateFamily(analysis.comparable.rateType ?? null)
+    const primeMove =
+      headFamily === 'adjustable'
+        ? monthlyPayment(row.balance, analysis.comparable.rate + 0.25, 'semi-annually', remaining) -
+          monthlyPayment(row.balance, analysis.comparable.rate, 'semi-annually', remaining)
+        : null
+    analysis = {
+      ...analysis,
+      crossFamilyRecommended: true,
+      headlineRiskLine: rateFamilyRiskLine(family, headFamily, primeMove),
+    }
+  }
   return { analysis, productClass, transaction }
 }

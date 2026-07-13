@@ -349,6 +349,58 @@ export interface Comparable {
   rateType?: string
 }
 
+// ─── Rate families and the cross-family alternative ─────────────────────────
+// The DEFAULT comparable is the client's own rate family: a lower floating
+// rate shown to a fixed client is not savings, it is rate risk the client
+// does not carry today. A cheaper cross-family option may ride along as a
+// clearly labelled alternative with a plain-language risk line, never the
+// headline; recommending it on a client document takes Michael's explicit
+// approval. Adjustable and variable are distinct families (an ARM payment
+// moves with prime, a VRM payment holds), so a swap between them is a
+// cross-family event with the same disclosure duty.
+export type RateFamily = 'fixed' | 'adjustable' | 'variable'
+
+export const RATE_FAMILIES: readonly RateFamily[] = ['fixed', 'adjustable', 'variable']
+
+/** The client's rate family from the export's rate type. Unknown defaults to
+ * fixed: the payment-stable family, so an unknown client is never defaulted
+ * into rate risk. */
+export function clientRateFamily(rateType: string | null): RateFamily {
+  const t = (rateType ?? '').trim().toLowerCase()
+  if (t === 'adjustable') return 'adjustable'
+  if (t === 'variable') return 'variable'
+  return 'fixed'
+}
+
+/** Plain-language risk line for offering a `to`-family option to a `from`-
+ * family client. `primeMoveMonthly` is the payment change a 0.25% prime move
+ * causes on this balance (adjustable targets only). Grade 6, client-facing. */
+export function rateFamilyRiskLine(from: RateFamily, to: RateFamily, primeMoveMonthly: number | null): string {
+  if (to === 'adjustable') {
+    const move = primeMoveMonthly != null ? ` A 0.25% prime move changes it by about $${Math.round(primeMoveMonthly)} a month.` : ''
+    const today = from === 'variable' ? ' Your payment today holds when prime moves; this one would not.' : " You don't carry that risk on your rate today."
+    return `This option is an adjustable rate. The payment moves whenever prime moves.${move}${today}`
+  }
+  if (to === 'variable') {
+    return 'This option is a variable rate. The payment usually holds when prime moves, but if prime rises more of it goes to interest and it takes longer to pay the mortgage down.'
+  }
+  return 'This option is a fixed rate. The payment locks for the term, and if prime falls you keep paying the fixed rate.'
+}
+
+/** A cross-family option beside the headline: clearly labelled, priced at the
+ * same remaining amortization, and carrying its risk line. Never the headline
+ * without Michael's recorded approval. */
+export interface AlternativeComparable {
+  comparable: Comparable
+  newPayment: number
+  monthlyDelta: number // vs the stated current payment (negative = pays less)
+  monthlySaving: number
+  /** Risk line for the swap; null when the alternative is the client's own
+   * family (the steady option shown beside an approved cross-family headline). */
+  riskLine: string | null
+  crossFamily: boolean
+}
+
 export interface PenaltyEstimate {
   // Three-months-interest is always computable from balance and rate.
   threeMonthsInterest: number
@@ -479,9 +531,18 @@ export interface BalanceReconciliation {
   feedBalance: number
   /** |modeled - feed| as a percent of the modeled balance. */
   driftPct: number
+  /** Which way the feed sits vs the schedule: 'ahead' = feed BELOW the model
+   * (a prepaying or accelerated-payment client), 'grew' = feed ABOVE the
+   * model (a readvance, a refinance, or interest-only story — a conversation,
+   * not always a defect), 'even' = exactly on schedule. */
+  direction: 'ahead' | 'grew' | 'even'
   ok: boolean
 }
 
+/** The drift DENOMINATOR is the MODELED balance, always: drift = |modeled -
+ * feed| / modeled x 100. The model is the defensible reference (derived from
+ * the origination figures through the validated engine), so the 0.5%
+ * threshold means one thing forever regardless of how wrong the feed is. */
 export function reconcileBalance(
   amount: number,
   annualRatePct: number,
@@ -495,6 +556,7 @@ export function reconcileBalance(
     modeledBalance: modeled,
     feedBalance,
     driftPct,
+    direction: feedBalance < modeled ? 'ahead' : feedBalance > modeled ? 'grew' : 'even',
     ok: driftPct <= RECONCILIATION_DRIFT_BLOCK_PCT,
   }
 }
@@ -532,6 +594,14 @@ export interface FoxAnalysis {
   remainingAmortizationMonths: number | null
   /** The schedule-vs-feed balance check; drift over the threshold blocks. */
   reconciliation: BalanceReconciliation | null
+  /** A labelled option beside the headline (usually the cheaper cross-family
+   * rate), never the recommendation without approval. */
+  alternative: AlternativeComparable | null
+  /** True only when Michael explicitly approved recommending a different rate
+   * family than the client holds; the headline then carries the risk line. */
+  crossFamilyRecommended: boolean
+  /** The risk line for an approved cross-family headline. */
+  headlineRiskLine: string | null
 }
 
 export interface AnalyzeOptions {
@@ -586,6 +656,11 @@ export function analyzeOpportunity(
     requalification,
     penaltyApplies,
     remainingMonths: remaining,
+    // The cross-family fields are attached by analyzeMortgage (which sees the
+    // whole book); the core analysis itself is always like-for-like.
+    alternative: null as AlternativeComparable | null,
+    crossFamilyRecommended: false,
+    headlineRiskLine: null as string | null,
   }
   // Filled in as the schedule is reconstructed; every exit path carries the
   // current values so a blocked analysis still shows what was established.
@@ -645,9 +720,15 @@ export function analyzeOpportunity(
   schedule.reconciliation = recon
   if (!recon.ok) {
     const fmt = (n: number) => '$' + Math.round(n).toLocaleString('en-CA')
+    // One word of direction for the call: 'ahead' reads as a prepaying
+    // client; 'grew' reads as a readvance, refinance, or interest-only story.
+    const direction =
+      recon.direction === 'ahead'
+        ? 'the balance is AHEAD of the schedule (paid down faster, a prepaying client)'
+        : 'the balance GREW past the schedule (a readvance, refinance, or interest-only story)'
     return blocked(
       'review',
-      `The export balance does not reconcile with the mortgage schedule: modeled ${fmt(recon.modeledBalance)} from origination vs ${fmt(recon.feedBalance)} in the export (${recon.driftPct.toFixed(2)}% drift). A prepayment, a payment change, or bad vendor data can all cause this. Confirm the true figures with the lender before any number is stated.`,
+      `The export balance does not reconcile with the mortgage schedule: modeled ${fmt(recon.modeledBalance)} from origination vs ${fmt(recon.feedBalance)} in the export (${recon.driftPct.toFixed(2)}% drift); ${direction}. Confirm the true figures with the lender before any number is stated.`,
     )
   }
 

@@ -385,9 +385,20 @@ describe('sorting and ranking (acceptance 2)', () => {
     expect(rs[0].matches.map(m => m.quote.id)).toEqual(['a1', 'v1', 'a2', 'f1', 'f2'])
   })
 
-  it('floating-only results sort by deepest discount', () => {
+  it('floating-only results sort by effective rate from the per-lender prime, never the discount', () => {
     const rs = lenderResults([adjShallow, adjDeep], scenario({ rateType: 'adjustable' }), REF)
-    expect(rs[0].matches.map(m => m.quote.id)).toEqual(['a1', 'a2'])
+    expect(rs[0].matches.map(m => m.quote.id)).toEqual(['a1', 'a2']) // 3.40 < 4.10
+    // The two-prime case that made the old deepest-discount rule unsafe: a
+    // credit union pricing off its own 5.50 prime holds the deepest discount
+    // (P-1.00) and the WORST rate (4.50 effective) against a bank-prime
+    // P-0.35 (4.10). Effective ranking puts the bank first.
+    const cuRef: RatesReference = {
+      ...REF,
+      lender_overrides: { ...REF.lender_overrides, 'cu-own-prime': { value: 5.5, as_of: '2026-07-03', source: 'test' } },
+    }
+    const cuDeep = quote({ id: 'k1', lenderSlug: 'cu-own-prime', rateType: 'adjustable', rate: null, primeVariance: -1.0 })
+    const rs2 = lenderResults([cuDeep, adjShallow], scenario({ rateType: 'adjustable' }), cuRef)
+    expect(rs2.map(r => r.lenderSlug)).toEqual(['scotia', 'cu-own-prime'])
   })
 
   it('with prime unavailable, floating rows sort after priced rows, deepest discount first', () => {

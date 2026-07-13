@@ -5,8 +5,10 @@
 // structured columns on rate_quotes — borrower_requirement, client_commitment,
 // channel_requirement, transaction_types, eligibility_unknown — plus the
 // eligibility_source provenance, at extraction time and via the backfill
-// (verified run 2026-07-13: 947 of 949 approved rows carry eligibility_source;
-// the only nulls are the five test-portal artifacts). This module reads those
+// (verified run 2026-07-13: 947 of 949 approved rows carried
+// eligibility_source; the only nulls were the five test-portal artifacts,
+// since SUPERSEDED — the approved book is 947 rows across 23 lenders, every
+// row classified). This module reads those
 // columns through portal_readonly and derives NOTHING: the portal-side port of
 // the derivation was deleted the day the backfill was confirmed, per guardrail
 // 1 (deterministic code calculates in one place).

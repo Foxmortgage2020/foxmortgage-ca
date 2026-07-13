@@ -12,8 +12,11 @@ import {
   latestOpportunityStatuses,
   rawRowsForUpload,
   recentUploads,
+  recordSavingsAnalysisBatch,
   smmStoreConfigured,
 } from '@/lib/smm-store'
+import { buildSavingsLogEntry } from '@/lib/savings-log'
+import { lenderMethodologyFor } from '@/lib/lenders'
 import {
   collapseCoBorrowers,
   diffUploads,
@@ -124,6 +127,29 @@ export default async function OpportunitiesPage() {
       pdfKey: p.householdId,
     }
   })
+
+  // Reproducibility log (guardrails 1 and 5): the board is a deliverable
+  // surface, so each determination it renders lands one append-only row —
+  // deduped on (household, surface, calc version, inputs hash), so re-viewing
+  // the same board writes nothing new; a new upload, a book change, or a math
+  // change writes fresh rows. Demo writes nothing (store-refused).
+  const loggedBatch = await recordSavingsAnalysisBatch(
+    views.map(v =>
+      buildSavingsLogEntry({
+        row: v.mortgage.primary,
+        analysis: v.analysis,
+        surface: 'board',
+        uploadId: current.id,
+        actingEmail: user.email,
+        todayYMD,
+        methodologyKnown: lenderMethodologyFor(v.mortgage.primary.lender.display) != null,
+        crossFamilyApproved: false,
+      }),
+    ),
+  )
+  if (views.length > 0 && (!loggedBatch.configured || !loggedBatch.ok)) {
+    console.error('[opportunities] board analysis log batch did not land')
+  }
 
   const bucketed = {
     act_now: views.filter(v => v.analysis.bucket === 'act_now').sort((a, b) => (b.analysis.netBenefit ?? 0) - (a.analysis.netBenefit ?? 0)),

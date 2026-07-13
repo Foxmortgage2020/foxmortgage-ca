@@ -63,6 +63,7 @@ export default function OpportunityCard({
 }) {
   const router = useRouter()
   const [armed, setArmed] = useState<string | null>(null)
+  const [altArmed, setAltArmed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -155,6 +156,28 @@ export default function OpportunityCard({
               {a.penalty && !a.penalty.methodologyKnown && (
                 <p className="text-[10px] text-amber-700">Fixed IRD methodology not documented for this lender; no single penalty asserted.</p>
               )}
+              {a.alternative && (
+                <div className="mt-1 border-t border-gray-100 pt-1 space-y-0.5">
+                  <p className="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">
+                    {a.alternative.crossFamily ? 'Alternative, different rate type' : 'Steady option, same rate type'}
+                  </p>
+                  <p className="text-gray-600">
+                    {a.alternative.comparable.rateType ?? a.alternative.comparable.kind}{' '}
+                    <span className="text-navy font-semibold">{a.alternative.comparable.rate}%</span>{' '}
+                    {a.alternative.comparable.primeUsed != null && (
+                      <span className="text-gray-400">
+                        (prime {a.alternative.comparable.primeUsed}%{' '}
+                        {a.alternative.comparable.variance != null ? (a.alternative.comparable.variance < 0 ? a.alternative.comparable.variance : `+${a.alternative.comparable.variance}`) : ''}
+                        ){' '}
+                      </span>
+                    )}
+                    <span className="text-gray-400">{a.alternative.comparable.lender}, as of {shortDate(a.alternative.comparable.asOf)}</span>
+                    {' '}payment {money2(a.alternative.newPayment)}
+                    {a.alternative.monthlySaving > 0 ? ` (${money2(a.alternative.monthlySaving)}/mo less)` : ''}
+                  </p>
+                  {a.alternative.riskLine && <p className="text-[10px] text-amber-700">{a.alternative.riskLine}</p>}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -184,6 +207,36 @@ export default function OpportunityCard({
         <Link href={scenarioHref} className="text-xs font-semibold text-white bg-navy rounded-lg px-3 py-1.5 hover:bg-navy/90">Open scenario</Link>
         <Link href={prepHref} className="text-xs font-semibold text-navy border border-navy/25 rounded-lg px-3 py-1.5 hover:border-navy">Prep a call</Link>
         <a href={`/api/portal/admin/opportunities/${encodeURIComponent(householdId)}/pdf?upload=${encodeURIComponent(uploadId)}`} className="text-xs font-semibold text-navy border border-navy/25 rounded-lg px-3 py-1.5 hover:border-navy">Savings report</a>
+        {canManage && a.alternative?.crossFamily && (
+          // Two-tap confirmed action, POST-only: recommending a different rate
+          // family on a client document is Michael's explicit call. A GET can
+          // never mint the approved variant (bookmarks and crafted links
+          // replay), and the applied approval is recorded on the
+          // savings-analysis log by the route.
+          <form
+            method="POST"
+            action={`/api/portal/admin/opportunities/${encodeURIComponent(householdId)}/pdf`}
+            onSubmit={e => {
+              if (!altArmed) {
+                e.preventDefault()
+                setAltArmed(true)
+                setTimeout(() => setAltArmed(false), 4000)
+              }
+            }}
+            className="inline"
+          >
+            <input type="hidden" name="upload" value={uploadId} />
+            <input type="hidden" name="alt" value="approve" />
+            <button
+              type="submit"
+              className={`text-xs font-semibold rounded-lg px-3 py-1.5 border ${altArmed ? 'bg-navy text-white border-navy' : 'text-amber-800 border-amber-300 hover:border-amber-500'}`}
+            >
+              {altArmed
+                ? `Confirm: recommend the ${a.alternative.comparable.rateType ?? 'other'} option?`
+                : `Report with the ${a.alternative.comparable.rateType ?? 'other'} option`}
+            </button>
+          </form>
+        )}
       </div>
 
       {canManage && (

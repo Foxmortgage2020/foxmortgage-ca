@@ -142,6 +142,23 @@ describe('schedule reconstruction + the reconciliation gate', () => {
     expect(monthsElapsed('2027-01-01', '2026-07-13')).toBe(0) // a future start clamps, never negative
   })
 
+  it('BOUNDARY: a start day later in the month than the analysis day is not yet a full month', () => {
+    // Started the 21st, analysed the 12th: the 24th payment month has not
+    // completed, so 23 months have elapsed, not 24. The live reconciliation
+    // split at the 0.5% threshold turns on exactly this convention.
+    expect(monthsElapsed('2024-07-21', '2026-07-12')).toBe(23)
+    // The day the month completes, it counts.
+    expect(monthsElapsed('2024-07-21', '2026-07-21')).toBe(24)
+    expect(monthsElapsed('2024-07-21', '2026-07-20')).toBe(23)
+  })
+
+  it('reconciliation reports the drift DIRECTION (denominator: the modeled balance)', () => {
+    // Feed below the model: the client paid down faster — 'ahead'.
+    expect(reconcileBalance(500_000, 5.5, 300, 24, 455_000).direction).toBe('ahead')
+    // Feed above the model: the balance grew — a readvance/refi story.
+    expect(reconcileBalance(500_000, 5.5, 300, 24, 500_000).direction).toBe('grew')
+  })
+
   it('models the balance forward from origination to the cent (worked example)', () => {
     // $500,000 at 5.50% over 300 months pays $3,051.96 a month; after 24
     // payments the balance lands at $480,116.51. The schedule is confirmed.

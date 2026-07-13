@@ -26,6 +26,10 @@ function row(over: Record<string, string>) {
 const book: BookQuote[] = [
   { rate: 4.19, rateType: 'fixed', termMonths: 60, productClass: 'insurable', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null, eligibilitySource: 'variant:(none)' },
   { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null, eligibilitySource: 'variant:(none)' },
+  // The adjustable book (effective 4.45 - 0.50 = 3.95 at the prime mirror):
+  // the like-for-like headline for an adjustable client, and the labelled
+  // cross-family alternative for a fixed one.
+  { rate: null, rateType: 'adjustable', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'first-national', primeVariance: -0.5, eligibilitySource: 'variant:(none)' },
 ]
 
 describe('analyzeMortgage (Part 1c transaction → product class)', () => {
@@ -105,6 +109,8 @@ describe('analyzeMortgage (Part 1c transaction → product class)', () => {
     // The 4.09 fixed wins; the nonsense negative rate is never the comparable.
     expect(analysis.comparable?.rate).toBe(4.09)
     expect((analysis.newPayment ?? 0)).toBeGreaterThan(0) // never a negative payment
+    // Nor does the garbage variance sneak in as the cross-family alternative.
+    expect(analysis.alternative).toBeNull()
   })
 
   it('excludes a BC credit union and a physician rate from the comparable', () => {
@@ -124,26 +130,26 @@ describe('analyzeMortgage (Part 1c transaction → product class)', () => {
 // EXACTLY on an unseasoned mortgage (which is why the Reinders anchor alone
 // could never catch the bug) and diverge once a mortgage is seasoned — so the
 // golden set carries one of each, plus the reconciliation gate both ways.
+// Analysis date for the golden sets; the seasoned file is 24 months in.
+const ASOF = '2026-07-13'
+
+// Seasoned: $500,000 at 5.50% fixed over 300 months, started 2024-07-01.
+// The schedule pays $3,051.96 a month and after 24 payments the balance is
+// $480,116.51 against the feed's $480,116.59 — eight cents, confirmed.
+const seasoned = (over: Record<string, string> = {}) =>
+  row({
+    'Mortgage amount': '$500,000.00',
+    'Mortgage outstanding balance': '$480,116.59',
+    'Mortgage rate': '5.50%',
+    'Mortgage rate type': 'fixed',
+    'Mortgage start date': '2024-07-01',
+    'Mortgage closing date': '2024-07-01',
+    'Mortgage maturity date': '2029-07-01',
+    'Mortgage amortization (months)': '300',
+    ...over,
+  })
+
 describe('the stated current payment (seasoned golden set + reconciliation gate)', () => {
-  // Analysis date for this set; the seasoned file is 24 months in.
-  const ASOF = '2026-07-13'
-
-  // Seasoned: $500,000 at 5.50% fixed over 300 months, started 2024-07-01.
-  // The schedule pays $3,051.96 a month and after 24 payments the balance is
-  // $480,116.51 against the feed's $480,116.59 — eight cents, confirmed.
-  const seasoned = (over: Record<string, string> = {}) =>
-    row({
-      'Mortgage amount': '$500,000.00',
-      'Mortgage outstanding balance': '$480,116.59',
-      'Mortgage rate': '5.50%',
-      'Mortgage rate type': 'fixed',
-      'Mortgage start date': '2024-07-01',
-      'Mortgage closing date': '2024-07-01',
-      'Mortgage maturity date': '2029-07-01',
-      'Mortgage amortization (months)': '300',
-      ...over,
-    })
-
   it('a seasoned mortgage states the ORIGINAL-schedule payment, not the re-amortized balance', () => {
     const { analysis } = analyzeMortgage(seasoned(), book, ASOF)
     // The client's actual payment (±$0.01 per rounding policy 5.1).
@@ -203,6 +209,35 @@ describe('the stated current payment (seasoned golden set + reconciliation gate)
     expect(analysis.monthsElapsed).toBe(0)
     expect(analysis.remainingAmortizationMonths).toBe(300)
     expect(analysis.reconciliation?.ok).toBe(true)
+    // An adjustable client headlines the ADJUSTABLE book (like-for-like).
+    expect(analysis.comparable?.rateType).toBe('adjustable')
+    expect(analysis.comparable?.rate).toBe(3.95)
+  })
+
+  it('BOUNDARY: a start day past the analysis day counts 23 elapsed months, not 24', () => {
+    // Started the 21st, analysed the 13th: the month has not completed. One
+    // fewer modeled payment leaves the modeled balance ~$850 higher, still
+    // inside the 0.5% band against this feed balance, so the file reconciles
+    // and prices over 277 months, not 276.
+    const { analysis } = analyzeMortgage(
+      seasoned({ 'Mortgage start date': '2024-07-21', 'Mortgage closing date': '2024-07-21' }),
+      book,
+      ASOF, // 2026-07-13
+    )
+    expect(analysis.monthsElapsed).toBe(23)
+    expect(analysis.remainingAmortizationMonths).toBe(277)
+    expect(analysis.reconciliation?.ok).toBe(true)
+  })
+
+  it('the review card names the drift direction', () => {
+    const { analysis } = analyzeMortgage(
+      seasoned({ 'Mortgage outstanding balance': '$455,000.00' }),
+      book,
+      ASOF,
+    )
+    expect(analysis.bucket).toBe('review')
+    expect(analysis.reconciliation?.direction).toBe('ahead')
+    expect(analysis.blockReason).toContain('AHEAD')
   })
 
   it('a missing start date cannot be reconciled, so no payment is stated', () => {
@@ -210,5 +245,85 @@ describe('the stated current payment (seasoned golden set + reconciliation gate)
     expect(analysis.bucket).toBe('insufficient')
     expect(analysis.currentPayment).toBeNull()
     expect(analysis.blockReason).toContain('start date')
+  })
+})
+
+// Like-for-like rate family: the headline comparable is the client's own
+// product. A cheaper cross-family rate is not savings, it is rate risk the
+// client does not carry today — it rides as a labelled alternative and can
+// only become the recommendation under Michael's explicit approval.
+describe('like-for-like rate family (Task 6 acceptance)', () => {
+  // The proving book: the like-for-like conventional fixed at 4.59 (sheet
+  // 2026-06-30) and the cheaper conventional adjustable P-0.50 -> 3.95.
+  const PROVING_BOOK: BookQuote[] = [
+    { rate: 4.59, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-06-30', status: 'approved', lenderSlug: 'rfa', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    { rate: null, rateType: 'adjustable', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'first-national', primeVariance: -0.5, eligibilitySource: 'variant:(none)' },
+  ]
+
+  it('the seasoned fixed client headlines the FIXED at 4.59 with relief $244.12; the adjustable is a labelled alternative', () => {
+    const { analysis } = analyzeMortgage(seasoned(), PROVING_BOOK, ASOF)
+    // Headline: same family, never the cheaper floating.
+    expect(analysis.comparable?.rateType).toBe('fixed')
+    expect(analysis.comparable?.rate).toBe(4.59)
+    expect(analysis.comparable?.asOf).toBe('2026-06-30')
+    expect(analysis.monthlySaving).toBeCloseTo(244.12, 2)
+    expect(analysis.newPayment).toBeCloseTo(2807.84, 2)
+    expect(analysis.crossFamilyRecommended).toBe(false)
+    expect(analysis.headlineRiskLine).toBeNull()
+    // The alternative: clearly cross-family, priced at the same remaining
+    // amortization, carrying its plain-language risk line.
+    expect(analysis.alternative).not.toBeNull()
+    expect(analysis.alternative?.crossFamily).toBe(true)
+    expect(analysis.alternative?.comparable.rateType).toBe('adjustable')
+    expect(analysis.alternative?.comparable.rate).toBe(3.95)
+    expect(analysis.alternative?.monthlySaving).toBeCloseTo(409.84, 2)
+    expect(analysis.alternative?.riskLine).toMatch(/adjustable/i)
+    expect(analysis.alternative?.riskLine).toMatch(/prime/i)
+    // The extra "relief" the floating shows is rate risk, about $64 per 0.25%
+    // prime move on this balance — the risk line quantifies it.
+    expect(analysis.alternative?.riskLine).toMatch(/\$6[0-9]/)
+  })
+
+  it('a fixed client NEVER gets a floating headline without the approval flag', () => {
+    // Even with the adjustable 64bp cheaper, the headline stays fixed.
+    const { analysis } = analyzeMortgage(seasoned(), PROVING_BOOK, ASOF)
+    expect(analysis.comparable?.rateType).toBe('fixed')
+    expect(analysis.crossFamilyRecommended).toBe(false)
+  })
+
+  it("Michael's explicit approval flips the headline and attaches the risk line to it", () => {
+    const { analysis } = analyzeMortgage(seasoned(), PROVING_BOOK, ASOF, { crossFamilyApproved: true })
+    expect(analysis.comparable?.rateType).toBe('adjustable')
+    expect(analysis.crossFamilyRecommended).toBe(true)
+    expect(analysis.headlineRiskLine).toMatch(/adjustable/i)
+    // The steady like-for-like option stays visible beside it, unlabelled risk.
+    expect(analysis.alternative?.comparable.rateType).toBe('fixed')
+    expect(analysis.alternative?.crossFamily).toBe(false)
+    expect(analysis.alternative?.riskLine).toBeNull()
+  })
+
+  it('adjustable and variable are never collapsed: a variable client does not headline an adjustable', () => {
+    const { analysis } = analyzeMortgage(
+      seasoned({ 'Mortgage rate type': 'variable' }),
+      PROVING_BOOK,
+      ASOF,
+    )
+    // No variable quote exists, so there is no headline — the adjustable is
+    // NOT silently substituted; it can only ride as the labelled alternative
+    // on a stated analysis, and a blocked one states nothing.
+    expect(analysis.bucket).toBe('insufficient')
+    expect(analysis.comparable).toBeNull()
+    expect(analysis.crossFamilyRecommended).toBe(false)
+  })
+
+  it('a client with no same-family comparable is honest-insufficient, never silently cross-family', () => {
+    const fixedOnly = PROVING_BOOK.filter(q => q.rateType === 'fixed')
+    const { analysis } = analyzeMortgage(
+      seasoned({ 'Mortgage rate type': 'adjustable' }),
+      fixedOnly,
+      ASOF,
+    )
+    expect(analysis.bucket).toBe('insufficient')
+    expect(analysis.comparable).toBeNull()
   })
 })

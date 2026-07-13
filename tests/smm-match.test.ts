@@ -9,6 +9,7 @@ import { collapseCoBorrowers, parseSmmRow, type SmmMortgage } from '@/lib/smm'
 import {
   addressKey,
   attributeDeals,
+  bestEligibleComparable,
   bestFixedComparable,
   decideMatch,
   findExportByName,
@@ -285,6 +286,30 @@ describe('name index for lapsed reconciliation', () => {
 describe('best approved comparable', () => {
   const name = (s: string) => s.toUpperCase()
   const q = (over: Partial<BookQuote>): BookQuote => ({ rate: 4.5, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null, ...over })
+
+  it('ranks floating on the EFFECTIVE rate from the per-lender prime, never the discount (two-prime fixture)', () => {
+    // A credit union pricing off its own 5.50 PLR holds the DEEPEST discount
+    // but not the lowest rate: P-1.00 on 5.50 is 4.50 effective, while the
+    // bank's shallower P-0.40 on 4.45 prime is 4.05. Variance ranking says the
+    // credit union wins by 60 points; effective ranking says it loses by 45.
+    const quotes: BookQuote[] = [
+      q({ rate: null, rateType: 'adjustable', primeVariance: -1.0, lenderSlug: 'cu-own-prime', eligibilitySource: 'variant:(none)' }),
+      q({ rate: null, rateType: 'adjustable', primeVariance: -0.4, lenderSlug: 'bank', eligibilitySource: 'variant:(none)' }),
+    ]
+    const primeFor = (slug: string) => (slug === 'cu-own-prime' ? 5.5 : 4.45)
+    const c = bestEligibleComparable(quotes, 'conventional', 'refinance', name, primeFor, () => true, ['adjustable'])
+    expect(c?.lender).toBe('BANK') // the shallower discount, the lower rate
+    expect(c?.rate).toBe(4.05)
+    expect(c?.variance).toBe(-0.4)
+  })
+
+  it('the like-for-like family gate is exact: adjustable never substitutes for variable', () => {
+    const quotes: BookQuote[] = [
+      q({ rate: null, rateType: 'adjustable', primeVariance: -0.5, eligibilitySource: 'variant:(none)' }),
+    ]
+    expect(bestEligibleComparable(quotes, 'conventional', 'refinance', name, () => 4.45, () => true, ['variable'])).toBeNull()
+    expect(bestEligibleComparable(quotes, 'conventional', 'refinance', name, () => 4.45, () => true, ['adjustable'])).not.toBeNull()
+  })
   it('insurance maps to product class', () => {
     expect(insuranceToProductClass('Insured')).toBe('insured')
     expect(insuranceToProductClass('Insurable')).toBe('insurable')

@@ -29,6 +29,24 @@ export interface SavingsPdfComparable {
   lender: string
   /** Sheet date, YYYY-MM-DD; null when undated. */
   asOf: string | null
+  /** For a COMPUTED floating rate: the printed discount and the prime it was
+   * priced against, with the prime's as-of. A computed effective rate is
+   * always labeled with the prime as-of used, never stated as a printed
+   * sheet figure. */
+  variance?: number | null
+  primeUsed?: number | null
+  primeAsOf?: string | null
+}
+
+/** How a rate is stated: printed rates verbatim; a computed floating rate is
+ * discount-first with the effective figure labeled against the prime and its
+ * as-of, never presented as if the sheet printed it. */
+function pricedPhrase(c: { rate: number; variance?: number | null; primeUsed?: number | null; primeAsOf?: string | null }): string {
+  if (c.variance != null && c.primeUsed != null) {
+    const dir = c.variance < 0 ? 'minus' : 'plus'
+    return `prime ${dir} ${Math.abs(c.variance)} (about ${c.rate}% at today's prime of ${c.primeUsed}%, as of ${longDate(c.primeAsOf ?? null)})`
+  }
+  return `${c.rate}%`
 }
 
 export interface SavingsPdfInput {
@@ -71,6 +89,26 @@ export interface SavingsPdfInput {
   transaction?: 'refinance' | 'switch' | null
   /** True when this is a refinance and requalification at the stress test applies. */
   requalification?: boolean
+  /** A clearly labelled option in a different rate family (already province-
+   * confirmed by the route). Listed beside the headline, never AS the
+   * recommendation unless crossFamilyRecommended is set. */
+  alternative?: {
+    rate: number
+    rateTypeLabel: string
+    lender: string
+    asOf: string | null
+    newPayment: number
+    monthlySaving: number
+    riskLine: string | null
+    /** Computed-floating pricing context (see SavingsPdfComparable). */
+    variance?: number | null
+    primeUsed?: number | null
+    primeAsOf?: string | null
+  } | null
+  /** Michael explicitly approved recommending a different rate family than
+   * the client holds; the headline then carries its risk line. */
+  crossFamilyRecommended?: boolean
+  headlineRiskLine?: string | null
   /** Optional free-text note; scrubbed before drawing. */
   note?: string | null
 }
@@ -227,12 +265,23 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   // ── What we found ──
   heading('What we found')
   para(
-    `The best rate we can approve today is ${c.rate}% from ${redactComp(c.lender)}, ` +
+    `The best rate we can approve today is ${pricedPhrase(c)} from ${redactComp(c.lender)}, ` +
       `from their rate sheet dated ${longDate(c.asOf)}.`,
     10,
     NAVY,
     14,
   )
+  // An approved cross-family recommendation always carries its risk line,
+  // right under the rate it qualifies.
+  if (input.crossFamilyRecommended && input.headlineRiskLine) {
+    para(redactComp(input.headlineRiskLine), 9.5, GRAY, 13)
+    para(
+      'This option is a different rate type than the one you hold today. Michael reviewed that trade-off before recommending it, and it is part of the conversation.',
+      9.5,
+      GRAY,
+      13,
+    )
+  }
   if (input.newPayment != null) {
     para(`At that rate your payment would be about ${money2(input.newPayment)} a month.`, 9.5, GRAY, 13)
   }
@@ -257,23 +306,101 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   }
   y -= 6
 
+  // ── The labelled alternative (never the recommendation on its own) ──
+  if (input.alternative) {
+    const alt = input.alternative
+    const typeLabel = redactComp(alt.rateTypeLabel)
+    heading('Another option we can approve')
+    para(
+      `${typeLabel.charAt(0).toUpperCase()}${typeLabel.slice(1)}: ${pricedPhrase(alt)} from ${redactComp(alt.lender)}, ` +
+        `from their rate sheet dated ${longDate(alt.asOf)}. Your payment would be about ${money2(alt.newPayment)} a month` +
+        (alt.monthlySaving > 0 ? `, about ${money2(alt.monthlySaving)} less than today` : '') +
+        '.',
+      9.5,
+      GRAY,
+      13,
+    )
+    if (alt.riskLine) {
+      para(redactComp(alt.riskLine), 9.5, GRAY, 13)
+      para(
+        'It is a different rate type than you hold today, so it is listed for the conversation, not as our recommendation.',
+        9.5,
+        GRAY,
+        13,
+      )
+    } else {
+      para('This is the steady option, the same rate type you hold today.', 9.5, GRAY, 13)
+    }
+    y -= 6
+  }
+
   // ── What breaking early would cost ──
+  // A fixed-rate penalty is the GREATER of three months' interest and the
+  // interest rate differential (IRD). Three months' interest is a MINIMUM,
+  // and a conclusion computed on it can flip once the real penalty lands —
+  // so for EVERY fixed-rate break the document states the minimum and the
+  // break-even penalty, and draws NO positive net-benefit conclusion.
+  // Knowing a lender's IRD METHOD never produces an IRD FIGURE (adversarial
+  // review 2026-07-13: the estimate used in the math is the 3MI floor either
+  // way), so the method-known case only changes HOW the real figure gets
+  // confirmed, never whether a floor-based conclusion may print. A wait
+  // conclusion at the floor is still safe: a larger true penalty only
+  // strengthens it. Floating is unchanged (three months' interest IS the
+  // penalty there), and a switch at maturity has no penalty at all. The
+  // board's bucketing on the 3MI floor is unchanged; this is about what a
+  // client is told in writing.
+  const isFloatingClient = input.currentRateType === 'variable' || input.currentRateType === 'adjustable'
+  const penaltyApplies = input.penaltyThreeMonthsInterest != null
+  const fixedPenalty = penaltyApplies && !isFloatingClient
+  const fixedUnknownIrd = fixedPenalty && !input.penaltyMethodologyKnown
+  const horizon = input.horizonMonths ?? input.remainingMonths
+  // The penalty size at which the switch stops paying: the whole benefit
+  // over the horizon. Above this figure the client loses by moving.
+  const breakEvenPenalty =
+    input.monthlySaving != null && input.monthlySaving > 0 && horizon != null
+      ? input.monthlySaving * horizon
+      : null
+
   heading('What breaking your mortgage early would cost')
   if (input.penaltyFraming) {
     para(redactComp(input.penaltyFraming), 9.5, GRAY, 13)
   }
   if (input.penaltyThreeMonthsInterest != null) {
     para(
-      `Three months of interest on your balance is about ${money(input.penaltyThreeMonthsInterest)}.` +
-        (input.penaltyMethodologyKnown
-          ? ''
-          : " We do not have this lender's exact penalty rule on file, so we treat that as the floor and confirm the real figure with the lender."),
+      fixedPenalty
+        ? `Three months of interest on your balance is about ${money(input.penaltyThreeMonthsInterest)}. That is the minimum, not the final figure. The real penalty is the greater of that minimum and the interest rate differential.`
+        : `Three months of interest on your balance is about ${money(input.penaltyThreeMonthsInterest)}.`,
+      9.5,
+      GRAY,
+      13,
+    )
+    if (fixedUnknownIrd) {
+      para(
+        "We don't have this lender's exact penalty rule on file, so only your lender can state the exact figure. Michael requests it before anything moves.",
+        9.5,
+        GRAY,
+        13,
+      )
+    } else if (fixedPenalty) {
+      para(
+        `We have ${redactComp(input.currentLender)}'s penalty method on file, so Michael can estimate the real figure with you on a call; the lender confirms the exact amount before anything moves.`,
+        9.5,
+        GRAY,
+        13,
+      )
+    }
+  }
+  if (fixedPenalty && breakEvenPenalty != null) {
+    para(
+      `The number that decides it: if the penalty comes back higher than about ${money(breakEvenPenalty)}, the switch stops making sense. Below that, the saving wins.`,
       9.5,
       GRAY,
       13,
     )
   }
-  if (input.breakEvenMonths != null) {
+  // The pays-for-itself line is floor-based for a fixed break, so it is
+  // suppressed there along with the conclusion.
+  if (input.breakEvenMonths != null && !fixedPenalty) {
     para(
       `At the saving above, the switch pays for itself in about ${Math.ceil(input.breakEvenMonths)} months.`,
       9.5,
@@ -286,8 +413,20 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   // ── Recommendation — honest about waiting ──
   heading('What we would do')
   const netPositive = (input.netBenefit ?? 0) > 0
-  const horizon = input.horizonMonths ?? input.remainingMonths
-  if (netPositive && input.bucket === 'act_now') {
+  if (netPositive && input.bucket === 'act_now' && fixedPenalty) {
+    // NO positive conclusion on a penalty floor, method known or not: the IRD
+    // could exceed the break-even and erase the gain. The direction is stated
+    // as undecided until the real figure is in hand.
+    const confirmPath = input.penaltyMethodologyKnown
+      ? `Michael knows how ${redactComp(input.currentLender)} calculates it and will walk the estimate through with you; the lender confirms the exact amount.`
+      : `Only ${redactComp(input.currentLender)} can state that figure, and Michael requests it before anything moves.`
+    para(
+      `The monthly saving is real, but the answer turns on your exact penalty. If the interest rate differential comes back higher than the break-even figure above, it erases the gain. ${confirmPath} Nothing is recommended until it is in hand.`,
+      10,
+      NAVY,
+      14,
+    )
+  } else if (netPositive && input.bucket === 'act_now') {
     // A break (refinance) names the cost of breaking early over the months left;
     // a switch at maturity has no break cost and looks over the new term.
     const lead =
@@ -297,6 +436,18 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
         : `Even after the cost of breaking early, switching now looks worth about ${money(input.netBenefit)}` +
           (horizon != null ? ` over the ${horizon} months left on your term` : '')
     para(`${lead}. It is worth a conversation. Michael will confirm the numbers with the lender before you decide.`, 10, NAVY, 14)
+  } else if (input.bucket === 'marginal' && fixedPenalty) {
+    // The floor-based "close to even" claim is qualified for a fixed break:
+    // the real penalty can only be the minimum or more, so the true position
+    // can only be worse. The don't-move advice is stated on that basis.
+    para(
+      "Counting only the minimum penalty, the numbers are close to even. A fixed rate's real penalty " +
+        'can only be that minimum or more, so moving today does not clear the bar. We keep watching ' +
+        'your file and revisit as your maturity date gets closer or as rates move.',
+      10,
+      NAVY,
+      14,
+    )
   } else if (input.bucket === 'marginal') {
     para(
       'The savings and the cost of breaking early are close to even right now. There is no clear ' +

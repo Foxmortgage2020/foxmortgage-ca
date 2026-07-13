@@ -505,29 +505,21 @@ export interface LenderResult {
   cashbackCount: number
 }
 
-// Sorting contract (fox-underwriting docs/gates-api.md + the Session 6
-// brief): floating-only views sort by deepest discount (most negative
-// variance); mixed views sort by effective rate (printed for fixed,
-// computed against served prime for floating). Floating rows whose
-// effective rate cannot be computed (reference unreachable, nothing
-// printed) sort after the priced rows, deepest discount first — never
-// interleaved on a guess. Adjustable and variable are never collapsed:
-// the tie-break keeps them adjacent but distinct.
-function compareMatches(a: QuoteMatch, b: QuoteMatch, s: Scenario, ref: RatesReference | null): number {
+// Sorting contract (corrected 2026-07-13; the fox-underwriting CLAUDE.md §3
+// convention line is corrected with it): EVERY view sorts by effective rate
+// (printed for fixed, computed against the served per-lender prime for
+// floating). The old floating-only rule — deepest discount (most negative
+// variance) first — was unsafe because prime is per-lender: Kootenay's P-1.91
+// on a 5.50 PLR is 3.59% effective, one basis point from Neo's P-0.85 on bank
+// prime (3.60%), not 106 points ahead. The variance is display, never sort
+// order. Floating rows whose effective rate cannot be computed (reference
+// unreachable, nothing printed) sort after the priced rows, deepest discount
+// first — the honest fallback when no rate can be claimed at all. Adjustable
+// and variable are never collapsed: the tie-break keeps them adjacent but
+// distinct.
+function compareMatches(a: QuoteMatch, b: QuoteMatch, _s: Scenario, ref: RatesReference | null): number {
   const qa = a.quote
   const qb = b.quote
-  const floatingOnly = s.rateType === 'adjustable' || s.rateType === 'variable'
-  if (floatingOnly) {
-    const va = qa.primeVariance
-    const vb = qb.primeVariance
-    if (va !== null && vb !== null && va !== vb) return va - vb
-    if (va === null && vb !== null) return 1
-    if (va !== null && vb === null) return -1
-    const ra = quoteEffectiveRate(qa, ref)
-    const rb = quoteEffectiveRate(qb, ref)
-    if (ra !== null && rb !== null && ra !== rb) return ra - rb
-    return qa.termMonths - qb.termMonths
-  }
   const ea = quoteEffectiveRate(qa, ref)
   const eb = quoteEffectiveRate(qb, ref)
   if (ea !== null && eb !== null && ea !== eb) return ea - eb

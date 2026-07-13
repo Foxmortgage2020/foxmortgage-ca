@@ -1,6 +1,7 @@
 // Eligibility tests, column-truth edition. The workbench classifier populates
-// the five eligibility columns on rate_quotes (backfill verified 2026-07-13:
-// 947 of 949 approved rows carry eligibility_source); the portal READS them and
+// the five eligibility columns on rate_quotes (backfill verified 2026-07-13;
+// after the test artifacts were superseded the approved book is 947 rows
+// across 23 lenders, every row classified); the portal READS them and
 // derives nothing. The golden suite asserts portal verdicts match the columns
 // as the workbench writes them (fixtures shaped exactly like live rows), that
 // the derivation is gone from the module, and that the two fail-close

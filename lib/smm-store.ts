@@ -173,6 +173,25 @@ export async function recordBackfillEvent(input: {
   })
 }
 
+// ─── Savings-analysis log (migration 20260713150000) ────────────────────────
+// Append-only reproducibility record: every savings determination that reaches
+// a deliverable surface lands here with its calc version, inputs hash, and the
+// figures rendered. No update or delete path exists anywhere. Demo writes
+// nothing (asserted in tests/savings-log.test.ts).
+export async function recordSavingsAnalysis(
+  entry: Record<string, unknown>,
+  dedupe: boolean,
+): Promise<SmmStoreResult<string | null>> {
+  if (isDemoMode()) return demoWriteRefused<string | null>()
+  return rpc<string | null>('savings_analysis_record', { p_entry: entry, p_dedupe: dedupe })
+}
+
+export async function recordSavingsAnalysisBatch(entries: Record<string, unknown>[]): Promise<SmmStoreResult<number>> {
+  if (isDemoMode()) return demoWriteRefused<number>()
+  if (entries.length === 0) return { configured: true, ok: true, data: 0 }
+  return rpc<number>('savings_analysis_record_batch', { p_entries: entries })
+}
+
 export interface OpportunityStatusRow {
   householdId: string
   status: string

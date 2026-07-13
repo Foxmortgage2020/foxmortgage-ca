@@ -410,39 +410,27 @@ export function bestFixedComparable(
   }
 }
 
-// Deepest approved floating discount (most negative prime variance) for the
-// class, for context on a variable/adjustable client. The effective rate needs
-// prime (a browser-token read), so this returns the discount only.
-export function bestFloatingDiscount(
-  quotes: BookQuote[],
-  productClass: string,
-  lenderName: (slug: string) => string,
-): { variance: number; lender: string; asOf: string | null } | null {
-  const floating = quotes.filter(
-    q =>
-      q.status === 'approved' &&
-      (q.rateType === 'adjustable' || q.rateType === 'variable') &&
-      q.primeVariance != null &&
-      q.asOfDate != null &&
-      !q.lenderSlug.toLowerCase().includes('test'),
-  )
-  const pool = floating.filter(q => q.productClass === productClass)
-  const use = pool.length > 0 ? pool : floating
-  if (use.length === 0) return null
-  const best = use.reduce((a, b) => (b.primeVariance! < a.primeVariance! ? b : a))
-  return { variance: best.primeVariance!, lender: lenderName(best.lenderSlug), asOf: best.asOfDate }
-}
+// NOTE: bestFloatingDiscount (deepest approved floating discount by variance)
+// was deleted here. It had no callers, and ranking floating quotes on the
+// variance is exactly the defect the effective-rate convention forbids: prime
+// is per-lender (Kootenay PLR 5.50 vs bank prime 4.45), so the deepest
+// discount is not the lowest rate. prime_variance is display, never sort order.
 
 // ─── Best ELIGIBLE comparable (province + program + transaction filtered) ────
 // The comparable a monitored client can genuinely have: province-eligible (BC
 // credit unions excluded), unrestricted for an ordinary borrower (physician /
 // bundle / channel / undisclosed-restriction rows excluded — fail-closed), and
-// valid for the transaction (a refinance never sees a purchase-only promo). It
-// weighs fixed (printed rate) AND floating (effective = prime + variance,
-// priced with the server prime mirror) and picks the lowest effective rate, so
-// an adjustable client sees the real adjustable best, not a worse fixed. Class
-// is HARD, never assumed: a refinance compares only against `productClass`
-// quotes; if none exist the comparable is null (honest), never a wrong-class rate.
+// valid for the transaction (a refinance never sees a purchase-only promo).
+// `rateFamilies` is the like-for-like gate: the DEFAULT comparable is the
+// client's own rate family (fixed client → fixed; adjustable → adjustable;
+// variable → variable; adjustable and variable are NEVER collapsed — an ARM
+// payment moves with prime, a VRM payment holds). A cross-family option is a
+// separate call with the other families, presented as a labelled alternative,
+// never the headline. Within the families, floating quotes rank on the
+// EFFECTIVE rate computed from the per-lender prime (Kootenay PLR 5.50 vs bank
+// prime 4.45); prime_variance is display, never sort order. Class is HARD,
+// never assumed: a refinance compares only against `productClass` quotes; if
+// none exist the comparable is null (honest), never a wrong-class rate.
 export function bestEligibleComparable(
   quotes: BookQuote[],
   productClass: string,
@@ -450,6 +438,7 @@ export function bestEligibleComparable(
   lenderName: (slug: string) => string,
   primeFor: (slug: string) => number,
   isEligible: (q: BookQuote, transaction: TransactionKind) => boolean,
+  rateFamilies: readonly string[],
   preferredTermMonths = 60,
 ): Comparable | null {
   const priced = quotes
@@ -457,6 +446,7 @@ export function bestEligibleComparable(
       q =>
         q.status === 'approved' &&
         q.productClass === productClass && // HARD class match — never assumed
+        rateFamilies.includes(q.rateType) && // like-for-like, exact rate type
         q.asOfDate != null &&
         !q.lenderSlug.toLowerCase().includes('test') &&
         isEligible(q, transaction),

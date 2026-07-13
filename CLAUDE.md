@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 13, 2026, third session (BACKFILL SHARED-IDENTITY FIX: decideMatch now resolves a (contact, mortgage) PAIR — an identity signal shared by 2+ export mortgages yields the new 'shared_identity' bucket, the contact's deals attribute by property address then amount via attributeDeals, contested deals are NEVER proposed into and land on a per-contact needs-manual-match card, and the apply route accepts Michael's explicit manualMatch pick only for contested deals, audited as 'ok (manual match)'. Live: 6 shared groups / 13 of 41 mortgages. See the 2026-07-13 backfill ledger entry. Second session, SMM PAYMENT CORRECTION: the Opportunities stated current payment now reconstructs the ORIGINAL schedule — payment(original amount, rate, original amortization), never a re-amortized current balance, which understated every seasoned mortgage's payment; monthsElapsed + remainingAmortizationMonths now ride FoxAnalysis and the comparison prices over the months actually left; a NEW reconciliation gate models the balance forward from origination and >0.5% drift blocks the file into the new 'review' board bucket with both figures + drift shown — a blocked file states NO figure anywhere, savings PDF included. Details in the 2026-07-13 SMM ledger entry. Earlier the same day, MIRROR 1 COLLAPSED: the eligibility backfill RAN in the workbench (verified live 2026-07-13: 947/949 approved rows carry eligibility_source; the only nulls are the 5 test-portal artifacts, 2 approved + 3 superseded), so the portal-side deriveEligibility/baseStem port was DELETED per guardrail 1 (deterministic code calculates in one place — the classifier lives ONLY in fox-underwriting src/skills/extract/eligibility.ts). lib/eligibility.ts evaluateQuote now reads the five rate_quotes columns (borrower_requirement/client_commitment/channel_requirement/transaction_types/eligibility_unknown) verbatim through portal_readonly. FAIL-CLOSED, two conditions: eligibility_unknown=true OR eligibility_source IS NULL → program_restricted with the 'unclassified' code, excluded from default ranking, revealable under show-restricted, and NEVER on a client document — not even pinned (includedInClientDoc hard-blocks undisclosedRestriction; a restriction nobody can name cannot be confirmed). A null source is what an unclassified row fresh from Roam looks like. tests/eligibility.test.ts is rewritten: golden = portal verdicts match the workbench columns (fixtures shaped like live rows), a module-absence proof (no deriveEligibility/baseStem/effectiveEligibility export), and a surface sweep asserting a null-source quote is excluded from scenario/Ask Fox (matchQuote), lender-browse (lenderCards), Opportunities+savings PDF (analyzeMortgage comparable), Renewals (bestApprovedFixed), and client docs (includedInClientDoc, pin included). Live parity proven: the fixture re-run under column-truth reproduces the derivation-era buckets exactly (marginal 14 / stay_put 13 / insufficient 6 / act_now 8; Sally Ryan still First National conventional adjustable P−0.50/3.95%). THREE MIRRORS REMAIN (plan recorded in the 2026-07-13 ledger entry; do not re-port them): config/lender-provinces.ts (mirrors knowledge/lender-registry.json), config/prime.ts (mirrors knowledge/prime.json), lib/mortgage-engine.ts (parallel to fox-underwriting/src/calc). The prior session header below is retained for context; its backfill claim is superseded by this note.
+## Last Updated: July 13, 2026, fourth session (FINAL CORRECTNESS PASS, Tasks 5-8: the savings PDF states 3MI as a MINIMUM with the break-even penalty and draws NO positive net-benefit conclusion on ANY fixed-rate break — adversarial review forced the strengthening past the brief: a documented IRD method still yields no figure, so method-known only changes the confirm path; the comparable is LIKE-FOR-LIKE by rate family (fixed→fixed, adjustable and variable never collapsed; the cheaper cross-family option is a labelled alternative with a quantified risk line; headline-ing it takes a two-tap manage-gated ?alt=approve recorded on the log); floating ranks on the EFFECTIVE rate from the per-lender prime everywhere (variance is display — convention corrected in fox-underwriting §3 + gates-api.md); savings_analysis_log (FOXCA 20260713150000, append-only, functions-only, verified 42501) records every board render + client PDF with calc_version 2 + canonical inputs_hash and REPLAYS exactly; approved book live-verified 947 across 23 lenders. See the 2026-07-13 final-pass ledger entry. Third session, BACKFILL SHARED-IDENTITY FIX: decideMatch now resolves a (contact, mortgage) PAIR — an identity signal shared by 2+ export mortgages yields the new 'shared_identity' bucket, the contact's deals attribute by property address then amount via attributeDeals, contested deals are NEVER proposed into and land on a per-contact needs-manual-match card, and the apply route accepts Michael's explicit manualMatch pick only for contested deals, audited as 'ok (manual match)'. Live: 6 shared groups / 13 of 41 mortgages. See the 2026-07-13 backfill ledger entry. Second session, SMM PAYMENT CORRECTION: the Opportunities stated current payment now reconstructs the ORIGINAL schedule — payment(original amount, rate, original amortization), never a re-amortized current balance, which understated every seasoned mortgage's payment; monthsElapsed + remainingAmortizationMonths now ride FoxAnalysis and the comparison prices over the months actually left; a NEW reconciliation gate models the balance forward from origination and >0.5% drift blocks the file into the new 'review' board bucket with both figures + drift shown — a blocked file states NO figure anywhere, savings PDF included. Details in the 2026-07-13 SMM ledger entry. Earlier the same day, MIRROR 1 COLLAPSED: the eligibility backfill RAN in the workbench (verified live 2026-07-13: 947/949 approved rows carried eligibility_source; the only nulls were the 5 test-portal artifacts, 2 approved + 3 superseded — those 2 were themselves superseded later the same day, so the approved book is 947 across 23 lenders, every row classified), so the portal-side deriveEligibility/baseStem port was DELETED per guardrail 1 (deterministic code calculates in one place — the classifier lives ONLY in fox-underwriting src/skills/extract/eligibility.ts). lib/eligibility.ts evaluateQuote now reads the five rate_quotes columns (borrower_requirement/client_commitment/channel_requirement/transaction_types/eligibility_unknown) verbatim through portal_readonly. FAIL-CLOSED, two conditions: eligibility_unknown=true OR eligibility_source IS NULL → program_restricted with the 'unclassified' code, excluded from default ranking, revealable under show-restricted, and NEVER on a client document — not even pinned (includedInClientDoc hard-blocks undisclosedRestriction; a restriction nobody can name cannot be confirmed). A null source is what an unclassified row fresh from Roam looks like. tests/eligibility.test.ts is rewritten: golden = portal verdicts match the workbench columns (fixtures shaped like live rows), a module-absence proof (no deriveEligibility/baseStem/effectiveEligibility export), and a surface sweep asserting a null-source quote is excluded from scenario/Ask Fox (matchQuote), lender-browse (lenderCards), Opportunities+savings PDF (analyzeMortgage comparable), Renewals (bestApprovedFixed), and client docs (includedInClientDoc, pin included). Live parity proven: the fixture re-run under column-truth reproduces the derivation-era buckets exactly (marginal 14 / stay_put 13 / insufficient 6 / act_now 8; Sally Ryan still First National conventional adjustable P−0.50/3.95%). THREE MIRRORS REMAIN (plan recorded in the 2026-07-13 ledger entry; do not re-port them): config/lender-provinces.ts (mirrors knowledge/lender-registry.json), config/prime.ts (mirrors knowledge/prime.json), lib/mortgage-engine.ts (parallel to fox-underwriting/src/calc). The prior session header below is retained for context; its backfill claim is superseded by this note.
 
 ### Prior header: Lender eligibility + client constraints shipped. THE LIVE BUG: Kootenay Savings and Coast Capital are BC credit unions (lender-registry.json provinces=['BC']) that cannot do an Ontario deal; Kootenay held the deepest floating discount and led nearly every floating scenario, proposed as a real client's (Sally Ryan) best comparable. FIX — a new lib/eligibility.ts is the single gate for province + program eligibility: resolveProvince (config/lender-provinces.ts server mirror of the workbench registry; live registry overrides on token surfaces; fail-closed — ineligible excluded everywhere, unknown shown flagged internally but EXCLUDED from client docs), deriveEligibility (EXACT port of fox-underwriting src/skills/extract/eligibility.ts, golden-test parity — the workbench 0032 columns EXIST but the backfill NEVER RAN, 949 approved rows all null, so the portal derives from variant+programNotes and prefers the columns via eligibilitySource when populated), channelHeld (HELD_CHANNELS: unionlink only, Michael-confirmed), evaluateQuote → {category: eligible|province_ineligible|province_unknown|channel_unavailable|transaction_mismatch|program_restricted}, includedInRanking/includedInClientDoc. lib/scenario.ts matchQuote=structuralMatch+eligibility gate (attaches verdict), scenarioExclusions for the "N excluded" notes, Scenario gained subjectProvince/borrowerProfiles/commitments/showRestricted (URL params prov/bp/cc/restricted). Wired into: scenario (RatesScenario qualifier toggles + exclusion notes + show-restricted + province flags + requirement sentences), lib/lender-browse.ts (BC + restricted excluded), Ask Fox search_rates (eligible-only, prompt v3 never-quote-unconfirmed), lib/renewals.ts bestApprovedFixed (BC/restricted excluded; switch=no-penalty already correct; insurance-class port has NO Zoho source = documented gap), both client PDFs (savings + rates: withhold province-unknown/ineligible/restricted; rates PDF gates OFFER pins too). PART 1c: transaction from maturity proximity (>120d refinance→conventional+80% LTV hard cap+requalification+penalty; ≤120d switch→original class+no penalty), analyzeMortgage/bestEligibleComparable (fixed+floating via config/prime.ts mirror, SANE_RATE_FLOOR guards a bad variance); re-ran the export: 20/41 opportunities changed bucket; Sally corrected to First National conventional adjustable P−0.50/3.95% (was the Kootenay fantasy). CONSTRAINTS (Parts 2/3/4): lib/constraints.ts (excluded/required/preferred, reason required, retire-not-delete, applyConstraints never overrides eligibility → required-but-ineligible = honest empty state), lib/constraint-cost.ts (computeCostOfConstraint/dealConstraintCost via the shared engine), FOXCA migration 20260712160000 (client_constraints + pin_confirmations, RLS+functions-only, applied+round-trip-verified live), routes under /api/portal/admin/constraints (constraints.manage, demo-refused), ClientConstraints editor in the deal room, ComplianceCard documentedSuitability (a constraint with a reason AND a real cost counts as documented suitability). Adversarial review run; fixed the client-PDF offer province leak, the floating negative-rate guard, the compliance zero-cost inflation, the constraint-cost term mismatch. 360 tests, build green. DEFERRED/REPORTED: the workbench eligibility backfill (portal derives meanwhile); provinces confirmed for only the 2 BC lenders so client PDFs withhold every comparison until Michael confirms provinces in fox-underwriting/knowledge/lender-registry.json (the visible count drives it); the live cost-of-constraint readout + manual toggle on the scenario board; constraint application to the rates surface/PDF. Opportunities engine (below) preceded this.
 
@@ -1490,6 +1490,135 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-13 — Final correctness pass (Tasks 5+6+7+8): penalty honesty, like-for-like, the reproducible record
+- STEP 0: the stacked Task 3+4 work committed as two clean commits (977c778
+  payment correction, 5bf4d03 backfill fix + session docs) and deployed via
+  git push; production deploy dpl_9JeGhEfLymQsKJN4wyhZ5qVTpVtB READY on
+  foxmortgage.ca before any new edit.
+- TASK 5 (lib/savings-pdf.ts): the PDF no longer concludes on the penalty
+  floor. For a FIXED penalty the 3MI figure is stated as "the minimum, not
+  the final figure"; the BREAK-EVEN PENALTY (monthly saving x horizon — the
+  number that decides it) is stated; the act-now conclusion is replaced by
+  the honest block (differential could exceed the break-even and erase the
+  gain; "Nothing is recommended until it is in hand") and the floor-based
+  pays-for-itself line is suppressed — for EVERY fixed break, method known
+  or not. DELIBERATE DEVIATION from the brief's item 4 (which kept the
+  conclusion where the method is documented), forced by adversarial review
+  finding 1: knowing a lender's IRD METHOD never produces an IRD FIGURE
+  (penaltyEstimate uses the 3MI floor either way), so a known-method
+  conclusion was the same indefensible claim behind a predicate that
+  guarantees nothing. Method-known changes only the confirm path ("Michael
+  knows how <lender> calculates it and will walk the estimate through; the
+  lender confirms the exact amount"); unknown-method says only the lender
+  can state it. The MARGINAL branch (review finding 2) qualifies its claim
+  for a fixed break: "Counting only the minimum penalty, the numbers are
+  close to even... the real penalty can only be that minimum or more, so
+  moving today does not clear the bar." DESIGN CALL: wait/stay-put
+  conclusions at the 3MI floor stand — a larger true penalty only
+  strengthens them. Floating unchanged (3MI IS the penalty); a switch keeps
+  its conclusion (no penalty, nothing floor-based); board bucketing
+  unchanged (3MI floor, IRD disclosed).
+- TASK 6a (ranking): every floating ranking is on the EFFECTIVE rate from the
+  per-lender prime; prime_variance is display, never sort order.
+  lib/scenario.ts compareMatches' floating-only deepest-discount branch
+  deleted (every view now sorts by effective; unpriceable rows still sort
+  last, deepest discount first); dead bestFloatingDiscount deleted from
+  lib/smm-match.ts (zero callers; it ranked on variance). FINDING, stated
+  honestly: the cross-lender rankings in THIS repo (lenderResults lender
+  ordering, bestEligibleComparable) already ranked on effective rate — the
+  variance-primary sort was within-lender only (one prime, same order) plus
+  the dead function; the convention LINE was the live hazard and is corrected
+  in fox-underwriting CLAUDE.md §3 AND docs/gates-api.md ranking-semantics
+  (both dated 2026-07-13). Locked by a two-prime test (bestEligibleComparable:
+  P-1.00 on 5.50 PLR = 4.50 loses to P-0.40 on 4.45 = 4.05) and a scenario
+  test (cu-own-prime override: deepest discount sorts last).
+- TASK 6b (like-for-like): bestEligibleComparable gained a rateFamilies
+  param (exact rateType match — adjustable and variable NEVER collapse).
+  analyzeMortgage: headline = the client's own family (clientRateFamily;
+  unknown defaults to fixed, the payment-stable family); the cheaper
+  cross-family option attaches as FoxAnalysis.alternative (same remaining
+  amortization, monthlySaving, rateFamilyRiskLine with the ~$64/0.25%-prime
+  quantifier for adjustable targets); crossFamilyApproved flips the headline
+  ONLY when the cross option is actually better, sets crossFamilyRecommended
+  + headlineRiskLine, and demotes the like-for-like to the labelled steady
+  option. Surfaces: OpportunityCard renders the alternative + risk line and a
+  TWO-TAP "Report with the adjustable option" link (canManage only); the PDF
+  route accepts ?alt=approve gated by opportunities.manage, province-gates
+  the alternative like the headline (fail-closed), and the generator prints
+  the labelled alternative block + mandatory risk line under an approved
+  cross-family headline. ACCEPTANCE LOCKED: seasoned fixture headlines
+  conventional FIXED 4.59 (sheet 2026-06-30) relief $244.12; the P-0.50
+  adjustable (3.95) is the labelled alternative at $409.84 with the risk line;
+  fixed never floating-headlined without the flag; variable client never
+  silently headlines an adjustable (honest-insufficient when the family has
+  no quote). BEHAVIOR CHANGE flagged: a client whose rate family has no
+  eligible comparable is now insufficient (was: priced against any family).
+  Reinders anchor stands at $3,357.46, now headlined by the ADJUSTABLE book.
+- TASK 7 (reproducibility): FOXCA migration 20260713150000 applied live —
+  savings_analysis_log, APPEND-ONLY by grants (RLS on, no policies, table
+  grants revoked; verified live: select/update/delete all 42501; the only
+  surface is savings_analysis_record/-_batch/-_recent, security definer,
+  anon EXECUTE; no update/delete function exists). lib/savings-log.ts:
+  SAVINGS_CALC_VERSION = 2 (v1 = the implicit pre-Task-3 math), canonical
+  sorted-key sha256 inputs_hash, buildSavingsLogEntry (household id, upload,
+  surface, quotes with sheet dates + role, prime as-of from the mirror,
+  bucket, cent-rounded figures, cross_family_approved, acting email),
+  replaySavingsAnalysis reconstructs the row and RECOMPUTES through the same
+  analyzeOpportunity + monthlyPayment (alternative recomputed from its quote,
+  never echoed). The PDF route logs EVERY generation (dedupe false); the
+  board render logs one batch deduped on (household, surface, calc_version,
+  inputs_hash) so a re-view writes nothing and a new upload/book/math writes
+  fresh rows. Tests: replay reproduces figures exactly (default + approved
+  cross-family), hash canonical + moves with inputs, demo writes nothing
+  (fetch-spy). Live: dedupe proven (second insert returns null), TEST row
+  retained per append posture; workbench portal_readonly write still refused
+  42501.
+- TASK 8: monthsElapsed boundary fixtures (started the 21st, analysed the
+  12th/13th → not yet a full month; the completing day counts) at both the
+  pure and analyzeMortgage level (23 elapsed / 277 remaining / reconciles);
+  reconcileBalance docstring states the drift DENOMINATOR = the MODELED
+  balance, always, plus a direction field ('ahead' = feed below model, a
+  prepaying client; 'grew' = feed above model, a readvance/refi/interest-only
+  story — the three biggest live drifts are all 'grew') carried into the
+  review card's blockReason; 949/24-lender staleness swept in both repos
+  (lib/eligibility.ts + tests/eligibility.test.ts comments, CLAUDE.md header,
+  fox-underwriting provincial-availability report annotated) — live-verified
+  2026-07-13: approved book 947 rows across 23 lenders, zero test slugs.
+  lib/rates-pdf.ts uses pdf-lib (draw-at-coordinates; wrap measures with
+  font.widthOfTextAtSize). Backfill click path: /portal/admin → Opportunities
+  (nav) → "Backfill Zoho" button on the Latest upload card →
+  /portal/admin/opportunities/backfill → "Scan N files".
+- ADVERSARIAL REVIEW (mandatory, run over the full diff; verdict initially
+  BLOCKED the commit): (1) HIGH — the known-IRD-method act-now conclusion was
+  still floor-based (fixed as above: no fixed break concludes); (2) MED-HIGH
+  — the marginal branch claimed "close to even" on the floor (fixed:
+  qualified copy); (3) MED — the cross-family approval was a replayable GET
+  query param and logged an approval even when nothing applied (fixed: the
+  approved variant is POST-only from the card's two-tap form, GET can never
+  approve, and the log records the APPLIED state); (4) MED — the alternative
+  block and approved headline stated a computed floating effective rate as a
+  printed sheet figure (fixed: pricedPhrase renders discount-first with the
+  effective labeled "at today's prime of X%, as of <prime as-of>", on the
+  PDF and the card); (5) LOW — "A adjustable rate" article (fixed by the
+  reword); (6) LOW — the comp-scrub sweep did not cover the four new string
+  fields (fixed: alternative + risk-line sentinel shape added); (7) LOW —
+  the board discarded the batch log result (fixed: loud console.error) and
+  dedupe is best-effort under concurrency (documented in the migration —
+  harmless, append-only). Review confirmed clean: fail-closed alternative
+  province gate, review/insufficient never print figures, null rate type
+  resolves to fixed everywhere, families never collapse, replay genuinely
+  recomputes, no client name in the log, no em dash/exclamation/broker/
+  vendor-name in new client copy.
+- Verified: tsc clean, production build green, full suite green (count in the
+  session report).
+- Guardrails held: readonly workbench (42501 write refusal re-proven), FOXCA
+  narrow functions only (new log table functions-only + append-only), Zoho
+  untouched, approved-only quoting with sheet dates everywhere (the log
+  carries them), adjustable/variable never conflated (now a tested family
+  boundary), redactComp over every new client string (scrub suite extended),
+  demo silent on the new store writes (tested), copy rules on all new client
+  copy, git push only, no ANTHROPIC_API_KEY in subprocesses.
 
 ### 2026-07-13 — Backfill shared-identity fix: a match is a (contact, mortgage) pair
 - THE COLLISION (not the collapse — collapseCoBorrowers stays untouched): six
