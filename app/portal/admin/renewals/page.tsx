@@ -25,15 +25,20 @@ import {
 import { isDemoMode } from '@/lib/demo'
 import { fmtMoney, fmtMoneyCompact, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
 import { recentUploads, rawRowsForUpload, smmStoreConfigured } from '@/lib/smm-store'
-import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
+import { recentRenewalEvents } from '@/lib/renewals-store'
+import { collapseCoBorrowers, parseSmmRow, type SmmMortgage } from '@/lib/smm'
 import {
+  appearsRenewedEvidenceKey,
+  detectAppearsRenewed,
   findExportByName,
   indexMortgagesByName,
   reconcileLapsed,
   retentionSummary,
+  type AppearsRenewedEvidence,
   type Reconciliation,
 } from '@/lib/smm-match'
 import RenewalCard from '@/components/admin/RenewalCard'
+import AppearsRenewedCard from '@/components/admin/AppearsRenewedCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,17 +110,12 @@ export default async function RenewalsPage() {
   const book = renewalBook(renewals.withMaturity, todayYMD)
   const canDecide = can(user, 'renewals.decide') && !isDemoMode()
 
-  const lapsedNoOutcome = buckets.lapsed.deals.filter(hasNoOutcome)
-  const lapsedNoOutcomeVol = lapsedNoOutcome.reduce((s, d) => s + d.amount, 0)
-
-  // ── Lapsed reconciliation against the latest monitoring export (in memory;
-  // no per-deal Zoho call). Classifies each lapsed deal still-with-lender
-  // (recoverable auto-renewal), lender-changed (moved; won or lost unknown), or
-  // unmonitored (not in the export). Never computes from a stale figure — the
-  // recon only flags conflicts; it does not overwrite. ──
-  let recons: { deal: RenewalDeal; recon: Reconciliation }[] = []
+  // ── The latest monitoring export, loaded once: it powers both the
+  // appears-renewed detection (action + lapsed pools) and the lapsed
+  // reconciliation. Name-indexed in memory; no per-deal Zoho call. ──
+  let exportIdx: Map<string, SmmMortgage | null> | null = null
   let hasExport = false
-  if (smmStoreConfigured() && buckets.lapsed.deals.length > 0) {
+  if (smmStoreConfigured()) {
     try {
       const uploadsR = await recentUploads(3)
       const uploads = uploadsR.configured && uploadsR.ok ? uploadsR.data : []
@@ -125,20 +125,80 @@ export default async function RenewalsPage() {
         if (rowsR.configured && rowsR.ok) {
           hasExport = true
           const { mortgages } = collapseCoBorrowers(rowsR.data.map(parseSmmRow))
-          const idx = indexMortgagesByName(mortgages)
-          recons = buckets.lapsed.deals.map(d => ({
-            deal: d,
-            recon: reconcileLapsed(
-              { lender: d.lenderName, rate: d.mortgageRate, maturity: d.maturityDate },
-              findExportByName(d.contactName, idx),
-            ),
-          }))
+          exportIdx = indexMortgagesByName(mortgages)
         }
       }
     } catch {
-      recons = []
+      exportIdx = null
     }
   }
+
+  // ── Appears renewed: the feed contradicts the deal's recorded terms (a
+  // start date materially past the closing date, a different lender, a
+  // different rate). Those files are SUPPRESSED from the action pools and the
+  // lapsed alarm pending Michael's confirm or decline — reclassified, never
+  // deleted. Declines persist in the renewal events store. ──
+  const declined = new Map<string, string>()
+  try {
+    const eventsR = await recentRenewalEvents(500)
+    if (eventsR.configured && eventsR.ok) {
+      for (const e of eventsR.data) {
+        if (e.action === 'appears_renewed_declined' && !declined.has(e.dealId)) {
+          declined.set(e.dealId, typeof e.fields?.evidenceKey === 'string' ? (e.fields.evidenceKey as string) : '')
+        }
+      }
+    }
+  } catch {
+    // A store outage means no declines load; files re-flag, which is the
+    // conservative direction.
+  }
+  const appearsRenewed: { deal: RenewalDeal; evidence: AppearsRenewedEvidence; from: 'action' | 'lapsed' }[] = []
+  if (exportIdx) {
+    for (const from of ['action', 'lapsed'] as const) {
+      for (const d of buckets[from].deals) {
+        const m = findExportByName(d.contactName, exportIdx)
+        if (!m) continue
+        const evidence = detectAppearsRenewed(
+          { closingDate: d.closingDate, lender: d.lenderName, rate: d.mortgageRate, maturity: d.maturityDate },
+          m,
+        )
+        if (!evidence) continue
+        // A decline clears THIS evidence only; a later feed change re-flags.
+        if (declined.has(d.id) && declined.get(d.id) === appearsRenewedEvidenceKey(evidence)) continue
+        appearsRenewed.push({ deal: d, evidence, from })
+      }
+    }
+  }
+  const flaggedIds = new Set(appearsRenewed.map(x => x.deal.id))
+  // Pre-suppression totals, so the delta (what was phantom) is visible.
+  const beforeAction = { count: buckets.action.count, volume: buckets.action.volume }
+  const beforeLapsed = { count: buckets.lapsed.count, volume: buckets.lapsed.volume }
+  for (const k of ['action', 'lapsed'] as const) {
+    buckets[k].deals = buckets[k].deals.filter(d => !flaggedIds.has(d.id))
+    buckets[k].count = buckets[k].deals.length
+    buckets[k].volume = buckets[k].deals.reduce((s, d) => s + d.amount, 0)
+  }
+  const suppressedVolume = appearsRenewed.reduce((s, x) => s + x.deal.amount, 0)
+
+  const lapsedNoOutcome = buckets.lapsed.deals.filter(hasNoOutcome)
+  const lapsedNoOutcomeVol = lapsedNoOutcome.reduce((s, d) => s + d.amount, 0)
+
+  // ── Lapsed reconciliation against the latest monitoring export (post
+  // suppression: an appears-renewed file is already explained). Classifies
+  // each lapsed deal still-with-lender (recoverable auto-renewal),
+  // lender-changed (moved; won or lost unknown), or unmonitored (not in the
+  // export). Never computes from a stale figure — the recon only flags
+  // conflicts; it does not overwrite. ──
+  const recons: { deal: RenewalDeal; recon: Reconciliation }[] =
+    exportIdx && buckets.lapsed.deals.length > 0
+      ? buckets.lapsed.deals.map(d => ({
+          deal: d,
+          recon: reconcileLapsed(
+            { lender: d.lenderName, rate: d.mortgageRate, maturity: d.maturityDate },
+            findExportByName(d.contactName, exportIdx!),
+          ),
+        }))
+      : []
   const retention = retentionSummary(recons.map(r => r.recon))
 
   const cardProps = (d: RenewalDeal, tone: 'red' | 'amber' | 'gray' | 'green') => ({
@@ -235,6 +295,42 @@ export default async function RenewalsPage() {
         <LapsedReconciliation recons={recons} retention={retention} hasExport={hasExport} zohoDealUrl={zohoDealUrl} />
       )}
 
+      {/* ── Appears renewed: the feed contradicts the CRM. Suppressed from the
+          pools above and below pending Michael's confirm or decline. ── */}
+      {appearsRenewed.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+            <h2 className="font-heading font-bold text-navy text-lg">Appears renewed</h2>
+            <span className="text-sm font-body text-gray-500">
+              {appearsRenewed.length} files · {fmtMoney(suppressedVolume)}
+            </span>
+          </div>
+          <p className="text-xs font-body text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 mb-3">
+            The monitoring export contradicts what Zoho recorded for these files (a newer start date, a
+            different lender, or a different rate): the client looks renewed already. They are held out
+            of Action now and Lapsed pending confirmation. Before this pass, Action now read{' '}
+            {beforeAction.count} files ({fmtMoney(beforeAction.volume)}) and Lapsed read {beforeLapsed.count}{' '}
+            files ({fmtMoney(beforeLapsed.volume)}); {fmtMoney(suppressedVolume)} of that was phantom.
+          </p>
+          <div className="space-y-2">
+            {appearsRenewed.map(({ deal, evidence, from }) => (
+              <AppearsRenewedCard
+                key={deal.id}
+                dealId={deal.id}
+                dealName={deal.contactName ?? deal.dealName}
+                amount={deal.amount}
+                from={from}
+                evidence={evidence}
+                evidenceKey={appearsRenewedEvidenceKey(evidence)}
+                zohoHref={zohoDealUrl(deal.id)}
+                canDecide={canDecide}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Action now (0-130 days) ── */}
       <BucketSection title="Action now" tone="amber" hint="Zero to 130 days to maturity. The 120-day rate-hold window opens inside this. Michael must engage." bucket={buckets.action} cardProps={cardProps} cardTone="amber" />
 
@@ -300,9 +396,8 @@ export default async function RenewalsPage() {
           </div>
         )}
         <p className="text-[11px] font-body text-gray-400 mt-2">
-          A won renewal cannot be recorded yet: Zoho&apos;s Renewal_Status picklist has no retained
-          value (its options are the contact-attempt sequence, renewed elsewhere, no longer needs a
-          mortgage, and application sent). Adding a retained value is a Zoho follow-up.
+          A won renewal records as Renewed With Us (the picklist value arrived 2026-07-13); it, renewed
+          elsewhere, no longer needs, and opted out all resolve a file here.
         </p>
       </section>
     </div>

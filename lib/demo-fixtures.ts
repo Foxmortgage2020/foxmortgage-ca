@@ -71,6 +71,7 @@ function renewalFixture(over: Partial<RenewalDeal>): RenewalDeal {
     renewalInProgress: false,
     renewalOptedOut: false,
     lenderName: null,
+    closingDate: null,
     ...over,
   }
 }

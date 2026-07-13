@@ -10,6 +10,7 @@
 import { monthlyPayment } from '@/lib/mortgage-engine'
 import { periodicRateForFrequency } from '@/lib/refinance-engine'
 import { normalizeLender, type NormalizedLender } from '@/config/smm-lender-aliases'
+import type { LenderTier } from '@/config/lender-tiers'
 
 // ─── The 26 export columns, in order ────────────────────────────────────────
 export const SMM_COLUMNS = [
@@ -401,6 +402,46 @@ export interface AlternativeComparable {
   crossFamily: boolean
 }
 
+// ─── Lender tiers (paper grade) ──────────────────────────────────────────────
+// A mortgage's tier is its CURRENT lender/program tier from the explicit feed
+// map. Like-for-like by default: a B file prices against B quotes, private
+// against private; pricing a B or private file against A rates manufactures
+// savings the client may not qualify for. Graduation to better paper is an
+// OPPORTUNITY Michael assesses, flagged, never an automatic price.
+
+/** A contract rate that does not fit A-tier paper: at or above this rate, or
+ * more than this many points over prime, the tier map is suspect and the file
+ * routes to review rather than trusting the map. */
+export const TIER_SANITY_RATE = 8
+export const TIER_SANITY_OVER_PRIME = 3
+
+export function tierRateMismatch(tier: LenderTier | null, ratePct: number | null, prime: number): boolean {
+  if (tier !== 'a' || ratePct == null) return false
+  return ratePct >= TIER_SANITY_RATE || ratePct > prime + TIER_SANITY_OVER_PRIME
+}
+
+/** A better-tier opportunity beside (or instead of) a same-tier analysis:
+ * the rate and its sheet date only, NO payment figures — qualification is
+ * Michael's assessment, and a figure the client may not qualify for is never
+ * stated. Becomes the priced headline only under Michael's recorded
+ * approval. */
+export interface GraduationOffer {
+  toTier: LenderTier
+  comparable: Comparable
+  note: string
+}
+
+/** Michael's manual comparable override: a picked approved book quote or a
+ * desk rate he was quoted directly. A desk rate is Michael's approval by
+ * definition, but it renders with its source framing, never as a sheet rate. */
+export interface OverrideInfo {
+  type: 'book_quote' | 'desk_rate'
+  lender: string
+  rate: number
+  reason: string
+  sourceNote: string | null
+}
+
 export interface PenaltyEstimate {
   // Three-months-interest is always computable from balance and rate.
   threeMonthsInterest: number
@@ -602,6 +643,16 @@ export interface FoxAnalysis {
   crossFamilyRecommended: boolean
   /** The risk line for an approved cross-family headline. */
   headlineRiskLine: string | null
+  /** The paper grade of the client's current lending (null = unknown). */
+  tier: LenderTier | null
+  /** A better-tier opportunity, flagged for Michael's assessment. Rate and
+   * sheet date only, never payment figures, never an automatic act-now. */
+  graduation: GraduationOffer | null
+  /** True only when Michael explicitly approved pricing the graduation tier
+   * as the headline. */
+  graduationRecommended: boolean
+  /** Michael's manual comparable override, when one is active. */
+  override: OverrideInfo | null
 }
 
 export interface AnalyzeOptions {
@@ -609,6 +660,12 @@ export interface AnalyzeOptions {
   productClass?: string
   /** Precomputed LTV; else computed from the row. */
   ltv?: number | null
+  /** The mortgage's paper grade (analyzeMortgage resolves it from the feed
+   * map); rides FoxAnalysis.tier. */
+  tier?: LenderTier | null
+  /** When set, the analysis blocks to 'review' with this reason BEFORE any
+   * comparison (unknown tier, or a rate that contradicts the tier map). */
+  tierBlockReason?: string | null
 }
 
 // Standard amortization assumption where the export's is missing/implausible,
@@ -656,11 +713,16 @@ export function analyzeOpportunity(
     requalification,
     penaltyApplies,
     remainingMonths: remaining,
-    // The cross-family fields are attached by analyzeMortgage (which sees the
-    // whole book); the core analysis itself is always like-for-like.
+    // The cross-family/graduation/override fields are attached by
+    // analyzeMortgage (which sees the whole book); the core analysis itself
+    // is always like-for-like.
     alternative: null as AlternativeComparable | null,
     crossFamilyRecommended: false,
     headlineRiskLine: null as string | null,
+    tier: (opts.tier ?? null) as LenderTier | null,
+    graduation: null as GraduationOffer | null,
+    graduationRecommended: false,
+    override: null as OverrideInfo | null,
   }
   // Filled in as the schedule is reconstructed; every exit path carries the
   // current values so a blocked analysis still shows what was established.
@@ -689,7 +751,16 @@ export function analyzeOpportunity(
   const insufficient = (blockReason: string, ltvBlocked = false): FoxAnalysis =>
     blocked('insufficient', blockReason, ltvBlocked)
 
-  if (!isAnalyzable(row)) return insufficient('Not analyzable (placeholder, missing rate, or parse failure).')
+  // A $1 placeholder is a vendor data problem, not a data gap: it routes to
+  // REVIEW (Michael confirms with the lender) and never proposes backfills —
+  // the live proving case was a $1 file offering a maturity write.
+  if (isPlaceholder(row)) {
+    return blocked(
+      'review',
+      'A placeholder amount or balance (at or under $1) is a vendor data problem, never analyzed. Confirm the real figures with the lender; nothing is proposed from this row.',
+    )
+  }
+  if (!isAnalyzable(row)) return insufficient('Not analyzable (missing rate or parse failure).')
 
   const balance = row.balance!
   const rate = row.rate!
@@ -730,6 +801,14 @@ export function analyzeOpportunity(
       'review',
       `The export balance does not reconcile with the mortgage schedule: modeled ${fmt(recon.modeledBalance)} from origination vs ${fmt(recon.feedBalance)} in the export (${recon.driftPct.toFixed(2)}% drift); ${direction}. Confirm the true figures with the lender before any number is stated.`,
     )
+  }
+
+  // The tier gate: unknown paper grade, or a contract rate the tier map
+  // cannot explain, is a review item BEFORE any comparison — a comparable
+  // priced against the wrong paper grade manufactures savings the client may
+  // not qualify for.
+  if (opts.tierBlockReason) {
+    return blocked('review', opts.tierBlockReason)
   }
 
   // A refinance needs a computable LTV; missing/implausible value is a data gap,

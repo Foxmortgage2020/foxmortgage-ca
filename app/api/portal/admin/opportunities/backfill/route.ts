@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server'
 import { apiPermission } from '@/lib/authz'
 import { rawRowsForUpload, recentUploads, smmStoreConfigured } from '@/lib/smm-store'
-import { collapseCoBorrowers, parseSmmRow, type SmmParsedRow } from '@/lib/smm'
+import { collapseCoBorrowers, isPlaceholder, parseSmmRow, type SmmParsedRow } from '@/lib/smm'
 import {
   attributeDeals,
   decideMatch,
@@ -80,6 +80,13 @@ export async function POST(req: Request) {
     }
     const p = m.primary
     const name = `${p.firstName} ${p.lastName}`.trim()
+    // A $1 placeholder row is a vendor data problem: its values are never
+    // proposed into Zoho (the live proving case was a $1 file offering a
+    // maturity write). Review the row with the lender instead.
+    if (isPlaceholder(p)) {
+      results.push({ householdId: hid, name, status: 'placeholder' as const })
+      continue
+    }
     try {
       // Match, short-circuited by confidence. The claimant count rides along:
       // an identity signal shared by more than one export mortgage can never

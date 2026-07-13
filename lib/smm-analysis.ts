@@ -24,12 +24,18 @@ import {
   deriveTransaction,
   RATE_FAMILIES,
   rateFamilyRiskLine,
+  tierRateMismatch,
   type FoxAnalysis,
+  type GraduationOffer,
+  type OverrideInfo,
   type SmmParsedRow,
   type TransactionKind,
 } from '@/lib/smm'
 import { monthlyPayment } from '@/lib/mortgage-engine'
-import { bestEligibleComparable, insuranceToProductClass, type BookQuote } from '@/lib/smm-match'
+import { graduationTargets, tierFor, type LenderTier } from '@/config/lender-tiers'
+import { PRIME_MIRROR } from '@/config/prime'
+import type { Comparable } from '@/lib/smm'
+import { bestEligibleComparable, eligibleComparablesRanked, insuranceToProductClass, type BookQuote } from '@/lib/smm-match'
 import { lenderMethodologyFor } from '@/lib/lenders'
 import { lenderDisplayName } from '@/config/lenders'
 import { primeFor } from '@/config/prime'
@@ -62,6 +68,42 @@ export interface MortgageAnalysis {
   analysis: FoxAnalysis
   productClass: string
   transaction: TransactionKind
+}
+
+// ─── Override candidates (Task 3) ────────────────────────────────────────────
+// The book-quote override is validated BY CONSTRUCTION: the card's picker is
+// populated from this server-derived list (approved + eligible + SAME TIER,
+// every family), and the override route re-derives the list and matches the
+// submitted key. A quote that fails any gate (BC lender, restricted program,
+// wrong tier, not approved) never appears in the list, so it can never be
+// picked or re-matched — an override cannot resurrect an ineligible lender.
+
+/** Stable identity for a candidate across the picker round-trip. */
+export function comparableKey(c: Comparable): string {
+  return [c.lenderSlug ?? '', c.rateType ?? c.kind, c.termMonths, c.asOf ?? '', c.variance != null ? `v${c.variance}` : `r${c.rate}`].join('|')
+}
+
+/** The ranked, eligible, same-tier candidates Michael may override to (all
+ * rate families; his pick is his suitability decision). Empty when the tier
+ * is unknown or blocked. */
+export function overrideCandidates(row: SmmParsedRow, book: BookQuote[], todayYMD: string, limit = 8): Comparable[] {
+  const transaction = deriveTransaction(row.maturityDate, todayYMD)
+  const productClass = transaction === 'refinance' ? 'conventional' : insuranceToProductClass(row.insuranceType)
+  const tier = row.lender.tier
+  if (tier == null || tierRateMismatch(tier, row.rate, PRIME_MIRROR.value)) return []
+  const sameTierEligible = (q: BookQuote, t: TransactionKind) =>
+    comparableEligible(q, t) && tierFor(q.lenderSlug)?.tier === tier
+  // B paper books as b_side (same rule as analyzeMortgage).
+  const cls = tier === 'b' ? 'b_side' : productClass
+  return eligibleComparablesRanked(
+    book,
+    cls,
+    transaction,
+    lenderDisplayName,
+    primeFor,
+    sameTierEligible,
+    RATE_FAMILIES,
+  ).slice(0, limit)
 }
 
 // A switch is a lender transfer in the transaction vocabulary, so a switch
@@ -99,6 +141,27 @@ export interface AnalyzeMortgageOptions {
    * the client holds (recorded to the savings-analysis log by the caller).
    * Without it, the headline is always the client's own family. */
   crossFamilyApproved?: boolean
+  /** Michael explicitly approved pricing the graduation tier (better paper)
+   * as the headline. Without it, graduation is a flag, never a price. */
+  graduationApproved?: boolean
+  /** Michael's active manual override for this household (loaded from the
+   * FOXCA store by the caller). Takes precedence over every default
+   * comparable; the eligibility fail-close was enforced when it was set. */
+  override?: {
+    type: 'book_quote' | 'desk_rate'
+    comparable: Comparable
+    reason: string
+    sourceNote: string | null
+  } | null
+}
+
+/** A stored floating comparable repriced at today's per-lender prime, so a
+ * client document never pairs a stale effective rate with today's prime
+ * as-of. Printed rates and desk rates pass through untouched. */
+function refreshComparablePricing(c: Comparable): Comparable {
+  if (c.variance == null || c.primeUsed == null || !c.lenderSlug) return c
+  const prime = primeFor(c.lenderSlug)
+  return { ...c, primeUsed: prime, rate: Math.round((prime + c.variance) * 100) / 100 }
 }
 
 export function analyzeMortgage(
@@ -110,45 +173,144 @@ export function analyzeMortgage(
   const transaction = deriveTransaction(row.maturityDate, todayYMD)
   const ltv = computeLtv(row.balance, row.homeValue)
   // Refinance is uninsurable → conventional only. Switch ports the client's
-  // original class.
-  const productClass = transaction === 'refinance' ? 'conventional' : insuranceToProductClass(row.insuranceType)
+  // original class. (Tier reshapes this below: B paper books as b_side.)
+  const baseClass = transaction === 'refinance' ? 'conventional' : insuranceToProductClass(row.insuranceType)
   const methodologyKnown = lenderMethodologyFor(row.lender.display) != null
 
-  // Like-for-like by default: the headline comparable is the client's own
-  // rate family. A cheaper cross-family option rides along as a labelled
-  // alternative with its risk line; it becomes the headline ONLY under
-  // Michael's explicit approval, and then carries the risk line itself.
+  // Paper grade (tier): the mortgage's tier is its current lender/program
+  // tier from the explicit feed map. Unknown fails closed to review, and a
+  // contract rate that contradicts an A-tier mapping routes to review too —
+  // the map is suspect, never trusted over the rate.
+  const tier = row.lender.tier
+  const tierBlockReason =
+    tier == null
+      ? `The paper grade (tier) is not mapped for "${row.lender.display}". Confirm whether this is A, B, or private lending before any comparison; nothing is priced against unknown paper.`
+      : tierRateMismatch(tier, row.rate, PRIME_MIRROR.value)
+        ? `The contract rate (${row.rate}%) does not fit A-tier paper (prime is ${PRIME_MIRROR.value}%); the tier map may be wrong for "${row.lender.display}". Confirm the paper grade before any figure is stated.`
+        : null
+
+  // Like-for-like by default, on BOTH axes: the headline comparable is the
+  // client's own rate family AND own tier (a B file prices against B quotes;
+  // pricing it against A rates manufactures savings the client may not
+  // qualify for). A cheaper cross-family option rides along as a labelled
+  // alternative; a better-TIER option rides along as a graduation FLAG with
+  // no payment figures. Either becomes the headline only under Michael's
+  // explicit approval. A same-tier quote requires the quote lender's tier to
+  // be KNOWN and equal (fail-closed on both sides).
   const family = clientRateFamily(row.rateType)
   const otherFamilies = RATE_FAMILIES.filter(f => f !== family)
-  const likeForLike = bestEligibleComparable(
-    book,
-    productClass,
-    transaction,
-    lenderDisplayName,
-    primeFor,
-    comparableEligible,
-    [family],
-  )
-  const crossFamily = bestEligibleComparable(
-    book,
-    productClass,
-    transaction,
-    lenderDisplayName,
-    primeFor,
-    comparableEligible,
-    otherFamilies,
-  )
-  const crossIsBetter = crossFamily != null && (likeForLike == null || crossFamily.rate < likeForLike.rate)
-  const approved = opts.crossFamilyApproved === true && crossIsBetter
+  const sameTierEligible = (q: BookQuote, t: TransactionKind) =>
+    comparableEligible(q, t) && tier != null && tierFor(q.lenderSlug)?.tier === tier
 
-  const comparable = approved ? crossFamily : likeForLike
-  let analysis = analyzeOpportunity(row, comparable, methodologyKnown, todayYMD, { transaction, productClass, ltv })
+  // The book's class vocabulary is tier-shaped: B lending books as
+  // 'b_side' (verified live: every approved B-tier quote is b_side), so a
+  // B-paper mortgage compares against b_side quotes; the insurance trio only
+  // exists on A paper. No private class exists in the book at all — private
+  // paper goes honest-insufficient with the graduation flag. The mortgage's
+  // OWN class (what the card, the log, and the scenario prefill state) is
+  // its tier's class, so a B file's empty state names b_side, never
+  // conventional.
+  const classForTier = (t: LenderTier): string => (t === 'b' ? 'b_side' : baseClass)
+  const productClass = tier != null ? classForTier(tier) : baseClass
+
+  const likeForLike =
+    tierBlockReason || tier == null
+      ? null
+      : bestEligibleComparable(book, classForTier(tier), transaction, lenderDisplayName, primeFor, sameTierEligible, [family])
+  const crossFamily =
+    tierBlockReason || tier == null
+      ? null
+      : bestEligibleComparable(book, classForTier(tier), transaction, lenderDisplayName, primeFor, sameTierEligible, otherFamilies)
+
+  // Graduation: the best BETTER-tier option in the client's own family,
+  // priced in the TARGET tier's class vocabulary. An opportunity Michael
+  // assesses, never an automatic price.
+  const targets = tier ? graduationTargets(tier) : []
+  let gradComparable: Comparable | null = null
+  let gradTier: LenderTier | null = null
+  if (!tierBlockReason) {
+    for (const target of targets) {
+      const targetEligible = (q: BookQuote, t: TransactionKind) =>
+        comparableEligible(q, t) && tierFor(q.lenderSlug)?.tier === target
+      const c = bestEligibleComparable(book, classForTier(target), transaction, lenderDisplayName, primeFor, targetEligible, [family])
+      if (c && (gradComparable == null || c.rate < gradComparable.rate)) {
+        gradComparable = c
+        gradTier = target
+      }
+    }
+  }
+
+  // Precedence: Michael's override > approved graduation > approved
+  // cross-family > the like-for-like default. A stored floating book-quote
+  // override is REPRICED at today's per-lender prime before use (review
+  // finding 2026-07-13: a frozen effective rate must never pair with
+  // today's prime as-of on a client document); desk rates pass through as
+  // Michael stated them.
+  const override = opts.override
+    ? { ...opts.override, comparable: refreshComparablePricing(opts.override.comparable) }
+    : null
+  const gradApproved = override == null && opts.graduationApproved === true && gradComparable != null && gradTier != null
+  const crossIsBetter = crossFamily != null && (likeForLike == null || crossFamily.rate < likeForLike.rate)
+  const approved = override == null && !gradApproved && opts.crossFamilyApproved === true && crossIsBetter
+
+  const comparable = override
+    ? override.comparable
+    : gradApproved
+      ? gradComparable
+      : approved
+        ? crossFamily
+        : likeForLike
+  let analysis = analyzeOpportunity(row, comparable, methodologyKnown, todayYMD, {
+    transaction,
+    productClass,
+    ltv,
+    tier,
+    tierBlockReason,
+  })
+
+  if (override && analysis.bucket !== 'review') {
+    // Michael's manual comparable: his documented suitability decision. The
+    // default alternative/graduation attachments are suppressed so the
+    // document carries exactly what he chose; the reconciliation and tier
+    // review gates above still outrank it.
+    analysis = {
+      ...analysis,
+      override: {
+        type: override.type,
+        lender: override.comparable.lender,
+        rate: override.comparable.rate,
+        reason: override.reason,
+        sourceNote: override.sourceNote,
+      },
+    }
+    return { analysis, productClass, transaction }
+  }
+
+  // Graduation rides the analysis as a FLAG (rate and sheet date only, no
+  // payment figures — a figure the client may not qualify for is never
+  // stated), on stated AND honest-insufficient analyses alike. Approved, it
+  // becomes the priced headline.
+  if (gradComparable && gradTier && analysis.bucket !== 'review') {
+    analysis = {
+      ...analysis,
+      graduation: {
+        toTier: gradTier,
+        comparable: gradComparable,
+        note: gradApproved
+          ? `Michael approved pricing ${gradTier.toUpperCase()}-tier lending for this report; qualifying for it is assessed before anything moves.`
+          : `This client may now qualify for ${gradTier.toUpperCase()}-tier lending. Michael assesses qualification; no figure is promised until he does.`,
+      },
+      graduationRecommended: gradApproved,
+    }
+  }
 
   // Attach the beside-the-headline option, priced at the SAME remaining
   // amortization so the two payments compare. Only on a stated analysis: a
   // blocked file (review/insufficient) states no figure for either option.
+  // An approved graduation headline carries no cross-family alternative —
+  // the document carries the one escalation Michael approved.
   const remaining = analysis.remainingAmortizationMonths
-  const beside = approved ? likeForLike : crossIsBetter ? crossFamily : null
+  const beside = gradApproved ? null : approved ? likeForLike : crossIsBetter ? crossFamily : null
   if (analysis.currentPayment != null && remaining != null && beside != null && row.balance != null) {
     const newPayment = monthlyPayment(row.balance, beside.rate, 'semi-annually', remaining)
     const monthlyDelta = newPayment - analysis.currentPayment

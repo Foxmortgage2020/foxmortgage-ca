@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server'
 import { apiPermission } from '@/lib/authz'
 import { isDemoMode } from '@/lib/demo'
 import { rawRowsForUpload, recordBackfillEvent, smmStoreConfigured } from '@/lib/smm-store'
-import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
+import { collapseCoBorrowers, isPlaceholder, parseSmmRow } from '@/lib/smm'
 import {
   attributeDeals,
   decideMatch,
@@ -53,6 +53,13 @@ export async function POST(req: Request) {
   const mortgage = mortgages.find(m => m.primary.householdId === householdId)
   if (!mortgage) return NextResponse.json({ ok: false, message: 'Household not found in this upload.' }, { status: 404 })
   const p = mortgage.primary
+  // A placeholder row's values never reach Zoho, whatever the client asked.
+  if (isPlaceholder(p)) {
+    return NextResponse.json(
+      { ok: false, message: 'This row carries a placeholder amount or balance (at or under $1); its values are vendor data problems and are never written. Confirm the real figures with the lender.' },
+      { status: 422 },
+    )
+  }
   const exp = { maturityDate: p.maturityDate, lenderName: p.lenderRaw || null, rate: p.rate }
 
   // Re-establish the household→contact→deal binding SERVER-SIDE: the client's

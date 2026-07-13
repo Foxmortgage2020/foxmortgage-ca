@@ -17,7 +17,8 @@ import { apiPermission, type ApiPermission } from '@/lib/authz'
 import { isDemoMode } from '@/lib/demo'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail, getRateQuotesFull } from '@/lib/underwriting'
-import { rawRowsForUpload, recentUploads, recordSavingsAnalysis, smmStoreConfigured } from '@/lib/smm-store'
+import { activeOverrides, rawRowsForUpload, recentUploads, recordSavingsAnalysis, smmStoreConfigured } from '@/lib/smm-store'
+import type { Comparable } from '@/lib/smm'
 import { buildSavingsLogEntry } from '@/lib/savings-log'
 import { lenderMethodologyFor } from '@/lib/lenders'
 import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
@@ -34,29 +35,32 @@ export async function GET(req: Request, { params }: { params: { householdId: str
   const gate = await apiPermission('opportunities.view')
   if (!gate.ok) return NextResponse.json({ ok: false, message: gate.message }, { status: gate.status })
   const uploadParam = new URL(req.url).searchParams.get('upload')
-  // The GET path NEVER approves a cross-family recommendation, whatever the
-  // query string says.
-  return renderPdf(params.householdId, uploadParam, false, gate)
+  // The GET path NEVER approves a cross-family or graduation recommendation,
+  // whatever the query string says.
+  return renderPdf(params.householdId, uploadParam, { crossFamilyApproved: false, graduationApproved: false }, gate)
 }
 
 export async function POST(req: Request, { params }: { params: { householdId: string } }) {
-  // The confirmed action: recommending a different rate family than the
-  // client holds. Manage-gated, POST-only (SameSite Lax keeps the session
-  // cookie off cross-site POSTs), minted by the card's two-tap form.
+  // The confirmed actions: recommending a different rate FAMILY (alt=approve)
+  // or a better TIER (grad=approve) than the client holds. Manage-gated,
+  // POST-only (SameSite Lax keeps the session cookie off cross-site POSTs),
+  // minted by the card's two-tap forms.
   const gate = await apiPermission('opportunities.manage')
   if (!gate.ok) return NextResponse.json({ ok: false, message: gate.message }, { status: gate.status })
   const form = await req.formData().catch(() => null)
-  if (!form || form.get('alt') !== 'approve') {
-    return NextResponse.json({ ok: false, message: 'This endpoint mints the approved cross-family document only.' }, { status: 422 })
+  const crossApproved = form?.get('alt') === 'approve'
+  const gradApproved = form?.get('grad') === 'approve'
+  if (!form || (!crossApproved && !gradApproved)) {
+    return NextResponse.json({ ok: false, message: 'This endpoint mints the approved cross-family or graduation document only.' }, { status: 422 })
   }
   const uploadParam = typeof form.get('upload') === 'string' ? String(form.get('upload')) : null
-  return renderPdf(params.householdId, uploadParam, true, gate)
+  return renderPdf(params.householdId, uploadParam, { crossFamilyApproved: crossApproved, graduationApproved: gradApproved }, gate)
 }
 
 async function renderPdf(
   rawHouseholdId: string,
   uploadParam: string | null,
-  crossFamilyApproved: boolean,
+  approvals: { crossFamilyApproved: boolean; graduationApproved: boolean },
   gate: Extract<ApiPermission, { ok: true }>,
 ) {
   if (isDemoMode()) {
@@ -92,8 +96,25 @@ async function renderPdf(
   const quotesR = agentId ? await getRateQuotesFull(agentId) : null
   const book: BookQuote[] = quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
 
+  // Michael's active override for this household, when one exists. It was
+  // validated at SET time (POST-only, manage-gated, eligibility by
+  // construction); here it just drives the comparable.
+  const overridesR = await activeOverrides()
+  const ovr =
+    overridesR.configured && overridesR.ok ? (overridesR.data.find(o => o.householdId === householdId) ?? null) : null
+
   const todayYMD = torontoTodayYMD()
-  const { analysis } = analyzeMortgage(p, book, todayYMD, { crossFamilyApproved })
+  const { analysis } = analyzeMortgage(p, book, todayYMD, {
+    ...approvals,
+    override: ovr
+      ? {
+          type: ovr.overrideType,
+          comparable: ovr.comparable as unknown as Comparable,
+          reason: ovr.reason,
+          sourceNote: ovr.sourceNote,
+        }
+      : null,
+  })
   const a = analysis
 
   // Client-facing fail-closed rule: a comparable whose lender's provincial
@@ -103,7 +124,11 @@ async function renderPdf(
   // prints the honest "confirming availability" state instead.
   const comparableProvince =
     a.comparable?.lenderSlug != null ? resolveProvince(a.comparable.lenderSlug, 'ON') : null
-  const comparableConfirmed = comparableProvince?.status === 'eligible'
+  // A desk-rate override is Michael's direct quote: he is the availability
+  // confirmation, and the document carries the source framing instead of a
+  // sheet date. Book-quote overrides ride the normal province gate.
+  const deskOverride = a.override?.type === 'desk_rate'
+  const comparableConfirmed = comparableProvince?.status === 'eligible' || deskOverride
   const showComparable = a.comparable != null && comparableConfirmed
 
   // The alternative rides the same fail-closed province gate before it can
@@ -144,6 +169,9 @@ async function renderPdf(
         : null,
     crossFamilyRecommended: a.crossFamilyRecommended,
     headlineRiskLine: a.headlineRiskLine,
+    approvalNote: a.graduationRecommended ? (a.graduation?.note ?? null) : null,
+    overrideType: a.override?.type ?? null,
+    overrideSourceNote: a.override?.sourceNote ?? null,
     transaction: a.transaction,
     requalification: a.requalification,
     currentPayment: a.currentPayment,

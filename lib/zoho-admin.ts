@@ -587,8 +587,10 @@ export async function getZohoDealById(dealId: string): Promise<AgentZohoDeal | n
 // fields. Split into those with a maturity date (the buckets) and those
 // without (the missing-maturity block). Fields verified live 2026-07-12.
 
+// Closing_Date rides for the appears-renewed detection: a feed start date
+// materially later than the deal's closing date means a renewal Zoho missed.
 const RENEWAL_FIELDS =
-  'Deal_Name,Contact_Name,Amount,Total_Loan_Amount,Maturity_Date,Mortgage_Rate,Rate_Type,Term_Years,Amortization_Years,Payment_Amount,Renewal_Status,Renewal_In_Progress,Renewal_Opted_Out,Lender_Name,Stage'
+  'Deal_Name,Contact_Name,Amount,Total_Loan_Amount,Maturity_Date,Mortgage_Rate,Rate_Type,Term_Years,Amortization_Years,Payment_Amount,Renewal_Status,Renewal_In_Progress,Renewal_Opted_Out,Lender_Name,Stage,Closing_Date'
 
 const renewalDealsCache = createCache<string, RenewalDeal[]>({ max: 2, ttlMs: 2 * 60 * 1000 })
 
@@ -608,6 +610,7 @@ function normalizeRenewalDeal(d: any): RenewalDeal {
     renewalInProgress: Boolean(d.Renewal_In_Progress),
     renewalOptedOut: Boolean(d.Renewal_Opted_Out),
     lenderName: d.Lender_Name?.name ?? null,
+    closingDate: typeof d.Closing_Date === 'string' ? d.Closing_Date : null,
   }
 }
 

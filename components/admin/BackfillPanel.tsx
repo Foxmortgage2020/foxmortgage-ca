@@ -52,6 +52,7 @@ interface CandidateDealView {
 }
 type ScanResult =
   | { householdId: string; status: 'not_in_upload' }
+  | { householdId: string; name: string; status: 'placeholder' }
   | { householdId: string; name: string; status: 'error'; message: string }
   | { householdId: string; name: string; status: 'ambiguous' | 'unmatched'; candidates: { id: string; fullName: string }[]; export: unknown }
   | {
@@ -139,6 +140,7 @@ export default function BackfillPanel({
   const ambiguous = results.filter(r => r.status === 'ambiguous')
   const unmatched = results.filter(r => r.status === 'unmatched')
   const errored = results.filter(r => r.status === 'error')
+  const placeholders = results.filter(r => r.status === 'placeholder')
   // One manual-match card per CONTACT: every household sharing the identity
   // scans to the same card, so dedupe on the contact id.
   const manualByContact = new Map<string, Extract<ScanResult, { status: 'needs_manual_match' }>>()
@@ -228,7 +230,7 @@ export default function BackfillPanel({
         </section>
       )}
 
-      {(ambiguous.length > 0 || unmatched.length > 0 || errored.length > 0) && scanned && (
+      {(ambiguous.length > 0 || unmatched.length > 0 || errored.length > 0 || placeholders.length > 0) && scanned && (
         <section>
           <h2 className="font-heading font-bold text-navy text-lg mb-2">Not matched</h2>
           <div className="bg-white border border-gray-200 rounded-xl p-4 text-sm font-body text-gray-600 space-y-2">
@@ -243,6 +245,13 @@ export default function BackfillPanel({
               <p>
                 <span className="font-semibold text-navy">{unmatched.length} unmatched</span> — no Zoho contact found
                 (often a prospect not yet in the CRM).
+              </p>
+            )}
+            {placeholders.length > 0 && (
+              <p>
+                <span className="font-semibold text-navy">{placeholders.length} placeholder</span> — a $1 amount or
+                balance is a vendor data problem; nothing is ever proposed from those rows. Confirm the real figures
+                with the lender.
               </p>
             )}
             {errored.length > 0 && (

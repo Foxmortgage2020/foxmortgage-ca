@@ -9,14 +9,17 @@ import { can, requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail, getRateQuotesFull } from '@/lib/underwriting'
 import {
+  activeOverrides,
   latestOpportunityStatuses,
   rawRowsForUpload,
   recentUploads,
   recordSavingsAnalysisBatch,
   smmStoreConfigured,
+  type OverrideRow,
 } from '@/lib/smm-store'
 import { buildSavingsLogEntry } from '@/lib/savings-log'
 import { lenderMethodologyFor } from '@/lib/lenders'
+import OverridePanel from '@/components/admin/OverridePanel'
 import {
   collapseCoBorrowers,
   diffUploads,
@@ -26,8 +29,11 @@ import {
   type FoxAnalysis,
   type SmmMortgage,
 } from '@/lib/smm'
-import { type BookQuote } from '@/lib/smm-match'
-import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
+import { appearsRenewedEvidenceKey, detectAppearsRenewed, findExportByName, indexMortgagesByName, type BookQuote } from '@/lib/smm-match'
+import { bucketRenewals } from '@/lib/renewals'
+import { analyzeMortgage, bookQuoteFromRow, comparableKey, overrideCandidates } from '@/lib/smm-analysis'
+import { getRenewalDeals } from '@/lib/zoho-admin'
+import { recentRenewalEvents } from '@/lib/renewals-store'
 import { fmtMoney, torontoTodayYMD } from '@/lib/dates'
 import { isDemoMode } from '@/lib/demo'
 import SmmUpload from '@/components/admin/SmmUpload'
@@ -43,6 +49,8 @@ export interface OppView {
   scenarioHref: string
   prepHref: string
   pdfKey: string // householdId, for the PDF route
+  overrideId: string | null
+  overrideOptions: { key: string; label: string }[]
 }
 
 export default async function OpportunitiesPage() {
@@ -105,11 +113,32 @@ export default async function OpportunitiesPage() {
   const book: BookQuote[] =
     quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
 
+  // Michael's active overrides (retire-not-delete store; validated at set
+  // time). One read; each household's override drives its analysis.
+  const overridesR = await activeOverrides()
+  // The list is created_at DESC; keep the FIRST (newest) per household so the
+  // board and the PDF route resolve the same override if a concurrency race
+  // ever leaves two actives.
+  const overrideByHousehold = new Map<string, OverrideRow>()
+  for (const o of overridesR.configured && overridesR.ok ? overridesR.data : []) {
+    if (!overrideByHousehold.has(o.householdId)) overrideByHousehold.set(o.householdId, o)
+  }
+
   // Build a view per mortgage. Part 1c: transaction type derived from maturity
   // governs the product class and the whole analysis (analyzeMortgage).
   const views: OppView[] = mortgages.map(m => {
     const p = m.primary
-    const { analysis, productClass, transaction } = analyzeMortgage(p, book, todayYMD)
+    const ovr = overrideByHousehold.get(p.householdId) ?? null
+    const { analysis, productClass, transaction } = analyzeMortgage(p, book, todayYMD, {
+      override: ovr
+        ? {
+            type: ovr.overrideType,
+            comparable: ovr.comparable as unknown as import('@/lib/smm').Comparable,
+            reason: ovr.reason,
+            sourceNote: ovr.sourceNote,
+          }
+        : null,
+    })
     // The scenario prefill purpose follows the transaction so the Rates page
     // lands on the same class the comparable used.
     const purpose = transaction === 'refinance' ? 'refinance' : 'transfer'
@@ -125,6 +154,14 @@ export default async function OpportunitiesPage() {
       scenarioHref: `/portal/admin/rates?${scenarioParams.toString()}`,
       prepHref: `/portal/admin/agent?prep=${encodeURIComponent(`${p.firstName} ${p.lastName}`.trim() || p.fileRef)}`,
       pdfKey: p.householdId,
+      overrideId: ovr?.id ?? null,
+      // The picker options for a manual override: server-derived, approved +
+      // eligible + same tier only. The route re-derives and matches the key,
+      // so nothing outside this list can ever be set.
+      overrideOptions: overrideCandidates(p, book, todayYMD).map(c => ({
+        key: comparableKey(c),
+        label: `${c.rateType ?? c.kind} ${c.rate}% · ${c.lender} · ${c.termMonths}mo · sheet ${c.asOf ?? 'n/a'}`,
+      })),
     }
   })
 
@@ -151,8 +188,47 @@ export default async function OpportunitiesPage() {
     console.error('[opportunities] board analysis log batch did not land')
   }
 
+  // ── Appears renewed (Task 2): a household whose Zoho deal the feed
+  // contradicts (renewed since the deal closed) is not a call. Suppressed
+  // from Act now into its own strip; confirm or decline lives on the
+  // Renewals page. Detection scope = EXACTLY the radar's action + lapsed
+  // pools, the same deals the Renewals page renders decision cards for — a
+  // suppressed household always has its affordance, and a confirmed one
+  // (Renewed With Us → resolved) leaves the pools and the strip together.
+  // A Zoho read failure suppresses nothing (the analysis is feed-side). ──
+  const appearsRenewedHouseholds = new Set<string>()
+  try {
+    const idx = indexMortgagesByName(mortgages)
+    const [rd, eventsR] = await Promise.all([getRenewalDeals(), recentRenewalEvents(500)])
+    const declined = new Map<string, string>()
+    if (eventsR.configured && eventsR.ok) {
+      for (const e of eventsR.data) {
+        if (e.action === 'appears_renewed_declined' && !declined.has(e.dealId)) {
+          declined.set(e.dealId, typeof e.fields?.evidenceKey === 'string' ? (e.fields.evidenceKey as string) : '')
+        }
+      }
+    }
+    const radar = bucketRenewals(rd.withMaturity, todayYMD)
+    for (const d of [...radar.action.deals, ...radar.lapsed.deals]) {
+      const m = findExportByName(d.contactName, idx)
+      if (!m) continue
+      const ev = detectAppearsRenewed(
+        { closingDate: d.closingDate, lender: d.lenderName, rate: d.mortgageRate, maturity: d.maturityDate },
+        m,
+      )
+      if (!ev) continue
+      // A decline clears the flag for THIS evidence only: if the feed later
+      // changes (a real renewal), the flag returns.
+      if (declined.has(d.id) && declined.get(d.id) === appearsRenewedEvidenceKey(ev)) continue
+      appearsRenewedHouseholds.add(m.primary.householdId)
+    }
+  } catch {
+    // No suppression on a failed read; the buckets stand as computed.
+  }
+
   const bucketed = {
-    act_now: views.filter(v => v.analysis.bucket === 'act_now').sort((a, b) => (b.analysis.netBenefit ?? 0) - (a.analysis.netBenefit ?? 0)),
+    act_now: views.filter(v => v.analysis.bucket === 'act_now' && !appearsRenewedHouseholds.has(v.mortgage.primary.householdId)).sort((a, b) => (b.analysis.netBenefit ?? 0) - (a.analysis.netBenefit ?? 0)),
+    appears_renewed: views.filter(v => v.analysis.bucket === 'act_now' && appearsRenewedHouseholds.has(v.mortgage.primary.householdId)),
     review: views.filter(v => v.analysis.bucket === 'review'),
     marginal: views.filter(v => v.analysis.bucket === 'marginal'),
     stay_put: views.filter(v => v.analysis.bucket === 'stay_put'),
@@ -201,6 +277,24 @@ export default async function OpportunitiesPage() {
       </div>
 
       <Bucket title="Act now" tone="good" hint="Positive net benefit after the penalty, ranked by dollars. These are calls." views={bucketed.act_now} statuses={statuses} uploadId={current.id} canManage={canManage} />
+
+      {bucketed.appears_renewed.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+            <h2 className="font-heading font-bold text-navy text-lg">Appears renewed</h2>
+            <span className="text-sm font-body text-gray-500">{bucketed.appears_renewed.length} files, held out of Act now</span>
+          </div>
+          <p className="text-xs font-body text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+            The monitoring feed says these clients renewed since their Zoho deal closed, so a switch call
+            now is the wrong call. Confirm or clear each one on the{' '}
+            <Link href="/portal/admin/renewals" className="underline font-semibold">Renewals page</Link>; they return
+            to the buckets once decided.{' '}
+            {bucketed.appears_renewed.map(v => `${v.mortgage.primary.firstName} ${v.mortgage.primary.lastName}`.trim() || v.mortgage.primary.fileRef).join(', ')}.
+          </p>
+        </section>
+      )}
+
       <Bucket title="Needs review" tone="amber" hint="The export balance does not reconcile with the mortgage schedule. A prepayment, a payment change, or bad vendor data can cause this; both figures and the drift show on the card. Confirm with the lender before any number is stated." views={bucketed.review} statuses={statuses} uploadId={current.id} canManage={canManage} />
       <Bucket title="Marginal" tone="amber" hint="Near break-even. Worth watching, not worth a client's disruption." views={bucketed.marginal} statuses={statuses} uploadId={current.id} canManage={canManage} />
       <Bucket title="Stay put" tone="gray" hint="The client is in the right product. Still a touchpoint worth making." views={bucketed.stay_put} statuses={statuses} uploadId={current.id} canManage={canManage} />
@@ -279,6 +373,8 @@ function Bucket({
               prepHref={v.prepHref}
               status={statuses.get(v.pdfKey)?.status ?? null}
               canManage={canManage}
+              overrideId={v.overrideId}
+              overrideOptions={v.overrideOptions}
             />
           ))}
         </div>

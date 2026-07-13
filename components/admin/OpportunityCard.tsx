@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { FoxAnalysis } from '@/lib/smm'
+import OverridePanel from '@/components/admin/OverridePanel'
 
 const money = (n: number | null | undefined) => (n == null ? 'n/a' : '$' + Math.round(n).toLocaleString('en-CA'))
 const money2 = (n: number | null | undefined) => (n == null ? 'n/a' : '$' + n.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
@@ -43,6 +44,8 @@ export default function OpportunityCard({
   prepHref,
   status,
   canManage,
+  overrideId = null,
+  overrideOptions = [],
 }: {
   householdId: string
   uploadId: string
@@ -60,10 +63,13 @@ export default function OpportunityCard({
   prepHref: string
   status: string | null
   canManage: boolean
+  overrideId?: string | null
+  overrideOptions?: { key: string; label: string }[]
 }) {
   const router = useRouter()
   const [armed, setArmed] = useState<string | null>(null)
   const [altArmed, setAltArmed] = useState(false)
+  const [gradArmed, setGradArmed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -127,8 +133,23 @@ export default function OpportunityCard({
               <span className="ml-1 normal-case text-navy font-semibold">· {a.transaction === 'refinance' ? 'Refinance (break)' : 'Switch'}</span>
             )}
           </p>
+          {a.override && (
+            <p className="mb-1 text-[10px] font-body text-navy bg-amber-50 border border-amber-300 rounded px-2 py-1">
+              <span className="font-semibold uppercase tracking-wide">Override active ({a.override.type === 'desk_rate' ? "Michael's desk rate" : "Michael's pick"})</span>{' '}
+              {a.override.rate}% {a.override.lender}
+              {a.override.sourceNote ? ` · ${a.override.sourceNote}` : ''} · reason: {a.override.reason}
+            </p>
+          )}
           {blocked || a.comparable == null ? (
-            <p className="text-xs font-body text-amber-700">{a.blockReason ?? 'Not analyzable (placeholder, missing rate, or the approved book is unavailable).'}</p>
+            <div className="space-y-1">
+              <p className="text-xs font-body text-amber-700">{a.blockReason ?? 'Not analyzable (missing rate, no same-tier comparable, or the approved book is unavailable).'}</p>
+              {a.graduation && (
+                <p className="text-[10px] font-body text-navy bg-lime/10 border border-lime/40 rounded px-2 py-1">
+                  <span className="font-semibold uppercase tracking-wide">Graduation flag ({a.graduation.toTier.toUpperCase()} tier)</span>{' '}
+                  {a.graduation.comparable.rate}% {a.graduation.comparable.lender}, as of {shortDate(a.graduation.comparable.asOf)}. {a.graduation.note}
+                </p>
+              )}
+            </div>
           ) : (
             <div className="text-xs font-body space-y-0.5">
               <p>
@@ -155,6 +176,12 @@ export default function OpportunityCard({
               {a.requalification && <p className="text-[10px] text-amber-700">Refinance: requires requalifying at the stress test; this assumes qualification.</p>}
               {a.penalty && !a.penalty.methodologyKnown && (
                 <p className="text-[10px] text-amber-700">Fixed IRD methodology not documented for this lender; no single penalty asserted.</p>
+              )}
+              {a.graduation && !a.graduationRecommended && (
+                <p className="mt-1 text-[10px] font-body text-navy bg-lime/10 border border-lime/40 rounded px-2 py-1">
+                  <span className="font-semibold uppercase tracking-wide">Graduation flag ({a.graduation.toTier.toUpperCase()} tier)</span>{' '}
+                  {a.graduation.comparable.rate}% {a.graduation.comparable.lender}, as of {shortDate(a.graduation.comparable.asOf)}. {a.graduation.note}
+                </p>
               )}
               {a.alternative && (
                 <div className="mt-1 border-t border-gray-100 pt-1 space-y-0.5">
@@ -237,7 +264,38 @@ export default function OpportunityCard({
             </button>
           </form>
         )}
+        {canManage && a.graduation && !a.graduationRecommended && (
+          // Two-tap confirmed action, POST-only: pricing a better paper grade
+          // on a client document is Michael's qualification call.
+          <form
+            method="POST"
+            action={`/api/portal/admin/opportunities/${encodeURIComponent(householdId)}/pdf`}
+            onSubmit={e => {
+              if (!gradArmed) {
+                e.preventDefault()
+                setGradArmed(true)
+                setTimeout(() => setGradArmed(false), 4000)
+              }
+            }}
+            className="inline"
+          >
+            <input type="hidden" name="upload" value={uploadId} />
+            <input type="hidden" name="grad" value="approve" />
+            <button
+              type="submit"
+              className={`text-xs font-semibold rounded-lg px-3 py-1.5 border ${gradArmed ? 'bg-navy text-white border-navy' : 'text-navy border-lime/60 hover:border-lime'}`}
+            >
+              {gradArmed
+                ? `Confirm: price the ${a.graduation.toTier.toUpperCase()}-tier option?`
+                : `Report priced at ${a.graduation.toTier.toUpperCase()} tier`}
+            </button>
+          </form>
+        )}
       </div>
+
+      {canManage && (
+        <OverridePanel householdId={householdId} uploadId={uploadId} overrideId={overrideId} options={overrideOptions} />
+      )}
 
       {canManage && (
         <div className="mt-2.5 border-t border-gray-100 pt-2.5">

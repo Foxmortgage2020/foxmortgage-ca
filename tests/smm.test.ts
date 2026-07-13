@@ -209,9 +209,14 @@ describe("Fox's opportunity analysis", () => {
     expect(a.netBenefit).toBeLessThan(0)
     expect(a.bucket).toBe('stay_put')
   })
-  it('a placeholder or unanalyzable row is insufficient, never analyzed', () => {
-    const ph = rowFor({ 'Mortgage outstanding balance': '$1.00' })
-    expect(analyzeOpportunity(ph, cmp(4.19), true, TODAY).bucket).toBe('insufficient')
+  it('a $1 placeholder routes to REVIEW (vendor data problem), never analyzed', () => {
+    // The live proving case: a $1 file was offering a maturity backfill.
+    const ph = analyzeOpportunity(rowFor({ 'Mortgage outstanding balance': '$1.00' }), cmp(4.19), true, TODAY)
+    expect(ph.bucket).toBe('review')
+    expect(ph.blockReason).toMatch(/placeholder/i)
+    expect(ph.currentPayment).toBeNull()
+  })
+  it('a row with no eligible comparable is insufficient', () => {
     const noComp = analyzeOpportunity(rowFor({}), null, true, TODAY)
     expect(noComp.bucket).toBe('insufficient')
   })

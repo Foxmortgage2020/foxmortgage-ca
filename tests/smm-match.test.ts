@@ -8,9 +8,11 @@ import { describe, expect, it } from 'vitest'
 import { collapseCoBorrowers, parseSmmRow, type SmmMortgage } from '@/lib/smm'
 import {
   addressKey,
+  appearsRenewedEvidenceKey,
   attributeDeals,
   bestEligibleComparable,
   bestFixedComparable,
+  detectAppearsRenewed,
   decideMatch,
   findExportByName,
   identityClaimants,
@@ -128,6 +130,68 @@ describe('deal attribution for shared identities (address first, then amount)', 
       ]),
     )
     expect(attributeDeals(mortgages, [{ id: 'd1', street: null, city: null, amount: 500_000 }]).get('d1')).toBeNull()
+  })
+})
+
+describe('appears-renewed detection (the CRM never heard about the renewal)', () => {
+  const zoho = (over: Partial<{ closingDate: string | null; lender: string | null; rate: number | null; maturity: string | null }> = {}) => ({
+    closingDate: '2021-08-22' as string | null,
+    lender: 'MCAP' as string | null,
+    rate: 2.14 as number | null,
+    maturity: '2026-08-22' as string | null,
+    ...over,
+  })
+  // The proving shape: the feed shows a mortgage started 2025-09-01 at 4.14
+  // while the Zoho deal closed years earlier and says 2.14 maturing 2026.
+  const renewedFeed = () =>
+    collapseCoBorrowers(
+      rowsFor([{ hid: 'h-r', name: 'Lena Marsh', email: 'lena@example.com', address: '5 Elm St', amount: '$910,000.00', maturity: '2030-09-01' }]),
+    ).mortgages[0]
+
+  it('flags start-after-close beyond the tolerance, with both sides in evidence', () => {
+    const m = renewedFeed()
+    m.primary.startDate = '2025-09-01'
+    m.primary.rate = 4.14
+    const ev = detectAppearsRenewed(zoho(), m)
+    expect(ev).not.toBeNull()
+    expect(ev?.signals).toContain('start_after_close')
+    expect(ev?.signals).toContain('rate_changed')
+    expect(ev?.feed.startDate).toBe('2025-09-01')
+    expect(ev?.zoho.closingDate).toBe('2021-08-22')
+  })
+
+  it('does NOT flag the normal closing-to-first-payment offset (inside 90 days)', () => {
+    const m = renewedFeed()
+    m.primary.startDate = '2021-09-15' // 24 days after closing
+    m.primary.rate = 2.14
+    expect(detectAppearsRenewed(zoho({ lender: 'MCAP' }), m)).toBeNull()
+  })
+
+  it('rate_changed never fires for a FLOATING feed mortgage (its rate moves with prime)', () => {
+    const m = renewedFeed()
+    m.primary.startDate = null
+    m.primary.rate = 4.39 // prime moved; Zoho holds the origination 2.14
+    m.primary.rateType = 'adjustable'
+    expect(detectAppearsRenewed(zoho({ lender: 'MCAP' }), m)).toBeNull()
+  })
+
+  it('a decline is scoped to its evidence: the key moves when the feed moves', () => {
+    const m = renewedFeed()
+    m.primary.startDate = '2025-09-01'
+    m.primary.rate = 4.14
+    const ev1 = detectAppearsRenewed(zoho(), m)!
+    m.primary.startDate = '2026-06-01' // the client renewed AGAIN
+    const ev2 = detectAppearsRenewed(zoho(), m)!
+    expect(appearsRenewedEvidenceKey(ev1)).not.toBe(appearsRenewedEvidenceKey(ev2))
+  })
+
+  it('a lender contradiction alone flags; missing data on either side never does', () => {
+    const m = renewedFeed()
+    m.primary.startDate = null
+    m.primary.rate = null
+    const ev = detectAppearsRenewed(zoho({ lender: 'RFA' }), m)
+    expect(ev?.signals).toEqual(['lender_changed'])
+    expect(detectAppearsRenewed(zoho({ closingDate: null, lender: null, rate: null }), m)).toBeNull()
   })
 })
 

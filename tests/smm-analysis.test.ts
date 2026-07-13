@@ -327,3 +327,109 @@ describe('like-for-like rate family (Task 6 acceptance)', () => {
     expect(analysis.comparable).toBeNull()
   })
 })
+
+// Like-for-like PAPER GRADE (Task 1): a mortgage prices against comparables
+// in its own tier. Pricing a B or private file against A rates manufactures
+// savings the client may not qualify for; graduation to better paper is a
+// flag Michael assesses, never an automatic price.
+describe('lender tiers (A/B/private, like-for-like by default)', () => {
+  // rfa and first-national are tier a in the mirror; first-national-excalibur
+  // is tier b. B lending books as b_side (the live vocabulary: every approved
+  // B-tier quote is class b_side). No private quotes exist in the book (nor live).
+  const TIER_BOOK: BookQuote[] = [
+    { rate: 4.59, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-06-30', status: 'approved', lenderSlug: 'rfa', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    { rate: null, rateType: 'adjustable', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'first-national', primeVariance: -0.5, eligibilitySource: 'variant:(none)' },
+    { rate: 6.19, rateType: 'fixed', termMonths: 60, productClass: 'b_side', asOfDate: '2026-07-02', status: 'approved', lenderSlug: 'first-national-excalibur', primeVariance: null, eligibilitySource: 'variant:(none)' },
+  ]
+
+  it('a Westboro-shaped private file NEVER receives an A-rate comparable: honest-insufficient with the graduation flag', () => {
+    const { analysis } = analyzeMortgage(
+      seasoned({
+        'Mortgage lender': 'Westboro',
+        'Mortgage rate': '9.99%',
+        'Mortgage outstanding balance': '$489,690.03', // on schedule at 9.99%
+      }),
+      TIER_BOOK,
+      ASOF,
+    )
+    expect(analysis.tier).toBe('private')
+    expect(analysis.comparable).toBeNull() // no private comparable exists
+    expect(analysis.bucket).toBe('insufficient')
+    expect(analysis.currentPayment).toBeNull() // no figure stated
+    // The graduation FLAG: rate + sheet date, no payment figures, Michael assesses.
+    expect(analysis.graduation).not.toBeNull()
+    expect(analysis.graduation?.toTier).toBe('a')
+    expect(analysis.graduation?.comparable.rate).toBe(4.59)
+    expect(analysis.graduation?.note).toContain('Michael assesses')
+    expect(analysis.graduationRecommended).toBe(false)
+  })
+
+  it('an Excalibur-shaped B file prices against B only, never the cheaper A rate', () => {
+    const { analysis } = analyzeMortgage(
+      seasoned({
+        'Mortgage lender': 'First National - Excalibur',
+        'Mortgage rate': '6.49%',
+        'Mortgage outstanding balance': '$482,694.89', // on schedule at 6.49%
+      }),
+      TIER_BOOK,
+      ASOF,
+    )
+    expect(analysis.tier).toBe('b')
+    expect(analysis.comparable?.rate).toBe(6.19) // the B quote, not the 4.59 A
+    expect(analysis.comparable?.lenderSlug).toBe('first-national-excalibur')
+    // The A rate shows only as the graduation flag.
+    expect(analysis.graduation?.toTier).toBe('a')
+    expect(analysis.graduation?.comparable.rate).toBe(4.59)
+  })
+
+  it("Michael's explicit approval prices the graduation tier and records it", () => {
+    const { analysis } = analyzeMortgage(
+      seasoned({
+        'Mortgage lender': 'First National - Excalibur',
+        'Mortgage rate': '6.49%',
+        'Mortgage outstanding balance': '$482,694.89',
+      }),
+      TIER_BOOK,
+      ASOF,
+      { graduationApproved: true },
+    )
+    expect(analysis.comparable?.rate).toBe(4.59)
+    expect(analysis.graduationRecommended).toBe(true)
+    expect(analysis.graduation?.note).toContain('Michael approved')
+  })
+
+  it('an unmapped lender string is tier-unknown and routes to review, never act_now', () => {
+    const { analysis } = analyzeMortgage(
+      seasoned({ 'Mortgage lender': 'Some Unknown Lending Corp' }),
+      TIER_BOOK,
+      ASOF,
+    )
+    expect(analysis.tier).toBeNull()
+    expect(analysis.bucket).toBe('review')
+    expect(analysis.blockReason).toMatch(/tier/i)
+    expect(analysis.currentPayment).toBeNull()
+    expect(analysis.graduation).toBeNull()
+  })
+
+  it('a 9.5% contract rate on an A-mapped lender is a tier mismatch: review, never trusted', () => {
+    const { analysis } = analyzeMortgage(
+      seasoned({
+        'Mortgage rate': '9.50%', // MCAP is mapped a; this rate does not fit A paper
+        'Mortgage outstanding balance': '$488,889.14', // on schedule at 9.50%
+      }),
+      TIER_BOOK,
+      ASOF,
+    )
+    expect(analysis.bucket).toBe('review')
+    expect(analysis.blockReason).toMatch(/does not fit A-tier/)
+  })
+
+  it('the seasoned A-paper proving fixture is unchanged: 4.59% fixed, $244.12', () => {
+    const { analysis } = analyzeMortgage(seasoned(), TIER_BOOK, ASOF)
+    expect(analysis.tier).toBe('a')
+    expect(analysis.comparable?.rate).toBe(4.59)
+    expect(analysis.currentPayment).toBeCloseTo(3051.96, 2)
+    expect(analysis.monthlySaving).toBeCloseTo(244.12, 2)
+    expect(analysis.graduation).toBeNull() // A paper has nothing to graduate to
+  })
+})

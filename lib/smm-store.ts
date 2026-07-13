@@ -192,6 +192,69 @@ export async function recordSavingsAnalysisBatch(entries: Record<string, unknown
   return rpc<number>('savings_analysis_record_batch', { p_entries: entries })
 }
 
+// ─── Manual comparable overrides (migration 20260713200000) ─────────────────
+// Michael's per-household override: a picked approved book quote or a desk
+// rate, with a mandatory reason. Setting retires any prior active override
+// for the household; nothing deletes. Demo writes nothing, reads empty.
+export interface OverrideRow {
+  id: string
+  householdId: string
+  uploadId: string | null
+  overrideType: 'book_quote' | 'desk_rate'
+  comparable: Record<string, unknown>
+  sourceNote: string | null
+  reason: string
+  actingEmail: string
+  createdAt: string
+}
+
+function mapOverride(r: any): OverrideRow {
+  return {
+    id: r.id,
+    householdId: r.household_id,
+    uploadId: r.upload_id ?? null,
+    overrideType: r.override_type,
+    comparable: r.comparable ?? {},
+    sourceNote: r.source_note ?? null,
+    reason: r.reason,
+    actingEmail: r.acting_email,
+    createdAt: r.created_at,
+  }
+}
+
+export async function setOverride(input: {
+  householdId: string
+  uploadId: string | null
+  overrideType: 'book_quote' | 'desk_rate'
+  comparable: Record<string, unknown>
+  sourceNote: string | null
+  reason: string
+  actingEmail: string
+}): Promise<SmmStoreResult<string>> {
+  if (isDemoMode()) return demoWriteRefused<string>()
+  return rpc<string>('smm_override_set', {
+    p_household: input.householdId,
+    p_upload: input.uploadId,
+    p_type: input.overrideType,
+    p_comparable: input.comparable,
+    p_source_note: input.sourceNote,
+    p_reason: input.reason,
+    p_email: input.actingEmail,
+  })
+}
+
+export async function retireOverride(id: string, actingEmail: string): Promise<SmmStoreResult<boolean>> {
+  if (isDemoMode()) return demoWriteRefused<boolean>()
+  return rpc<boolean>('smm_override_retire', { p_id: id, p_email: actingEmail })
+}
+
+export async function activeOverrides(): Promise<SmmStoreResult<OverrideRow[]>> {
+  if (isDemoMode()) return demoEmpty<OverrideRow[]>([])
+  const res = await rpc<any[]>('smm_overrides_active', {})
+  if (!res.configured || !res.ok) return res as SmmStoreResult<OverrideRow[]>
+  return { configured: true, ok: true, data: (Array.isArray(res.data) ? res.data : []).map(mapOverride) }
+}
+
 export interface OpportunityStatusRow {
   householdId: string
   status: string

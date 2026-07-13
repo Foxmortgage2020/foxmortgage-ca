@@ -298,6 +298,72 @@ export function reconcileLapsed(
   }
 }
 
+// ─── Appears-renewed detection ───────────────────────────────────────────────
+// The CRM never hears about some renewals: the feed shows a NEW mortgage (a
+// start date materially later than the Zoho deal's closing date, or a lender
+// or rate that contradicts the recorded terms) while the deal still sits on
+// the radar as a call. Such a file is APPEARS_RENEWED: suppressed from every
+// action pool pending Michael's confirmation, never deleted. The tolerance
+// absorbs the normal closing-to-first-payment offset (weeks); a renewal is
+// years later.
+export const RENEWAL_START_TOLERANCE_DAYS = 90
+
+function daysBetweenYMD(aYMD: string, bYMD: string): number {
+  const [ay, am, ad] = aYMD.slice(0, 10).split('-').map(Number)
+  const [by, bm, bd] = bYMD.slice(0, 10).split('-').map(Number)
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86_400_000)
+}
+
+export type AppearsRenewedSignal = 'start_after_close' | 'lender_changed' | 'rate_changed'
+
+export interface AppearsRenewedEvidence {
+  signals: AppearsRenewedSignal[]
+  feed: { startDate: string | null; lender: string; rate: number | null; amount: number | null; maturity: string | null }
+  zoho: { closingDate: string | null; lender: string | null; rate: number | null; maturity: string | null }
+}
+
+/** Compare a Zoho deal's recorded terms against the matched feed mortgage.
+ * Returns the evidence when the feed says the client renewed since the deal
+ * closed, else null. Conservative: missing data on either side of a signal
+ * means that signal cannot fire. */
+export function detectAppearsRenewed(
+  zoho: { closingDate: string | null; lender: string | null; rate: number | null; maturity: string | null },
+  m: SmmMortgage,
+): AppearsRenewedEvidence | null {
+  const p = m.primary
+  const signals: AppearsRenewedSignal[] = []
+  if (zoho.closingDate && p.startDate && daysBetweenYMD(zoho.closingDate, p.startDate) > RENEWAL_START_TOLERANCE_DAYS) {
+    signals.push('start_after_close')
+  }
+  if (zoho.lender && p.lenderRaw && lendersDiffer(zoho.lender, p.lenderRaw)) {
+    signals.push('lender_changed')
+  }
+  // Rate contradiction is a FIXED-rate signal only: a floating client's feed
+  // rate legitimately moves with prime while Zoho stores the origination
+  // rate, so a prime move must never flag the whole floating book.
+  if (
+    zoho.rate != null &&
+    p.rate != null &&
+    (p.rateType ?? '').toLowerCase() === 'fixed' &&
+    Math.abs(zoho.rate - p.rate) > 0.1
+  ) {
+    signals.push('rate_changed')
+  }
+  if (signals.length === 0) return null
+  return {
+    signals,
+    feed: { startDate: p.startDate, lender: normalizeLender(p.lenderRaw).display, rate: p.rate, amount: p.amount, maturity: p.maturityDate },
+    zoho: { closingDate: zoho.closingDate, lender: zoho.lender, rate: zoho.rate, maturity: zoho.maturity },
+  }
+}
+
+/** The identity of one appears-renewed EVIDENCE state. A decline clears the
+ * flag for this evidence only: when the feed later changes (a real renewal
+ * after a dismissed false positive), the key changes and the flag returns. */
+export function appearsRenewedEvidenceKey(ev: AppearsRenewedEvidence): string {
+  return [ev.feed.startDate ?? '', ev.feed.lender, ev.feed.rate ?? '', ev.feed.maturity ?? ''].join('|')
+}
+
 // Index the export's mortgages by every borrower name, so a lapsed Zoho deal
 // (which carries a contact name, not a household id) can be reconciled against
 // the monitoring export in memory — no per-deal Zoho call. A name that maps to
@@ -441,6 +507,32 @@ export function bestEligibleComparable(
   rateFamilies: readonly string[],
   preferredTermMonths = 60,
 ): Comparable | null {
+  const ranked = eligibleComparablesRanked(
+    quotes,
+    productClass,
+    transaction,
+    lenderName,
+    primeFor,
+    isEligible,
+    rateFamilies,
+    preferredTermMonths,
+  )
+  return ranked[0] ?? null
+}
+
+/** Every eligible comparable, priced and ranked (preferred-term rows first,
+ * then the rest, each group by effective rate ascending). bestEligible-
+ * Comparable is [0]; the override picker shows the head of this list. */
+export function eligibleComparablesRanked(
+  quotes: BookQuote[],
+  productClass: string,
+  transaction: TransactionKind,
+  lenderName: (slug: string) => string,
+  primeFor: (slug: string) => number,
+  isEligible: (q: BookQuote, transaction: TransactionKind) => boolean,
+  rateFamilies: readonly string[],
+  preferredTermMonths = 60,
+): Comparable[] {
   const priced = quotes
     .filter(
       q =>
@@ -473,20 +565,20 @@ export function bestEligibleComparable(
     })
     // A comparable rate below a sane floor (a data-entry slip like variance
     // -5.0 -> effective -0.55) is discarded, never chosen as "best": it would
-    // otherwise win the lowest-rate reduce and produce a negative payment.
+    // otherwise win the lowest-rate sort and produce a negative payment.
     .filter((x): x is { q: BookQuote; eff: number; variance: number | null; primeUsed: number | null; isFloating: boolean } => x.eff != null && x.eff >= SANE_RATE_FLOOR)
-  if (priced.length === 0) return null
-  const term = priced.filter(x => x.q.termMonths === preferredTermMonths)
-  const chosen = (term.length > 0 ? term : priced).reduce((a, b) => (b.eff < a.eff ? b : a))
-  return {
-    rate: chosen.eff,
-    lender: lenderName(chosen.q.lenderSlug),
-    lenderSlug: chosen.q.lenderSlug,
-    asOf: chosen.q.asOfDate,
-    termMonths: chosen.q.termMonths,
-    kind: chosen.isFloating ? 'floating' : 'fixed',
-    variance: chosen.variance,
-    primeUsed: chosen.primeUsed,
-    rateType: chosen.q.rateType,
-  }
+  const toComparable = (x: (typeof priced)[number]): Comparable => ({
+    rate: x.eff,
+    lender: lenderName(x.q.lenderSlug),
+    lenderSlug: x.q.lenderSlug,
+    asOf: x.q.asOfDate,
+    termMonths: x.q.termMonths,
+    kind: x.isFloating ? 'floating' : 'fixed',
+    variance: x.variance,
+    primeUsed: x.primeUsed,
+    rateType: x.q.rateType,
+  })
+  const preferred = priced.filter(x => x.q.termMonths === preferredTermMonths).sort((a, b) => a.eff - b.eff)
+  const rest = priced.filter(x => x.q.termMonths !== preferredTermMonths).sort((a, b) => a.eff - b.eff)
+  return [...preferred, ...rest].map(toComparable)
 }

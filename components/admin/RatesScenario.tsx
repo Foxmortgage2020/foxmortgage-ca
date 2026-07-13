@@ -55,6 +55,8 @@ import {
   type ScenarioExclusions,
 } from '@/lib/scenario'
 import type { BorrowerRequirement, ClientCommitment } from '@/lib/eligibility'
+import { HAND_WRITTEN_LENDER_SLUGS } from '@/config/lenders'
+import { unconfirmedTierCount } from '@/config/lender-tiers'
 import type { RateQuoteFullRow, SheetProvenance } from '@/lib/underwriting'
 import type { KnowledgeOffer } from '@/lib/gates'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
@@ -1143,6 +1145,12 @@ function ExclusionNotes({
           </ul>
         </details>
       )}
+
+      <p className="text-gray-500" data-testid="tier-unconfirmed-count">
+        {unconfirmedTierCount(HAND_WRITTEN_LENDER_SLUGS)} of {HAND_WRITTEN_LENDER_SLUGS.length} book lenders: paper
+        grade (tier) not yet confirmed. Michael confirms tiers in the same pass as provinces; monitored mortgages on
+        unknown-tier paper route to review, never priced.
+      </p>
 
       {provinceUnknown.length > 0 && (
         <details data-testid="exclusion-province-unknown">

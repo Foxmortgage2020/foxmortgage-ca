@@ -249,6 +249,15 @@ describe('savings PDF never discloses compensation', () => {
       }),
     },
     {
+      label: 'comp in the override source note and the graduation approval note',
+      input: base({
+        penaltyMethodologyKnown: true,
+        overrideType: 'desk_rate',
+        overrideSourceNote: `BDM quote, includes ${SENTINEL} bps finder fee`,
+        approvalNote: `Approved. Compensation ${SENTINEL} bps rides this option.`,
+      }),
+    },
+    {
       label: 'comp in the alternative block and the cross-family risk lines',
       input: base({
         penaltyMethodologyKnown: true,

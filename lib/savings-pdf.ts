@@ -109,6 +109,14 @@ export interface SavingsPdfInput {
    * the client holds; the headline then carries its risk line. */
   crossFamilyRecommended?: boolean
   headlineRiskLine?: string | null
+  /** Michael explicitly approved pricing a better paper grade (graduation);
+   * this note qualifies the headline: qualification is assessed first. */
+  approvalNote?: string | null
+  /** Set when Michael overrode the comparable. 'desk_rate' carries the
+   * mandatory source note; the rate then renders with its source framing,
+   * never as a sheet rate. */
+  overrideType?: 'book_quote' | 'desk_rate' | null
+  overrideSourceNote?: string | null
   /** Optional free-text note; scrubbed before drawing. */
   note?: string | null
 }
@@ -189,7 +197,18 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   }
 
   text(`Prepared ${longDate(input.generatedDate)} for ${redactComp(input.clientName)}`, { size: 9, color: GRAY })
-  y -= 18
+  y -= 12
+  if (input.overrideType) {
+    // The override badge: an overridden document says so on its face.
+    text(
+      input.overrideType === 'desk_rate'
+        ? "Prepared with Michael's desk rate."
+        : "Prepared with Michael's chosen comparison.",
+      { size: 9, color: NAVY, font: bold },
+    )
+    y -= 12
+  }
+  y -= 6
 
   // ── Reconciliation review: the monitored figures do not line up with the
   // mortgage schedule, so nothing is asserted — not the balance, not the rate,
@@ -265,12 +284,20 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   // ── What we found ──
   heading('What we found')
   para(
-    `The best rate we can approve today is ${pricedPhrase(c)} from ${redactComp(c.lender)}, ` +
-      `from their rate sheet dated ${longDate(c.asOf)}.`,
+    input.overrideType === 'desk_rate'
+      ? `This comparison uses ${pricedPhrase(c)} from ${redactComp(c.lender)}, quoted to Michael directly` +
+          `${input.overrideSourceNote ? ` (${redactComp(input.overrideSourceNote)})` : ''}. It is not a published sheet rate; Michael confirms it in writing before anything moves.`
+      : `The best rate we can approve today is ${pricedPhrase(c)} from ${redactComp(c.lender)}, ` +
+          `from their rate sheet dated ${longDate(c.asOf)}.`,
     10,
     NAVY,
     14,
   )
+  // An approved graduation headline carries its qualification note right
+  // under the rate: the figure is real, qualifying for it is not yet.
+  if (input.approvalNote) {
+    para(redactComp(input.approvalNote), 9.5, GRAY, 13)
+  }
   // An approved cross-family recommendation always carries its risk line,
   // right under the rate it qualifies.
   if (input.crossFamilyRecommended && input.headlineRiskLine) {
@@ -477,7 +504,10 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
   // ── Disclaimer ──
   heading('Please read this part')
   para(
-    'These figures are estimates. They use the rate the lender showed on the date listed above. ' +
+    'These figures are estimates. ' +
+      (input.overrideType === 'desk_rate'
+        ? 'They use a rate quoted to Michael directly, noted above; the lender confirms it in writing before anything moves. '
+        : 'They use the rate the lender showed on the date listed above. ') +
       'Rates can change at any time, and floating rates move when prime moves. This page is not a ' +
       'promise to lend and it is not an approval. Your real payment depends on the final lender terms ' +
       'and on underwriting, which begins when you apply. Michael reviews everything with you before ' +

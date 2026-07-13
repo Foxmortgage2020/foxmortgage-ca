@@ -10,6 +10,8 @@ import {
   LENDER_NAMES,
   titleCaseSlug,
 } from '@/config/lenders'
+import { SMM_LENDER_ALIASES } from '@/config/smm-lender-aliases'
+import { TIER_MIRROR } from '@/config/lender-tiers'
 
 describe('lenderDisplayName', () => {
   it('uses the hand-written name where one exists (correct acronym casing)', () => {
@@ -47,5 +49,22 @@ describe('monogram initials — deliberate, not an error state', () => {
   it('falls back to the slug when no name is given', () => {
     expect(lenderInitials('', 'kootenay')).toBe('KO')
     expect(lenderInitials('', 'strive')).toBe('ST')
+  })
+})
+
+// The two hand-written tier maps must never drift (the exact failure mode
+// that caused the duplicate classifier): a feed string whose slug carries a
+// tier in the quote-side mirror must state the SAME tier, and a book slug
+// deliberately absent from the mirror (b2b: prime AND alternative programs)
+// must be tier-unknown on the feed side too.
+describe('tier maps stay in lockstep', () => {
+  it('every slugged feed alias agrees with TIER_MIRROR, unknowns included', () => {
+    for (const [key, alias] of Object.entries(SMM_LENDER_ALIASES)) {
+      if (!alias.slug || !alias.inBook) continue // feed-only lenders carry their own judgment
+      const mirror = TIER_MIRROR[alias.slug]?.tier ?? null
+      expect(`${key} -> ${alias.tier}`).toBe(`${key} -> ${mirror}`)
+    }
+    expect(TIER_MIRROR['b2b']).toBeUndefined()
+    expect(SMM_LENDER_ALIASES['b2b bank'].tier).toBeNull()
   })
 })

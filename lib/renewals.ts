@@ -24,6 +24,7 @@ export interface RenewalDeal {
   renewalInProgress: boolean
   renewalOptedOut: boolean
   lenderName: string | null
+  closingDate: string | null // Closing_Date; the appears-renewed baseline
 }
 
 export type RenewalBucket = 'lapsed' | 'action' | 'monitoring' | 'watching' | 'resolved'
@@ -34,9 +35,10 @@ export type RenewalBucket = 'lapsed' | 'action' | 'monitoring' | 'watching' | 'r
 export const RENEWAL_ACTION_DAYS = 130
 export const RENEWAL_MONITORING_DAYS = 150
 
-// Terminal Renewal_Status values (the Resolved bucket). The live picklist has
-// no "retained/won" value — a real schema gap reported this session.
-export const RESOLVED_STATUSES = ['Renewed Elsewhere', 'No Longer Needs Mortgage'] as const
+// Terminal Renewal_Status values (the Resolved bucket). 'Renewed With Us'
+// arrived on the picklist 2026-07-13 (the retained/won gap is closed): a
+// confirmed win resolves the file out of every action pool.
+export const RESOLVED_STATUSES = ['Renewed Elsewhere', 'No Longer Needs Mortgage', 'Renewed With Us'] as const
 
 export function daysToMaturity(maturityYMD: string, todayYMD: string): number {
   const [ay, am, ad] = maturityYMD.slice(0, 10).split('-').map(Number)
@@ -267,6 +269,7 @@ export type RenewalActionKey =
   | 'contacted_again'
   | 'in_discussion'
   | 'application_sent'
+  | 'renewed_with_us'
   | 'lost_elsewhere'
   | 'no_longer_needs'
   | 'unreachable'
@@ -306,6 +309,13 @@ export const RENEWAL_ACTIONS: Record<RenewalActionKey, RenewalActionDef> = {
     label: 'Mark application sent',
     hint: 'A renewal application is in.',
     fields: { Renewal_Status: 'Ready To Renew - Sent New Application', Renewal_In_Progress: true },
+    tone: 'go',
+  },
+  renewed_with_us: {
+    key: 'renewed_with_us',
+    label: 'Won: renewed with us',
+    hint: 'The client renewed through Michael. Confirms an appears-renewed flag; resolves the file. Writes exactly one field.',
+    fields: { Renewal_Status: 'Renewed With Us' },
     tone: 'go',
   },
   lost_elsewhere: {

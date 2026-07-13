@@ -29,6 +29,7 @@ const VALID_STATUSES = new Set([
   'Renewed Elsewhere',
   'No Longer Needs Mortgage',
   'Ready To Renew - Sent New Application',
+  'Renewed With Us', // arrived on the picklist 2026-07-13 (the won value)
 ])
 
 function deal(over: Partial<RenewalDeal>): RenewalDeal {
@@ -47,6 +48,7 @@ function deal(over: Partial<RenewalDeal>): RenewalDeal {
     renewalInProgress: false,
     renewalOptedOut: false,
     lenderName: null,
+    closingDate: null,
     ...over,
   }
 }
@@ -209,6 +211,13 @@ describe('status actions (enumerated, valid Zoho values only)', () => {
   it('has no free-text or arbitrary-field escape', () => {
     // in_discussion writes only the boolean (no picklist term exists).
     expect(RENEWAL_ACTIONS.in_discussion.fields).toEqual({ Renewal_In_Progress: true })
+  })
+  it('the appears-renewed confirm writes exactly ONE enumerated field', () => {
+    expect(RENEWAL_ACTIONS.renewed_with_us.fields).toEqual({ Renewal_Status: 'Renewed With Us' })
+  })
+  it('a Renewed With Us deal resolves: absent from every action bucket', () => {
+    const won = deal({ renewalStatus: 'Renewed With Us', maturityDate: '2026-08-01' })
+    expect(bucketFor(won, TODAY)).toBe('resolved')
   })
 })
 

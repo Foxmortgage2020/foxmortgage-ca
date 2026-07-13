@@ -45,6 +45,16 @@ export interface SavingsLogInputs {
   productClass: string | null
   methodologyKnown: boolean
   crossFamilyApproved: boolean
+  /** The paper grade the analysis ran under, and the tier review block when
+   * one fired (replay must reproduce a tier-blocked row as blocked). */
+  tier: 'a' | 'b' | 'private' | null
+  tierBlockReason: string | null
+  /** Applied graduation state (presentation flag; the comparable itself is
+   * the graduated quote when true). */
+  graduationApplied: boolean
+  /** Michael's override, when one drove the comparable (the comparable field
+   * IS the overridden quote; this records the decision metadata). */
+  override: { type: 'book_quote' | 'desk_rate'; reason: string; sourceNote: string | null } | null
   /** The headline comparable actually used (null when none was eligible). */
   comparable: Comparable | null
   /** The labelled alternative's quote, when one was attached. Its figures are
@@ -77,6 +87,13 @@ export function savingsLogInputs(
   methodologyKnown: boolean,
   crossFamilyApproved: boolean,
 ): SavingsLogInputs {
+  // The tier block reason is reconstructed from the analysis: a tier-blocked
+  // row carries its reason as the blockReason on a review bucket with a tier
+  // problem. Storing it makes a blocked determination replay as blocked.
+  const tierBlocked =
+    analysis.bucket === 'review' && analysis.reconciliation?.ok !== false && analysis.blockReason != null
+      ? analysis.blockReason
+      : null
   return {
     householdId: row.householdId,
     todayYMD,
@@ -92,6 +109,12 @@ export function savingsLogInputs(
     productClass: analysis.productClass,
     methodologyKnown,
     crossFamilyApproved,
+    tier: analysis.tier,
+    tierBlockReason: tierBlocked,
+    graduationApplied: analysis.graduationRecommended,
+    override: analysis.override
+      ? { type: analysis.override.type, reason: analysis.override.reason, sourceNote: analysis.override.sourceNote }
+      : null,
     comparable: analysis.comparable,
     alternative: analysis.alternative?.comparable ?? null,
   }
@@ -115,6 +138,9 @@ export function savingsLogFigures(analysis: FoxAnalysis): Record<string, unknown
     crossFamilyRecommended: analysis.crossFamilyRecommended,
     alternativeNewPayment: round2(analysis.alternative?.newPayment ?? null),
     alternativeMonthlySaving: round2(analysis.alternative?.monthlySaving ?? null),
+    tier: analysis.tier,
+    graduationRecommended: analysis.graduationRecommended,
+    overrideType: analysis.override?.type ?? null,
   }
 }
 
@@ -144,6 +170,10 @@ export function buildSavingsLogEntry(args: {
     const c = args.analysis.alternative.comparable
     quotes.push({ role: 'alternative', lenderSlug: c.lenderSlug ?? null, lender: c.lender, rate: c.rate, rateType: c.rateType ?? c.kind, termMonths: c.termMonths, sheetDate: c.asOf, variance: c.variance ?? null, primeUsed: c.primeUsed ?? null })
   }
+  if (args.analysis.graduation && !args.analysis.graduationRecommended) {
+    const c = args.analysis.graduation.comparable
+    quotes.push({ role: 'graduation_flag', lenderSlug: c.lenderSlug ?? null, lender: c.lender, rate: c.rate, rateType: c.rateType ?? c.kind, termMonths: c.termMonths, sheetDate: c.asOf, variance: c.variance ?? null, primeUsed: c.primeUsed ?? null })
+  }
   return {
     household_id: args.row.householdId,
     upload_id: args.uploadId,
@@ -156,6 +186,7 @@ export function buildSavingsLogEntry(args: {
     bucket: args.analysis.bucket,
     figures: savingsLogFigures(args.analysis),
     cross_family_approved: args.crossFamilyApproved,
+    override: args.analysis.override ?? null,
     acting_email: args.actingEmail,
   }
 }
@@ -187,7 +218,7 @@ export function replaySavingsAnalysis(inputs: SavingsLogInputs): Record<string, 
     amortizationMonths: inputs.amortizationMonths,
     termMonths: null,
     lenderRaw: '',
-    lender: { display: '', slug: null, inBook: false, mapped: false },
+    lender: { display: '', slug: null, inBook: false, mapped: false, tier: inputs.tier },
     insuranceType: inputs.insuranceType,
     savingsPotential: null,
     paymentRelief: null,
@@ -201,6 +232,8 @@ export function replaySavingsAnalysis(inputs: SavingsLogInputs): Record<string, 
     transaction,
     productClass: inputs.productClass ?? undefined,
     ltv,
+    tier: inputs.tier,
+    tierBlockReason: inputs.tierBlockReason,
   })
   // Recompute the alternative's figures from its quote at the replayed
   // remaining amortization — a real recomputation, never an echo of stored
@@ -220,8 +253,10 @@ export function replaySavingsAnalysis(inputs: SavingsLogInputs): Record<string, 
     analysis = { ...analysis, alternative: alt }
   }
   const figures = savingsLogFigures(analysis)
-  // The cross-family flag is presentation state carried on the inputs, not
-  // arithmetic; replay compares the money figures.
+  // Presentation flags ride the inputs, not the arithmetic; replay compares
+  // the money figures and echoes these three.
   figures.crossFamilyRecommended = inputs.crossFamilyApproved
+  figures.graduationRecommended = inputs.graduationApplied
+  figures.overrideType = inputs.override?.type ?? null
   return figures
 }
