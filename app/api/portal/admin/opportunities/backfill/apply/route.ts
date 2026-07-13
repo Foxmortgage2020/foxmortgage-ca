@@ -12,7 +12,14 @@ import { apiPermission } from '@/lib/authz'
 import { isDemoMode } from '@/lib/demo'
 import { rawRowsForUpload, recordBackfillEvent, smmStoreConfigured } from '@/lib/smm-store'
 import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
-import { decideMatch, proposeBackfill, WRITABLE_SCALAR_BACKFILL_FIELDS, type ZohoContactLite } from '@/lib/smm-match'
+import {
+  attributeDeals,
+  decideMatch,
+  identityClaimants,
+  proposeBackfill,
+  WRITABLE_SCALAR_BACKFILL_FIELDS,
+  type ZohoContactLite,
+} from '@/lib/smm-match'
 import { getZohoDealById, getZohoDealsByContactId, searchZohoContacts, updateZohoRecordFields } from '@/lib/zoho-admin'
 
 export const dynamic = 'force-dynamic'
@@ -28,6 +35,10 @@ export async function POST(req: Request) {
     householdId?: string
     dealId?: string
     fields?: string[]
+    /** Michael's explicit pick on a needs-manual-match card: binds a contested
+     * deal (one no mortgage uniquely claims) to this household. Never accepted
+     * for a deal the evidence attributes to a DIFFERENT mortgage. */
+    manualMatch?: boolean
   }
   const { uploadId, householdId, dealId } = body
   const approved = new Set((Array.isArray(body.fields) ? body.fields : []).filter(f => WRITABLE_SCALAR_BACKFILL_FIELDS.includes(f)))
@@ -46,10 +57,15 @@ export async function POST(req: Request) {
 
   // Re-establish the household→contact→deal binding SERVER-SIDE: the client's
   // dealId is not trusted on its own. Re-match the household to its Zoho contact
-  // (email > phone > name) and confirm the dealId is one of THAT contact's
-  // deals, so household A's export values can never be written into an unrelated
-  // deal B. This repeats the scan's match; a mismatch refuses the write.
-  let contactDealIds: string[] = []
+  // (email > phone > name, with the export-side claimant count) and confirm the
+  // dealId is one of THAT contact's deals, so household A's export values can
+  // never be written into an unrelated deal B. For a shared identity (several
+  // export mortgages claim the contact), the deal must additionally be
+  // attributed to THIS household by evidence — or explicitly picked by Michael
+  // on the manual-match card, and even then never a deal the evidence
+  // attributes to a different mortgage. This repeats the scan's match; a
+  // mismatch refuses the write.
+  let manualPick = false
   try {
     const emailHits: ZohoContactLite[] = p.email ? await searchZohoContacts(p.email, 'email') : []
     let phoneHits: ZohoContactLite[] = []
@@ -61,23 +77,50 @@ export async function POST(req: Request) {
         nameHits = nm ? await searchZohoContacts(nm, 'word') : []
       }
     }
-    const match = decideMatch({ email: emailHits, phone: phoneHits, name: nameHits })
-    if (match.bucket !== 'matched' || !match.contactId) {
+    const claimants = identityClaimants(mortgage, mortgages)
+    const match = decideMatch({ email: emailHits, phone: phoneHits, name: nameHits }, claimants.length)
+    if ((match.bucket !== 'matched' && match.bucket !== 'shared_identity') || !match.contactId) {
       return NextResponse.json(
         { ok: false, message: 'This household no longer resolves to a single Zoho contact. Re-scan before writing.' },
         { status: 409 },
       )
     }
     const deals = await getZohoDealsByContactId(match.contactId)
-    contactDealIds = deals.map(d => d.id)
+    if (!deals.some(d => d.id === dealId)) {
+      return NextResponse.json(
+        { ok: false, message: 'That deal does not belong to this household. Re-scan before writing.' },
+        { status: 409 },
+      )
+    }
+    if (match.bucket === 'shared_identity') {
+      const attribution = attributeDeals(
+        claimants,
+        deals.map(d => ({
+          id: d.id,
+          street: typeof d.fields.Street === 'string' ? d.fields.Street : null,
+          city: typeof d.fields.City === 'string' ? d.fields.City : null,
+          amount: d.fields.Amount != null ? Number(d.fields.Amount) : null,
+        })),
+      )
+      const owner = attribution.get(dealId)
+      if (owner !== householdId) {
+        if (owner != null) {
+          return NextResponse.json(
+            { ok: false, message: 'The deal evidence attributes that record to a different mortgage on this contact. Nothing was written.' },
+            { status: 409 },
+          )
+        }
+        if (body.manualMatch !== true) {
+          return NextResponse.json(
+            { ok: false, message: 'Several export mortgages share this identity and the deal could not be attributed by evidence. Pick it on the manual-match card.' },
+            { status: 409 },
+          )
+        }
+        manualPick = true
+      }
+    }
   } catch (err) {
     return NextResponse.json({ ok: false, message: err instanceof Error ? err.message : 'Zoho match failed.' }, { status: 502 })
-  }
-  if (!contactDealIds.includes(dealId)) {
-    return NextResponse.json(
-      { ok: false, message: 'That deal does not belong to this household. Re-scan before writing.' },
-      { status: 409 },
-    )
   }
 
   // Live Zoho read: only fill fields still empty at write time.
@@ -128,7 +171,9 @@ export async function POST(req: Request) {
     recordId: dealId,
     fields: payload,
     actingEmail: gate.user.email,
-    result: 'ok',
+    // A manual pick on a shared identity is part of the record: the binding
+    // was Michael's decision, not evidence.
+    result: manualPick ? 'ok (manual match)' : 'ok',
   })
 
   return NextResponse.json({

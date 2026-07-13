@@ -5,31 +5,156 @@
 // Pellerin stale-rate conflict), and the approved comparable.
 
 import { describe, expect, it } from 'vitest'
-import { parseSmmRow, type SmmMortgage } from '@/lib/smm'
+import { collapseCoBorrowers, parseSmmRow, type SmmMortgage } from '@/lib/smm'
 import {
+  addressKey,
+  attributeDeals,
   bestFixedComparable,
   decideMatch,
   findExportByName,
+  identityClaimants,
   indexMortgagesByName,
   insuranceToProductClass,
   proposeBackfill,
   reconcileLapsed,
   retentionSummary,
   type BookQuote,
+  type DealEvidence,
   type ZohoContactLite,
 } from '@/lib/smm-match'
 
 const contact = (id: string): ZohoContactLite => ({ id, fullName: 'X', email: 'x@y.com', phone: '1', mobile: null })
 
-describe('match decision (email > phone > name)', () => {
-  it('single email hit matches; multiple are ambiguous', () => {
-    expect(decideMatch({ email: [contact('c1')], phone: [], name: [] })).toMatchObject({ bucket: 'matched', contactId: 'c1', matchedBy: 'email' })
-    expect(decideMatch({ email: [contact('c1'), contact('c2')], phone: [], name: [] })).toMatchObject({ bucket: 'ambiguous', matchedBy: 'email' })
+describe('match decision (email > phone > name), bound to ONE export mortgage', () => {
+  it('single email hit with a unique export claimant matches; multiple hits are ambiguous', () => {
+    expect(decideMatch({ email: [contact('c1')], phone: [], name: [] }, 1)).toMatchObject({ bucket: 'matched', contactId: 'c1', matchedBy: 'email' })
+    expect(decideMatch({ email: [contact('c1'), contact('c2')], phone: [], name: [] }, 1)).toMatchObject({ bucket: 'ambiguous', matchedBy: 'email' })
   })
   it('falls through email to phone to name, then unmatched', () => {
-    expect(decideMatch({ email: [], phone: [contact('c3')], name: [] })).toMatchObject({ bucket: 'matched', matchedBy: 'phone' })
-    expect(decideMatch({ email: [], phone: [], name: [contact('c4')] })).toMatchObject({ bucket: 'matched', matchedBy: 'name' })
-    expect(decideMatch({ email: [], phone: [], name: [] })).toMatchObject({ bucket: 'unmatched', contactId: null })
+    expect(decideMatch({ email: [], phone: [contact('c3')], name: [] }, 1)).toMatchObject({ bucket: 'matched', matchedBy: 'phone' })
+    expect(decideMatch({ email: [], phone: [], name: [contact('c4')] }, 1)).toMatchObject({ bucket: 'matched', matchedBy: 'name' })
+    expect(decideMatch({ email: [], phone: [], name: [] }, 1)).toMatchObject({ bucket: 'unmatched', contactId: null })
+  })
+  it('a single contact hit claimed by TWO export mortgages is shared_identity, never matched', () => {
+    // The shared-email collision: the contact resolves, the mortgage does not.
+    const m = decideMatch({ email: [contact('c1')], phone: [], name: [] }, 2)
+    expect(m.bucket).toBe('shared_identity')
+    expect(m.contactId).toBe('c1') // the contact is known; the binding is not
+    expect(m.exportClaimants).toBe(2)
+  })
+})
+
+// ─── Shared identities and deal attribution ──────────────────────────────────
+// Two mortgages, one email: the real shape that nearly wrote the wrong
+// maturity into a client's record. Synthetic names per the fixture rule.
+function rowsFor(list: { hid: string; name: string; email: string; phone?: string; address: string; amount: string; maturity: string }[]) {
+  return list.map(x =>
+    parseSmmRow({
+      'Household ID': x.hid, 'File reference': `F-${x.hid}`, 'First name': x.name.split(' ')[0], 'Last name': x.name.split(' ')[1] ?? '',
+      'Client type': 'CLIENT', Email: x.email, Phone: x.phone ?? '519-555-0100', 'Property address': x.address,
+      'Property type': 'detached', 'Property occupancy': 'owner_occupied',
+      'Estimated home value': '$900,000.00', 'Mortgage amount': x.amount, 'Mortgage outstanding balance': x.amount,
+      'Mortgage rate': '4.50%', 'Mortgage rate type': 'fixed', 'Mortgage closing date': '2026-06-01', 'Mortgage start date': '2026-06-01',
+      'Mortgage maturity date': x.maturity, 'Mortgage amortization (months)': '300', 'Mortgage term (months)': '60',
+      'Mortgage lender': 'MCAP', 'Mortgage insurance type': 'Uninsurable', 'Savings potential': '-', 'Payment relief (monthly)': '-',
+      'Accessible equity': '-', 'Purchasing power': '-',
+    }),
+  )
+}
+
+function twoMortgagesOneEmail(): SmmMortgage[] {
+  const { mortgages } = collapseCoBorrowers(
+    rowsFor([
+      { hid: 'h-alpha', name: 'Dana Whitfield', email: 'shared@example.com', address: '22 Birch Ave, Guelph, ON', amount: '$635,000.00', maturity: '2031-06-18' },
+      { hid: 'h-beta', name: 'Dana Whitfield', email: 'shared@example.com', address: '9 Larch Lane, Guelph, ON', amount: '$480,000.00', maturity: '2029-07-01' },
+      { hid: 'h-other', name: 'Omar Feld', email: 'omar@example.com', phone: '519-555-0199', address: '3 Oak Ct, Fergus, ON', amount: '$300,000.00', maturity: '2030-01-01' },
+    ]),
+  )
+  return mortgages
+}
+
+describe('identity claimants (export-side sharing)', () => {
+  it('two mortgages sharing an email claim each other; an unrelated mortgage stands alone', () => {
+    const [a, b, other] = twoMortgagesOneEmail()
+    expect(identityClaimants(a, [a, b, other]).map(m => m.primary.householdId).sort()).toEqual(['h-alpha', 'h-beta'])
+    expect(identityClaimants(b, [a, b, other])).toHaveLength(2)
+    expect(identityClaimants(other, [a, b, other]).map(m => m.primary.householdId)).toEqual(['h-other'])
+  })
+  it('a co-borrower email claims too', () => {
+    // Distinct phones and names per household, so ONLY the co-borrower email
+    // can link the two mortgages.
+    const { mortgages } = collapseCoBorrowers([
+      ...rowsFor([{ hid: 'h-1', name: 'Pat Quill', email: 'pat@example.com', phone: '519-555-0111', address: '1 Elm St', amount: '$400,000.00', maturity: '2030-05-01' }]),
+      ...rowsFor([
+        { hid: 'h-2', name: 'Rae Voss', email: 'rae@example.com', phone: '519-555-0122', address: '7 Fir Rd', amount: '$350,000.00', maturity: '2031-02-01' },
+        // Pat co-borrows on Rae's mortgage (same household id + address + balance + maturity collapses them)
+        { hid: 'h-2', name: 'Pat Quill', email: 'pat@example.com', phone: '519-555-0111', address: '7 Fir Rd', amount: '$350,000.00', maturity: '2031-02-01' },
+      ]),
+    ])
+    expect(mortgages).toHaveLength(2)
+    expect(identityClaimants(mortgages[0], mortgages)).toHaveLength(2)
+  })
+})
+
+describe('deal attribution for shared identities (address first, then amount)', () => {
+  const claimants = () => twoMortgagesOneEmail().slice(0, 2)
+  it('address keys tolerate suffix and punctuation differences', () => {
+    expect(addressKey('22 Birch Ave, Guelph, ON')).toBe(addressKey('22 Birch Avenue'))
+    expect(addressKey('22 Birch Ave')).not.toBe(addressKey('9 Larch Lane'))
+  })
+  it('attributes each deal to the one mortgage whose address matches', () => {
+    const deals: DealEvidence[] = [
+      { id: 'd1', street: '22 Birch Avenue', city: 'Guelph', amount: null },
+      { id: 'd2', street: '9 Larch Lane', city: 'Guelph', amount: null },
+    ]
+    const attr = attributeDeals(claimants(), deals)
+    expect(attr.get('d1')).toBe('h-alpha')
+    expect(attr.get('d2')).toBe('h-beta')
+  })
+  it('falls back to the amount when the deal has no address', () => {
+    const attr = attributeDeals(claimants(), [{ id: 'd1', street: null, city: null, amount: 635_000 }])
+    expect(attr.get('d1')).toBe('h-alpha')
+  })
+  it('a deal no mortgage — or more than one mortgage — can claim is contested (null), never guessed', () => {
+    const both = twoMortgagesOneEmail().slice(0, 2)
+    // No evidence at all: contested.
+    expect(attributeDeals(both, [{ id: 'd1', street: null, city: null, amount: null }]).get('d1')).toBeNull()
+    // An amount both mortgages carry: contested even though the amount "matches".
+    const { mortgages } = collapseCoBorrowers(
+      rowsFor([
+        { hid: 'h-a', name: 'Kim Voss', email: 'kim@example.com', address: '4 Ash St', amount: '$500,000.00', maturity: '2031-01-01' },
+        { hid: 'h-b', name: 'Kim Voss', email: 'kim@example.com', address: '8 Yew Rd', amount: '$500,000.00', maturity: '2029-03-01' },
+      ]),
+    )
+    expect(attributeDeals(mortgages, [{ id: 'd1', street: null, city: null, amount: 500_000 }]).get('d1')).toBeNull()
+  })
+})
+
+describe('ACCEPTANCE: two mortgages, one email — zero automatic proposals, one manual-match card', () => {
+  it('both households resolve shared_identity to the same contact; no deal is attributed', () => {
+    const all = twoMortgagesOneEmail()
+    const [a, b] = all
+    // Zoho: the shared email resolves ONE contact with two deals carrying no
+    // disambiguating evidence (no street, no amount).
+    const hits = { email: [contact('zc-1')], phone: [], name: [] }
+    const deals: DealEvidence[] = [
+      { id: 'zd-1', street: null, city: null, amount: null },
+      { id: 'zd-2', street: null, city: null, amount: null },
+    ]
+    const cards = new Set<string>()
+    for (const m of [a, b]) {
+      const claimants = identityClaimants(m, all)
+      const match = decideMatch(hits, claimants.length)
+      // Never 'matched': no automatic proposal path opens.
+      expect(match.bucket).toBe('shared_identity')
+      const attribution = attributeDeals(claimants, deals)
+      const mine = deals.filter(d => attribution.get(d.id) === m.primary.householdId)
+      expect(mine).toHaveLength(0) // zero deals to propose into — zero automatic proposals
+      // The scan emits a needs-manual-match card keyed by the CONTACT, so both
+      // households land on the same single card.
+      cards.add(match.contactId!)
+    }
+    expect(cards.size).toBe(1)
   })
 })
 

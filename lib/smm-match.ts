@@ -16,30 +16,147 @@ export interface ZohoContactLite {
   mobile: string | null
 }
 
-export type MatchBucket = 'matched' | 'ambiguous' | 'unmatched'
+// 'shared_identity': the Zoho hits resolve ONE contact, but more than one
+// mortgage in the export carries the identity signal, so the contact cannot be
+// bound to a single mortgage. A match is a (contact, mortgage) PAIR — a
+// contact alone is not a match when two mortgages claim it (the shared-email
+// backfill collision: both mortgages would propose different values into the
+// same record).
+export type MatchBucket = 'matched' | 'shared_identity' | 'ambiguous' | 'unmatched'
 
 export interface Match {
   bucket: MatchBucket
   contactId: string | null
   matchedBy: 'email' | 'phone' | 'name' | null
   candidates: ZohoContactLite[]
+  /** How many export mortgages share this mortgage's identity signals (email,
+   * phone, or borrower name); 1 means the contact binding is unique. */
+  exportClaimants: number
+}
+
+// ─── Export-side identity sharing ────────────────────────────────────────────
+// One person holding two mortgages carries the same email (and usually the
+// same phone and name) on both export rows. Any contact matched through a
+// shared signal is claimed by every one of those mortgages, so the claimant
+// set is computed BEFORE a match can be called unique. Signals are the union
+// over every borrower on the mortgage (a co-borrower's email claims too).
+function phoneKey(p: string): string {
+  const digits = p.replace(/\D+/g, '')
+  return digits.length >= 7 ? digits.slice(-10) : ''
+}
+
+function identitySignals(m: SmmMortgage): Set<string> {
+  const s = new Set<string>()
+  for (const b of m.borrowers) {
+    const email = b.email.trim().toLowerCase()
+    if (email) s.add(`e:${email}`)
+    const phone = phoneKey(b.phone ?? '')
+    if (phone) s.add(`p:${phone}`)
+    const name = `${b.firstName} ${b.lastName}`.trim().toLowerCase()
+    if (name) s.add(`n:${name}`)
+  }
+  return s
+}
+
+/** Every mortgage in the export that shares an identity signal with this one
+ * (itself included). More than one claimant means a Zoho contact match cannot
+ * name the mortgage without deal-level evidence. */
+export function identityClaimants(m: SmmMortgage, all: SmmMortgage[]): SmmMortgage[] {
+  const mine = identitySignals(m)
+  return all.filter(o => {
+    if (o === m) return true
+    const theirs = identitySignals(o)
+    for (const sig of Array.from(mine)) if (theirs.has(sig)) return true
+    return false
+  })
 }
 
 // Decide the match from the search hits, in descending confidence. A single
-// hit is a match; multiple hits are ambiguous (Michael picks); none falls
-// through to the next signal. LEAD/prospect rows generally reach 'unmatched',
-// which is correct — they are not records yet.
-export function decideMatch(hits: {
-  email: ZohoContactLite[]
-  phone: ZohoContactLite[]
-  name: ZohoContactLite[]
-}): Match {
+// hit is a match ONLY when the export-side claimant count is 1 — an identity
+// signal mapping to more than one mortgage in the export is ambiguous by
+// definition, and resolves to 'shared_identity' (the contact is known, the
+// mortgage is not; deal-level disambiguation or Michael decides). Multiple
+// hits are ambiguous (Michael picks); none falls through to the next signal.
+// LEAD/prospect rows generally reach 'unmatched', which is correct — they are
+// not records yet.
+export function decideMatch(
+  hits: {
+    email: ZohoContactLite[]
+    phone: ZohoContactLite[]
+    name: ZohoContactLite[]
+  },
+  exportClaimants: number,
+): Match {
   for (const by of ['email', 'phone', 'name'] as const) {
     const h = hits[by]
-    if (h.length === 1) return { bucket: 'matched', contactId: h[0].id, matchedBy: by, candidates: [] }
-    if (h.length > 1) return { bucket: 'ambiguous', contactId: null, matchedBy: by, candidates: h }
+    if (h.length === 1) {
+      if (exportClaimants > 1)
+        return { bucket: 'shared_identity', contactId: h[0].id, matchedBy: by, candidates: [], exportClaimants }
+      return { bucket: 'matched', contactId: h[0].id, matchedBy: by, candidates: [], exportClaimants }
+    }
+    if (h.length > 1) return { bucket: 'ambiguous', contactId: null, matchedBy: by, candidates: h, exportClaimants }
   }
-  return { bucket: 'unmatched', contactId: null, matchedBy: null, candidates: [] }
+  return { bucket: 'unmatched', contactId: null, matchedBy: null, candidates: [], exportClaimants }
+}
+
+// ─── Deal-level disambiguation for shared identities ────────────────────────
+// When one contact is claimed by several mortgages, its deals are attributed
+// by evidence: the property address first (the address defines the mortgage in
+// this export), the amount second. A deal that no claimant — or more than one
+// claimant — matches is CONTESTED and is never proposed into; it goes to a
+// needs-manual-match card and Michael picks.
+export interface DealEvidence {
+  id: string
+  street: string | null
+  city: string | null
+  amount: number | null
+}
+
+// Conservative address key: house number + first street token ("22 Cardigan
+// St, Guelph" and "22 Cardigan Street" both key "22 cardigan"). Anything not
+// leading with a house number keys as the full normalized line, so it only
+// matches on effective equality.
+export function addressKey(s: string | null): string | null {
+  if (!s) return null
+  const norm = s
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!norm) return null
+  const toks = norm.split(' ')
+  if (toks.length >= 2 && /^\d+[a-z]?$/.test(toks[0])) return `${toks[0]} ${toks[1]}`
+  return norm
+}
+
+const AMOUNT_MATCH_TOLERANCE = 0.01 // 1% covers rounding, never a different mortgage
+
+function amountMatches(dealAmount: number | null, mortgageAmount: number | null): boolean {
+  if (dealAmount == null || mortgageAmount == null || mortgageAmount <= 0) return false
+  return Math.abs(dealAmount - mortgageAmount) <= AMOUNT_MATCH_TOLERANCE * mortgageAmount
+}
+
+/** Attribute each deal to the ONE claimant whose evidence matches it, or null
+ * when contested (matched by several) or unmatched (matched by none). Address
+ * evidence outranks amount; a deal two mortgages both claim is never
+ * attributed. Keyed by deal id; values are household ids. */
+export function attributeDeals(claimants: SmmMortgage[], deals: DealEvidence[]): Map<string, string | null> {
+  const out = new Map<string, string | null>()
+  for (const d of deals) {
+    const dealAddr = addressKey(d.street)
+    const byAddress = dealAddr ? claimants.filter(c => addressKey(c.primary.address) === dealAddr) : []
+    if (byAddress.length === 1) {
+      out.set(d.id, byAddress[0].primary.householdId)
+      continue
+    }
+    if (byAddress.length > 1) {
+      out.set(d.id, null) // two mortgages claim the same address: contested
+      continue
+    }
+    const byAmount = claimants.filter(c => amountMatches(d.amount, c.primary.amount))
+    out.set(d.id, byAmount.length === 1 ? byAmount[0].primary.householdId : null)
+  }
+  return out
 }
 
 // ─── Backfill proposals (empty-field fills only) ────────────────────────────

@@ -11,17 +11,37 @@ import { apiPermission } from '@/lib/authz'
 import { rawRowsForUpload, recentUploads, smmStoreConfigured } from '@/lib/smm-store'
 import { collapseCoBorrowers, parseSmmRow, type SmmParsedRow } from '@/lib/smm'
 import {
+  attributeDeals,
   decideMatch,
+  identityClaimants,
   proposeBackfill,
   WRITABLE_SCALAR_BACKFILL_FIELDS,
+  type DealEvidence,
   type ZohoContactLite,
 } from '@/lib/smm-match'
-import { getZohoDealsByContactId, searchZohoContacts } from '@/lib/zoho-admin'
+import { getZohoDealsByContactId, searchZohoContacts, type AgentZohoDeal } from '@/lib/zoho-admin'
 
 export const dynamic = 'force-dynamic'
 
 function exportFieldsOf(row: SmmParsedRow) {
   return { maturityDate: row.maturityDate, lenderName: row.lenderRaw || null, rate: row.rate }
+}
+
+function evidenceOf(d: AgentZohoDeal): DealEvidence {
+  return {
+    id: d.id,
+    street: typeof d.fields.Street === 'string' ? d.fields.Street : null,
+    city: typeof d.fields.City === 'string' ? d.fields.City : null,
+    amount: d.fields.Amount != null ? Number(d.fields.Amount) : null,
+  }
+}
+
+function zohoFieldsOf(d: AgentZohoDeal) {
+  return {
+    Maturity_Date: typeof d.fields.Maturity_Date === 'string' ? d.fields.Maturity_Date : null,
+    Lender_Name: null, // lookup — never proposed from a string
+    Mortgage_Rate: d.fields.Mortgage_Rate != null ? Number(d.fields.Mortgage_Rate) : null,
+  }
 }
 
 export async function POST(req: Request) {
@@ -61,7 +81,9 @@ export async function POST(req: Request) {
     const p = m.primary
     const name = `${p.firstName} ${p.lastName}`.trim()
     try {
-      // Match, short-circuited by confidence.
+      // Match, short-circuited by confidence. The claimant count rides along:
+      // an identity signal shared by more than one export mortgage can never
+      // yield a unique (contact, mortgage) match on its own.
       const emailHits: ZohoContactLite[] = p.email ? await searchZohoContacts(p.email, 'email') : []
       let phoneHits: ZohoContactLite[] = []
       let nameHits: ZohoContactLite[] = []
@@ -71,10 +93,11 @@ export async function POST(req: Request) {
           nameHits = name ? await searchZohoContacts(name, 'word') : []
         }
       }
-      const match = decideMatch({ email: emailHits, phone: phoneHits, name: nameHits })
+      const claimants = identityClaimants(m, mortgages)
+      const match = decideMatch({ email: emailHits, phone: phoneHits, name: nameHits }, claimants.length)
       const exp = exportFieldsOf(p)
 
-      if (match.bucket !== 'matched' || !match.contactId) {
+      if ((match.bucket !== 'matched' && match.bucket !== 'shared_identity') || !match.contactId) {
         results.push({
           householdId: hid,
           name,
@@ -86,12 +109,8 @@ export async function POST(req: Request) {
       }
 
       const deals = await getZohoDealsByContactId(match.contactId)
-      const dealViews = deals.map(d => {
-        const zoho = {
-          Maturity_Date: typeof d.fields.Maturity_Date === 'string' ? d.fields.Maturity_Date : null,
-          Lender_Name: null, // lookup — never proposed from a string
-          Mortgage_Rate: d.fields.Mortgage_Rate != null ? Number(d.fields.Mortgage_Rate) : null,
-        }
+      const dealView = (d: AgentZohoDeal) => {
+        const zoho = zohoFieldsOf(d)
         const proposal = proposeBackfill(zoho, exp, writable)
         return {
           dealId: d.id,
@@ -101,14 +120,71 @@ export async function POST(req: Request) {
           fills: proposal.fills,
           conflicts: proposal.conflicts,
         }
-      })
+      }
+
+      if (match.bucket === 'shared_identity') {
+        // The contact is claimed by several export mortgages. Attribute its
+        // deals by property address then amount; propose ONLY into deals this
+        // mortgage uniquely claims. A contested deal (claimed by several or by
+        // none) is never proposed into — it goes to the manual-match card.
+        const attribution = attributeDeals(claimants, deals.map(evidenceOf))
+        const mine = deals.filter(d => attribution.get(d.id) === p.householdId)
+        const contested = deals.filter(d => attribution.get(d.id) === null)
+
+        if (mine.length === 0) {
+          results.push({
+            householdId: hid,
+            name,
+            status: 'needs_manual_match' as const,
+            matchedBy: match.matchedBy,
+            contact: { id: match.contactId },
+            claimants: claimants.map(c => ({
+              householdId: c.primary.householdId,
+              name: `${c.primary.firstName} ${c.primary.lastName}`.trim(),
+              address: c.primary.address || null,
+              amount: c.primary.amount,
+              maturityDate: c.primary.maturityDate,
+              rate: c.primary.rate,
+            })),
+            candidateDeals: contested.map(d => {
+              const ev = evidenceOf(d)
+              const zoho = zohoFieldsOf(d)
+              return {
+                dealId: d.id,
+                dealName: typeof d.fields.Deal_Name === 'string' ? d.fields.Deal_Name : d.id,
+                stage: typeof d.fields.Stage === 'string' ? d.fields.Stage : null,
+                street: ev.street,
+                city: ev.city,
+                amount: ev.amount,
+                current: { Maturity_Date: zoho.Maturity_Date, Mortgage_Rate: zoho.Mortgage_Rate },
+              }
+            }),
+            export: exp,
+          })
+          continue
+        }
+
+        results.push({
+          householdId: hid,
+          name,
+          status: 'matched' as const,
+          matchedBy: match.matchedBy,
+          sharedIdentity: true,
+          withheldContested: contested.length,
+          contact: { id: match.contactId },
+          deals: mine.map(dealView),
+          export: exp,
+        })
+        continue
+      }
+
       results.push({
         householdId: hid,
         name,
         status: 'matched' as const,
         matchedBy: match.matchedBy,
         contact: { id: match.contactId },
-        deals: dealViews,
+        deals: deals.map(dealView),
         export: exp,
       })
     } catch (err) {

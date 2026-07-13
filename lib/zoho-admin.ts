@@ -477,8 +477,10 @@ export async function getLeadsSlim(): Promise<SlimLead[]> {
 // those as "not captured", never a guess. No balance field exists on
 // Potentials (Amount is the original principal).
 
+// Street rides along for the backfill deal disambiguation (a shared-identity
+// contact's deals attribute by property address; FP-portal-confirmed field).
 export const AGENT_DEAL_FIELDS =
-  'Deal_Name,Stage,Contact_Name,Mortgage_Rate,Amount,Total_Loan_Amount,Maturity_Date,Payment_Amount,Payment_Frequency,Renewal_In_Progress,Investor_Status,Closing_Date,Rate_Type,Term_Type,Mortgage_Type,First_Payment_Date,LTV,City,Province'
+  'Deal_Name,Stage,Contact_Name,Mortgage_Rate,Amount,Total_Loan_Amount,Maturity_Date,Payment_Amount,Payment_Frequency,Renewal_In_Progress,Investor_Status,Closing_Date,Rate_Type,Term_Type,Mortgage_Type,First_Payment_Date,LTV,Street,City,Province'
 
 export interface AgentZohoDeal {
   id: string
