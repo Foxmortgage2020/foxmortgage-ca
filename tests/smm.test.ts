@@ -9,17 +9,20 @@ import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 import {
   analyzeOpportunity,
+  balanceAfter,
   checkSignConvention,
   collapseCoBorrowers,
   diffUploads,
   isAnalyzable,
   isPlaceholder,
+  monthsElapsed,
   parseCsv,
   parseDateField,
   parseMoney,
   parsePercent,
   parseSmmRow,
   penaltyEstimate,
+  reconcileBalance,
   threeMonthsInterest,
   type Comparable,
   type SmmParsedRow,
@@ -132,14 +135,40 @@ describe('penalty framing', () => {
   })
 })
 
+describe('schedule reconstruction + the reconciliation gate', () => {
+  it('monthsElapsed counts whole payment months from the start date', () => {
+    expect(monthsElapsed('2024-07-01', '2026-07-13')).toBe(24)
+    expect(monthsElapsed('2026-06-18', '2026-07-13')).toBe(0) // day-of-month not reached
+    expect(monthsElapsed('2027-01-01', '2026-07-13')).toBe(0) // a future start clamps, never negative
+  })
+
+  it('models the balance forward from origination to the cent (worked example)', () => {
+    // $500,000 at 5.50% over 300 months pays $3,051.96 a month; after 24
+    // payments the balance lands at $480,116.51. The schedule is confirmed.
+    expect(balanceAfter(500_000, 5.5, 300, 24)).toBeCloseTo(480_116.51, 1)
+  })
+
+  it('reconciles a clean feed balance and blocks a corrupt one', () => {
+    const clean = reconcileBalance(500_000, 5.5, 300, 24, 480_116.59)
+    expect(clean.ok).toBe(true)
+    expect(clean.driftPct).toBeLessThan(0.01)
+    const corrupt = reconcileBalance(500_000, 5.5, 300, 24, 455_000)
+    expect(corrupt.ok).toBe(false)
+    expect(corrupt.driftPct).toBeGreaterThan(0.5)
+  })
+})
+
 describe("Fox's opportunity analysis", () => {
   const cmp = (rate: number): Comparable => ({ rate, lender: 'MCAP', asOf: '2026-07-09', termMonths: 60, kind: 'fixed' })
   function rowFor(over: Record<string, string>): SmmParsedRow {
     return parseSmmRow({
       'Household ID': 'H', 'File reference': 'F', 'First name': 'A', 'Last name': 'B', 'Client type': 'CLIENT',
       Email: 'a@b.com', Phone: '1', 'Property address': '1 St', 'Property type': 'detached', 'Property occupancy': 'owner_occupied',
-      'Estimated home value': '$700,000.00', 'Mortgage amount': '$500,000.00', 'Mortgage outstanding balance': '$480,000.00',
-      'Mortgage rate': '5.34%', 'Mortgage rate type': 'fixed', 'Mortgage closing date': '2022-10-05', 'Mortgage start date': '2022-10-05',
+      // Balance and start date reconcile against the schedule (the gate in
+      // analyzeOpportunity models the balance forward from origination): one
+      // month elapsed, balance still at the original amount within the band.
+      'Estimated home value': '$700,000.00', 'Mortgage amount': '$500,000.00', 'Mortgage outstanding balance': '$500,000.00',
+      'Mortgage rate': '5.34%', 'Mortgage rate type': 'fixed', 'Mortgage closing date': '2026-06-05', 'Mortgage start date': '2026-06-05',
       'Mortgage maturity date': '2027-10-05', 'Mortgage amortization (months)': '300', 'Mortgage term (months)': '60',
       'Mortgage lender': 'First National', 'Mortgage insurance type': 'Uninsurable', 'Savings potential': '$500.00',
       'Payment relief (monthly)': '$120.00', 'Accessible equity': '$200,000.00', 'Purchasing power': '$150,000.00',
@@ -168,6 +197,19 @@ describe("Fox's opportunity analysis", () => {
     expect(analyzeOpportunity(ph, cmp(4.19), true, TODAY).bucket).toBe('insufficient')
     const noComp = analyzeOpportunity(rowFor({}), null, true, TODAY)
     expect(noComp.bucket).toBe('insufficient')
+  })
+  it('a balance that does not reconcile with the schedule is blocked to review, never analyzed', () => {
+    // One month in, the balance cannot plausibly be $70k below the original.
+    const r = rowFor({ 'Mortgage outstanding balance': '$430,000.00' })
+    const a = analyzeOpportunity(r, cmp(4.19), true, TODAY)
+    expect(a.bucket).toBe('review')
+    expect(a.currentPayment).toBeNull()
+    expect(a.newPayment).toBeNull()
+    expect(a.netBenefit).toBeNull()
+    expect(a.blockReason).toMatch(/does not reconcile/)
+    expect(a.blockReason).toContain('$430,000') // both figures and the drift show
+    expect(a.blockReason).toMatch(/% drift/)
+    expect(a.reconciliation?.ok).toBe(false)
   })
 })
 

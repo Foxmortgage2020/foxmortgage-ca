@@ -59,7 +59,9 @@ export interface SavingsPdfInput {
    * the new term for a switch). Drives the act-now copy so the horizon it names
    * matches the math. */
   horizonMonths?: number | null
-  /** 'act_now' | 'marginal' | 'stay_put' | 'insufficient' */
+  /** 'act_now' | 'marginal' | 'stay_put' | 'insufficient' | 'review' —
+   * 'review' means the monitored balance did not reconcile with the mortgage
+   * schedule, so NO figure (not even the balance) is stated to the client. */
   bucket: string
   /** True when a comparable exists but its lender's provincial availability is
    * not yet confirmed, so it is withheld from this client document (fail-closed).
@@ -150,6 +152,24 @@ export async function generateSavingsPdf(input: SavingsPdfInput): Promise<Uint8A
 
   text(`Prepared ${longDate(input.generatedDate)} for ${redactComp(input.clientName)}`, { size: 9, color: GRAY })
   y -= 18
+
+  // ── Reconciliation review: the monitored figures do not line up with the
+  // mortgage schedule, so nothing is asserted — not the balance, not the rate,
+  // not a payment. This branch comes FIRST so no suspect figure prints. ──
+  if (input.bucket === 'review') {
+    heading('What we found')
+    para(
+      'The figures we monitor for your mortgage do not line up with the payment schedule on file. ' +
+        'That usually means a prepayment, a payment change, or a data update we have not captured yet. ' +
+        'Michael will confirm the true figures with you and your lender before recommending anything, ' +
+        'and nothing moves without that confirmation.',
+      9.5,
+      GRAY,
+      13,
+    )
+    drawFooter(doc, font, bold, M, width)
+    return doc.save()
+  }
 
   // ── Current mortgage ──
   heading('Your mortgage today')

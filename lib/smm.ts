@@ -8,6 +8,7 @@
 // module stays pure and testable without the workbench.
 
 import { monthlyPayment } from '@/lib/mortgage-engine'
+import { periodicRateForFrequency } from '@/lib/refinance-engine'
 import { normalizeLender, type NormalizedLender } from '@/config/smm-lender-aliases'
 
 // ─── The 26 export columns, in order ────────────────────────────────────────
@@ -324,7 +325,10 @@ export function checkSignConvention(rows: SmmParsedRow[]): {
 }
 
 // ─── Fox's opportunity analysis (pure; comparables + penalty passed in) ─────
-export type OppBucket = 'act_now' | 'marginal' | 'stay_put' | 'insufficient'
+// 'review' is the reconciliation-blocked state: the export's balance does not
+// match the mortgage schedule modeled from origination, so no figure is stated
+// until Michael confirms the true position with the lender.
+export type OppBucket = 'act_now' | 'marginal' | 'stay_put' | 'insufficient' | 'review'
 
 // Net benefit within this band of zero is "marginal" — worth watching, not
 // worth a client's disruption.
@@ -430,6 +434,71 @@ export function computeLtv(balance: number | null, homeValue: number | null): nu
   return Math.round(ltv * 10) / 10
 }
 
+// ─── Schedule reconstruction + the reconciliation gate ──────────────────────
+// The feed's "Mortgage amortization (months)" is the ORIGINAL amortization,
+// never the remaining one. So the client's actual payment reconstructs from
+// the ORIGINAL schedule — payment(original amount, rate, original amortization)
+// — and the remaining amortization is original minus months elapsed. A current
+// balance re-amortized over the original period understates a seasoned
+// mortgage's payment (the bug this section exists to prevent: it can never be
+// caught on an unseasoned file, where both methods agree exactly).
+//
+// The gate: model the balance forward from origination and compare it to the
+// feed's outstanding balance. Prepayments, adjustable-rate changes, and bad
+// vendor data all present as drift. Over the threshold, the analysis is
+// blocked and routed to the board as a review item — an analysis that cannot
+// be reconciled is one that cannot be defended on a call or a client document.
+export const RECONCILIATION_DRIFT_BLOCK_PCT = 0.5
+
+export function monthsElapsed(startYMD: string, todayYMD: string): number {
+  const [sy, sm, sd] = startYMD.slice(0, 10).split('-').map(Number)
+  const [ty, tm, td] = todayYMD.split('-').map(Number)
+  const months = (ty - sy) * 12 + (tm - sm) + (td >= sd ? 0 : -1)
+  return Math.max(0, months)
+}
+
+/** Balance remaining after `monthsPaid` scheduled payments on the original
+ * schedule (closed form; same semi-annual compounding core as the engine). */
+export function balanceAfter(
+  principal: number,
+  annualRatePct: number,
+  amortMonths: number,
+  monthsPaid: number,
+): number {
+  const i = periodicRateForFrequency(annualRatePct, 'semi-annually', 12)
+  const pmt = monthlyPayment(principal, annualRatePct, 'semi-annually', amortMonths)
+  if (i === 0) return principal - pmt * monthsPaid
+  const g = Math.pow(1 + i, monthsPaid)
+  return principal * g - pmt * ((g - 1) / i)
+}
+
+export interface BalanceReconciliation {
+  /** Balance the original schedule says the client should hold today. */
+  modeledBalance: number
+  /** The export's outstanding balance. */
+  feedBalance: number
+  /** |modeled - feed| as a percent of the modeled balance. */
+  driftPct: number
+  ok: boolean
+}
+
+export function reconcileBalance(
+  amount: number,
+  annualRatePct: number,
+  amortMonths: number,
+  monthsPaid: number,
+  feedBalance: number,
+): BalanceReconciliation {
+  const modeled = balanceAfter(amount, annualRatePct, amortMonths, monthsPaid)
+  const driftPct = modeled > 0 ? (Math.abs(modeled - feedBalance) / modeled) * 100 : 100
+  return {
+    modeledBalance: modeled,
+    feedBalance,
+    driftPct,
+    ok: driftPct <= RECONCILIATION_DRIFT_BLOCK_PCT,
+  }
+}
+
 export interface FoxAnalysis {
   currentPayment: number | null
   newPayment: number | null
@@ -456,6 +525,13 @@ export interface FoxAnalysis {
   horizonMonths: number | null
   /** A plain reason when the opportunity is insufficient/blocked. */
   blockReason: string | null
+  /** Months elapsed since the mortgage start date, per the export. */
+  monthsElapsed: number | null
+  /** Original amortization minus months elapsed: what the client actually has
+   * left, and the level any shorter-amortization option is measured against. */
+  remainingAmortizationMonths: number | null
+  /** The schedule-vs-feed balance check; drift over the threshold blocks. */
+  reconciliation: BalanceReconciliation | null
 }
 
 export interface AnalyzeOptions {
@@ -511,7 +587,15 @@ export function analyzeOpportunity(
     penaltyApplies,
     remainingMonths: remaining,
   }
-  const insufficient = (blockReason: string, ltvBlocked = false): FoxAnalysis => ({
+  // Filled in as the schedule is reconstructed; every exit path carries the
+  // current values so a blocked analysis still shows what was established.
+  const schedule: {
+    monthsElapsed: number | null
+    remainingAmortizationMonths: number | null
+    reconciliation: BalanceReconciliation | null
+  } = { monthsElapsed: null, remainingAmortizationMonths: null, reconciliation: null }
+
+  const blocked = (bucket: 'insufficient' | 'review', blockReason: string, ltvBlocked = false): FoxAnalysis => ({
     currentPayment: null,
     newPayment: null,
     monthlyDelta: null,
@@ -520,14 +604,53 @@ export function analyzeOpportunity(
     penalty: null,
     breakEvenMonths: null,
     netBenefit: null,
-    bucket: 'insufficient',
+    bucket,
     horizonMonths: null,
     blockReason,
     ltvBlocked,
     ...base,
+    ...schedule,
   })
+  const insufficient = (blockReason: string, ltvBlocked = false): FoxAnalysis =>
+    blocked('insufficient', blockReason, ltvBlocked)
 
   if (!isAnalyzable(row)) return insufficient('Not analyzable (placeholder, missing rate, or parse failure).')
+
+  const balance = row.balance!
+  const rate = row.rate!
+
+  // The stated current payment reconstructs the ORIGINAL schedule. That needs
+  // the original amount and the start date; without them no payment can be
+  // stated or reconciled, and an unverifiable payment is never stated.
+  if (row.amount == null || row.amount <= 1) {
+    return insufficient('Original mortgage amount is not in the export; the current payment cannot be stated or reconciled.')
+  }
+  if (row.startDate == null) {
+    return insufficient('Mortgage start date is not in the export; the schedule cannot be reconciled.')
+  }
+  const originalAmort = amortFor(row)
+  const elapsed = monthsElapsed(row.startDate, todayYMD)
+  const remainingAmort = originalAmort - elapsed
+  schedule.monthsElapsed = elapsed
+  schedule.remainingAmortizationMonths = remainingAmort > 0 ? remainingAmort : null
+  if (remainingAmort <= 0) {
+    return insufficient('The export dates say the amortization is already exhausted; the record needs grooming before analysis.')
+  }
+
+  // The reconciliation gate runs BEFORE any conclusion that leans on the
+  // balance (the LTV block included): a balance that does not reconcile makes
+  // every downstream claim undefendable. The joint check also validates an
+  // assumed amortization — a wrong assumption presents as drift and blocks.
+  const recon = reconcileBalance(row.amount, rate, originalAmort, elapsed, balance)
+  schedule.reconciliation = recon
+  if (!recon.ok) {
+    const fmt = (n: number) => '$' + Math.round(n).toLocaleString('en-CA')
+    return blocked(
+      'review',
+      `The export balance does not reconcile with the mortgage schedule: modeled ${fmt(recon.modeledBalance)} from origination vs ${fmt(recon.feedBalance)} in the export (${recon.driftPct.toFixed(2)}% drift). A prepayment, a payment change, or bad vendor data can all cause this. Confirm the true figures with the lender before any number is stated.`,
+    )
+  }
+
   // A refinance needs a computable LTV; missing/implausible value is a data gap,
   // never analyzed optimistically.
   if (transaction === 'refinance' && ltv === null) {
@@ -543,11 +666,16 @@ export function analyzeOpportunity(
     )
   }
 
-  const balance = row.balance!
-  const rate = row.rate!
-  const amort = amortFor(row)
-  const currentPayment = monthlyPayment(balance, rate, 'semi-annually', amort)
-  const newPayment = monthlyPayment(balance, comparable.rate, 'semi-annually', amort)
+  // The client's actual payment: the original amount over the original
+  // amortization. NEVER the current balance re-amortized over the original
+  // period — that understates a seasoned mortgage's payment.
+  const currentPayment = monthlyPayment(row.amount, rate, 'semi-annually', originalAmort)
+  // The new payment prices the current balance over the amortization the
+  // client actually has LEFT. Because the gate above proved the balance sits
+  // on the original schedule, payment(balance, current rate, remaining) equals
+  // currentPayment (within the drift bound), so subtracting currentPayment IS
+  // the rate-isolated delta at the remaining amortization.
+  const newPayment = monthlyPayment(balance, comparable.rate, 'semi-annually', remainingAmort)
   const monthlyDelta = newPayment - currentPayment
   const monthlySaving = monthlyDelta < 0 ? -monthlyDelta : 0
   // Penalty only for a break (refinance); a switch at maturity has none.
@@ -592,6 +720,7 @@ export function analyzeOpportunity(
     blockReason: null,
     ltvBlocked: false,
     ...base,
+    ...schedule,
     bucket,
   }
 }

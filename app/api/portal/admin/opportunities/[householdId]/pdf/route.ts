@@ -93,7 +93,9 @@ export async function GET(req: Request, { params }: { params: { householdId: str
     netBenefit: showComparable ? a.netBenefit : null,
     remainingMonths: a.remainingMonths,
     horizonMonths: a.horizonMonths,
-    bucket: showComparable ? a.bucket : 'insufficient',
+    // 'review' outranks everything else: a reconciliation-blocked file states
+    // no figure to the client regardless of what comparable exists.
+    bucket: a.bucket === 'review' ? 'review' : showComparable ? a.bucket : 'insufficient',
     note: null,
   }
 

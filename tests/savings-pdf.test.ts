@@ -117,6 +117,19 @@ describe('savings PDF framing is honest', () => {
     )
     expect(text).toContain('could not run a full comparison')
   })
+
+  it('a reconciliation-review document states NO figure at all, not even the balance', async () => {
+    // The review bucket means the monitored balance did not reconcile with the
+    // mortgage schedule, so the feed figures themselves are suspect. Nothing
+    // numeric reaches the client: no balance, no payment, no comparable.
+    const text = await extractPdfText(await generateSavingsPdf(base({ bucket: 'review' })))
+    expect(text).toContain('do not line up')
+    expect(text).toContain('confirm the true figures')
+    expect(text).not.toContain('420,000') // the feed balance
+    expect(text).not.toContain('2,750') // the current payment
+    expect(text).not.toContain('4.19') // the comparable rate
+    expect(text).not.toContain('Scotiabank')
+  })
 })
 
 // The compensation guard: a borrower's savings report must never disclose
@@ -151,6 +164,14 @@ describe('savings PDF never discloses compensation', () => {
         comparable: null,
         currentLender: `Westboro -- ${SENTINEL} bps finder fee`,
         clientName: `Someone (comp ${SENTINEL} bps)`,
+      }),
+    },
+    {
+      label: 'comp in the reconciliation-review document',
+      input: base({
+        bucket: 'review',
+        clientName: `Someone (comp ${SENTINEL} bps)`,
+        currentLender: `MERIX -- ${SENTINEL} bps finder fee`,
       }),
     },
   ]

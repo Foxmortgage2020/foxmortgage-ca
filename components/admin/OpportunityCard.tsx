@@ -96,7 +96,8 @@ export default function OpportunityCard({
   // service shows a positive saving, or vice versa.
   const foxPositive = (a.netBenefit ?? 0) > 0
   const servicePositive = (serviceSavings ?? 0) > 0
-  const disagree = a.bucket !== 'insufficient' && serviceSavings != null && foxPositive !== servicePositive
+  const blocked = a.bucket === 'insufficient' || a.bucket === 'review'
+  const disagree = !blocked && serviceSavings != null && foxPositive !== servicePositive
 
   return (
     <div className="border border-gray-200 rounded-xl bg-white px-4 py-3">
@@ -125,7 +126,7 @@ export default function OpportunityCard({
               <span className="ml-1 normal-case text-navy font-semibold">· {a.transaction === 'refinance' ? 'Refinance (break)' : 'Switch'}</span>
             )}
           </p>
-          {a.bucket === 'insufficient' || a.comparable == null ? (
+          {blocked || a.comparable == null ? (
             <p className="text-xs font-body text-amber-700">{a.blockReason ?? 'Not analyzable (placeholder, missing rate, or the approved book is unavailable).'}</p>
           ) : (
             <div className="text-xs font-body space-y-0.5">

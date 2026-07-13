@@ -127,6 +127,7 @@ export default async function OpportunitiesPage() {
 
   const bucketed = {
     act_now: views.filter(v => v.analysis.bucket === 'act_now').sort((a, b) => (b.analysis.netBenefit ?? 0) - (a.analysis.netBenefit ?? 0)),
+    review: views.filter(v => v.analysis.bucket === 'review'),
     marginal: views.filter(v => v.analysis.bucket === 'marginal'),
     stay_put: views.filter(v => v.analysis.bucket === 'stay_put'),
     insufficient: views.filter(v => v.analysis.bucket === 'insufficient'),
@@ -174,6 +175,7 @@ export default async function OpportunitiesPage() {
       </div>
 
       <Bucket title="Act now" tone="good" hint="Positive net benefit after the penalty, ranked by dollars. These are calls." views={bucketed.act_now} statuses={statuses} uploadId={current.id} canManage={canManage} />
+      <Bucket title="Needs review" tone="amber" hint="The export balance does not reconcile with the mortgage schedule. A prepayment, a payment change, or bad vendor data can cause this; both figures and the drift show on the card. Confirm with the lender before any number is stated." views={bucketed.review} statuses={statuses} uploadId={current.id} canManage={canManage} />
       <Bucket title="Marginal" tone="amber" hint="Near break-even. Worth watching, not worth a client's disruption." views={bucketed.marginal} statuses={statuses} uploadId={current.id} canManage={canManage} />
       <Bucket title="Stay put" tone="gray" hint="The client is in the right product. Still a touchpoint worth making." views={bucketed.stay_put} statuses={statuses} uploadId={current.id} canManage={canManage} />
       <Bucket title="Insufficient data" tone="gray" hint="Placeholders, parse failures, or a missing rate. Groomable, never analyzed." views={bucketed.insufficient} statuses={statuses} uploadId={current.id} canManage={canManage} />
