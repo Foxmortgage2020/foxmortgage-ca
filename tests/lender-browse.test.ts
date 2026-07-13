@@ -47,7 +47,7 @@ function q(over: Partial<RateQuoteFullRow>): RateQuoteFullRow {
     channelRequirement: null,
     transactionTypes: null,
     eligibilityUnknown: false,
-    eligibilitySource: null,
+    eligibilitySource: 'variant:(none)',
     ...over,
   }
 }

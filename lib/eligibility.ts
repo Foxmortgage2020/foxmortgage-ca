@@ -1,148 +1,49 @@
 // Lender & program eligibility for every ranked surface.
 //
-// PORTS the published fox-underwriting derivation (src/skills/extract/
-// eligibility.ts, the eligibility-as-data session 2026-07-12) verbatim. WHY the
-// portal derives instead of just reading the workbench columns: migration 0032
-// added borrower_requirement / client_commitment / channel_requirement /
-// transaction_types / eligibility_unknown / eligibility_source to rate_quotes,
-// but the backfill has NOT populated the approved book — verified live
-// 2026-07-12, 949 approved rows, ZERO with any eligibility column set (even
-// Scotia variant='physician' rows carry borrower_requirement=null). Ranking on
-// the empty columns would treat every restricted rate as available, which is
-// the exact live bug (a physician-only 3.40% hid the real best-available). So
-// the portal DERIVES eligibility from `variant`+`programNotes`+slug by the same
-// published rule, and PREFERS the workbench columns the moment they are
-// populated (effectiveEligibility below, keyed on eligibility_source presence).
+// The workbench is the classifier; the portal is a reader. fox-underwriting's
+// eligibility derivation (src/skills/extract/eligibility.ts) populates the five
+// structured columns on rate_quotes — borrower_requirement, client_commitment,
+// channel_requirement, transaction_types, eligibility_unknown — plus the
+// eligibility_source provenance, at extraction time and via the backfill
+// (verified run 2026-07-13: 947 of 949 approved rows carry eligibility_source;
+// the only nulls are the five test-portal artifacts). This module reads those
+// columns through portal_readonly and derives NOTHING: the portal-side port of
+// the derivation was deleted the day the backfill was confirmed, per guardrail
+// 1 (deterministic code calculates in one place).
 //
-// Keep the derivation block in lockstep with fox-underwriting; the golden tests
-// in tests/eligibility.test.ts mirror src/skills/extract/eligibility.test.ts.
+// FAIL-CLOSED, two conditions: a quote with eligibility_unknown = true OR
+// eligibility_source IS NULL is treated as carrying an undisclosed restriction.
+// It is excluded from default ranking (show-restricted reveals it, flagged) and
+// it NEVER reaches a client-facing document — not even pinned, because a
+// restriction nobody can name is a restriction nobody can confirm the client
+// meets. A null source is exactly what an unclassified row arriving from Roam
+// looks like before the workbench classifies it.
 
 import { PROVINCE_MIRROR, UNKNOWN_FACT, type Provinces, type ProvinceFact } from '@/config/lender-provinces'
 
 export type { Provinces, ProvinceFact } from '@/config/lender-provinces'
 
-// ─── Ported derivation (verbatim from fox-underwriting) ─────────────────────
+// The workbench vocabulary (migration 0032 check constraints). The portal never
+// invents values; anything outside these is workbench drift a type cast would
+// hide, so the reader below narrows with guards, not casts.
 export type BorrowerRequirement = 'physician' | 'net_worth' | 'new_to_canada' | 'business_for_self'
 export type ClientCommitment = 'banking_bundle' | 'quick_close_45d' | 'quick_close_60d' | 'quick_close_90d'
 export type ChannelRequirement = 'exclusive_partner'
 export type TransactionType = 'purchase' | 'transfer' | 'refinance' | 'renewal' | 'switch'
 
-export interface DerivedEligibility {
-  borrower_requirement: BorrowerRequirement | null
-  client_commitment: ClientCommitment | null
-  channel_requirement: ChannelRequirement | null
-  transaction_types: TransactionType[] | null
-  eligibility_unknown: boolean
-  eligibility_source: string
-}
-
-/** Strip STRUCTURAL suffixes (LTV bands, credit-score tiers, amortization,
- * product class) to leave the base program stem — pricing dimensions the
- * scenario already handles, never eligibility restrictions. */
-export function baseStem(variant: string | null): string {
-  if (!variant) return ''
-  let s = variant.toLowerCase()
-  s = s.replace(/-(25|30)yr\b/g, '') // amortization
-  s = s.replace(/-?uninsurable\b/g, '') // product class
-  s = s.replace(/-?ltv[<>]?=?<?\d+(?:\.\d+)?(?:-\d+)?/g, '') // ltv<=65, ltv65-70, ltv>70.01, ltv<50, ltv75
-  s = s.replace(/-?beacon-?/g, '-') // drop the "beacon" word, keep a joiner
-  s = s.replace(/-<?\d{3}(?:[-+]\d{0,3})?/g, '') // -500-549, -680+, -<580, -640+, -720-900
-  s = s.replace(/-+/g, '-').replace(/^-|-$/g, '') // tidy joiners
-  return s
-}
-
-const STRUCTURAL_STEMS = new Set([
-  '', 'basic', 'value-flex', 'fusion', 'axis', 'exact', 'xtend', 'convertible',
-  'standard', 'near-prime', 'near-prime-flex', 'rate-option-plus', 'pre-approval',
-  'promo', 'promo-special', 'rental', 'second-home-rental',
-])
-const BORROWER_STEMS: Record<string, BorrowerRequirement> = {
-  physician: 'physician',
-  'high-net-worth': 'net_worth',
-  newcomer: 'new_to_canada',
-  'newcomer-kcb': 'new_to_canada',
-  'non-traditional-income': 'business_for_self',
-  'stated-income': 'business_for_self',
-}
-const CLIENT_STEMS: Record<string, ClientCommitment> = {
-  'mortgage-plus': 'banking_bundle',
-  '45-day-quick-close': 'quick_close_45d',
-  '60-day-quick-close': 'quick_close_60d',
-  '90-day-close': 'quick_close_90d',
-}
-const CHANNEL_STEMS: Record<string, ChannelRequirement> = {
-  'partner-exclusive': 'exclusive_partner',
-  pmpp: 'exclusive_partner',
-}
-const TXN_STEMS: Record<string, TransactionType[]> = {
-  'promo-purchase-transfer': ['purchase', 'transfer'],
-  safeguard: ['refinance'],
-}
-const UNKNOWN_STEMS = new Set(['frontline', 'special-homeline'])
-const EXCLUSIVE_PARTNER_LENDERS = new Set(['unionlink'])
-
-export function deriveEligibility(
-  variant: string | null,
-  lenderSlug: string,
-  programNotes: string | null,
-): DerivedEligibility {
-  const stem = baseStem(variant)
-  const borrower = BORROWER_STEMS[stem] ?? null
-  let client = CLIENT_STEMS[stem] ?? null
-  if (stem === 'physician') client = 'banking_bundle' // Scotia physician is a Mortgage Plus deal
-  const channel = CHANNEL_STEMS[stem] ?? (EXCLUSIVE_PARTNER_LENDERS.has(lenderSlug) ? 'exclusive_partner' : null)
-  const txn = TXN_STEMS[stem] ?? null
-  const recognized =
-    borrower != null || client != null || channel != null || txn != null ||
-    STRUCTURAL_STEMS.has(stem) || UNKNOWN_STEMS.has(stem)
-  const eligibility_unknown = UNKNOWN_STEMS.has(stem) || !recognized
-  const parts = [`variant:${variant ?? '(none)'}`]
-  if ((borrower || client) && programNotes) parts.push(`notes:${programNotes.slice(0, 160)}`)
-  const eligibility_source = parts.join(' | ')
-  return {
-    borrower_requirement: borrower,
-    client_commitment: client,
-    channel_requirement: channel,
-    transaction_types: txn,
-    eligibility_unknown,
-    eligibility_source,
-  }
-}
-
-// ─── Attempt-and-fallback: prefer populated workbench columns ───────────────
-// A quote carries the workbench eligibility columns (all optional on the portal
-// row). When eligibility_source is present the workbench derived it — trust it.
-// Otherwise the portal derives, so the bug is fixed before the backfill lands.
+/** The five eligibility columns as they ride a quote row, plus the slug the
+ * province gate keys on. Strings arrive as the row stores them; evaluateQuote
+ * reads them verbatim (the workbench check constraints own the vocabulary). */
 export interface QuoteEligibilityFields {
   lenderSlug: string
-  variant: string | null
-  programNotes: string | null
-  borrowerRequirement?: BorrowerRequirement | null
-  clientCommitment?: ClientCommitment | null
-  channelRequirement?: ChannelRequirement | null
-  transactionTypes?: TransactionType[] | null
+  borrowerRequirement?: string | null
+  clientCommitment?: string | null
+  channelRequirement?: string | null
+  transactionTypes?: string[] | null
   eligibilityUnknown?: boolean | null
+  /** Workbench classification provenance. NULL means the row was never
+   * classified — fail-closed to an undisclosed restriction. */
   eligibilitySource?: string | null
-}
-
-export function effectiveEligibility(q: QuoteEligibilityFields): DerivedEligibility {
-  if (q.eligibilitySource) {
-    return {
-      borrower_requirement: q.borrowerRequirement ?? null,
-      client_commitment: q.clientCommitment ?? null,
-      channel_requirement: q.channelRequirement ?? null,
-      transaction_types: q.transactionTypes ?? null,
-      eligibility_unknown: q.eligibilityUnknown ?? false,
-      eligibility_source: q.eligibilitySource,
-    }
-  }
-  return deriveEligibility(q.variant, q.lenderSlug, q.programNotes)
-}
-
-/** True when the workbench has populated structured eligibility for the book
- * (so the portal-side derivation can retire). Pass any approved quote. */
-export function eligibilityIsWorkbenchServed(q: QuoteEligibilityFields): boolean {
-  return Boolean(q.eligibilitySource)
 }
 
 // ─── Province eligibility ───────────────────────────────────────────────────
@@ -181,7 +82,7 @@ export const HELD_CHANNELS: Record<string, { held: boolean; asOf: string; note: 
   unionlink: { held: true, asOf: '2026-07-12', note: 'Exclusive-partner channel access confirmed by Michael, 2026-07-12.' },
 }
 
-export function channelHeld(lenderSlug: string, channel: ChannelRequirement | null): boolean {
+export function channelHeld(lenderSlug: string, channel: string | null): boolean {
   if (!channel) return true // no channel requirement
   const entry = HELD_CHANNELS[lenderSlug]
   return entry?.held === true
@@ -210,6 +111,8 @@ export const REQUIREMENT_SENTENCE: Record<string, string> = {
     "Exclusive-partner channel: available only through Fox Mortgage's partner channel access.",
   eligibility_unknown:
     'This rate carries a restriction the rate sheet does not spell out; confirm eligibility with the lender before quoting.',
+  unclassified:
+    'This rate has not been classified by the workbench yet; confirm its eligibility before quoting.',
 }
 
 export function requirementSentence(code: string, liveDefinition?: string | null): string {
@@ -232,7 +135,9 @@ export interface ScenarioQualifiers {
   commitments?: ClientCommitment[]
   /** The scenario's transaction (from purpose), or null for no transaction filter. */
   transaction?: TransactionType | null
-  /** Quote ids Michael manually pinned (a restricted pin bypasses its program gate). */
+  /** Quote ids Michael manually pinned (a restricted pin bypasses its program
+   * gate for INTERNAL ranking; undisclosed restrictions still never reach a
+   * client document — see includedInClientDoc). */
   pinnedIds?: Set<string>
 }
 
@@ -247,6 +152,11 @@ export interface EligibilityVerdict {
   reasons: string[]
   /** True when a program restriction was unlocked by a qualifier or a pin. */
   unlocked: boolean
+  /** True when the restriction cannot be named (eligibility_unknown, or an
+   * unclassified row whose eligibility_source is null). An unnameable
+   * restriction cannot be confirmed, so this hard-blocks client documents even
+   * through a pin. */
+  undisclosedRestriction: boolean
 }
 
 const REQ_LABEL: Record<string, string> = {
@@ -260,15 +170,22 @@ const REQ_LABEL: Record<string, string> = {
   quick_close_90d: 'Close within 90 days',
   exclusive_partner: 'Exclusive-partner channel',
   eligibility_unknown: 'Undisclosed restriction',
+  unclassified: 'Not yet classified',
 }
+
+const BORROWER_VALUES: readonly string[] = ['physician', 'net_worth', 'new_to_canada', 'business_for_self']
+const COMMITMENT_VALUES: readonly string[] = ['banking_bundle', 'quick_close_45d', 'quick_close_60d', 'quick_close_90d']
 
 /**
  * Evaluate one quote against the subject province, the scenario's transaction,
- * and the qualifiers the user has toggled (plus any manual pin). Structural
- * exclusions (province ineligible, channel unavailable, transaction mismatch)
- * are never unlockable. Program restrictions are unlocked by the matching
- * qualifier or an explicit pin. Province-unknown is NOT a ranking exclusion
- * (internal surfaces show it flagged); the client-doc layer excludes it.
+ * and the qualifiers the user has toggled (plus any manual pin) — reading the
+ * workbench eligibility columns verbatim. Structural exclusions (province
+ * ineligible, channel unavailable, transaction mismatch) are never unlockable.
+ * Named program restrictions are unlocked by the matching qualifier or an
+ * explicit pin. eligibility_unknown and a NULL eligibility_source are
+ * fail-closed: restricted, never qualifier-unlocked, and never on a client
+ * document. Province-unknown is NOT a ranking exclusion (internal surfaces show
+ * it flagged); the client-doc layer excludes it.
  */
 export function evaluateQuote(
   quote: QuoteEligibilityFields & { id?: string },
@@ -278,8 +195,13 @@ export function evaluateQuote(
   livePrograms?: Record<string, string> | null,
 ): EligibilityVerdict {
   const province = resolveProvince(quote.lenderSlug, subjectProvince, live)
-  const elig = effectiveEligibility(quote)
   const pinned = quote.id != null && qualifiers.pinnedIds?.has(quote.id) === true
+  const borrower = quote.borrowerRequirement ?? null
+  const commitment = quote.clientCommitment ?? null
+  const channel = quote.channelRequirement ?? null
+  const transactions = quote.transactionTypes ?? null
+  const unclassified = quote.eligibilitySource == null
+  const unknownRestriction = quote.eligibilityUnknown === true || unclassified
 
   const requirementCodes: string[] = []
   const requirementSentences: string[] = []
@@ -297,12 +219,13 @@ export function evaluateQuote(
       requirementSentences,
       reasons: [`Not licensed in ${subjectProvince} (available in ${Array.isArray(province.provinces) ? province.provinces.join(', ') : province.provinces}).`],
       unlocked: false,
+      undisclosedRestriction: unknownRestriction,
     }
   }
 
   // 2. Channel — structural, never unlockable (about Michael, not the borrower).
-  if (elig.channel_requirement && !channelHeld(quote.lenderSlug, elig.channel_requirement)) {
-    pushReq(elig.channel_requirement)
+  if (channel && !channelHeld(quote.lenderSlug, channel)) {
+    pushReq(channel)
     return {
       category: 'channel_unavailable',
       province,
@@ -310,35 +233,41 @@ export function evaluateQuote(
       requirementSentences,
       reasons: ['Fox Mortgage does not hold this lender’s exclusive-partner channel.'],
       unlocked: false,
+      undisclosedRestriction: unknownRestriction,
     }
   }
 
   // 3. Transaction — structural for the current transaction, never unlockable.
-  if (elig.transaction_types && qualifiers.transaction && !elig.transaction_types.includes(qualifiers.transaction)) {
+  if (transactions && transactions.length > 0 && qualifiers.transaction && !transactions.includes(qualifiers.transaction)) {
     return {
       category: 'transaction_mismatch',
       province,
       requirementCodes,
       requirementSentences,
-      reasons: [`Valid only for ${elig.transaction_types.join(', ')}, not ${qualifiers.transaction}.`],
+      reasons: [`Valid only for ${transactions.join(', ')}, not ${qualifiers.transaction}.`],
       unlocked: false,
+      undisclosedRestriction: unknownRestriction,
     }
   }
 
   // 4. Program restrictions — collect the active ones, then decide unlock.
   const activeRestrictions: string[] = []
-  if (elig.borrower_requirement) activeRestrictions.push(elig.borrower_requirement)
-  if (elig.client_commitment) activeRestrictions.push(elig.client_commitment)
-  if (elig.eligibility_unknown) activeRestrictions.push('eligibility_unknown')
+  if (borrower) activeRestrictions.push(borrower)
+  if (commitment) activeRestrictions.push(commitment)
+  if (quote.eligibilityUnknown === true) activeRestrictions.push('eligibility_unknown')
+  if (unclassified) activeRestrictions.push('unclassified')
 
   if (activeRestrictions.length > 0) {
     for (const code of activeRestrictions) pushReq(code)
     const borrowerOk =
-      !elig.borrower_requirement || (qualifiers.borrowerProfiles ?? []).includes(elig.borrower_requirement)
+      !borrower ||
+      (BORROWER_VALUES.includes(borrower) && (qualifiers.borrowerProfiles ?? []).includes(borrower as BorrowerRequirement))
     const commitmentOk =
-      !elig.client_commitment || (qualifiers.commitments ?? []).includes(elig.client_commitment)
-    const unknownOk = !elig.eligibility_unknown // never auto-unlocked by a qualifier
-    const unlockedByQualifiers = borrowerOk && commitmentOk && unknownOk
+      !commitment ||
+      (COMMITMENT_VALUES.includes(commitment) && (qualifiers.commitments ?? []).includes(commitment as ClientCommitment))
+    // An undisclosed restriction is never unlocked by a qualifier: there is
+    // nothing to qualify FOR.
+    const unlockedByQualifiers = borrowerOk && commitmentOk && !unknownRestriction
     if (pinned || unlockedByQualifiers) {
       return {
         category: 'eligible',
@@ -347,6 +276,7 @@ export function evaluateQuote(
         requirementSentences,
         reasons: [],
         unlocked: true,
+        undisclosedRestriction: unknownRestriction,
       }
     }
     return {
@@ -356,11 +286,20 @@ export function evaluateQuote(
       requirementSentences,
       reasons: activeRestrictions.map(c => REQ_LABEL[c] ?? c),
       unlocked: false,
+      undisclosedRestriction: unknownRestriction,
     }
   }
 
   // 5. Eligible (province may still be 'unknown' — a flag, not an exclusion).
-  return { category: 'eligible', province, requirementCodes, requirementSentences, reasons: [], unlocked: false }
+  return {
+    category: 'eligible',
+    province,
+    requirementCodes,
+    requirementSentences,
+    reasons: [],
+    unlocked: false,
+    undisclosedRestriction: false,
+  }
 }
 
 /** Ranking inclusion for INTERNAL surfaces: eligible quotes plus
@@ -372,10 +311,12 @@ export function includedInRanking(v: EligibilityVerdict, showRestricted = false)
   return false // province_ineligible / channel_unavailable / transaction_mismatch
 }
 
-/** Inclusion for CLIENT-FACING documents: eligible AND province-confirmed
- * (province_unknown is excluded, per the fail-closed rule). A pinned restricted
- * product is eligible only if its pin was confirmed (caller enforces the
- * confirmation record; this checks the eligibility shape). */
+/** Inclusion for CLIENT-FACING documents: eligible, province-CONFIRMED
+ * (province_unknown is excluded, per the fail-closed rule), and carrying NO
+ * undisclosed restriction — a pin can unlock a NAMED requirement for a client
+ * doc (the confirmation record is enforced by the route), but a restriction
+ * nobody can name can never be confirmed, so eligibility_unknown and
+ * unclassified (null eligibility_source) rows are hard-blocked here. */
 export function includedInClientDoc(v: EligibilityVerdict): boolean {
-  return v.category === 'eligible' && v.province.status === 'eligible'
+  return v.category === 'eligible' && v.province.status === 'eligible' && !v.undisclosedRestriction
 }

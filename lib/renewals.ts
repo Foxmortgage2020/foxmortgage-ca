@@ -197,12 +197,10 @@ export interface ApprovedFixedQuote {
   asOfDate: string | null
   status: string
   lenderSlug: string
-  // Eligibility inputs (optional; derived from variant when absent). A renewal
-  // is a switch, so the benchmark must exclude a lender that cannot lend in
-  // Ontario (Kootenay/Coast Capital) and any restricted program an ordinary
-  // borrower cannot access — the same live bug the Opportunities engine had.
-  variant?: string | null
-  programNotes?: string | null
+  // The workbench eligibility columns. A renewal is a switch, so the benchmark
+  // must exclude a lender that cannot lend in Ontario (Kootenay/Coast Capital)
+  // and any restricted program an ordinary borrower cannot access. An ABSENT
+  // eligibilitySource fail-closes to unclassified (excluded).
   borrowerRequirement?: string | null
   clientCommitment?: string | null
   channelRequirement?: string | null
@@ -212,21 +210,20 @@ export interface ApprovedFixedQuote {
 }
 
 /** Whether an approved fixed quote is an eligible renewal benchmark: a switch is
- * a transfer, so province-ineligible, restricted, and non-transfer-eligible
- * quotes are excluded. Province-unknown is allowed (this is Michael's internal
- * benchmark), the same as the Opportunities comparable. Insurance-class porting
- * is NOT applied: Zoho carries no insurance-class field for a funded deal, so
- * the benchmark uses the best eligible fixed across classes (documented gap). */
+ * a transfer, so province-ineligible, restricted, unclassified, and
+ * non-transfer-eligible quotes are excluded. Province-unknown is allowed (this
+ * is Michael's internal benchmark), the same as the Opportunities comparable.
+ * Insurance-class porting is NOT applied: Zoho carries no insurance-class field
+ * for a funded deal, so the benchmark uses the best eligible fixed across
+ * classes (documented gap). */
 function renewalBenchmarkEligible(q: ApprovedFixedQuote): boolean {
   const v = evaluateQuote(
     {
       lenderSlug: q.lenderSlug,
-      variant: q.variant ?? null,
-      programNotes: q.programNotes ?? null,
-      borrowerRequirement: (q.borrowerRequirement as any) ?? null,
-      clientCommitment: (q.clientCommitment as any) ?? null,
-      channelRequirement: (q.channelRequirement as any) ?? null,
-      transactionTypes: (q.transactionTypes as any) ?? null,
+      borrowerRequirement: q.borrowerRequirement ?? null,
+      clientCommitment: q.clientCommitment ?? null,
+      channelRequirement: q.channelRequirement ?? null,
+      transactionTypes: q.transactionTypes ?? null,
       eligibilityUnknown: q.eligibilityUnknown ?? false,
       eligibilitySource: q.eligibilitySource ?? null,
     },

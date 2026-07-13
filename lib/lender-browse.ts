@@ -28,25 +28,21 @@ export const STALE_DAYS = 30
 // browse headline. No transaction context here, so transaction-only promos are
 // left in (they are valid for some transactions). Province-unknown lenders are
 // shown (this is Michael's internal browse), the same as the scenario.
+function browseFields(q: RateQuoteFullRow) {
+  return {
+    id: q.id,
+    lenderSlug: q.lenderSlug,
+    borrowerRequirement: q.borrowerRequirement,
+    clientCommitment: q.clientCommitment,
+    channelRequirement: q.channelRequirement,
+    transactionTypes: q.transactionTypes,
+    eligibilityUnknown: q.eligibilityUnknown,
+    eligibilitySource: q.eligibilitySource,
+  }
+}
+
 function browseEligible(q: RateQuoteFullRow): boolean {
-  const v = evaluateQuote(
-    {
-      id: q.id,
-      lenderSlug: q.lenderSlug,
-      variant: q.variant,
-      programNotes: q.programNotes,
-      borrowerRequirement: q.borrowerRequirement as BorrowerRequirement | null,
-      clientCommitment: q.clientCommitment as ClientCommitment | null,
-      channelRequirement: (q.channelRequirement as 'exclusive_partner' | null) ?? null,
-      transactionTypes: q.transactionTypes as TransactionType[] | null,
-      eligibilityUnknown: q.eligibilityUnknown,
-      eligibilitySource: q.eligibilitySource,
-    },
-    'ON',
-    {},
-    null,
-  )
-  return v.category === 'eligible'
+  return evaluateQuote(browseFields(q), 'ON', {}, null).category === 'eligible'
 }
 
 /** Lenders excluded from the Lenders tab because they cannot lend in Ontario
@@ -55,16 +51,7 @@ export function browseProvinceExcluded(approved: RateQuoteFullRow[]): string[] {
   const excluded = new Set<string>()
   for (const q of approved) {
     if (q.status !== 'approved' || q.lenderSlug === TEST_LENDER_SLUG) continue
-    const v = evaluateQuote(
-      { id: q.id, lenderSlug: q.lenderSlug, variant: q.variant, programNotes: q.programNotes,
-        borrowerRequirement: q.borrowerRequirement as BorrowerRequirement | null,
-        clientCommitment: q.clientCommitment as ClientCommitment | null,
-        channelRequirement: (q.channelRequirement as 'exclusive_partner' | null) ?? null,
-        transactionTypes: q.transactionTypes as TransactionType[] | null,
-        eligibilityUnknown: q.eligibilityUnknown, eligibilitySource: q.eligibilitySource },
-      'ON', {}, null,
-    )
-    if (v.category === 'province_ineligible') excluded.add(q.lenderSlug)
+    if (evaluateQuote(browseFields(q), 'ON', {}, null).category === 'province_ineligible') excluded.add(q.lenderSlug)
   }
   return Array.from(excluded)
 }

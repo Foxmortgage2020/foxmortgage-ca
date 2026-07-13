@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-13',
+    title: 'One classifier: the portal reads eligibility straight from the workbench',
+    detail:
+      'The workbench finished classifying the rate book (947 of 949 approved quotes now carry their eligibility columns; the only unclassified rows are test artifacts), so the portal deleted its copy of the classification rule and reads the columns directly. One classifier now lives in one place, in the workbench, where the sheets are extracted. The fail-closed rule got stricter with it: a quote the workbench has not classified yet, which is exactly what a fresh arrival from the intel pipeline looks like, is treated as carrying an undisclosed restriction. It is excluded from default results, visible under show-restricted with a plain not-yet-classified note, and it can never reach a client document, not even pinned, because a restriction nobody can name is a restriction nobody can confirm the client meets. Re-running the monitoring export under the new reads reproduced every outcome exactly, which is the point: same answers, one source.',
+  },
+  {
     date: '2026-07-12',
     title: 'Lender eligibility, client constraints, and the cost of a preference',
     detail:

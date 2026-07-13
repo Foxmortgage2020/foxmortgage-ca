@@ -235,10 +235,9 @@ export interface BookQuote {
   status: string
   lenderSlug: string
   primeVariance: number | null
-  // Eligibility inputs (for the eligible-comparable filter). Optional so older
-  // callers/tests still typecheck; when absent, derivation runs on variant.
-  variant?: string | null
-  programNotes?: string | null
+  // The workbench eligibility columns (for the eligible-comparable filter).
+  // Optional so older callers/tests still typecheck; an ABSENT eligibilitySource
+  // fail-closes to unclassified (excluded), matching a null column.
   borrowerRequirement?: string | null
   clientCommitment?: string | null
   channelRequirement?: string | null

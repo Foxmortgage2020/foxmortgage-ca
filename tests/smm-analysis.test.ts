@@ -24,8 +24,8 @@ function row(over: Record<string, string>) {
 }
 
 const book: BookQuote[] = [
-  { rate: 4.19, rateType: 'fixed', termMonths: 60, productClass: 'insurable', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null },
-  { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null },
+  { rate: 4.19, rateType: 'fixed', termMonths: 60, productClass: 'insurable', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null, eligibilitySource: 'variant:(none)' },
+  { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null, eligibilitySource: 'variant:(none)' },
 ]
 
 describe('analyzeMortgage (Part 1c transaction → product class)', () => {
@@ -80,7 +80,7 @@ describe('analyzeMortgage (Part 1c transaction → product class)', () => {
   it('is insufficient when no eligible conventional comparable is approved', () => {
     // Only an insured quote in the book → a refinance (conventional) finds none.
     const insuredOnly: BookQuote[] = [
-      { rate: 3.99, rateType: 'fixed', termMonths: 60, productClass: 'insured', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null },
+      { rate: 3.99, rateType: 'fixed', termMonths: 60, productClass: 'insured', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null, eligibilitySource: 'variant:(none)' },
     ]
     const { analysis } = analyzeMortgage(row({}), insuredOnly, TODAY)
     expect(analysis.comparable).toBeNull()
@@ -90,8 +90,8 @@ describe('analyzeMortgage (Part 1c transaction → product class)', () => {
   it('never picks a garbage-negative floating variance as the comparable (data-error guard)', () => {
     const withBadVariance: BookQuote[] = [
       // A data-entry slip: variance -5.0 -> effective -0.55%. Must be discarded.
-      { rate: null, rateType: 'adjustable', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: -5.0 },
-      { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'rfa', primeVariance: null },
+      { rate: null, rateType: 'adjustable', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: -5.0, eligibilitySource: 'variant:(none)' },
+      { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'rfa', primeVariance: null, eligibilitySource: 'variant:(none)' },
     ]
     const { analysis } = analyzeMortgage(row({}), withBadVariance, TODAY)
     // The 4.09 fixed wins; the nonsense negative rate is never the comparable.
@@ -101,9 +101,9 @@ describe('analyzeMortgage (Part 1c transaction → product class)', () => {
 
   it('excludes a BC credit union and a physician rate from the comparable', () => {
     const withRestricted: BookQuote[] = [
-      { rate: 3.2, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'kootenay', primeVariance: null }, // BC
-      { rate: 3.4, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null, variant: 'physician' }, // restricted
-      { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null },
+      { rate: 3.2, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'kootenay', primeVariance: null, eligibilitySource: 'variant:(none)' }, // BC
+      { rate: 3.4, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null, borrowerRequirement: 'physician', clientCommitment: 'banking_bundle', eligibilitySource: 'variant:physician' }, // restricted (workbench columns)
+      { rate: 4.09, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null, eligibilitySource: 'variant:(none)' },
     ]
     const { analysis } = analyzeMortgage(row({}), withRestricted, TODAY)
     // Neither the 3.20 BC nor the 3.40 physician wins; the honest 4.09 does.

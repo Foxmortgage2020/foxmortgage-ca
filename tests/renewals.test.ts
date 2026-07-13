@@ -169,6 +169,11 @@ describe('best approved fixed rate', () => {
     asOfDate: '2026-07-09',
     status: 'approved',
     lenderSlug: 'scotia',
+    // Classified-unrestricted: the workbench columns as the backfill writes
+    // them for a plain row. A missing source fail-closes (asserted in
+    // tests/eligibility.test.ts, the surface sweep).
+    eligibilityUnknown: false,
+    eligibilitySource: 'variant:(none)',
     ...over,
   })
   it('picks the lowest approved fixed 60-month rate, excluding test slugs, superseded, and dateless quotes', () => {

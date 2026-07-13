@@ -344,17 +344,16 @@ export interface QuoteMatch {
   verdict: EligibilityVerdict
 }
 
-/** Turn a quote row into the shape lib/eligibility.ts consumes. */
+/** Turn a quote row into the shape lib/eligibility.ts consumes: the five
+ * workbench eligibility columns, verbatim. Nothing is derived from variant. */
 function eligFields(q: RateQuoteFullRow) {
   return {
     id: q.id,
     lenderSlug: q.lenderSlug,
-    variant: q.variant,
-    programNotes: q.programNotes,
-    borrowerRequirement: q.borrowerRequirement as BorrowerRequirement | null,
-    clientCommitment: q.clientCommitment as ClientCommitment | null,
-    channelRequirement: (q.channelRequirement as 'exclusive_partner' | null) ?? null,
-    transactionTypes: q.transactionTypes as TransactionType[] | null,
+    borrowerRequirement: q.borrowerRequirement,
+    clientCommitment: q.clientCommitment,
+    channelRequirement: q.channelRequirement,
+    transactionTypes: q.transactionTypes,
     eligibilityUnknown: q.eligibilityUnknown,
     eligibilitySource: q.eligibilitySource,
   }

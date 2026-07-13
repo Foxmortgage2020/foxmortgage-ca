@@ -73,7 +73,8 @@ function quote(over: Partial<RateQuoteFullRow>): RateQuoteFullRow {
     channelRequirement: null,
     transactionTypes: null,
     eligibilityUnknown: false,
-    eligibilitySource: null,
+    // Classified-unrestricted, the shape the backfill writes for a plain row.
+    eligibilitySource: 'variant:(none)',
     ...over,
   }
 }
@@ -281,18 +282,23 @@ describe('matching: sparse dimensions match all with the assumed note', () => {
     expect(m!.assumed.some(a => a.includes('does not state rental pricing'))).toBe(true)
   })
 
-  it('an unknown future variant is fail-closed to restricted, surfaced not silently dropped', () => {
-    // Fail-closed (eligibility session): an unclassified variant is a possible
-    // restriction, so it is excluded from the DEFAULT set — but never silently.
-    expect(matchQuote(quote({ variant: 'hybrid-heloc' }), scenario({}))).toBeNull()
+  it('an unclassified row (null eligibility_source) is fail-closed to restricted, surfaced not silently dropped', () => {
+    // Fail-closed: a row the workbench has not classified (fresh from Roam) is
+    // a possible restriction, so it is excluded from the DEFAULT set — never
+    // silently. The variant itself is irrelevant now; the columns are truth.
+    const unclassified = { variant: 'hybrid-heloc', eligibilitySource: null }
+    expect(matchQuote(quote(unclassified), scenario({}))).toBeNull()
     // It still matches structurally, carrying the not-classified note.
-    const sm = structuralMatch(quote({ variant: 'hybrid-heloc' }), scenario({}))
+    const sm = structuralMatch(quote(unclassified), scenario({}))
     expect(sm).not.toBeNull()
     expect(sm!.assumed[0]).toContain('not classified')
-    // Show-restricted reveals it, tagged with the undisclosed-restriction code.
-    const shown = matchQuote(quote({ variant: 'hybrid-heloc' }), scenario({ showRestricted: true }))
+    // Show-restricted reveals it, tagged as unclassified.
+    const shown = matchQuote(quote(unclassified), scenario({ showRestricted: true }))
     expect(shown).not.toBeNull()
-    expect(shown!.verdict.requirementCodes).toContain('eligibility_unknown')
+    expect(shown!.verdict.requirementCodes).toContain('unclassified')
+    // A workbench-CLASSIFIED row with an unrecognized variant is eligible: the
+    // columns say it carries no restriction, and the columns are the truth.
+    expect(matchQuote(quote({ variant: 'hybrid-heloc' }), scenario({}))).not.toBeNull()
   })
 })
 
@@ -305,16 +311,19 @@ describe('matching: explicit markers rule out', () => {
   })
 
   it('Mortgage Plus amortization markers follow the scenario amortization once the banking-bundle commitment unlocks it', () => {
-    // mortgage-plus is a banking_bundle commitment; the amortization dimension is
-    // structural and only reachable once the commitment qualifier unlocks the row.
+    // The workbench classifies mortgage-plus rows with client_commitment
+    // 'banking_bundle'; the amortization dimension is structural and only
+    // reachable once the commitment qualifier unlocks the row.
+    const mp = (variant: string) =>
+      quote({ variant, clientCommitment: 'banking_bundle', eligibilitySource: `variant:${variant}` })
     const bundle = (over: Partial<Scenario>) => scenario({ commitments: ['banking_bundle'], ...over })
-    expect(matchQuote(quote({ variant: 'mortgage-plus-30yr' }), bundle({ amortizationYears: 25 }))).toBeNull()
-    expect(matchQuote(quote({ variant: 'mortgage-plus-30yr' }), bundle({ amortizationYears: 30 }))).not.toBeNull()
-    expect(matchQuote(quote({ variant: 'mortgage-plus' }), bundle({ amortizationYears: 25 }))).not.toBeNull()
+    expect(matchQuote(mp('mortgage-plus-30yr'), bundle({ amortizationYears: 25 }))).toBeNull()
+    expect(matchQuote(mp('mortgage-plus-30yr'), bundle({ amortizationYears: 30 }))).not.toBeNull()
+    expect(matchQuote(mp('mortgage-plus'), bundle({ amortizationYears: 25 }))).not.toBeNull()
     // Without the commitment, mortgage-plus is restricted (banking bundle) and excluded from default.
-    expect(matchQuote(quote({ variant: 'mortgage-plus' }), scenario({ amortizationYears: 25 }))).toBeNull()
+    expect(matchQuote(mp('mortgage-plus'), scenario({ amortizationYears: 25 }))).toBeNull()
     // The structural amortization filter itself is unchanged.
-    expect(structuralMatch(quote({ variant: 'mortgage-plus-30yr' }), scenario({ amortizationYears: 25 }))).toBeNull()
+    expect(structuralMatch(mp('mortgage-plus-30yr'), scenario({ amortizationYears: 25 }))).toBeNull()
   })
 })
 
@@ -331,9 +340,15 @@ describe('eligibility filtering (the live bug)', () => {
   })
 
   it('scenarioExclusions names the BC exclusion and the physician restriction', () => {
+    // The physician row carries the workbench columns, exactly as backfilled.
+    const physician = quote({
+      id: 'p', lenderSlug: 'scotia', variant: 'physician',
+      borrowerRequirement: 'physician', clientCommitment: 'banking_bundle',
+      eligibilitySource: 'variant:physician | notes:Deal must be Mortgage +.',
+    })
     const quotes = [
       quote({ id: 'k', lenderSlug: 'kootenay', variant: null }),
-      quote({ id: 'p', lenderSlug: 'scotia', variant: 'physician' }),
+      physician,
       quote({ id: 'n', lenderSlug: 'neo', variant: null }),
     ]
     const ex = scenarioExclusions(quotes, scenario({}))
@@ -342,8 +357,14 @@ describe('eligibility filtering (the live bug)', () => {
     expect(ex.provinceUnknown).toContain('neo') // shown flagged, not excluded
   })
 
-  it('a physician rate is excluded by default and revealed only under show-restricted', () => {
-    const quotes = [quote({ id: 'p', lenderSlug: 'scotia', variant: 'physician' })]
+  it('a physician rate (workbench columns) is excluded by default and revealed only under show-restricted', () => {
+    const quotes = [
+      quote({
+        id: 'p', lenderSlug: 'scotia', variant: 'physician',
+        borrowerRequirement: 'physician', clientCommitment: 'banking_bundle',
+        eligibilitySource: 'variant:physician | notes:Deal must be Mortgage +.',
+      }),
+    ]
     expect(lenderResults(quotes, scenario({})).length).toBe(0)
     expect(lenderResults(quotes, scenario({ showRestricted: true })).length).toBe(1)
     // ...and unlocked by the physician + banking-bundle qualifiers.

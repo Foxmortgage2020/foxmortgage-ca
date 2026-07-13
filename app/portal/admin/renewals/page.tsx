@@ -85,8 +85,6 @@ export default async function RenewalsPage() {
           asOfDate: q.asOfDate,
           status: q.status,
           lenderSlug: q.lenderSlug,
-          variant: q.variant,
-          programNotes: q.programNotes,
           borrowerRequirement: q.borrowerRequirement,
           clientCommitment: q.clientCommitment,
           channelRequirement: q.channelRequirement,

@@ -255,6 +255,9 @@ const SESSIONS: {
 // The forward list once the original nine-session map is complete: the
 // side-quests and follow-ups decided along the way. Kept honest and current.
 const BACKLOG: { title: string; note: string }[] = [
+  { title: 'Collapse mirror 2: provinces', note: 'config/lender-provinces.ts mirrors the workbench lender registry. Make the registry server-readable (a portal_readonly-granted table is the cheapest path), read it live everywhere, and delete the mirror. A fetch failure must fall back to last-known-good with its as-of, never to empty, or every lender silently downgrades to unknown.' },
+  { title: 'Collapse mirror 3: prime', note: 'config/prime.ts mirrors the workbench prime reference for server surfaces that cannot mint a gates token. Same fix shape as provinces, and more urgent: prime moves, and a stale mirror misprices every floating effective rate. Collapse before the next prime change.' },
+  { title: 'Collapse mirror 4: the calculation engine', note: 'lib/mortgage-engine.ts and the workbench calc engine are parallel code. The dependency rule puts the engine in fox-underwriting, published as a package the portal consumes; interim containment is a shared golden-vector file asserted on both sides.' },
   { title: 'Parser history backfill', note: 'Backfill the rate-quote parser over the full sheet history so superseded books read complete.' },
   { title: 'Five compliance workbench fields + penalty methodology', note: 'fox-underwriting to add suitability, exit-strategy, identity-verification, disclosure-delivered, and package-state fields, plus a penalty-methodology field on machine profiles (the compare tray lights up when it lands).' },
   { title: 'Fox Grade', note: 'A single practice-health grade rolling up pacing, pipeline, compliance posture, and partner health.' },
