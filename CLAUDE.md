@@ -1,6 +1,8 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 13, 2026, fifth session (TIERS + APPEARS-RENEWED + OVERRIDES, Part 1 of the two-part brief; Part 2, the client-report rebuild, NOT started: every lender carries a paper grade (a/b/private; registry-seeded unconfirmed, program-level overrides, explicit feed-string map failing closed to unknown) and comparables are SAME-TIER only — B prices the b_side book (live finding: all approved B quotes are class b_side), private is honest-insufficient, unknown tier or a rate contradicting the map routes to review, and GRADUATION to better paper is a figure-less flag unless Michael's two-tap grad=approve prices it; the radar + board suppress APPEARS_RENEWED files (feed start > Closing_Date+90d, or lender/rate contradictions; live: 5 of 8 action files, 6 of 18 lapsed) pending confirm ('Renewed With Us', exactly one field, NEW picklist value + resolved status) or a persisted reasoned decline; Michael can OVERRIDE any comparable (eligible book pick validated by construction or a desk rate with mandatory source note + reason, POST-only, badged on card + PDF, on the savings log); savings_analysis_log is append-only BY TRIGGER (privileged UPDATE/DELETE refused, proven live) and $1 placeholders route to review + never propose backfills. See the Part 1 ledger entry. Fourth session, FINAL CORRECTNESS PASS, Tasks 5-8: the savings PDF states 3MI as a MINIMUM with the break-even penalty and draws NO positive net-benefit conclusion on ANY fixed-rate break — adversarial review forced the strengthening past the brief: a documented IRD method still yields no figure, so method-known only changes the confirm path; the comparable is LIKE-FOR-LIKE by rate family (fixed→fixed, adjustable and variable never collapsed; the cheaper cross-family option is a labelled alternative with a quantified risk line; headline-ing it takes a two-tap manage-gated ?alt=approve recorded on the log); floating ranks on the EFFECTIVE rate from the per-lender prime everywhere (variance is display — convention corrected in fox-underwriting §3 + gates-api.md); savings_analysis_log (FOXCA 20260713150000, append-only, functions-only, verified 42501) records every board render + client PDF with calc_version 2 + canonical inputs_hash and REPLAYS exactly; approved book live-verified 947 across 23 lenders. See the 2026-07-13 final-pass ledger entry. Third session, BACKFILL SHARED-IDENTITY FIX: decideMatch now resolves a (contact, mortgage) PAIR — an identity signal shared by 2+ export mortgages yields the new 'shared_identity' bucket, the contact's deals attribute by property address then amount via attributeDeals, contested deals are NEVER proposed into and land on a per-contact needs-manual-match card, and the apply route accepts Michael's explicit manualMatch pick only for contested deals, audited as 'ok (manual match)'. Live: 6 shared groups / 13 of 41 mortgages. See the 2026-07-13 backfill ledger entry. Second session, SMM PAYMENT CORRECTION: the Opportunities stated current payment now reconstructs the ORIGINAL schedule — payment(original amount, rate, original amortization), never a re-amortized current balance, which understated every seasoned mortgage's payment; monthsElapsed + remainingAmortizationMonths now ride FoxAnalysis and the comparison prices over the months actually left; a NEW reconciliation gate models the balance forward from origination and >0.5% drift blocks the file into the new 'review' board bucket with both figures + drift shown — a blocked file states NO figure anywhere, savings PDF included. Details in the 2026-07-13 SMM ledger entry. Earlier the same day, MIRROR 1 COLLAPSED: the eligibility backfill RAN in the workbench (verified live 2026-07-13: 947/949 approved rows carried eligibility_source; the only nulls were the 5 test-portal artifacts, 2 approved + 3 superseded — those 2 were themselves superseded later the same day, so the approved book is 947 across 23 lenders, every row classified), so the portal-side deriveEligibility/baseStem port was DELETED per guardrail 1 (deterministic code calculates in one place — the classifier lives ONLY in fox-underwriting src/skills/extract/eligibility.ts). lib/eligibility.ts evaluateQuote now reads the five rate_quotes columns (borrower_requirement/client_commitment/channel_requirement/transaction_types/eligibility_unknown) verbatim through portal_readonly. FAIL-CLOSED, two conditions: eligibility_unknown=true OR eligibility_source IS NULL → program_restricted with the 'unclassified' code, excluded from default ranking, revealable under show-restricted, and NEVER on a client document — not even pinned (includedInClientDoc hard-blocks undisclosedRestriction; a restriction nobody can name cannot be confirmed). A null source is what an unclassified row fresh from Roam looks like. tests/eligibility.test.ts is rewritten: golden = portal verdicts match the workbench columns (fixtures shaped like live rows), a module-absence proof (no deriveEligibility/baseStem/effectiveEligibility export), and a surface sweep asserting a null-source quote is excluded from scenario/Ask Fox (matchQuote), lender-browse (lenderCards), Opportunities+savings PDF (analyzeMortgage comparable), Renewals (bestApprovedFixed), and client docs (includedInClientDoc, pin included). Live parity proven: the fixture re-run under column-truth reproduces the derivation-era buckets exactly (marginal 14 / stay_put 13 / insufficient 6 / act_now 8; Sally Ryan still First National conventional adjustable P−0.50/3.95%). THREE MIRRORS REMAIN (plan recorded in the 2026-07-13 ledger entry; do not re-port them): config/lender-provinces.ts (mirrors knowledge/lender-registry.json), config/prime.ts (mirrors knowledge/prime.json), lib/mortgage-engine.ts (parallel to fox-underwriting/src/calc). The prior session header below is retained for context; its backfill claim is superseded by this note.
+## Last Updated: July 13, 2026, sixth session (TASK 0 + PART 2 — TERM POLICY, GRADUATION CLASS, THE LAPSED POOL, AND THE CLIENT REPORT REBUILT: every comparable carries its TERM beside its rate on every surface and in savings_analysis_log (calc_version 3; inputs gained termMonths + shortTermApplied; figures gained breakEvenPenalty, the samePaymentPlan trio, and the horizon-end positions; replay reproduces exactly); the DEFAULT comparable must COVER the comparison horizon (refinance = months left on the current term; switch = the client's OWN term, else 60) or the projection SHORTENS to the quote's term — a short rate is never projected past its term, and a deliberately short-term play is a flagged strategy (labelled, reasoned, logged as quotes role short_term_flag) taking Michael's two-tap stp=approve on the PDF route, NEVER an automatic act_now (demoted to marginal unapproved); GRADUATION prices CONVENTIONAL only (b targets book b_side) — a move to better paper never inherits an insurance class (the Part 1 leak: a switch-basis B file ported 'Insurable' into the graduation target and quoted the insurable 4.29; the flag now prices conventional, live 4.39 3-yr, and the B file's act_now STANDS on term-consistent grounds — the feed says the client is on a 12-MONTH term, so the 4.69 12-month quote genuinely covers their like-for-like horizon); the RENEWAL POOL is funded-stage deals only AND excludes Additional-Property child rows by NAME (config/pipeline isRenewalPoolDeal/isAdditionalPropertyRecord — the org's property rows are one mis-stage away from any stage-filtered pool; two children of lost BRXM-F021892 carry amounts + past maturities today) — LIVE FINDING, stated against the brief's expectation: the three extra 2023 lapsed rows (IFMS-F011671/F002599/F007027, exactly the $1,725,000 difference) are NOT Additional-Properties children — verified record-by-record they are funded-STAGE prior-term private-lending rows whose stories continued elsewhere (F011671 renewed as F012754, the property's BRX file then Mortgage Lost; F002599 renewed as F021782; F007027's BRX file is Archive), so the pool stays 18/$11,004,023 until Michael records their outcomes through the radar's own enumerated actions (residual after appears-renewed suppression 12/$5,204,023; after resolving the three, pool 15/$9,279,023 → true residual 10/$4,479,023 — F002599 is both a phantom AND appears-renewed-flagged); PART 2 SHIPPED: lib/savings-pdf.ts is the three-page choice document (masthead, option cards "$X a month back" / "N yrs sooner" with paymentsAvoided, the no-lender-name rate strip carrying term + sheet date, drawn amortization bars, the side-by-side table at the horizon end from FoxAnalysis.comparison, the penalty MINIMUM + break-even GAUGE, conditional next-step cards in place of ANY fixed-break verdict — and the min-exceeds-break-even shape states does-not-clear-the-bar; stay_put ALWAYS gets the one-page wait document whatever small saving exists; review/insufficient/province-pending state no figure; unapproved cross-family/graduation/short-term escalations NEVER print) rendered ONLY through savingsPdfInputFromAnalysis, the one mapper the route AND the golden tests share; FoxAnalysis gained shortTermStrategy/shortTermRecommended/samePaymentPlan/comparison; fonts are the brief-sanctioned Helvetica + Times-Bold fallback (no OFL TTFs vendored; swap the embed lines when Archivo/Fraunces land). See the 2026-07-13 Task 0 + Part 2 ledger entry. The prior fifth-session header follows; its "Part 2 NOT started" claim is superseded.)
+
+### Prior header: fifth session (TIERS + APPEARS-RENEWED + OVERRIDES, Part 1 of the two-part brief: every lender carries a paper grade (a/b/private; registry-seeded unconfirmed, program-level overrides, explicit feed-string map failing closed to unknown) and comparables are SAME-TIER only — B prices the b_side book (live finding: all approved B quotes are class b_side), private is honest-insufficient, unknown tier or a rate contradicting the map routes to review, and GRADUATION to better paper is a figure-less flag unless Michael's two-tap grad=approve prices it; the radar + board suppress APPEARS_RENEWED files (feed start > Closing_Date+90d, or lender/rate contradictions; live: 5 of 8 action files, 6 of 18 lapsed) pending confirm ('Renewed With Us', exactly one field, NEW picklist value + resolved status) or a persisted reasoned decline; Michael can OVERRIDE any comparable (eligible book pick validated by construction or a desk rate with mandatory source note + reason, POST-only, badged on card + PDF, on the savings log); savings_analysis_log is append-only BY TRIGGER (privileged UPDATE/DELETE refused, proven live) and $1 placeholders route to review + never propose backfills. See the Part 1 ledger entry. Fourth session, FINAL CORRECTNESS PASS, Tasks 5-8: the savings PDF states 3MI as a MINIMUM with the break-even penalty and draws NO positive net-benefit conclusion on ANY fixed-rate break — adversarial review forced the strengthening past the brief: a documented IRD method still yields no figure, so method-known only changes the confirm path; the comparable is LIKE-FOR-LIKE by rate family (fixed→fixed, adjustable and variable never collapsed; the cheaper cross-family option is a labelled alternative with a quantified risk line; headline-ing it takes a two-tap manage-gated ?alt=approve recorded on the log); floating ranks on the EFFECTIVE rate from the per-lender prime everywhere (variance is display — convention corrected in fox-underwriting §3 + gates-api.md); savings_analysis_log (FOXCA 20260713150000, append-only, functions-only, verified 42501) records every board render + client PDF with calc_version 2 + canonical inputs_hash and REPLAYS exactly; approved book live-verified 947 across 23 lenders. See the 2026-07-13 final-pass ledger entry. Third session, BACKFILL SHARED-IDENTITY FIX: decideMatch now resolves a (contact, mortgage) PAIR — an identity signal shared by 2+ export mortgages yields the new 'shared_identity' bucket, the contact's deals attribute by property address then amount via attributeDeals, contested deals are NEVER proposed into and land on a per-contact needs-manual-match card, and the apply route accepts Michael's explicit manualMatch pick only for contested deals, audited as 'ok (manual match)'. Live: 6 shared groups / 13 of 41 mortgages. See the 2026-07-13 backfill ledger entry. Second session, SMM PAYMENT CORRECTION: the Opportunities stated current payment now reconstructs the ORIGINAL schedule — payment(original amount, rate, original amortization), never a re-amortized current balance, which understated every seasoned mortgage's payment; monthsElapsed + remainingAmortizationMonths now ride FoxAnalysis and the comparison prices over the months actually left; a NEW reconciliation gate models the balance forward from origination and >0.5% drift blocks the file into the new 'review' board bucket with both figures + drift shown — a blocked file states NO figure anywhere, savings PDF included. Details in the 2026-07-13 SMM ledger entry. Earlier the same day, MIRROR 1 COLLAPSED: the eligibility backfill RAN in the workbench (verified live 2026-07-13: 947/949 approved rows carried eligibility_source; the only nulls were the 5 test-portal artifacts, 2 approved + 3 superseded — those 2 were themselves superseded later the same day, so the approved book is 947 across 23 lenders, every row classified), so the portal-side deriveEligibility/baseStem port was DELETED per guardrail 1 (deterministic code calculates in one place — the classifier lives ONLY in fox-underwriting src/skills/extract/eligibility.ts). lib/eligibility.ts evaluateQuote now reads the five rate_quotes columns (borrower_requirement/client_commitment/channel_requirement/transaction_types/eligibility_unknown) verbatim through portal_readonly. FAIL-CLOSED, two conditions: eligibility_unknown=true OR eligibility_source IS NULL → program_restricted with the 'unclassified' code, excluded from default ranking, revealable under show-restricted, and NEVER on a client document — not even pinned (includedInClientDoc hard-blocks undisclosedRestriction; a restriction nobody can name cannot be confirmed). A null source is what an unclassified row fresh from Roam looks like. tests/eligibility.test.ts is rewritten: golden = portal verdicts match the workbench columns (fixtures shaped like live rows), a module-absence proof (no deriveEligibility/baseStem/effectiveEligibility export), and a surface sweep asserting a null-source quote is excluded from scenario/Ask Fox (matchQuote), lender-browse (lenderCards), Opportunities+savings PDF (analyzeMortgage comparable), Renewals (bestApprovedFixed), and client docs (includedInClientDoc, pin included). Live parity proven: the fixture re-run under column-truth reproduces the derivation-era buckets exactly (marginal 14 / stay_put 13 / insufficient 6 / act_now 8; Sally Ryan still First National conventional adjustable P−0.50/3.95%). THREE MIRRORS REMAIN (plan recorded in the 2026-07-13 ledger entry; do not re-port them): config/lender-provinces.ts (mirrors knowledge/lender-registry.json), config/prime.ts (mirrors knowledge/prime.json), lib/mortgage-engine.ts (parallel to fox-underwriting/src/calc). The prior session header below is retained for context; its backfill claim is superseded by this note.
 
 ### Prior header: Lender eligibility + client constraints shipped. THE LIVE BUG: Kootenay Savings and Coast Capital are BC credit unions (lender-registry.json provinces=['BC']) that cannot do an Ontario deal; Kootenay held the deepest floating discount and led nearly every floating scenario, proposed as a real client's (Sally Ryan) best comparable. FIX — a new lib/eligibility.ts is the single gate for province + program eligibility: resolveProvince (config/lender-provinces.ts server mirror of the workbench registry; live registry overrides on token surfaces; fail-closed — ineligible excluded everywhere, unknown shown flagged internally but EXCLUDED from client docs), deriveEligibility (EXACT port of fox-underwriting src/skills/extract/eligibility.ts, golden-test parity — the workbench 0032 columns EXIST but the backfill NEVER RAN, 949 approved rows all null, so the portal derives from variant+programNotes and prefers the columns via eligibilitySource when populated), channelHeld (HELD_CHANNELS: unionlink only, Michael-confirmed), evaluateQuote → {category: eligible|province_ineligible|province_unknown|channel_unavailable|transaction_mismatch|program_restricted}, includedInRanking/includedInClientDoc. lib/scenario.ts matchQuote=structuralMatch+eligibility gate (attaches verdict), scenarioExclusions for the "N excluded" notes, Scenario gained subjectProvince/borrowerProfiles/commitments/showRestricted (URL params prov/bp/cc/restricted). Wired into: scenario (RatesScenario qualifier toggles + exclusion notes + show-restricted + province flags + requirement sentences), lib/lender-browse.ts (BC + restricted excluded), Ask Fox search_rates (eligible-only, prompt v3 never-quote-unconfirmed), lib/renewals.ts bestApprovedFixed (BC/restricted excluded; switch=no-penalty already correct; insurance-class port has NO Zoho source = documented gap), both client PDFs (savings + rates: withhold province-unknown/ineligible/restricted; rates PDF gates OFFER pins too). PART 1c: transaction from maturity proximity (>120d refinance→conventional+80% LTV hard cap+requalification+penalty; ≤120d switch→original class+no penalty), analyzeMortgage/bestEligibleComparable (fixed+floating via config/prime.ts mirror, SANE_RATE_FLOOR guards a bad variance); re-ran the export: 20/41 opportunities changed bucket; Sally corrected to First National conventional adjustable P−0.50/3.95% (was the Kootenay fantasy). CONSTRAINTS (Parts 2/3/4): lib/constraints.ts (excluded/required/preferred, reason required, retire-not-delete, applyConstraints never overrides eligibility → required-but-ineligible = honest empty state), lib/constraint-cost.ts (computeCostOfConstraint/dealConstraintCost via the shared engine), FOXCA migration 20260712160000 (client_constraints + pin_confirmations, RLS+functions-only, applied+round-trip-verified live), routes under /api/portal/admin/constraints (constraints.manage, demo-refused), ClientConstraints editor in the deal room, ComplianceCard documentedSuitability (a constraint with a reason AND a real cost counts as documented suitability). Adversarial review run; fixed the client-PDF offer province leak, the floating negative-rate guard, the compliance zero-cost inflation, the constraint-cost term mismatch. 360 tests, build green. DEFERRED/REPORTED: the workbench eligibility backfill (portal derives meanwhile); provinces confirmed for only the 2 BC lenders so client PDFs withhold every comparison until Michael confirms provinces in fox-underwriting/knowledge/lender-registry.json (the visible count drives it); the live cost-of-constraint readout + manual toggle on the scenario board; constraint application to the rates surface/PDF. Opportunities engine (below) preceded this.
 
@@ -1490,6 +1492,155 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-13 — Task 0 (term policy, graduation class, the lapsed pool) + Part 2 (the client report rebuilt)
+- TASK 0a (graduation prices conventional only): the Part 1 leak was the
+  SWITCH path — analyzeMortgage's graduation target class inherited baseClass,
+  and a near-maturity B file ports insuranceToProductClass(feed 'Insurable'),
+  so the A-target graduation flag priced the insurable 4.29 an uninsurable
+  move to new paper can never have. FIX: gradClassFor(target) = target 'b' →
+  'b_side', else 'conventional' — ALWAYS; a graduation is a new application on
+  better paper and the current mortgage's insurance class never travels with
+  it, whatever the transaction window. Tests: the switch-basis B fixture
+  (insurable 4.29 + conventional 4.59 A quotes) graduates on 4.59; a
+  refinance-basis B fixture with ONLY insurable+insured A quotes gets NO
+  graduation flag. Live: the B file's flag now reads conventional 4.39 (3-yr),
+  never 4.29.
+- TASK 0b (term policy): the comparison horizon is the CLIENT's
+  (naturalComparisonHorizon: refinance = months left on the current term;
+  switch = clientTermMonths(feed term, plausible 6-120, else 60)), and
+  eligibleComparablesRanked ranks covering quotes (term >= horizon) by
+  effective rate FIRST, then shorter terms longest-first — so the default
+  headline covers the projection or, when nothing covers, the longest
+  available leads and analyzeOpportunity SHORTENS the horizon to its term
+  (never projecting a short rate past its term). A shortened projection or a
+  cheaper shorter same-tier same-family quote beside a covering headline is a
+  ShortTermStrategy flag (applied vs beside; reasoned note; logged with role
+  short_term_flag), and act_now on a shortened horizon is DEMOTED to marginal
+  until Michael's two-tap stp=approve (POST-only on the PDF route, exactly the
+  alt/grad pattern; approval headlines the play, shortens the projection, and
+  records shortTermApplied on the log). Term renders beside every rate:
+  board headline/alternative/graduation/override/short-play lines
+  (comparableTermLabel), the log's quotes[] (already carried termMonths;
+  asserted), OverrideInfo gained termMonths, and the client report (Part 2
+  amendment). savings_analysis_log: SAVINGS_CALC_VERSION 3; inputs gained
+  termMonths + shortTermApplied (v2 rows replay gracefully: absent fields
+  default to the 60-month standard and unapproved); replay passes
+  shortTermApproved through and reproduces the shortened bucket exactly.
+  LIVE RE-RUN (real export, counts only, temp readers deleted): buckets
+  UNCHANGED — act_now 3 / marginal 9 / stay_put 10 / review 15 /
+  insufficient 4 (identical to Part 1's after-buckets). The CONTENT moved:
+  the B file's act_now was re-evaluated and STANDS because the feed says the
+  client's own term is 12 months, so the 4.69% 12-month b_side quote
+  genuinely covers the like-for-like horizon (the brief's 5.04 5-year concern
+  presumed a longer horizon; net $3,619 over 12 months, switch basis, no
+  penalty); 0 files carry a shortened-horizon headline; 11 A-tier files carry
+  a beside short-term-play flag (a cheaper shorter quote exists under their
+  covering headline — informational, approval-gated).
+- TASK 0c (the lapsed pool): shipped the durable structural rule —
+  isRenewalPoolDeal(stage, dealName) = isFundedStage (both spellings) AND NOT
+  isAdditionalPropertyRecord (name conventions: '- Additional Property',
+  '<addr> - REF - first/second/third Mortgage', '<addr> - BRXM/IFMS-ref');
+  the fetcher applies it and fixtures assert a funded-staged Additional
+  Properties child (including the two children of lost BRXM-F021892) never
+  enters the pool while bare refs always do. FINDING FIRST, against the
+  brief's expectation: the three extra rows (IFMS-F011671 $375k, IFMS-F002599
+  $1M, IFMS-F007027 $350k = exactly the $1,725,000 difference; pinned by
+  arithmetic AND by the 2024-25 + 2026 subtotal reconciliation) are NOT
+  Additional-Properties children. Verified record-by-record via live COQL +
+  getRecord: all three are stage 'Mortgage Funded' with bare-ref names and
+  full deal fields — prior-TERM private-lending rows whose stories continued
+  (F011671 → renewed as F012754, and the property's BRX file BRXM-F020719 is
+  Mortgage Lost; F002599 → renewed as F021782; F007027 → BRXM-F020722 is
+  Archive). The pool query already filtered funded stages; no structural
+  marker distinguishes these rows, and hardcoding ids or writing their
+  outcomes without Michael was out of bounds. So LIVE: pool 18/$11,004,023
+  under the corrected rule; appears-renewed suppression recomputed against it
+  flags 6/$5,800,000 (F002599 + F002684 + F021782 + F034244 start_after_close
+  and/or rate_changed, BRXM-F024213 rate_changed, IFMS-109548
+  start_after_close) → TRUE RESIDUAL 12 files/$5,204,023. Michael's path to
+  the brief's 15/$9,279,023: record the three rows' outcomes on the radar
+  (renewed elsewhere / no longer needs — F002599 already sits in the
+  appears-renewed strip with its confirm/decline) or groom their stage; after
+  that the residual reads 10/$4,479,023.
+- PART 2 (the client report, rebuilt): lib/savings-pdf.ts is the three-page
+  choice document per the design brief, faithfully translated in pdf-lib
+  (draw-at-coordinates, manual wrap): PAGE 1 masthead (lime square + wordmark,
+  SAVINGS ANALYSIS + date, navy rule, client name on pages 2-3), eyebrow +
+  serif display headline ("Two ways this refinance can pay you" / renewal
+  variant / "One way" when option 2 cannot compute), lede, OPTION CARDS (navy
+  "OPTION 1 | LOWER PAYMENT: $X a month back, payment A to B, same payoff
+  plan" beside white/lime-top "OPTION 2 | SAME PAYMENT: N yrs sooner, about
+  $Y never paid, on today's rate"), the RATE STRIP (rate + TERM + sheet date,
+  "from a lender we work with" — NEVER the comparable lender's name; desk
+  rates carry source framing; same-category line; share-on-the-call line),
+  and DRAWN AMORTIZATION BARS (staying the course vs same payment at the new
+  rate, lime tail = years returned). PAGE 2: the side-by-side table at the
+  HORIZON END (rate with term, payment highlight, balance today, payoff plan,
+  interest paid by <month year>, balance at <month year> highlight — Today /
+  Option 1 / Option 2), then the penalty POLICY-BOUND: 3MI stated as the
+  MINIMUM, the break-even penalty stated ("this works if your penalty comes
+  in under about $X"), a drawn GAUGE (green to the break-even tick, red
+  beyond, navy dot at the minimum), the method-known/unknown confirm path,
+  and the why-we-won't-guess callout box; floating prints the exact-penalty
+  read; a switch prints no-penalty-at-renewal. PAGE 3: conditional framing
+  cards for a fixed break (at the minimum / near the break-even / above it —
+  no verdict anywhere), the SMM callout ("even a wait is a win... finds the
+  month the numbers flip"), three steps, the navy CTA band (phone in lime),
+  and bold-led fine print (estimates + date; the rate is real + term + sheet
+  date or desk framing; pricing category + requalification; the
+  penalty-not-knowable paragraph for fixed; lifetime-figures assumption; the
+  legal part). Option 3 (debt consolidation) never renders — the SMM feed
+  carries no debt data, exactly as the brief anticipated. NEW ANALYSIS
+  DERIVATIONS (no arithmetic in the render layer): FoxAnalysis.samePaymentPlan
+  (monthsToRetire closed-form inversion; months sooner; payments avoided) and
+  FoxAnalysis.comparison (balanceForward generalization of the schedule;
+  today/option1/option2 positions at the horizon end), both computed in
+  analyzeOpportunity and logged in figures (breakEvenPenalty logged too), so
+  every figure on the page is in the savings_analysis_log row and replays.
+  savingsPdfInputFromAnalysis is the ONE mapper (route + golden tests share
+  it; the route's inline mapping deleted). Unapproved escalations NEVER
+  print: the cross-family alternative block is gone from the document (card
+  only); approved cross-family/graduation/short-term qualify the headline
+  with their risk/approval/strategy note.
+- ADVERSARIAL REVIEW (self, before commit; all fixed + regression-tested):
+  (1) a stay_put file with a small positive saving would have received the
+  three-page "choice" document — the dispatcher now routes ANY stay_put to
+  the one-page wait document; (2) when the 3MI MINIMUM already exceeds the
+  break-even (marginal fixed shapes), page 3's "at the minimum we move"
+  conditional was dishonest — that shape now states even-the-minimum-does-
+  not-clear-the-bar; (3) a marginal FLOATING file reached the conclusion
+  branch and would print "worth about $-800" — conclusions now require
+  act_now AND positive net; (4) breakEvenPenalty printed on the page but was
+  not a logged figure — added to savingsLogFigures; (5) the golden fixtures
+  initially did not reconcile (wrong invented balances) — recomputed on
+  schedule via balanceAfter. DEVIATIONS from the briefs, stated: fonts are
+  the sanctioned Helvetica/Times fallback (no OFL TTFs vendored, fetching
+  binaries out of session bounds); demo mode still REFUSES the PDF route
+  (the brief's "watermarked demo output" presumes demo fixtures this surface
+  does not have — zero real reads and zero log writes hold trivially);
+  Task 0c's corrected pool did not move to 15 because the three rows are
+  verifiably not child records (finding above).
+- Verified: tsc clean, production build green, suite 445 tests green
+  (smm-analysis +11 incl. Task 0a/0b acceptance, smm +7 term primitives +
+  horizon caps + report derivations, savings-log v3 + short-term replay +
+  quote-term sweep, renewals +4 pool membership, savings-pdf rewritten as 20
+  golden/honesty/scrub tests incl. three-pages-exactly, no-lender-name,
+  no-forbidden-punctuation, term-string, and the 9137-bps sentinel sweep over
+  every string field on every branch shape). Golden page 1 rendered and
+  eyeballed (faithful: cards, strip, bars, no lender name).
+- Guardrails held: readonly workbench (reads only, temp verification reader
+  used the same readonly key and was deleted), NO Zoho writes (COQL reads
+  only; the three phantom rows were NOT resolved or re-staged — Michael
+  decides), FOXCA narrow functions only (log append-only by trigger,
+  untouched), approved-only quoting with sheet dates + terms, adjustable/
+  variable + tier families never collapsed, no estimate stated as an actual,
+  redactComp over every client string (sweep extended to the new fields),
+  demo silent, copy rules on all new client copy (no em dashes, no
+  exclamation points, no semicolons in prose, contractions, grade 6, "finds",
+  Mortgage Agent Level 2), PII discipline (real export outside the repo,
+  counts/refs only, temp readers deleted), no ANTHROPIC_API_KEY in
+  subprocesses.
 
 ### 2026-07-13 — Tiers, appears-renewed, overrides (Part 1 of the two-part brief; Part 2 = the report rebuild, NOT started)
 - TASK 1 (lender tiers, like-for-like by default): tier ('a'|'b'|'private',

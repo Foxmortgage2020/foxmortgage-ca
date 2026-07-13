@@ -25,9 +25,8 @@ import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
 import type { BookQuote } from '@/lib/smm-match'
 import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
 import { resolveProvince } from '@/lib/eligibility'
-import { generateSavingsPdf, savingsPdfFilename, type SavingsPdfInput } from '@/lib/savings-pdf'
+import { generateSavingsPdf, savingsPdfFilename, savingsPdfInputFromAnalysis } from '@/lib/savings-pdf'
 import { torontoTodayYMD } from '@/lib/dates'
-import { PRIME_MIRROR } from '@/config/prime'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,32 +34,33 @@ export async function GET(req: Request, { params }: { params: { householdId: str
   const gate = await apiPermission('opportunities.view')
   if (!gate.ok) return NextResponse.json({ ok: false, message: gate.message }, { status: gate.status })
   const uploadParam = new URL(req.url).searchParams.get('upload')
-  // The GET path NEVER approves a cross-family or graduation recommendation,
-  // whatever the query string says.
-  return renderPdf(params.householdId, uploadParam, { crossFamilyApproved: false, graduationApproved: false }, gate)
+  // The GET path NEVER approves a cross-family, graduation, or short-term
+  // recommendation, whatever the query string says.
+  return renderPdf(params.householdId, uploadParam, { crossFamilyApproved: false, graduationApproved: false, shortTermApproved: false }, gate)
 }
 
 export async function POST(req: Request, { params }: { params: { householdId: string } }) {
-  // The confirmed actions: recommending a different rate FAMILY (alt=approve)
-  // or a better TIER (grad=approve) than the client holds. Manage-gated,
-  // POST-only (SameSite Lax keeps the session cookie off cross-site POSTs),
-  // minted by the card's two-tap forms.
+  // The confirmed actions: recommending a different rate FAMILY (alt=approve),
+  // a better TIER (grad=approve), or a deliberately SHORT-TERM play
+  // (stp=approve). Manage-gated, POST-only (SameSite Lax keeps the session
+  // cookie off cross-site POSTs), minted by the card's two-tap forms.
   const gate = await apiPermission('opportunities.manage')
   if (!gate.ok) return NextResponse.json({ ok: false, message: gate.message }, { status: gate.status })
   const form = await req.formData().catch(() => null)
   const crossApproved = form?.get('alt') === 'approve'
   const gradApproved = form?.get('grad') === 'approve'
-  if (!form || (!crossApproved && !gradApproved)) {
-    return NextResponse.json({ ok: false, message: 'This endpoint mints the approved cross-family or graduation document only.' }, { status: 422 })
+  const shortApproved = form?.get('stp') === 'approve'
+  if (!form || (!crossApproved && !gradApproved && !shortApproved)) {
+    return NextResponse.json({ ok: false, message: 'This endpoint mints the approved cross-family, graduation, or short-term document only.' }, { status: 422 })
   }
   const uploadParam = typeof form.get('upload') === 'string' ? String(form.get('upload')) : null
-  return renderPdf(params.householdId, uploadParam, { crossFamilyApproved: crossApproved, graduationApproved: gradApproved }, gate)
+  return renderPdf(params.householdId, uploadParam, { crossFamilyApproved: crossApproved, graduationApproved: gradApproved, shortTermApproved: shortApproved }, gate)
 }
 
 async function renderPdf(
   rawHouseholdId: string,
   uploadParam: string | null,
-  approvals: { crossFamilyApproved: boolean; graduationApproved: boolean },
+  approvals: { crossFamilyApproved: boolean; graduationApproved: boolean; shortTermApproved: boolean },
   gate: Extract<ApiPermission, { ok: true }>,
 ) {
   if (isDemoMode()) {
@@ -131,18 +131,11 @@ async function renderPdf(
   const comparableConfirmed = comparableProvince?.status === 'eligible' || deskOverride
   const showComparable = a.comparable != null && comparableConfirmed
 
-  // The alternative rides the same fail-closed province gate before it can
-  // reach a client document.
-  const altProvince =
-    a.alternative?.comparable.lenderSlug != null ? resolveProvince(a.alternative.comparable.lenderSlug, 'ON') : null
-  const showAlternative = a.alternative != null && altProvince?.status === 'eligible'
-
-  // A COMPUTED floating rate is labeled with the prime and its as-of; only
-  // computed rates (primeUsed set) carry the label, printed rates stay bare.
-  const pricing = (c: { variance?: number | null; primeUsed?: number | null }) =>
-    c.primeUsed != null ? { variance: c.variance ?? null, primeUsed: c.primeUsed, primeAsOf: PRIME_MIRROR.asOf } : {}
-
-  const input: SavingsPdfInput = {
+  // The ONE analysis-to-document mapper (lib/savings-pdf.ts), shared with the
+  // golden tests so the rendered document can never drift from the analysis
+  // or the log. An unapproved cross-family or graduation alternative never
+  // reaches the document — only approved escalations print.
+  const input = savingsPdfInputFromAnalysis({
     generatedDate: todayYMD,
     clientName: `${p.firstName} ${p.lastName}`.trim() || p.fileRef || 'your household',
     currentRate: p.rate,
@@ -150,45 +143,9 @@ async function renderPdf(
     currentLender: p.lender.display,
     balance: p.balance,
     maturity: p.maturityDate,
-    comparable: showComparable
-      ? { rate: a.comparable!.rate, lender: a.comparable!.lender, asOf: a.comparable!.asOf, ...pricing(a.comparable!) }
-      : null,
-    provincePending: a.comparable != null && !comparableConfirmed,
-    alternative:
-      showComparable && showAlternative
-        ? {
-            rate: a.alternative!.comparable.rate,
-            rateTypeLabel: a.alternative!.comparable.rateType ?? (a.alternative!.comparable.kind === 'floating' ? 'floating' : 'fixed'),
-            lender: a.alternative!.comparable.lender,
-            asOf: a.alternative!.comparable.asOf,
-            newPayment: a.alternative!.newPayment,
-            monthlySaving: a.alternative!.monthlySaving,
-            riskLine: a.alternative!.riskLine,
-            ...pricing(a.alternative!.comparable),
-          }
-        : null,
-    crossFamilyRecommended: a.crossFamilyRecommended,
-    headlineRiskLine: a.headlineRiskLine,
-    approvalNote: a.graduationRecommended ? (a.graduation?.note ?? null) : null,
-    overrideType: a.override?.type ?? null,
-    overrideSourceNote: a.override?.sourceNote ?? null,
-    transaction: a.transaction,
-    requalification: a.requalification,
-    currentPayment: a.currentPayment,
-    newPayment: showComparable ? a.newPayment : null,
-    monthlySaving: showComparable ? a.monthlySaving : null,
-    penaltyThreeMonthsInterest: a.penalty?.threeMonthsInterest ?? null,
-    penaltyFraming: a.penalty?.framing ?? null,
-    penaltyMethodologyKnown: a.penalty?.methodologyKnown ?? false,
-    breakEvenMonths: showComparable ? a.breakEvenMonths : null,
-    netBenefit: showComparable ? a.netBenefit : null,
-    remainingMonths: a.remainingMonths,
-    horizonMonths: a.horizonMonths,
-    // 'review' outranks everything else: a reconciliation-blocked file states
-    // no figure to the client regardless of what comparable exists.
-    bucket: a.bucket === 'review' ? 'review' : showComparable ? a.bucket : 'insufficient',
-    note: null,
-  }
+    analysis: a,
+    showComparable,
+  })
 
   // Reproducibility log (guardrails 1 and 5): every generated client document
   // is one append-only row — calc version, inputs hash, the quotes used with
