@@ -142,3 +142,36 @@ describe('demo mode guards', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+// The Rates-regression session's touched surfaces: the demo guards sit ABOVE
+// the pagination layer, so demo mode reads nothing on the coverage map or
+// the approvals sheet queue. (getRateQuotesFull carries no demo guard BY
+// DESIGN — lender rate data intentionally stays real in demo; it is not
+// borrower data. Session 9 contract.)
+import { getIntelItems, getPendingSheetReviews, getRateSheetQueue } from '@/lib/underwriting'
+
+describe('demo mode on the coverage + approvals fetchers (regression session)', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '',
+      headers: new Headers(),
+    } as unknown as Response)
+  })
+
+  it('intel, pending reviews, and the sheet queue return fixtures with zero real reads', async () => {
+    const [intel, pending, sheets] = await Promise.all([
+      getIntelItems('anything'),
+      getPendingSheetReviews('anything'),
+      getRateSheetQueue('anything'),
+    ])
+    for (const r of [intel, pending, sheets]) {
+      expect(r.configured).toBe(true)
+      expect((r as { ok: boolean }).ok).toBe(true)
+    }
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})

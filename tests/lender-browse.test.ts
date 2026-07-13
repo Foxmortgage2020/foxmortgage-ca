@@ -129,9 +129,9 @@ describe('lenderCards — approved-only and staleness', () => {
 
 describe('sortLenderCards', () => {
   const cards: LenderCard[] = [
-    { slug: 'scotia', approvedCount: 2, newestAsOf: '2026-07-01', stale: false, classRates: [{ productClass: 'insured', fromRate: 4.2 }], floatingBest: [], hasCashback: false, pendingCount: 0 },
-    { slug: 'mcap', approvedCount: 9, newestAsOf: '2026-07-09', stale: false, classRates: [{ productClass: 'insured', fromRate: 4.04 }], floatingBest: [], hasCashback: false, pendingCount: 0 },
-    { slug: 'b2b', approvedCount: 1, newestAsOf: null, stale: false, classRates: [], floatingBest: [], hasCashback: false, pendingCount: 0 },
+    { slug: 'scotia', approvedCount: 2, newestAsOf: '2026-07-01', stale: false, classRates: [{ productClass: 'insured', fromRate: 4.2 }], floatingBest: [], hasCashback: false, pendingCount: 0, newestSheetFailed: null },
+    { slug: 'mcap', approvedCount: 9, newestAsOf: '2026-07-09', stale: false, classRates: [{ productClass: 'insured', fromRate: 4.04 }], floatingBest: [], hasCashback: false, pendingCount: 0, newestSheetFailed: null },
+    { slug: 'b2b', approvedCount: 1, newestAsOf: null, stale: false, classRates: [], floatingBest: [], hasCashback: false, pendingCount: 0, newestSheetFailed: null },
   ]
   it('sorts by most products, best insured rate, and pushes un-answerable rows last', () => {
     expect(sortLenderCards(cards, 'products').map(c => c.slug)).toEqual(['mcap', 'scotia', 'b2b'])
@@ -140,6 +140,16 @@ describe('sortLenderCards', () => {
     // b2b is undated -> last on newest
     expect(sortLenderCards(cards, 'newest').map(c => c.slug)).toEqual(['mcap', 'scotia', 'b2b'])
   })
+})
+
+// A failing rates-class intel item (the only thing that may mint a chip).
+const failing = (slug: string | null, over: Record<string, unknown> = {}) => ({
+  lenderSlugGuess: slug,
+  docClassGuess: 'rates',
+  status: 'no_pipeline',
+  receivedAt: '2026-07-10T00:00:00Z',
+  fileName: slug ? `${slug}-rates.pdf` : 'mystery.pdf',
+  ...over,
 })
 
 describe('lenderCoverage — the three states are disjoint and honest', () => {
@@ -151,23 +161,103 @@ describe('lenderCoverage — the three states are disjoint and honest', () => {
       { lenderSlug: null, quoteCount: 5 }, // unresolved -> dropped
     ]
     const intel = [
-      { lenderSlugGuess: 'shinhan' }, // captured, no quotes, no pending -> coverage pending
-      { lenderSlugGuess: 'neo' }, // already awaiting -> not double listed
-      { lenderSlugGuess: 'mcap' }, // already live -> not listed
-      { lenderSlugGuess: null }, // dropped
+      failing('shinhan'), // newest rates item unparseable -> coverage pending
+      failing('neo'), // already awaiting -> not double listed
+      failing('mcap'), // already live -> not listed (live grid wins)
+      failing(null), // dropped
     ]
     const cov = lenderCoverage(approved, pending, intel, TODAY)
     expect(cov.live.map(c => c.slug).sort()).toEqual(['mcap', 'scotia'])
     expect(cov.live.find(c => c.slug === 'mcap')!.pendingCount).toBe(12)
     expect(cov.awaiting).toEqual([{ slug: 'neo', pendingCount: 43 }])
-    expect(cov.coveragePending).toEqual([{ slug: 'shinhan' }])
+    expect(cov.coveragePending).toEqual([
+      { slug: 'shinhan', status: 'no_pipeline', receivedAt: '2026-07-10T00:00:00Z', fileName: 'shinhan-rates.pdf' },
+    ])
+  })
+
+  it('a lender with approved quotes plus stale unextracted history is a live card, never a pending chip', () => {
+    // The regression shape: every lender's Roam history holds old memos and
+    // deferred sheets behind the extract-floor (status 'new'). None of that
+    // says anything about parsers, and an approved book means the grid.
+    const cov = lenderCoverage(
+      [q({ lenderSlug: 'scotia' })],
+      [],
+      [
+        { lenderSlugGuess: 'scotia', docClassGuess: 'rates', status: 'new', receivedAt: '2025-11-01T00:00:00Z', fileName: 'old-history.pdf' },
+        { lenderSlugGuess: 'scotia', docClassGuess: 'promo', status: 'no_pipeline', receivedAt: '2026-07-01T00:00:00Z', fileName: 'promo.pdf' },
+        { lenderSlugGuess: 'scotia', docClassGuess: 'program', status: 'extraction_failed', receivedAt: '2026-07-02T00:00:00Z', fileName: 'guide.pdf' },
+      ],
+      TODAY,
+    )
+    expect(cov.live.map(c => c.slug)).toEqual(['scotia'])
+    expect(cov.coveragePending).toEqual([])
+    // No badge either: the newest RATES-class item is merely deferred, and
+    // failing promo/program docs never signal a rates-parser gap.
+    expect(cov.live[0].newestSheetFailed).toBeNull()
+  })
+
+  it('a live lender whose NEWEST rates sheet failed extraction keeps its card and gains the badge', () => {
+    const cov = lenderCoverage(
+      [q({ lenderSlug: 'cmls' })],
+      [],
+      [
+        { lenderSlugGuess: 'cmls', docClassGuess: 'rates', status: 'extracted', receivedAt: '2026-07-01T00:00:00Z', fileName: 'ok.pdf' },
+        { lenderSlugGuess: 'cmls', docClassGuess: 'rates', status: 'extraction_failed', receivedAt: '2026-07-10T00:00:00Z', fileName: 'newest.pdf' },
+      ],
+      TODAY,
+    )
+    expect(cov.live.map(c => c.slug)).toEqual(['cmls'])
+    expect(cov.coveragePending).toEqual([])
+    expect(cov.live[0].newestSheetFailed).toEqual({
+      status: 'extraction_failed',
+      receivedAt: '2026-07-10T00:00:00Z',
+      fileName: 'newest.pdf',
+    })
+  })
+
+  it('an older failed sheet under a newer parsed one raises nothing (the live CMLS shape)', () => {
+    const cov = lenderCoverage(
+      [q({ lenderSlug: 'cmls' })],
+      [],
+      [
+        { lenderSlugGuess: 'cmls', docClassGuess: 'rates', status: 'extraction_failed', receivedAt: '2026-07-13T14:59:00Z', fileName: 'aveo.pdf' },
+        { lenderSlugGuess: 'cmls', docClassGuess: 'rates', status: 'extracted', receivedAt: '2026-07-13T15:02:00Z', fileName: 'main.pdf' },
+      ],
+      TODAY,
+    )
+    expect(cov.live[0].newestSheetFailed).toBeNull()
+    expect(cov.coveragePending).toEqual([])
+  })
+
+  it('a lender whose approved book is withheld by an eligibility fail-close still never chips', () => {
+    // Restricted-only book: no live card (existing fail-close), but an
+    // approved book is a quoting question, not a parser question.
+    const restrictedOnly = [q({ lenderSlug: 'shinhan', borrowerRequirement: 'physician' })]
+    const cov = lenderCoverage(restrictedOnly, [], [failing('shinhan')], TODAY)
+    expect(cov.live).toEqual([])
+    expect(cov.coveragePending).toEqual([])
+  })
+
+  it('captured-but-unattempted lenders never chip; only an unparseable newest rates item does', () => {
+    const cov = lenderCoverage(
+      [],
+      [],
+      [
+        { lenderSlugGuess: 'aspire', docClassGuess: 'rates', status: 'new', receivedAt: '2026-07-01T00:00:00Z', fileName: 'aspire.pdf' },
+        { lenderSlugGuess: 'bloom', docClassGuess: 'promo', status: 'no_pipeline', receivedAt: '2026-07-01T00:00:00Z', fileName: 'bloom-promo.pdf' },
+        failing('quest', { status: 'extraction_failed' }),
+      ],
+      TODAY,
+    )
+    expect(cov.coveragePending.map(c => c.slug)).toEqual(['quest'])
+    expect(cov.coveragePending[0].status).toBe('extraction_failed')
   })
 
   it('never renders the reserved TEST lender in any state', () => {
     const cov = lenderCoverage(
       [q({ lenderSlug: 'test-portal' }), q({ lenderSlug: 'mcap' })],
       [{ lenderSlug: 'test-portal', quoteCount: 2 }],
-      [{ lenderSlugGuess: 'test-portal' }],
+      [failing('test-portal')],
       TODAY,
     )
     expect(cov.live.map(c => c.slug)).toEqual(['mcap'])

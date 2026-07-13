@@ -1,6 +1,6 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 13, 2026, sixth session (TASK 0 + PART 2 — TERM POLICY, GRADUATION CLASS, THE LAPSED POOL, AND THE CLIENT REPORT REBUILT: every comparable carries its TERM beside its rate on every surface and in savings_analysis_log (calc_version 3; inputs gained termMonths + shortTermApplied; figures gained breakEvenPenalty, the samePaymentPlan trio, and the horizon-end positions; replay reproduces exactly); the DEFAULT comparable must COVER the comparison horizon (refinance = months left on the current term; switch = the client's OWN term, else 60) or the projection SHORTENS to the quote's term — a short rate is never projected past its term, and a deliberately short-term play is a flagged strategy (labelled, reasoned, logged as quotes role short_term_flag) taking Michael's two-tap stp=approve on the PDF route, NEVER an automatic act_now (demoted to marginal unapproved); GRADUATION prices CONVENTIONAL only (b targets book b_side) — a move to better paper never inherits an insurance class (the Part 1 leak: a switch-basis B file ported 'Insurable' into the graduation target and quoted the insurable 4.29; the flag now prices conventional, live 4.39 3-yr, and the B file's act_now STANDS on term-consistent grounds — the feed says the client is on a 12-MONTH term, so the 4.69 12-month quote genuinely covers their like-for-like horizon); the RENEWAL POOL is funded-stage deals only AND excludes Additional-Property child rows by NAME (config/pipeline isRenewalPoolDeal/isAdditionalPropertyRecord — the org's property rows are one mis-stage away from any stage-filtered pool; two children of lost BRXM-F021892 carry amounts + past maturities today) — LIVE FINDING, stated against the brief's expectation: the three extra 2023 lapsed rows (IFMS-F011671/F002599/F007027, exactly the $1,725,000 difference) are NOT Additional-Properties children — verified record-by-record they are funded-STAGE prior-term private-lending rows whose stories continued elsewhere (F011671 renewed as F012754, the property's BRX file then Mortgage Lost; F002599 renewed as F021782; F007027's BRX file is Archive), so the pool stays 18/$11,004,023 until Michael records their outcomes through the radar's own enumerated actions (residual after appears-renewed suppression 12/$5,204,023; after resolving the three, pool 15/$9,279,023 → true residual 10/$4,479,023 — F002599 is both a phantom AND appears-renewed-flagged); PART 2 SHIPPED: lib/savings-pdf.ts is the three-page choice document (masthead, option cards "$X a month back" / "N yrs sooner" with paymentsAvoided, the no-lender-name rate strip carrying term + sheet date, drawn amortization bars, the side-by-side table at the horizon end from FoxAnalysis.comparison, the penalty MINIMUM + break-even GAUGE, conditional next-step cards in place of ANY fixed-break verdict — and the min-exceeds-break-even shape states does-not-clear-the-bar; stay_put ALWAYS gets the one-page wait document whatever small saving exists; review/insufficient/province-pending state no figure; unapproved cross-family/graduation/short-term escalations NEVER print) rendered ONLY through savingsPdfInputFromAnalysis, the one mapper the route AND the golden tests share; FoxAnalysis gained shortTermStrategy/shortTermRecommended/samePaymentPlan/comparison; fonts are the brief-sanctioned Helvetica + Times-Bold fallback (no OFL TTFs vendored; swap the embed lines when Archivo/Fraunces land). See the 2026-07-13 Task 0 + Part 2 ledger entry. The prior fifth-session header follows; its "Part 2 NOT started" claim is superseded.)
+## Last Updated: July 13, 2026, seventh session (RATES GRID REGRESSION — THE 1,000-ROW CAP: Supabase PostgREST caps EVERY response at 1,000 rows regardless of the limit param; when the approved+superseded book hit 1,765 rows the as_of_date-ordered getRateQuotesFull silently dropped whole lenders off the tail — 11 live cards, 24 false coverage chips, and the Opportunities board quietly down to 1 act_now from 3. NOT a commit (diff-proven; the suspected aa3c1ea touched zero rates surfaces). FIX: uwSelectAll offset pagination (id.asc tiebreak, whole-read failure on any page, loud 20k backstop) across all 13 large-limit fetchers + full-history getIntelItems; coverage pending REDEFINED (only a lender whose NEWEST rates-class item is extraction_failed/no_pipeline, chip names the failing sheet; approved lenders never chip; live cards get a newer-sheet-needs-attention badge instead of demotion); province-excluded lenders' sheets PARK out of the approvals queue onto an auto-releasing shelf (lib/sheet-park.ts — presentation-layer, stated deviation: no gates hold action exists); null-slug rates sheets surface on the Lenders tab (tonight's was Alterna Savings, b1cfd0c1 — workbench follow-up to add the slug). Live after: 22 cards / 6 chips / book 1,257 across 25. See the late-2026-07-13 ledger entry. Sixth session, TASK 0 + PART 2 — TERM POLICY, GRADUATION CLASS, THE LAPSED POOL, AND THE CLIENT REPORT REBUILT: every comparable carries its TERM beside its rate on every surface and in savings_analysis_log (calc_version 3; inputs gained termMonths + shortTermApplied; figures gained breakEvenPenalty, the samePaymentPlan trio, and the horizon-end positions; replay reproduces exactly); the DEFAULT comparable must COVER the comparison horizon (refinance = months left on the current term; switch = the client's OWN term, else 60) or the projection SHORTENS to the quote's term — a short rate is never projected past its term, and a deliberately short-term play is a flagged strategy (labelled, reasoned, logged as quotes role short_term_flag) taking Michael's two-tap stp=approve on the PDF route, NEVER an automatic act_now (demoted to marginal unapproved); GRADUATION prices CONVENTIONAL only (b targets book b_side) — a move to better paper never inherits an insurance class (the Part 1 leak: a switch-basis B file ported 'Insurable' into the graduation target and quoted the insurable 4.29; the flag now prices conventional, live 4.39 3-yr, and the B file's act_now STANDS on term-consistent grounds — the feed says the client is on a 12-MONTH term, so the 4.69 12-month quote genuinely covers their like-for-like horizon); the RENEWAL POOL is funded-stage deals only AND excludes Additional-Property child rows by NAME (config/pipeline isRenewalPoolDeal/isAdditionalPropertyRecord — the org's property rows are one mis-stage away from any stage-filtered pool; two children of lost BRXM-F021892 carry amounts + past maturities today) — LIVE FINDING, stated against the brief's expectation: the three extra 2023 lapsed rows (IFMS-F011671/F002599/F007027, exactly the $1,725,000 difference) are NOT Additional-Properties children — verified record-by-record they are funded-STAGE prior-term private-lending rows whose stories continued elsewhere (F011671 renewed as F012754, the property's BRX file then Mortgage Lost; F002599 renewed as F021782; F007027's BRX file is Archive), so the pool stays 18/$11,004,023 until Michael records their outcomes through the radar's own enumerated actions (residual after appears-renewed suppression 12/$5,204,023; after resolving the three, pool 15/$9,279,023 → true residual 10/$4,479,023 — F002599 is both a phantom AND appears-renewed-flagged); PART 2 SHIPPED: lib/savings-pdf.ts is the three-page choice document (masthead, option cards "$X a month back" / "N yrs sooner" with paymentsAvoided, the no-lender-name rate strip carrying term + sheet date, drawn amortization bars, the side-by-side table at the horizon end from FoxAnalysis.comparison, the penalty MINIMUM + break-even GAUGE, conditional next-step cards in place of ANY fixed-break verdict — and the min-exceeds-break-even shape states does-not-clear-the-bar; stay_put ALWAYS gets the one-page wait document whatever small saving exists; review/insufficient/province-pending state no figure; unapproved cross-family/graduation/short-term escalations NEVER print) rendered ONLY through savingsPdfInputFromAnalysis, the one mapper the route AND the golden tests share; FoxAnalysis gained shortTermStrategy/shortTermRecommended/samePaymentPlan/comparison; fonts are the brief-sanctioned Helvetica + Times-Bold fallback (no OFL TTFs vendored; swap the embed lines when Archivo/Fraunces land). See the 2026-07-13 Task 0 + Part 2 ledger entry. The prior fifth-session header follows; its "Part 2 NOT started" claim is superseded.)
 
 ### Prior header: fifth session (TIERS + APPEARS-RENEWED + OVERRIDES, Part 1 of the two-part brief: every lender carries a paper grade (a/b/private; registry-seeded unconfirmed, program-level overrides, explicit feed-string map failing closed to unknown) and comparables are SAME-TIER only — B prices the b_side book (live finding: all approved B quotes are class b_side), private is honest-insufficient, unknown tier or a rate contradicting the map routes to review, and GRADUATION to better paper is a figure-less flag unless Michael's two-tap grad=approve prices it; the radar + board suppress APPEARS_RENEWED files (feed start > Closing_Date+90d, or lender/rate contradictions; live: 5 of 8 action files, 6 of 18 lapsed) pending confirm ('Renewed With Us', exactly one field, NEW picklist value + resolved status) or a persisted reasoned decline; Michael can OVERRIDE any comparable (eligible book pick validated by construction or a desk rate with mandatory source note + reason, POST-only, badged on card + PDF, on the savings log); savings_analysis_log is append-only BY TRIGGER (privileged UPDATE/DELETE refused, proven live) and $1 placeholders route to review + never propose backfills. See the Part 1 ledger entry. Fourth session, FINAL CORRECTNESS PASS, Tasks 5-8: the savings PDF states 3MI as a MINIMUM with the break-even penalty and draws NO positive net-benefit conclusion on ANY fixed-rate break — adversarial review forced the strengthening past the brief: a documented IRD method still yields no figure, so method-known only changes the confirm path; the comparable is LIKE-FOR-LIKE by rate family (fixed→fixed, adjustable and variable never collapsed; the cheaper cross-family option is a labelled alternative with a quantified risk line; headline-ing it takes a two-tap manage-gated ?alt=approve recorded on the log); floating ranks on the EFFECTIVE rate from the per-lender prime everywhere (variance is display — convention corrected in fox-underwriting §3 + gates-api.md); savings_analysis_log (FOXCA 20260713150000, append-only, functions-only, verified 42501) records every board render + client PDF with calc_version 2 + canonical inputs_hash and REPLAYS exactly; approved book live-verified 947 across 23 lenders. See the 2026-07-13 final-pass ledger entry. Third session, BACKFILL SHARED-IDENTITY FIX: decideMatch now resolves a (contact, mortgage) PAIR — an identity signal shared by 2+ export mortgages yields the new 'shared_identity' bucket, the contact's deals attribute by property address then amount via attributeDeals, contested deals are NEVER proposed into and land on a per-contact needs-manual-match card, and the apply route accepts Michael's explicit manualMatch pick only for contested deals, audited as 'ok (manual match)'. Live: 6 shared groups / 13 of 41 mortgages. See the 2026-07-13 backfill ledger entry. Second session, SMM PAYMENT CORRECTION: the Opportunities stated current payment now reconstructs the ORIGINAL schedule — payment(original amount, rate, original amortization), never a re-amortized current balance, which understated every seasoned mortgage's payment; monthsElapsed + remainingAmortizationMonths now ride FoxAnalysis and the comparison prices over the months actually left; a NEW reconciliation gate models the balance forward from origination and >0.5% drift blocks the file into the new 'review' board bucket with both figures + drift shown — a blocked file states NO figure anywhere, savings PDF included. Details in the 2026-07-13 SMM ledger entry. Earlier the same day, MIRROR 1 COLLAPSED: the eligibility backfill RAN in the workbench (verified live 2026-07-13: 947/949 approved rows carried eligibility_source; the only nulls were the 5 test-portal artifacts, 2 approved + 3 superseded — those 2 were themselves superseded later the same day, so the approved book is 947 across 23 lenders, every row classified), so the portal-side deriveEligibility/baseStem port was DELETED per guardrail 1 (deterministic code calculates in one place — the classifier lives ONLY in fox-underwriting src/skills/extract/eligibility.ts). lib/eligibility.ts evaluateQuote now reads the five rate_quotes columns (borrower_requirement/client_commitment/channel_requirement/transaction_types/eligibility_unknown) verbatim through portal_readonly. FAIL-CLOSED, two conditions: eligibility_unknown=true OR eligibility_source IS NULL → program_restricted with the 'unclassified' code, excluded from default ranking, revealable under show-restricted, and NEVER on a client document — not even pinned (includedInClientDoc hard-blocks undisclosedRestriction; a restriction nobody can name cannot be confirmed). A null source is what an unclassified row fresh from Roam looks like. tests/eligibility.test.ts is rewritten: golden = portal verdicts match the workbench columns (fixtures shaped like live rows), a module-absence proof (no deriveEligibility/baseStem/effectiveEligibility export), and a surface sweep asserting a null-source quote is excluded from scenario/Ask Fox (matchQuote), lender-browse (lenderCards), Opportunities+savings PDF (analyzeMortgage comparable), Renewals (bestApprovedFixed), and client docs (includedInClientDoc, pin included). Live parity proven: the fixture re-run under column-truth reproduces the derivation-era buckets exactly (marginal 14 / stay_put 13 / insufficient 6 / act_now 8; Sally Ryan still First National conventional adjustable P−0.50/3.95%). THREE MIRRORS REMAIN (plan recorded in the 2026-07-13 ledger entry; do not re-port them): config/lender-provinces.ts (mirrors knowledge/lender-registry.json), config/prime.ts (mirrors knowledge/prime.json), lib/mortgage-engine.ts (parallel to fox-underwriting/src/calc). The prior session header below is retained for context; its backfill claim is superseded by this note.
 
@@ -1492,6 +1492,97 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-13 (late) — Rates grid regression: the 1,000-row response cap, not the deploy
+- THE FINDING, against the brief's expectation: NO commit caused this — neither
+  aa3c1ea (Part 2; touched zero rates surfaces, diff-proven) nor the two other
+  same-day portal deploys (8698c2c's lib/eligibility.ts change is comment-only;
+  0139325 touched only the RatesScenario tier-count display). The mechanism:
+  Supabase's PostgREST caps EVERY response at 1,000 rows (db-max-rows)
+  regardless of the limit param. getRateQuotesFull asked for limit=5000,
+  ordered as_of_date.desc — the moment last night's parser-session approvals
+  (duca 58, radius 34, meridian 10, cmls/highclere refreshes + the superseded
+  rows they minted) pushed approved+superseded to 1,765 rows, the fetch
+  silently kept only the newest-sheet 1,000 and whole lenders whose sheets are
+  older fell off the tail. Reproduced EXACTLY: the page's own functions over
+  the ordered first-1000 yield 11 live cards + the brief's exact 24-chip list;
+  unordered they yield 20; paginated they yield 22. The chips never demoted
+  anyone (coveragePending always excluded live slugs) — the truncation emptied
+  the live set and every lender has intel history, so they fell through to
+  chips. BLAST RADIUS (the real severity): getRateQuotesFull feeds the
+  scenario matcher, Opportunities, the savings PDF, Ask Fox, and Renewals —
+  on tonight's truncated book the Opportunities board read act_now 1 /
+  stay_put 12 (two genuine calls suppressed because their best comparables
+  fell off the page); the full book restores act_now 3 / stay_put 10, the
+  verified buckets.
+- THE FIX (fetch layer, systemic): lib/underwriting.ts uwSelectAll — offset
+  pagination at the 1,000-row server page size until a short page, an id.asc
+  tiebreak appended to the order (offset pages are unstable under equal sort
+  keys), a mid-pagination failure fails the WHOLE read (partial data must
+  never present as complete), and a loudly-logged 20k-row runaway backstop.
+  All 13 fetchers with limits >= 1000 converted (the rate-quote family,
+  queues, counts), plus getIntelItems (full history — a failing parser's
+  newest item can be arbitrarily old, so a recent-300 window would hide
+  exactly the lenders coverage exists to name) and its rate_sheet_reviews
+  join (agent-scoped + in-memory, the in.(ids) URL grew without bound).
+- COVERAGE METRIC, redefined per the brief's policy (lib/lender-browse.ts):
+  the grid is "who can Michael quote", the chips are "whose sheets can't we
+  read". A chip now requires the lender's NEWEST rates-class intel item to be
+  extraction_failed or no_pipeline; deferred history (status new, behind the
+  extract-floor) and promo/program/guidelines/unknown classes never count; a
+  lender with ANY approved quotes never chips (belt: approvedSlugs excluded
+  even when the card is withheld by an eligibility fail-close — a restricted
+  book is a quoting question, not a parser question); a LIVE lender whose
+  newest rates sheet failed keeps its card with a "newer sheet needs
+  attention" badge naming the failing file (LenderCard.newestSheetFailed),
+  never a demotion. Chips carry {status, receivedAt, fileName} so each is
+  explainable by a named failing item. The live CMLS shape is the tiebreak
+  test: failed AVEO sheets at 14:59Z under an extracted 15:02Z main sheet →
+  no badge, no chip.
+- PROVINCE-EXCLUDED ARRIVALS, parked (lib/sheet-park.ts + approvals-data +
+  desk + bell): sheets from lenders whose registry provinces exclude every
+  serviceable market (SERVICEABLE_PROVINCES = ['ON']; kootenay/coast-capital
+  today) are partitioned out of the actionable sheets queue onto a collapsed
+  "Parked: province-excluded" shelf with the registry fact + as-of; the tab
+  count and the notification bell see only the actionable queue; release is
+  AUTOMATIC (the park re-derives from the registry each render — a live
+  registry confirming a serviceable province un-parks with no action).
+  Parking requires affirmative evidence: unknown/national never parks.
+  STATED DEVIATION from the brief's item 5: the literal status='held' +
+  held_reason + audit entry is NOT portal-implementable — the portal cannot
+  write the workbench (database-enforced) and the rate-sheets gate vocabulary
+  is approve|reject only (no hold; gates tokens are browser-minted, so no
+  server-side auto-decision path exists either). True held-at-arrival belongs
+  in the fox-underwriting extraction pipeline (or a new gates hold action) —
+  follow-up recorded on the roadmap backlog.
+- THE NULL-SLUG ITEM (brief item 6): identified — b1cfd0c1, received
+  2026-07-13T15:54Z, "Alterna Rates July 13 2026.pdf", class rates, status
+  new: the lender is ALTERNA SAVINGS (Ontario credit union); the ingest has
+  no 'alterna' slug so lender_slug_guess stayed null. The portal cannot
+  assign it (intel lifecycle is workbench-owned; no gates endpoint) —
+  fox-underwriting follow-up: add the alterna slug and backfill the guess.
+  VISIBILITY shipped: the Lenders tab now renders an "N captured rates
+  sheets with no lender identified" panel naming each null-slug rates item
+  and its received date — never silently unbucketed again.
+- LIVE AFTER (computed through the fixed pipeline against the live book):
+  approved book 1,257 across 25 lenders (matches the brief's verified
+  numbers; the earlier 947/23 and 1,000/24 reads were the cap's lie); live
+  cards 22 (scotia, first-national, rfa, b2b, neo, npx, manulife,
+  nbc-optimum, radius, meridian all back; withheld by DESIGN: kootenay +
+  coast-capital province-ineligible, shinhan restricted-only book);
+  awaiting 0; coverage pending 6 (aspire, bloom, first-ontario, sdc, servus,
+  tru — each with its named failing sheet); parked shelf currently empty
+  (tonight's kootenay quotes are no longer pending); Opportunities buckets
+  act_now 3 / marginal 9 / stay_put 10 / review 15 / insufficient 4.
+- Verified: tsc clean, production build green, suite 455 tests green
+  (lender-browse rewritten to the new policy + the acceptance fixtures,
+  sheet-park 4, demo coverage of the touched fetchers with the documented
+  lender-data-stays-real posture). Temp readers deleted.
+- Guardrails held: readonly workbench (pagination is GETs through the same
+  role; no writes anywhere), no Zoho writes, no gate decisions fired, demo
+  silent on the queue/coverage surfaces, no client-facing copy changes
+  beyond internal-surface labels, PII discipline (counts/slugs only; the one
+  temp export read deleted).
 
 ### 2026-07-13 — Task 0 (term policy, graduation class, the lapsed pool) + Part 2 (the client report rebuilt)
 - TASK 0a (graduation prices conventional only): the Part 1 leak was the

@@ -63,6 +63,46 @@ export interface PendingSheetLite {
 }
 export interface IntelItemLite {
   lenderSlugGuess: string | null
+  /** Ingest classification: 'rates' items are the only ones coverage reads;
+   * promo / program / guidelines / unknown never say anything about parsers. */
+  docClassGuess?: string | null
+  /** Item lifecycle: 'extraction_failed' and 'no_pipeline' mean the current
+   * format cannot be read; 'new' is captured-not-attempted (deferred history
+   * behind the extract-floor) and never signals a parser gap. */
+  status?: string | null
+  receivedAt?: string | null
+  fileName?: string | null
+}
+
+/** The statuses that mean "we cannot read this lender's current rates
+ * format" — the ONLY thing a coverage-pending chip is allowed to claim. */
+export const UNPARSEABLE_STATUSES: readonly string[] = ['extraction_failed', 'no_pipeline']
+
+/** Each lender's NEWEST rates-class intel item. Non-rates classes and
+ * null-slug items never enter; ties on receivedAt keep the first seen. */
+export function newestRatesItemBySlug(intel: IntelItemLite[]): Map<string, IntelItemLite> {
+  const newest = new Map<string, IntelItemLite>()
+  for (const i of intel) {
+    const slug = i.lenderSlugGuess
+    if (!slug || slug === TEST_LENDER_SLUG) continue
+    if ((i.docClassGuess ?? null) !== 'rates') continue
+    const cur = newest.get(slug)
+    if (!cur || (i.receivedAt ?? '') > (cur.receivedAt ?? '')) newest.set(slug, i)
+  }
+  return newest
+}
+
+/** The "newer sheet needs attention" badge on a live card: the lender's
+ * newest rates-class item did not parse. */
+export interface SheetAttention {
+  status: string
+  receivedAt: string | null
+  fileName: string | null
+}
+
+function sheetAttentionFor(newest: IntelItemLite | undefined): SheetAttention | null {
+  if (!newest?.status || !UNPARSEABLE_STATUSES.includes(newest.status)) return null
+  return { status: newest.status, receivedAt: newest.receivedAt ?? null, fileName: newest.fileName ?? null }
 }
 
 export interface LenderClassRate {
@@ -87,15 +127,32 @@ export interface LenderCard {
   hasCashback: boolean
   /** Extracted sheets awaiting Michael's approval (a nudge, never a rate). */
   pendingCount: number
+  /** Set when the lender's NEWEST rates-class intel item did not parse: the
+   * book stays quotable (the card stays live), and the card carries a
+   * "newer sheet needs attention" badge — never a demotion to pending. */
+  newestSheetFailed: SheetAttention | null
+}
+
+export interface CoveragePendingChip {
+  slug: string
+  /** The named failing item that explains this chip. */
+  status: string
+  receivedAt: string | null
+  fileName: string | null
 }
 
 export interface LenderCoverage {
   live: LenderCard[]
   /** Lenders with extracted sheets in the queue and NO approved quotes yet. */
   awaiting: { slug: string; pendingCount: number }[]
-  /** Lenders with intel captured (a sheet arrived) but no quotes and no
-   * pending sheets — the format has no deterministic parser yet. */
-  coveragePending: { slug: string }[]
+  /** Lenders whose sheets we cannot read: captured RATES-class items whose
+   * NEWEST rates-class item is extraction_failed or no_pipeline, and no
+   * approved quotes. The grid is "who can Michael quote"; these chips are
+   * "whose sheets can't we read" — a lender with an approved book NEVER
+   * appears here, whatever sits unextracted in its history. Deferred-history
+   * items (status 'new', behind the extract-floor) and promo / program /
+   * unknown doc classes never count. */
+  coveragePending: CoveragePendingChip[]
 }
 
 /** Whole days between two YYYY-MM-DD dates (b - a). Both parse as UTC
@@ -116,6 +173,7 @@ export function lenderCards(
   approved: RateQuoteFullRow[],
   todayYMD: string,
   pendingByLender: Map<string, number> = new Map(),
+  newestRatesItem: Map<string, IntelItemLite> = new Map(),
 ): LenderCard[] {
   const byLender = new Map<string, RateQuoteFullRow[]>()
   for (const q of approved) {
@@ -167,6 +225,7 @@ export function lenderCards(
       floatingBest,
       hasCashback: rows.some(q => q.cashbackPct !== null),
       pendingCount: pendingByLender.get(slug) ?? 0,
+      newestSheetFailed: sheetAttentionFor(newestRatesItem.get(slug)),
     })
   })
   return cards.sort((a, b) => lenderDisplayName(a.slug).localeCompare(lenderDisplayName(b.slug)))
@@ -231,7 +290,8 @@ export function sortLenderCards(cards: LenderCard[], sort: LenderSort): LenderCa
 
 /** The three honest coverage states, all disjoint. A live lender that also
  * has pending sheets keeps its live card (with a pendingCount nudge) and is
- * NOT double-listed under awaiting. */
+ * NOT double-listed under awaiting; a live lender whose newest rates sheet
+ * did not parse keeps its card with the needs-attention badge, never a chip. */
 export function lenderCoverage(
   approved: RateQuoteFullRow[],
   pending: PendingSheetLite[],
@@ -239,7 +299,8 @@ export function lenderCoverage(
   todayYMD: string,
 ): LenderCoverage {
   const pendingMap = pendingByLenderMap(pending)
-  const live = lenderCards(approved, todayYMD, pendingMap)
+  const newestRates = newestRatesItemBySlug(intel)
+  const live = lenderCards(approved, todayYMD, pendingMap, newestRates)
   const liveSlugs = new Set(live.map(c => c.slug))
 
   const awaiting = Array.from(pendingMap.entries())
@@ -248,14 +309,27 @@ export function lenderCoverage(
     .sort((a, b) => b.pendingCount - a.pendingCount || lenderDisplayName(a.slug).localeCompare(lenderDisplayName(b.slug)))
 
   const awaitingSlugs = new Set(awaiting.map(a => a.slug))
-  const intelSlugs = new Set(
-    intel
-      .map(i => i.lenderSlugGuess)
-      .filter((s): s is string => Boolean(s) && s !== TEST_LENDER_SLUG),
+  // A lender with approved quotes in the book never chips — even when its
+  // card is withheld by an eligibility fail-close (a restricted-only or
+  // province-excluded book is a quoting question, not a parser question).
+  const approvedSlugs = new Set(
+    approved.filter(q => q.status === 'approved' && q.lenderSlug !== TEST_LENDER_SLUG).map(q => q.lenderSlug),
   )
-  const coveragePending = Array.from(intelSlugs)
-    .filter(slug => !liveSlugs.has(slug) && !awaitingSlugs.has(slug))
-    .map(slug => ({ slug }))
+  const coveragePending: CoveragePendingChip[] = Array.from(newestRates.entries())
+    .filter(
+      ([slug, item]) =>
+        !liveSlugs.has(slug) &&
+        !awaitingSlugs.has(slug) &&
+        !approvedSlugs.has(slug) &&
+        item.status != null &&
+        UNPARSEABLE_STATUSES.includes(item.status),
+    )
+    .map(([slug, item]) => ({
+      slug,
+      status: item.status!,
+      receivedAt: item.receivedAt ?? null,
+      fileName: item.fileName ?? null,
+    }))
     .sort((a, b) => lenderDisplayName(a.slug).localeCompare(lenderDisplayName(b.slug)))
 
   return { live, awaiting, coveragePending }

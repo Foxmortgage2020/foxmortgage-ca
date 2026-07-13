@@ -851,6 +851,44 @@ export default function ApprovalsDesk({
             })
           ))}
 
+        {/* ── Parked: province-excluded sheets. Out of the queue, never out of
+            sight. Auto-released to pending the day the registry confirms a
+            serviceable province (the park re-derives from the registry every
+            render — no decision was made, nothing to undo). ── */}
+        {tab === 'sheets' && data.parkedSheets.length > 0 && (
+          <details className="bg-gray-50 border border-gray-200 rounded-xl p-4" data-testid="parked-sheets">
+            <summary className="text-sm font-semibold text-navy cursor-pointer select-none">
+              Parked: province-excluded ({data.parkedSheets.length} sheet
+              {data.parkedSheets.length === 1 ? '' : 's'})
+            </summary>
+            <p className="text-xs font-body text-gray-500 mt-2">
+              These lenders cannot lend in a market the practice serves, so their sheets never
+              enter the queue — approving or rejecting them would be busywork. Nothing is deleted;
+              they return to pending automatically if the lender registry confirms a serviceable
+              province.
+            </p>
+            <div className="mt-3 space-y-2">
+              {data.parkedSheets.map(p => (
+                <div key={p.card.intelItemId} className="bg-white border border-gray-200 rounded-lg px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {p.card.lenderSlug && <LenderMark slug={p.card.lenderSlug} size={22} />}
+                    <span className="font-heading font-bold text-navy text-sm capitalize">
+                      {p.card.lenderSlug ? lenderDisplayName(p.card.lenderSlug) : 'Unknown lender'}
+                    </span>
+                    {p.card.asOfDate && <Chip tone="gray">sheet {p.card.asOfDate}</Chip>}
+                    <Chip tone="gray">{p.card.quotes.length} quotes</Chip>
+                    <Chip tone="amber">province-excluded</Chip>
+                  </div>
+                  <p className="text-[11px] font-body text-gray-500 mt-1">
+                    {p.reason}
+                    {p.asOf ? ` Registry fact as of ${p.asOf}.` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
         {/* ── Offers ── */}
         {tab === 'offers' &&
           (data.offers.length === 0 ? (

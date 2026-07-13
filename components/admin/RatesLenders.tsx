@@ -48,14 +48,22 @@ import { lenderDisplayName } from '@/config/lenders'
 import { matchKnowledge, type KnowledgeLenderEntry } from '@/lib/rates-shared'
 import { fmtShortDate } from '@/lib/dates'
 
+export interface UnattributedSheet {
+  fileName: string | null
+  receivedAt: string | null
+}
+
 export default function RatesLenders({
   quotes,
   coverage,
   todayYMD,
+  unattributed = [],
 }: {
   quotes: RateQuoteFullRow[]
   coverage: LenderCoverage
   todayYMD: string
+  /** Captured rates-class items the ingest could not name a lender for. */
+  unattributed?: UnattributedSheet[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -114,6 +122,7 @@ export default function RatesLenders({
       offersFor={offersFor}
       todayYMD={todayYMD}
       onOpen={openLender}
+      unattributed={unattributed}
     />
   )
 }
@@ -126,12 +135,14 @@ function BrowseGrid({
   offersFor,
   todayYMD,
   onOpen,
+  unattributed,
 }: {
   coverage: LenderCoverage
   knowledgeFor: (slug: string) => KnowledgeLenderEntry | null
   offersFor: (slug: string) => KnowledgeOffer[]
   todayYMD: string
   onOpen: (slug: string) => void
+  unattributed: UnattributedSheet[]
 }) {
   const [sort, setSort] = useState<LenderSort>('name')
   const live = useMemo(() => sortLenderCards(coverage.live, sort), [coverage.live, sort])
@@ -215,7 +226,8 @@ function BrowseGrid({
         </>
       )}
 
-      {/* Coverage pending */}
+      {/* Coverage pending: whose sheets can't we read. A lender with an
+          approved book never appears here — that is the live grid's job. */}
       {coverage.coveragePending.length > 0 && (
         <>
           <SectionHeading
@@ -224,23 +236,47 @@ function BrowseGrid({
             tone="pending"
           />
           <p className="text-xs text-gray-500 font-body mb-3">
-            Sheets from these lenders are captured, but their format has no deterministic parser yet,
-            and guessing a rate is not an option. Each one is a candidate for the next parser.
+            These lenders&apos; newest rates sheet could not be read (no working parser for the
+            current format), and guessing a rate is not an option. Each chip names the failing
+            sheet; each one is a candidate for the next parser.
           </p>
           <div className="flex flex-wrap gap-2" data-testid="lender-coverage-pending">
             {coverage.coveragePending.map(c => (
               <span
                 key={c.slug}
                 className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-2 pr-3 py-1.5 opacity-90"
+                title={`${c.status.replace(/_/g, ' ')}${c.fileName ? `: ${c.fileName}` : ''}${c.receivedAt ? ` (received ${c.receivedAt.slice(0, 10)})` : ''}`}
               >
                 <LenderMark slug={c.slug} name={knowledgeFor(c.slug)?.name} size={22} />
                 <span className="text-xs font-body font-semibold text-gray-600">
                   {knowledgeFor(c.slug)?.name ?? lenderDisplayName(c.slug)}
                 </span>
+                <span className="text-[10px] font-body text-amber-700">
+                  {c.status === 'no_pipeline' ? 'no parser' : 'failed to read'}
+                  {c.fileName ? ` · ${c.fileName}` : ''}
+                </span>
               </span>
             ))}
           </div>
         </>
+      )}
+
+      {/* Unattributed rates items: captured sheets the ingest could not name a
+          lender for. Visible here so they are never silently unbucketed. */}
+      {unattributed.length > 0 && (
+        <div className="mt-5 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3" data-testid="lender-unattributed">
+          <p className="text-xs font-body font-semibold text-amber-900">
+            {unattributed.length} captured rates sheet{unattributed.length === 1 ? '' : 's'} with no
+            lender identified
+          </p>
+          <p className="text-xs font-body text-amber-800 mt-1">
+            The ingest could not name a lender for{' '}
+            {unattributed
+              .map(u => `${u.fileName ?? 'an untitled sheet'}${u.receivedAt ? ` (received ${u.receivedAt.slice(0, 10)})` : ''}`)
+              .join(', ')}
+            . These never enter any bucket until the workbench assigns a lender.
+          </p>
+        </div>
       )}
     </div>
   )
@@ -369,6 +405,15 @@ function LenderBrowseCard({
         {card.pendingCount > 0 && (
           <span className={`${chip} bg-gray-100 text-gray-600`} title="Extracted sheets awaiting your approval.">
             {card.pendingCount} awaiting approval
+          </span>
+        )}
+        {card.newestSheetFailed && (
+          <span
+            className={`${chip} bg-amber-100 text-amber-900`}
+            data-testid={`sheet-attention-${card.slug}`}
+            title={`The newest rates sheet did not parse (${card.newestSheetFailed.status.replace(/_/g, ' ')}${card.newestSheetFailed.fileName ? `: ${card.newestSheetFailed.fileName}` : ''}). The approved book stays quotable; the newest sheet needs a parser look.`}
+          >
+            newer sheet needs attention
           </span>
         )}
       </div>

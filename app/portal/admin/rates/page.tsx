@@ -61,9 +61,20 @@ export default async function RatesPage() {
   const coverage = lenderCoverage(
     quotes,
     pendingSheets.map(p => ({ lenderSlug: p.lenderSlug, quoteCount: p.quoteCount })),
-    intelItems.map(i => ({ lenderSlugGuess: i.lenderSlugGuess })),
+    intelItems.map(i => ({
+      lenderSlugGuess: i.lenderSlugGuess,
+      docClassGuess: i.docClassGuess,
+      status: i.status,
+      receivedAt: i.receivedAt,
+      fileName: i.fileName,
+    })),
     todayYMD,
   )
+  // Captured rates sheets the ingest could not name a lender for: visible on
+  // the Lenders tab so they are never silently unbucketed.
+  const unattributed = intelItems
+    .filter(i => i.lenderSlugGuess == null && i.docClassGuess === 'rates')
+    .map(i => ({ fileName: i.fileName, receivedAt: i.receivedAt }))
 
   // Approval provenance for every approved quote's sheet review, resolved
   // once server-side so the scenario product detail renders it without extra
@@ -81,7 +92,7 @@ export default async function RatesPage() {
   return (
     <div className="max-w-5xl">
       <Header />
-      <RatesTabs quotes={quotes} provenance={provenance} coverage={coverage} todayYMD={todayYMD} />
+      <RatesTabs quotes={quotes} provenance={provenance} coverage={coverage} todayYMD={todayYMD} unattributed={unattributed} />
     </div>
   )
 }

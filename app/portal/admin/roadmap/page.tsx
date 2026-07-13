@@ -184,6 +184,7 @@ const SESSIONS: {
       'Lenders tab: browse the approved book with honest per-class headline rates and the deepest floating discount (adjustable and variable kept apart), plus the three-state coverage map (live / awaiting approval / coverage pending)',
       'Promos tab: the offer book as its own board, soonest to expire first, each card citing its announcement; saved scenarios per user through FOXCA narrow functions',
       'A test locks the client rate PDF against ever disclosing lender compensation to a borrower',
+      'Regression fix (2026-07-13 late): the database service caps every read at 1,000 rows, and when the approved-plus-superseded book outgrew one page the grid silently dropped whole lenders (11 cards, 24 false pending chips; the Opportunities board lost two act-now calls the same way). Every large workbench read now pages through the full result. Coverage-pending redefined: only a lender whose NEWEST rates-class sheet failed extraction or has no parser, with the failing sheet named on the chip; an approved lender can never chip; a live lender with a failed newest sheet gets a needs-attention badge, never a demotion. Province-excluded lenders’ sheets park out of the approval queue onto a visible auto-releasing shelf, and unattributed rates sheets (null lender guess) surface on the Lenders tab',
     ],
   },
   {
@@ -260,6 +261,8 @@ const SESSIONS: {
 // The forward list once the original nine-session map is complete: the
 // side-quests and follow-ups decided along the way. Kept honest and current.
 const BACKLOG: { title: string; note: string }[] = [
+  { title: 'Hold province-excluded extractions at the source', note: 'fox-underwriting: land new extractions from registry-province-excluded lenders as status held with held_reason province_ineligible (extraction pipeline, or a hold action on the rate-sheets gate), audited. The portal parks them out of the queue meanwhile (lib/sheet-park.ts), but the park is presentation, not a recorded hold.' },
+  { title: 'Assign the alterna intel slug', note: "fox-underwriting: the ingest has no 'alterna' slug, so Alterna Savings sheets arrive with a null lender guess (item b1cfd0c1, 2026-07-13). Add the slug and backfill the guess; the portal surfaces null-slug rates items on the Lenders tab meanwhile." },
   { title: 'Collapse mirror 2: provinces', note: 'config/lender-provinces.ts mirrors the workbench lender registry. Make the registry server-readable (a portal_readonly-granted table is the cheapest path), read it live everywhere, and delete the mirror. A fetch failure must fall back to last-known-good with its as-of, never to empty, or every lender silently downgrades to unknown.' },
   { title: 'Collapse mirror 3: prime', note: 'config/prime.ts mirrors the workbench prime reference for server surfaces that cannot mint a gates token. Same fix shape as provinces, and more urgent: prime moves, and a stale mirror misprices every floating effective rate. Collapse before the next prime change.' },
   { title: 'Collapse mirror 4: the calculation engine', note: 'lib/mortgage-engine.ts and the workbench calc engine are parallel code. The dependency rule puts the engine in fox-underwriting, published as a package the portal consumes; interim containment is a shared golden-vector file asserted on both sides.' },

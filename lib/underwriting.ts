@@ -165,6 +165,45 @@ async function uwSelect<T>(
   return { configured: true, ok: true, data: res.data }
 }
 
+// Supabase's PostgREST caps every response at 1,000 rows (db-max-rows)
+// REGARDLESS of the limit param — verified live 2026-07-13, when the
+// approved+superseded rate book outgrew one page and the Rates grid silently
+// dropped whole lenders (the rows past the cap, in as_of_date order, simply
+// never arrived). Any fetcher whose result set can grow past one page MUST
+// read through uwSelectAll, which pages by offset until a short page.
+const UW_PAGE_ROWS = 1000
+// A runaway backstop far above any plausible table, never a working ceiling.
+// Hitting it is loudly logged: a silent cap is exactly the bug this exists
+// to prevent.
+const UW_MAX_PAGES = 20
+
+/** Paginated select: every row, not just the first server page. `params.order`
+ * gains an `id` tiebreak so offset pages are stable under equal sort keys
+ * (without it, ties can duplicate or drop rows across page boundaries). A
+ * failure on ANY page fails the whole read — partial data must never present
+ * as complete. Costs exactly one request when the result fits one page. */
+async function uwSelectAll<T>(
+  table: string,
+  params: Record<string, string>,
+): Promise<UwResult<T[]>> {
+  const { limit: _limit, ...rest } = params
+  const order = rest.order ? `${rest.order},id.asc` : 'id.asc'
+  const out: T[] = []
+  for (let page = 0; page < UW_MAX_PAGES; page++) {
+    const res = await uwFetch<T>(table, {
+      ...rest,
+      order,
+      limit: String(UW_PAGE_ROWS),
+      offset: String(page * UW_PAGE_ROWS),
+    })
+    if (!res.configured || !res.ok) return res
+    out.push(...res.data)
+    if (res.data.length < UW_PAGE_ROWS) return { configured: true, ok: true, data: out }
+  }
+  console.error(`[uw] ${table} paginated read hit the ${UW_MAX_PAGES * UW_PAGE_ROWS}-row backstop; result may be incomplete`)
+  return { configured: true, ok: true, data: out }
+}
+
 function mapResult<A, B>(res: UwResult<A[]>, fn: (rows: A[]) => B): UwResult<B> {
   if (!res.configured || !res.ok) return res
   try {
@@ -247,7 +286,7 @@ export async function getPendingStatementReviews(
   agentId: string,
 ): Promise<UwResult<PendingStatementReview[]>> {
   if (isDemoMode()) return demoResult(demoPendingStatementReviews)
-  const res = await uwSelect<any>('statement_fields', {
+  const res = await uwSelectAll<any>('statement_fields', {
     select: 'document_id,doc_class,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
     status: 'eq.extracted',
@@ -284,7 +323,7 @@ export async function getPendingSheetReviews(
   agentId: string,
 ): Promise<UwResult<PendingSheetReview[]>> {
   if (isDemoMode()) return demoResult(demoPendingSheetReviews)
-  const res = await uwSelect<any>('rate_quotes', {
+  const res = await uwSelectAll<any>('rate_quotes', {
     select: 'intel_item_id,lender_slug,as_of_date',
     agent_id: `eq.${agentId}`,
     status: 'eq.extracted',
@@ -488,7 +527,7 @@ export async function getOpenConditionCounts(
   agentId: string,
 ): Promise<UwResult<Record<string, number>>> {
   if (isDemoMode()) return demoResult(demoOpenConditionCounts)
-  const res = await uwSelect<any>('conditions', {
+  const res = await uwSelectAll<any>('conditions', {
     select: 'deal_id',
     agent_id: `eq.${agentId}`,
     status: 'not.in.(satisfied,waived)',
@@ -626,7 +665,7 @@ const stmtFieldRow = (r: any): StatementFieldRow => ({
 
 export async function getStatementQueue(agentId: string): Promise<UwResult<StatementQueueCard[]>> {
   if (isDemoMode()) return demoResult(demoStatementQueue)
-  const res = await uwSelect<any>('statement_fields', {
+  const res = await uwSelectAll<any>('statement_fields', {
     select:
       'id,document_id,doc_class,deal_id,field_name,value_text,value_numeric,unit,source_page,source_snippet,confidence,held_reason,status,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
@@ -737,7 +776,7 @@ export interface SheetQueueCard {
 
 export async function getRateSheetQueue(agentId: string): Promise<UwResult<SheetQueueCard[]>> {
   if (isDemoMode()) return demoResult(demoRateSheetQueue)
-  const res = await uwSelect<any>('rate_quotes', {
+  const res = await uwSelectAll<any>('rate_quotes', {
     select:
       'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,held_reason',
     agent_id: `eq.${agentId}`,
@@ -955,7 +994,7 @@ export async function getLastDecided(agentId: string): Promise<UwResult<LastDeci
 
 export async function getOpenFlagCountsByDeal(agentId: string): Promise<UwResult<Record<string, number>>> {
   if (isDemoMode()) return demoResult(demoOpenFlagCountsByDeal)
-  const res = await uwSelect<any>('flags', {
+  const res = await uwSelectAll<any>('flags', {
     select: 'deal_id',
     agent_id: `eq.${agentId}`,
     status: 'eq.open',
@@ -973,7 +1012,7 @@ export async function getOpenFlagCountsByDeal(agentId: string): Promise<UwResult
 // Distinct dimensions scored per deal (0..4) for the shadow marker.
 export async function getShadowScoredDimCounts(agentId: string): Promise<UwResult<Record<string, number>>> {
   if (isDemoMode()) return demoResult(demoShadowScoredDimCounts)
-  const res = await uwSelect<any>('shadow_scores', {
+  const res = await uwSelectAll<any>('shadow_scores', {
     select: 'deal_id,dimension',
     agent_id: `eq.${agentId}`,
     limit: '2000',
@@ -1197,7 +1236,7 @@ export interface DealStatementDoc {
 
 export async function getDealStatementDocs(agentId: string, dealId: string): Promise<UwResult<DealStatementDoc[]>> {
   if (isDemoMode()) return demoResult(demoDealStatementDocs(dealId))
-  const fieldsRes = await uwSelect<any>('statement_fields', {
+  const fieldsRes = await uwSelectAll<any>('statement_fields', {
     select:
       'id,document_id,doc_class,field_name,value_text,value_numeric,unit,source_page,source_snippet,confidence,held_reason,status',
     agent_id: `eq.${agentId}`,
@@ -1441,7 +1480,7 @@ export interface RateQuoteBrowserRow {
 }
 
 export async function getRateQuoteBrowser(agentId: string): Promise<UwResult<RateQuoteBrowserRow[]>> {
-  const res = await uwSelect<any>('rate_quotes', {
+  const res = await uwSelectAll<any>('rate_quotes', {
     select:
       'id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,status',
     agent_id: `eq.${agentId}`,
@@ -1514,7 +1553,7 @@ export interface RateQuoteFullRow {
 }
 
 export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQuoteFullRow[]>> {
-  const res = await uwSelect<any>('rate_quotes', {
+  const res = await uwSelectAll<any>('rate_quotes', {
     select:
       'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,status,extracted_by,created_at,reviewed_at,approved_via,held_reason,borrower_requirement,client_commitment,channel_requirement,transaction_types,eligibility_unknown,eligibility_source',
     agent_id: `eq.${agentId}`,
@@ -1628,22 +1667,24 @@ export interface IntelItemRow {
 
 export async function getIntelItems(agentId: string): Promise<UwResult<IntelItemRow[]>> {
   if (isDemoMode()) return demoResult([])
-  const itemsRes = await uwSelect<any>('lender_intel_items', {
+  // Full history, paginated: coverage semantics need each lender's NEWEST
+  // rates-class item, and a failing parser's newest item can be arbitrarily
+  // old — a recent-N window would silently drop exactly the lenders the
+  // coverage chips exist to name.
+  const itemsRes = await uwSelectAll<any>('lender_intel_items', {
     select: 'id,lender_slug_guess,doc_class_guess,item_kind,file_name,message_text,status,received_at',
     agent_id: `eq.${agentId}`,
     order: 'received_at.desc',
-    limit: '300',
   })
   if (!itemsRes.configured || !itemsRes.ok) return itemsRes
   try {
-    const ids = itemsRes.data.map(r => r.id)
+    // Agent-scoped, paginated, joined in memory: an in.(...) list over every
+    // item id would grow the URL without bound as history accumulates.
     const reviewByItem = new Map<string, { decision: string; decidedAt: string; quotesTotal: number }>()
-    if (ids.length > 0) {
-      const reviewsRes = await uwSelect<any>('rate_sheet_reviews', {
+    if (itemsRes.data.length > 0) {
+      const reviewsRes = await uwSelectAll<any>('rate_sheet_reviews', {
         select: 'intel_item_id,decision,decided_at,quotes_total',
         agent_id: `eq.${agentId}`,
-        intel_item_id: `in.(${ids.join(',')})`,
-        limit: '300',
       })
       if (reviewsRes.configured && reviewsRes.ok) {
         for (const rv of reviewsRes.data) {
@@ -1864,7 +1905,7 @@ export async function getDealIdByFileRef(agentId: string, fileRef: string): Prom
   // Demo: resolve any (fictional) file ref to the first demo deal so a
   // search hit opens a demo deal room; no real workbench lookup runs.
   if (isDemoMode()) return demoResult(demoDeals[0]?.id ?? null)
-  const res = await uwSelect<any>('deals', {
+  const res = await uwSelectAll<any>('deals', {
     select: 'id',
     agent_id: `eq.${agentId}`,
     file_ref: `eq.${fileRef}`,
@@ -1879,7 +1920,7 @@ export async function getDealIdByFileRef(agentId: string, fileRef: string): Prom
 export async function getPendingQuoteTypeCounts(
   agentId: string,
 ): Promise<UwResult<Record<string, number>>> {
-  const res = await uwSelect<any>('rate_quotes', {
+  const res = await uwSelectAll<any>('rate_quotes', {
     select: 'rate_type',
     agent_id: `eq.${agentId}`,
     status: 'eq.extracted',
@@ -1897,7 +1938,7 @@ export async function getPendingQuoteTypeCounts(
 
 export async function getRateQuoteStats(agentId: string): Promise<UwResult<RateQuoteStats>> {
   if (isDemoMode()) return demoResult(demoRateQuoteStats)
-  const res = await uwSelect<any>('rate_quotes', {
+  const res = await uwSelectAll<any>('rate_quotes', {
     select: 'status,as_of_date',
     agent_id: `eq.${agentId}`,
     limit: '5000',

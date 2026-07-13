@@ -20,11 +20,19 @@ import {
   type StatementQueueCard,
   type UwResult,
 } from '@/lib/underwriting'
+import { partitionSheetQueue, type ParkedSheet } from '@/lib/sheet-park'
 
 export interface ApprovalsData {
   statements: StatementQueueCard[]
   discrepancies: DiscrepancyFlag[]
+  /** The ACTIONABLE sheet queue: province-excluded lenders' sheets are
+   * parked out (parkedSheets below), so the queue holds only sheets Michael
+   * can genuinely decide. */
   sheets: SheetQueueCard[]
+  /** Sheets from lenders the registry excludes from every serviceable
+   * market: visible on a shelf, never in the queue, auto-released the day
+   * the registry confirms a serviceable province. */
+  parkedSheets: ParkedSheet<SheetQueueCard>[]
   // Extracted promotional offers awaiting approval.
   offers: OfferQueueCard[]
   // Live-file flags: these drive the tab badge and the main queue.
@@ -66,10 +74,12 @@ export async function getApprovalsData(agentId: string): Promise<ApprovalsData> 
   if (offers.error) errors.offers = offers.error
   if (flags.error) errors.flags = flags.error
   if (shadow.error) errors.shadow = shadow.error
+  const sheetSplit = partitionSheetQueue(sheets.data)
   return {
     statements: stmts.data,
     discrepancies: disc.data,
-    sheets: sheets.data,
+    sheets: sheetSplit.actionable,
+    parkedSheets: sheetSplit.parked,
     offers: offers.data,
     flags: flags.data.filter(f => !f.dealTerminal),
     flagsOnClosed: flags.data.filter(f => f.dealTerminal),

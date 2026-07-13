@@ -37,6 +37,7 @@ import {
 import { listCredentials } from '@/lib/compliance'
 import { getFormIntakeFailures, getFormIntakeStatus, getN8nStatus } from '@/lib/status'
 import { getAgentIdByEmail, getAuditEntries, getOfferQueue, getRateSheetQueue } from '@/lib/underwriting'
+import { partitionSheetQueue } from '@/lib/sheet-park'
 import { isDemoMode } from '@/lib/demo'
 
 export const dynamic = 'force-dynamic'
@@ -78,7 +79,9 @@ export async function GET() {
   if (agentId && visibleKeys.has('sheet_review')) {
     try {
       const q = await getRateSheetQueue(agentId)
-      if (q.configured && q.ok) inputs.push(...sheetReviewNotifications(q.data))
+      // Parked sheets (province-excluded lenders) never ding the bell: the
+      // whole point of the park is that they are not actionable work.
+      if (q.configured && q.ok) inputs.push(...sheetReviewNotifications(partitionSheetQueue(q.data).actionable))
     } catch {
       /* degrade */
     }

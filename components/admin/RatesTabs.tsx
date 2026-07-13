@@ -36,11 +36,13 @@ export default function RatesTabs({
   provenance,
   coverage,
   todayYMD,
+  unattributed = [],
 }: {
   quotes: RateQuoteFullRow[]
   provenance: Record<string, SheetProvenance>
   coverage: LenderCoverage
   todayYMD: string
+  unattributed?: { fileName: string | null; receivedAt: string | null }[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -121,7 +123,7 @@ export default function RatesTabs({
       <div className="mt-5">
         {active === 'scenario' && <RatesScenario quotes={quotes} provenance={provenance} />}
         {active === 'lenders' && (
-          <RatesLenders quotes={quotes} coverage={coverage} todayYMD={todayYMD} />
+          <RatesLenders quotes={quotes} coverage={coverage} todayYMD={todayYMD} unattributed={unattributed} />
         )}
         {active === 'promos' && <RatesPromos />}
         {active === 'all' && <AllQuotesTab quotes={quotes} initialLender={sp.get('lender')} />}
