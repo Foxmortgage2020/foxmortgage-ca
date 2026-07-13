@@ -402,6 +402,42 @@ export interface AlternativeComparable {
   crossFamily: boolean
 }
 
+// ─── Term policy (Task 0b) ───────────────────────────────────────────────────
+// No rate renders without its term anywhere: a 12-month rate and a 5-year rate
+// are different products, and a benefit projection must never run past the
+// term of the rate it uses.
+
+/** The term stated beside every comparable rate. */
+export function comparableTermLabel(termMonths: number): string {
+  if (termMonths > 0 && termMonths % 12 === 0) return `${termMonths / 12}-year term`
+  return `${termMonths}-month term`
+}
+
+/** The client's own term length in months when plausible (6 to 120), else the
+ * standard 5-year term — the like-for-like renewal horizon for a switch. */
+export function clientTermMonths(termMonths: number | null): number {
+  if (termMonths != null && termMonths >= 6 && termMonths <= 120) return termMonths
+  return 60
+}
+
+/** A deliberately short-term play: a same-tier rate whose term ends before
+ * the client's comparison horizon (for example a 1-year B term with a
+ * graduation plan at renewal). Same pattern as cross-family and graduation:
+ * labelled, reasoned, logged, and it never drives an automatic act_now —
+ * pricing it as the headline takes Michael's recorded approval. */
+export interface ShortTermStrategy {
+  comparable: Comparable
+  termMonths: number
+  /** The horizon the client actually faces (remaining term for a break; the
+   * like-for-like new term for a switch). */
+  naturalHorizonMonths: number
+  /** True when the short term IS the headline and the projection was
+   * shortened to its term; false when it rides beside a covering headline as
+   * a flagged play for Michael to assess. */
+  applied: boolean
+  note: string
+}
+
 // ─── Lender tiers (paper grade) ──────────────────────────────────────────────
 // A mortgage's tier is its CURRENT lender/program tier from the explicit feed
 // map. Like-for-like by default: a B file prices against B quotes, private
@@ -438,6 +474,8 @@ export interface OverrideInfo {
   type: 'book_quote' | 'desk_rate'
   lender: string
   rate: number
+  /** The overridden rate's term: a rate never renders without its term. */
+  termMonths: number
   reason: string
   sourceNote: string | null
 }
@@ -565,6 +603,30 @@ export function balanceAfter(
   return principal * g - pmt * ((g - 1) / i)
 }
 
+/** Balance remaining after `months` payments of an ARBITRARY amount `pmt`
+ * (closed form, same semi-annual compounding core). The generalization of
+ * balanceAfter the client report's comparison table needs: option 2 keeps the
+ * client's CURRENT payment at the new rate, which is not the scheduled
+ * payment of any amortization. */
+export function balanceForward(principal: number, annualRatePct: number, pmt: number, months: number): number {
+  const i = periodicRateForFrequency(annualRatePct, 'semi-annually', 12)
+  if (i === 0) return principal - pmt * months
+  const g = Math.pow(1 + i, months)
+  return principal * g - pmt * ((g - 1) / i)
+}
+
+/** Months to retire `balance` paying `pmt` a month at `annualRatePct`
+ * (rounded up to whole payments), or null when the payment does not cover
+ * the interest. */
+export function monthsToRetire(balance: number, annualRatePct: number, pmt: number): number | null {
+  const i = periodicRateForFrequency(annualRatePct, 'semi-annually', 12)
+  if (pmt <= 0) return null
+  if (i === 0) return Math.ceil(balance / pmt)
+  const x = 1 - (i * balance) / pmt
+  if (x <= 0) return null
+  return Math.ceil(Math.log(1 / x) / Math.log(1 + i) - 1e-9)
+}
+
 export interface BalanceReconciliation {
   /** Balance the original schedule says the client should hold today. */
   modeledBalance: number
@@ -600,6 +662,36 @@ export function reconcileBalance(
     direction: feedBalance < modeled ? 'ahead' : feedBalance > modeled ? 'grew' : 'even',
     ok: driftPct <= RECONCILIATION_DRIFT_BLOCK_PCT,
   }
+}
+
+/** Option 2 in the client report: keep paying the CURRENT payment at the new
+ * rate, and the mortgage retires sooner. Derived, never re-done in a render
+ * layer. */
+export interface SamePaymentPlan {
+  /** Months to mortgage-free at the current payment on the new rate. */
+  months: number
+  /** Months sooner than the remaining amortization. */
+  monthsSooner: number
+  /** ≈ payments never made: currentPayment x monthsSooner. */
+  paymentsAvoided: number
+}
+
+/** One plan's position at the end of the comparison horizon (the client's
+ * current term end, or the shortened window when a short-term play applies). */
+export interface PlanAtHorizon {
+  payment: number
+  balanceAtHorizon: number
+  interestPaid: number
+}
+
+/** The client report's side-by-side table: Today vs option 1 (new rate,
+ * scheduled payment at the remaining amortization) vs option 2 (new rate,
+ * same current payment), all measured at the SAME horizon. */
+export interface ReportComparison {
+  horizonMonths: number
+  today: PlanAtHorizon
+  option1: PlanAtHorizon
+  option2: PlanAtHorizon | null
 }
 
 export interface FoxAnalysis {
@@ -643,6 +735,17 @@ export interface FoxAnalysis {
   crossFamilyRecommended: boolean
   /** The risk line for an approved cross-family headline. */
   headlineRiskLine: string | null
+  /** A short-term play: either the applied headline (projection shortened to
+   * the quote's term) or a flagged option beside a covering headline. Never
+   * an automatic act_now without Michael's recorded approval. */
+  shortTermStrategy: ShortTermStrategy | null
+  /** True only when Michael explicitly approved pricing the short-term play
+   * as the headline. */
+  shortTermRecommended: boolean
+  /** Option 2 for the client report (same payment at the new rate). */
+  samePaymentPlan: SamePaymentPlan | null
+  /** The client report's side-by-side positions at the horizon end. */
+  comparison: ReportComparison | null
   /** The paper grade of the client's current lending (null = unknown). */
   tier: LenderTier | null
   /** A better-tier opportunity, flagged for Michael's assessment. Rate and
@@ -666,6 +769,9 @@ export interface AnalyzeOptions {
   /** When set, the analysis blocks to 'review' with this reason BEFORE any
    * comparison (unknown tier, or a rate that contradicts the tier map). */
   tierBlockReason?: string | null
+  /** Michael explicitly approved the short-term play: the shortened horizon
+   * may then drive act_now, and the applied state is recorded on the log. */
+  shortTermApproved?: boolean
 }
 
 // Standard amortization assumption where the export's is missing/implausible,
@@ -685,6 +791,20 @@ export function remainingTermMonths(maturityDate: string | null, todayYMD: strin
   const [ty, tm, td] = todayYMD.split('-').map(Number)
   const months = (my - ty) * 12 + (mm - tm) + (md >= td ? 0 : -1)
   return months
+}
+
+/** The COMPARISON HORIZON (Task 0b): the months the benefit projection runs
+ * over, decided by the client's own position, never by whichever quote is
+ * cheapest. A break (refinance) saves over the months LEFT on the current
+ * term (before the client would have renewed anyway); a switch saves over
+ * the like-for-like NEW term (the client's own term length, else 5 years).
+ * The default comparable must COVER this horizon; when none does, the
+ * projection shortens to the chosen quote's own term — a short-term rate is
+ * never projected past its term. */
+export function naturalComparisonHorizon(row: SmmParsedRow, transaction: TransactionKind, todayYMD: string): number {
+  if (transaction === 'switch') return clientTermMonths(row.termMonths)
+  const remaining = remainingTermMonths(row.maturityDate, todayYMD)
+  return remaining != null && remaining > 0 ? remaining : 12
 }
 
 // Compute Fox's analysis. `comparable` is the best gate-approved ELIGIBLE
@@ -719,6 +839,10 @@ export function analyzeOpportunity(
     alternative: null as AlternativeComparable | null,
     crossFamilyRecommended: false,
     headlineRiskLine: null as string | null,
+    shortTermStrategy: null as ShortTermStrategy | null,
+    shortTermRecommended: false,
+    samePaymentPlan: null as SamePaymentPlan | null,
+    comparison: null as ReportComparison | null,
     tier: (opts.tier ?? null) as LenderTier | null,
     graduation: null as GraduationOffer | null,
     graduationRecommended: false,
@@ -851,14 +975,16 @@ export function analyzeOpportunity(
   // is disclosed, never guessed into the number.
   const penalty = penaltyApplies ? penaltyEstimate(balance, rate, row.rateType, methodologyKnown) : null
   const penaltyForMath = penalty?.estimateForMath ?? 0
-  // Horizon: a break saves over the months LEFT on the current term (before the
-  // client would have renewed anyway); a switch saves over the NEW term.
-  const horizon =
-    transaction === 'switch'
-      ? comparable.termMonths || 60
-      : remaining != null && remaining > 0
-        ? remaining
-        : 12
+  // Horizon (Task 0b, term-consistent): the projection window is the client's
+  // own — the months left on the current term for a break, the like-for-like
+  // new term for a switch — CAPPED at the comparable's term. A short-term rate
+  // is never projected past its term; when the cap bites, the analysis is a
+  // deliberately short-term play, flagged below.
+  const naturalHorizon = naturalComparisonHorizon(row, transaction, todayYMD)
+  const comparableTerm = comparable.termMonths > 0 ? comparable.termMonths : naturalHorizon
+  const horizon = Math.min(naturalHorizon, comparableTerm)
+  const shortened = horizon < naturalHorizon
+  const shortApproved = opts.shortTermApproved === true
   const netBenefit = monthlySaving * horizon - penaltyForMath
   const breakEvenMonths = monthlySaving > 0 && penaltyForMath > 0 ? penaltyForMath / monthlySaving : null
 
@@ -866,6 +992,46 @@ export function analyzeOpportunity(
   if (netBenefit > MARGINAL_BAND) bucket = 'act_now'
   else if (netBenefit < -MARGINAL_BAND) bucket = 'stay_put'
   else bucket = 'marginal'
+  // A deliberately short-term play never drives an automatic act_now: without
+  // Michael's recorded approval it is worth watching, not a call.
+  if (shortened && bucket === 'act_now' && !shortApproved) bucket = 'marginal'
+
+  const shortTermStrategy: ShortTermStrategy | null = shortened
+    ? {
+        comparable,
+        termMonths: comparableTerm,
+        naturalHorizonMonths: naturalHorizon,
+        applied: true,
+        note: shortApproved
+          ? `Michael approved the ${comparableTermLabel(comparableTerm)} play: the projection runs to that term's end, and the next move is decided at renewal.`
+          : `The best same-tier option is a ${comparableTermLabel(comparableTerm)}, shorter than the ${naturalHorizon}-month comparison window. The projection stops at the term's end. A deliberate short-term play is Michael's call, never an automatic act now.`,
+      }
+    : null
+
+  // Option 2 (same payment at the new rate) + the side-by-side positions at
+  // the horizon end — the client report's figures, derived here so the render
+  // layer never does arithmetic and every figure lands on the log.
+  let samePaymentPlan: SamePaymentPlan | null = null
+  if (monthlySaving > 0) {
+    const months = monthsToRetire(balance, comparable.rate, currentPayment)
+    if (months != null && months < remainingAmort) {
+      samePaymentPlan = {
+        months,
+        monthsSooner: remainingAmort - months,
+        paymentsAvoided: currentPayment * (remainingAmort - months),
+      }
+    }
+  }
+  const position = (ratePct: number, pmt: number): PlanAtHorizon => {
+    const end = Math.max(0, balanceForward(balance, ratePct, pmt, horizon))
+    return { payment: pmt, balanceAtHorizon: end, interestPaid: pmt * horizon - (balance - end) }
+  }
+  const comparison: ReportComparison = {
+    horizonMonths: horizon,
+    today: position(rate, currentPayment),
+    option1: position(comparable.rate, newPayment),
+    option2: samePaymentPlan ? position(comparable.rate, currentPayment) : null,
+  }
 
   return {
     currentPayment,
@@ -882,6 +1048,10 @@ export function analyzeOpportunity(
     ...base,
     ...schedule,
     bucket,
+    shortTermStrategy,
+    shortTermRecommended: shortened && shortApproved,
+    samePaymentPlan,
+    comparison,
   }
 }
 

@@ -246,3 +246,84 @@ describe('upload delta (month over month)', () => {
     expect(d.resolved).toContain('HH12') // savings shrank
   })
 })
+
+// ─── Task 0b: term labels, the horizon cap, and the report derivations ───────
+import { balanceForward, comparableTermLabel, monthsToRetire, naturalComparisonHorizon, analyzeOpportunity as analyze2 } from '@/lib/smm'
+
+describe('term policy primitives (Task 0b)', () => {
+  it('states the term beside every rate in years or months', () => {
+    expect(comparableTermLabel(60)).toBe('5-year term')
+    expect(comparableTermLabel(12)).toBe('1-year term')
+    expect(comparableTermLabel(18)).toBe('18-month term')
+  })
+
+  it('the comparison horizon is the months left for a break, the like-for-like term for a switch', () => {
+    const refi = parseSmmRow({ 'Mortgage maturity date': '2029-07-01', 'Mortgage term (months)': '60' } as Record<string, string>)
+    expect(naturalComparisonHorizon(refi, 'refinance', '2026-07-13')).toBe(35)
+    expect(naturalComparisonHorizon(refi, 'switch', '2026-07-13')).toBe(60)
+    // An implausible or missing client term falls back to the 5-year standard.
+    const noTerm = parseSmmRow({ 'Mortgage maturity date': '2026-09-01' } as Record<string, string>)
+    expect(naturalComparisonHorizon(noTerm, 'switch', '2026-07-13')).toBe(60)
+  })
+
+  it('balanceForward generalizes the schedule (matches balanceAfter at the scheduled payment)', () => {
+    const pmt = 3051.96 // $500k at 5.50% over 300 months
+    expect(balanceForward(500_000, 5.5, pmt, 24)).toBeCloseTo(balanceAfter(500_000, 5.5, 300, 24), 0)
+  })
+
+  it('monthsToRetire inverts the payment formula and refuses a payment under the interest', () => {
+    // Paying the old 5.50% payment on the balance at 4.59% retires it early.
+    const months = monthsToRetire(480_116.59, 4.59, 3051.96)!
+    expect(months).toBeGreaterThan(200)
+    expect(months).toBeLessThan(276)
+    // At that many payments the balance is gone (within one payment).
+    expect(balanceForward(480_116.59, 4.59, 3051.96, months)).toBeLessThan(3051.96)
+    expect(monthsToRetire(480_116.59, 5.5, 100)).toBeNull()
+  })
+})
+
+describe('the horizon never outruns the comparable term (Task 0b)', () => {
+  const shortCmp: Comparable = { rate: 4.19, lender: 'MCAP', asOf: '2026-07-02', termMonths: 12, kind: 'fixed' }
+  function switchRow(): SmmParsedRow {
+    return parseSmmRow({
+      'Household ID': 'H', 'File reference': 'F', 'First name': 'A', 'Last name': 'B', 'Client type': 'CLIENT',
+      Email: 'a@b.com', Phone: '1', 'Property address': '1 St', 'Property type': 'detached', 'Property occupancy': 'owner_occupied',
+      'Estimated home value': '$700,000.00', 'Mortgage amount': '$500,000.00', 'Mortgage outstanding balance': '$500,000.00',
+      'Mortgage rate': '5.34%', 'Mortgage rate type': 'fixed', 'Mortgage closing date': '2026-06-05', 'Mortgage start date': '2026-06-05',
+      'Mortgage maturity date': '2026-09-05', 'Mortgage amortization (months)': '300', 'Mortgage term (months)': '60',
+      'Mortgage lender': 'First National', 'Mortgage insurance type': 'Uninsurable', 'Savings potential': '$500.00',
+      'Payment relief (monthly)': '$120.00', 'Accessible equity': '$200,000.00', 'Purchasing power': '$150,000.00',
+    })
+  }
+
+  it('a 12-month comparable caps a 60-month switch horizon at 12, and never auto-act_now', () => {
+    const a = analyze2(switchRow(), shortCmp, true, '2026-07-12')
+    expect(a.transaction).toBe('switch')
+    expect(a.horizonMonths).toBe(12)
+    expect(a.shortTermStrategy?.applied).toBe(true)
+    // The saving over 12 months clears the band, but the play needs approval.
+    expect(a.netBenefit ?? 0).toBeGreaterThan(1500)
+    expect(a.bucket).toBe('marginal')
+  })
+
+  it('approval permits act_now on the shortened horizon', () => {
+    const a = analyze2(switchRow(), shortCmp, true, '2026-07-12', { shortTermApproved: true })
+    expect(a.horizonMonths).toBe(12)
+    expect(a.bucket).toBe('act_now')
+    expect(a.shortTermRecommended).toBe(true)
+  })
+
+  it('a stated analysis derives the report figures: same-payment plan and positions at the horizon', () => {
+    const cmp60: Comparable = { rate: 4.19, lender: 'MCAP', asOf: '2026-07-09', termMonths: 60, kind: 'fixed' }
+    const a = analyze2(switchRow(), cmp60, true, '2026-07-12')
+    expect(a.samePaymentPlan).not.toBeNull()
+    expect(a.samePaymentPlan!.monthsSooner).toBeGreaterThan(0)
+    expect(a.samePaymentPlan!.paymentsAvoided).toBeCloseTo(a.currentPayment! * a.samePaymentPlan!.monthsSooner, 2)
+    expect(a.comparison).not.toBeNull()
+    expect(a.comparison!.horizonMonths).toBe(a.horizonMonths)
+    // Option 2 pays the same as today and retires more principal by the horizon.
+    expect(a.comparison!.option2!.payment).toBeCloseTo(a.currentPayment!, 2)
+    expect(a.comparison!.option2!.balanceAtHorizon).toBeLessThan(a.comparison!.today.balanceAtHorizon)
+    expect(a.comparison!.option1.interestPaid).toBeLessThan(a.comparison!.today.interestPaid)
+  })
+})

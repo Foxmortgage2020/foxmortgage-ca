@@ -433,3 +433,142 @@ describe('lender tiers (A/B/private, like-for-like by default)', () => {
     expect(analysis.graduation).toBeNull() // A paper has nothing to graduate to
   })
 })
+
+// ─── Task 0a: the graduation comparable prices CONVENTIONAL only ─────────────
+// A graduation is a NEW application on better paper: the current mortgage's
+// insurance class never travels with it, so an insurable or insured quote can
+// never serve as the graduation comparable — whatever the transaction window.
+describe('graduation prices conventional only (Task 0a)', () => {
+  // The leak Part 1 shipped: a near-maturity (switch) B file ports its feed
+  // insurance class, and the graduation target inherited it — quoting the
+  // insurable 4.29 an uninsurable move to new paper can never have.
+  const GRAD_BOOK: BookQuote[] = [
+    { rate: 4.29, rateType: 'fixed', termMonths: 60, productClass: 'insurable', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'scotia', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    { rate: 4.59, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-06-30', status: 'approved', lenderSlug: 'rfa', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    { rate: 6.19, rateType: 'fixed', termMonths: 60, productClass: 'b_side', asOfDate: '2026-07-02', status: 'approved', lenderSlug: 'first-national-excalibur', primeVariance: null, eligibilitySource: 'variant:(none)' },
+  ]
+
+  it('a switch-basis B file graduates on the conventional 4.59, never the insurable 4.29', () => {
+    const { analysis, transaction } = analyzeMortgage(
+      seasoned({
+        'Mortgage lender': 'First National - Excalibur',
+        'Mortgage rate': '6.49%',
+        'Mortgage outstanding balance': '$482,694.89',
+        'Mortgage maturity date': '2026-09-15', // inside the switch window
+        'Mortgage insurance type': 'Insurable', // the ported class that leaked
+      }),
+      GRAD_BOOK,
+      ASOF,
+    )
+    expect(transaction).toBe('switch')
+    expect(analysis.comparable?.rate).toBe(6.19) // primary stays same-tier b_side
+    expect(analysis.graduation?.toTier).toBe('a')
+    expect(analysis.graduation?.comparable.rate).toBe(4.59)
+    expect(analysis.graduation?.comparable.rate).not.toBe(4.29)
+  })
+
+  it('a refinance-basis B file with only insurable and insured A quotes gets NO graduation flag', () => {
+    const noConventional = GRAD_BOOK.filter(q => q.productClass !== 'conventional').concat([
+      { rate: 3.99, rateType: 'fixed', termMonths: 60, productClass: 'insured', asOfDate: '2026-07-09', status: 'approved', lenderSlug: 'mcap', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    ])
+    const { analysis, transaction } = analyzeMortgage(
+      seasoned({
+        'Mortgage lender': 'First National - Excalibur',
+        'Mortgage rate': '6.49%',
+        'Mortgage outstanding balance': '$482,694.89',
+      }),
+      noConventional,
+      ASOF,
+    )
+    expect(transaction).toBe('refinance')
+    // No insurable or insured quote can ever be the graduation comparable.
+    expect(analysis.graduation).toBeNull()
+  })
+})
+
+// ─── Task 0b: the comparable's term covers the horizon, or the projection ────
+// shortens to the term. A deliberately short-term play is a flagged strategy
+// requiring Michael's approval — labelled, reasoned, logged — and it never
+// drives an automatic act_now.
+describe('term-consistent comparable and horizon (Task 0b)', () => {
+  // Seasoned A refinance: 35 months left on the term (2029-07-01 from
+  // 2026-07-13), so the comparison horizon is 35 months.
+  const TERM_BOOK: BookQuote[] = [
+    { rate: 4.19, rateType: 'fixed', termMonths: 12, productClass: 'conventional', asOfDate: '2026-07-02', status: 'approved', lenderSlug: 'mcap', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    { rate: 4.8, rateType: 'fixed', termMonths: 36, productClass: 'conventional', asOfDate: '2026-06-30', status: 'approved', lenderSlug: 'rfa', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    { rate: 5.04, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-06-30', status: 'approved', lenderSlug: 'merix', primeVariance: null, eligibilitySource: 'variant:(none)' },
+  ]
+
+  it('the default comparable is the best quote whose term COVERS the horizon, never the cheap short rate', () => {
+    const { analysis } = analyzeMortgage(seasoned(), TERM_BOOK, ASOF)
+    // 36 months covers the 35-month horizon and beats the 5-year 5.04; the
+    // 1-year 4.19 must never headline a 35-month projection.
+    expect(analysis.comparable?.rate).toBe(4.8)
+    expect(analysis.comparable?.termMonths).toBe(36)
+    expect(analysis.horizonMonths).toBe(35)
+    // The cheaper 1-year rides as the flagged short-term play, unapplied.
+    expect(analysis.shortTermStrategy).not.toBeNull()
+    expect(analysis.shortTermStrategy?.applied).toBe(false)
+    expect(analysis.shortTermStrategy?.termMonths).toBe(12)
+    expect(analysis.shortTermStrategy?.comparable.rate).toBe(4.19)
+    expect(analysis.shortTermRecommended).toBe(false)
+  })
+
+  it('with ONLY short-term quotes the projection never runs past the term; the flag appears instead', () => {
+    const shortOnly = TERM_BOOK.filter(q => q.termMonths === 12)
+    // Near maturity (switch): no penalty, so the 12-month saving would clear
+    // the act_now band on its own math.
+    const { analysis } = analyzeMortgage(
+      seasoned({ 'Mortgage maturity date': '2026-09-15', 'Mortgage insurance type': 'Uninsurable' }),
+      shortOnly,
+      ASOF,
+    )
+    expect(analysis.comparable?.termMonths).toBe(12)
+    // The client's like-for-like horizon is their own 60-month term; the
+    // projection stops at the quote's 12-month term end.
+    expect(analysis.horizonMonths).toBe(12)
+    expect(analysis.shortTermStrategy?.applied).toBe(true)
+    // The math clears the band, but a short-term play is never an automatic
+    // act_now: it lands in marginal until Michael approves it.
+    expect(analysis.netBenefit ?? 0).toBeGreaterThan(1500)
+    expect(analysis.bucket).toBe('marginal')
+  })
+
+  it("Michael's approval permits act_now on the shortened horizon and records it", () => {
+    const shortOnly = TERM_BOOK.filter(q => q.termMonths === 12)
+    const { analysis } = analyzeMortgage(
+      seasoned({ 'Mortgage maturity date': '2026-09-15', 'Mortgage insurance type': 'Uninsurable' }),
+      shortOnly,
+      ASOF,
+      { shortTermApproved: true },
+    )
+    expect(analysis.horizonMonths).toBe(12)
+    expect(analysis.bucket).toBe('act_now')
+    expect(analysis.shortTermRecommended).toBe(true)
+    expect(analysis.shortTermStrategy?.note).toContain('Michael approved')
+  })
+
+  it("Michael's approval flips a covering headline to the flagged short play", () => {
+    const { analysis } = analyzeMortgage(seasoned(), TERM_BOOK, ASOF, { shortTermApproved: true })
+    expect(analysis.comparable?.rate).toBe(4.19)
+    expect(analysis.comparable?.termMonths).toBe(12)
+    expect(analysis.horizonMonths).toBe(12)
+    expect(analysis.shortTermRecommended).toBe(true)
+    // The steady covering option stays visible beside it, same family.
+    expect(analysis.alternative?.comparable.rate).toBe(4.8)
+    expect(analysis.alternative?.crossFamily).toBe(false)
+  })
+
+  it('the seasoned proving fixture is unchanged when the covering book is the 5-year 4.59', () => {
+    // Guard: the term policy must not move the anchor.
+    const anchorBook: BookQuote[] = [
+      { rate: 4.59, rateType: 'fixed', termMonths: 60, productClass: 'conventional', asOfDate: '2026-06-30', status: 'approved', lenderSlug: 'rfa', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    ]
+    const { analysis } = analyzeMortgage(seasoned(), anchorBook, ASOF)
+    expect(analysis.comparable?.rate).toBe(4.59)
+    expect(analysis.horizonMonths).toBe(35)
+    expect(analysis.currentPayment).toBeCloseTo(3051.96, 2)
+    expect(analysis.monthlySaving).toBeCloseTo(244.12, 2)
+    expect(analysis.shortTermStrategy).toBeNull()
+  })
+})

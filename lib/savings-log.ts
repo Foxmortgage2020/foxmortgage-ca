@@ -24,8 +24,14 @@ import { PRIME_MIRROR } from '@/config/prime'
  *      seasoned mortgage).
  *  2 — original-schedule stated payment, remaining-amortization comparison,
  *      the balance reconciliation gate, and the like-for-like rate family
- *      with a labelled cross-family alternative. */
-export const SAVINGS_CALC_VERSION = 2
+ *      with a labelled cross-family alternative.
+ *  3 — term-consistent comparable and horizon (the quote's term must cover
+ *      the projection window or the window shortens to the term; a
+ *      short-term play is flagged and approval-gated, never an automatic
+ *      act_now), graduation prices conventional only, and the client
+ *      report's derived figures (same-payment plan, positions at the
+ *      horizon end). */
+export const SAVINGS_CALC_VERSION = 3
 
 /** Every input that affects a printed figure, replayable. Figures are money
  * and rates only; no client name enters the log inputs (the household id is
@@ -40,6 +46,8 @@ export interface SavingsLogInputs {
   startDate: string | null
   maturityDate: string | null
   amortizationMonths: number | null
+  /** The client's own term in months (drives the switch comparison horizon). */
+  termMonths: number | null
   homeValue: number | null
   insuranceType: string | null
   productClass: string | null
@@ -52,6 +60,9 @@ export interface SavingsLogInputs {
   /** Applied graduation state (presentation flag; the comparable itself is
    * the graduated quote when true). */
   graduationApplied: boolean
+  /** Applied short-term-play state: Michael approved the shortened
+   * projection, so replay must allow act_now on the shortened horizon. */
+  shortTermApplied: boolean
   /** Michael's override, when one drove the comparable (the comparable field
    * IS the overridden quote; this records the decision metadata). */
   override: { type: 'book_quote' | 'desk_rate'; reason: string; sourceNote: string | null } | null
@@ -104,6 +115,7 @@ export function savingsLogInputs(
     startDate: row.startDate,
     maturityDate: row.maturityDate,
     amortizationMonths: row.amortizationMonths,
+    termMonths: row.termMonths,
     homeValue: row.homeValue,
     insuranceType: row.insuranceType,
     productClass: analysis.productClass,
@@ -112,6 +124,7 @@ export function savingsLogInputs(
     tier: analysis.tier,
     tierBlockReason: tierBlocked,
     graduationApplied: analysis.graduationRecommended,
+    shortTermApplied: analysis.shortTermRecommended,
     override: analysis.override
       ? { type: analysis.override.type, reason: analysis.override.reason, sourceNote: analysis.override.sourceNote }
       : null,
@@ -130,6 +143,13 @@ export function savingsLogFigures(analysis: FoxAnalysis): Record<string, unknown
     monthlySaving: round2(analysis.monthlySaving),
     netBenefit: round2(analysis.netBenefit),
     breakEvenMonths: round2(analysis.breakEvenMonths),
+    // The penalty size at which a fixed break stops paying — printed on the
+    // client report's penalty section and page-3 conditionals.
+    breakEvenPenalty: round2(
+      analysis.monthlySaving != null && analysis.monthlySaving > 0 && analysis.horizonMonths != null
+        ? analysis.monthlySaving * analysis.horizonMonths
+        : null,
+    ),
     horizonMonths: analysis.horizonMonths,
     monthsElapsed: analysis.monthsElapsed,
     remainingAmortizationMonths: analysis.remainingAmortizationMonths,
@@ -140,6 +160,18 @@ export function savingsLogFigures(analysis: FoxAnalysis): Record<string, unknown
     alternativeMonthlySaving: round2(analysis.alternative?.monthlySaving ?? null),
     tier: analysis.tier,
     graduationRecommended: analysis.graduationRecommended,
+    shortTermRecommended: analysis.shortTermRecommended,
+    // The client report's derived figures: option 2 (same payment at the new
+    // rate) and the side-by-side positions at the horizon end.
+    samePaymentMonths: analysis.samePaymentPlan?.months ?? null,
+    samePaymentMonthsSooner: analysis.samePaymentPlan?.monthsSooner ?? null,
+    samePaymentPaymentsAvoided: round2(analysis.samePaymentPlan?.paymentsAvoided ?? null),
+    todayBalanceAtHorizon: round2(analysis.comparison?.today.balanceAtHorizon ?? null),
+    todayInterestPaid: round2(analysis.comparison?.today.interestPaid ?? null),
+    option1BalanceAtHorizon: round2(analysis.comparison?.option1.balanceAtHorizon ?? null),
+    option1InterestPaid: round2(analysis.comparison?.option1.interestPaid ?? null),
+    option2BalanceAtHorizon: round2(analysis.comparison?.option2?.balanceAtHorizon ?? null),
+    option2InterestPaid: round2(analysis.comparison?.option2?.interestPaid ?? null),
     overrideType: analysis.override?.type ?? null,
   }
 }
@@ -173,6 +205,10 @@ export function buildSavingsLogEntry(args: {
   if (args.analysis.graduation && !args.analysis.graduationRecommended) {
     const c = args.analysis.graduation.comparable
     quotes.push({ role: 'graduation_flag', lenderSlug: c.lenderSlug ?? null, lender: c.lender, rate: c.rate, rateType: c.rateType ?? c.kind, termMonths: c.termMonths, sheetDate: c.asOf, variance: c.variance ?? null, primeUsed: c.primeUsed ?? null })
+  }
+  if (args.analysis.shortTermStrategy && !args.analysis.shortTermStrategy.applied) {
+    const c = args.analysis.shortTermStrategy.comparable
+    quotes.push({ role: 'short_term_flag', lenderSlug: c.lenderSlug ?? null, lender: c.lender, rate: c.rate, rateType: c.rateType ?? c.kind, termMonths: c.termMonths, sheetDate: c.asOf, variance: c.variance ?? null, primeUsed: c.primeUsed ?? null })
   }
   return {
     household_id: args.row.householdId,
@@ -216,7 +252,7 @@ export function replaySavingsAnalysis(inputs: SavingsLogInputs): Record<string, 
     startDate: inputs.startDate,
     maturityDate: inputs.maturityDate,
     amortizationMonths: inputs.amortizationMonths,
-    termMonths: null,
+    termMonths: inputs.termMonths,
     lenderRaw: '',
     lender: { display: '', slug: null, inBook: false, mapped: false, tier: inputs.tier },
     insuranceType: inputs.insuranceType,
@@ -234,6 +270,7 @@ export function replaySavingsAnalysis(inputs: SavingsLogInputs): Record<string, 
     ltv,
     tier: inputs.tier,
     tierBlockReason: inputs.tierBlockReason,
+    shortTermApproved: inputs.shortTermApplied,
   })
   // Recompute the alternative's figures from its quote at the replayed
   // remaining amortization — a real recomputation, never an echo of stored

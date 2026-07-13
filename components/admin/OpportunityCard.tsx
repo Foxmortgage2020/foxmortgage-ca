@@ -8,7 +8,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import type { FoxAnalysis } from '@/lib/smm'
+import { comparableTermLabel, type FoxAnalysis } from '@/lib/smm'
 import OverridePanel from '@/components/admin/OverridePanel'
 
 const money = (n: number | null | undefined) => (n == null ? 'n/a' : '$' + Math.round(n).toLocaleString('en-CA'))
@@ -70,6 +70,7 @@ export default function OpportunityCard({
   const [armed, setArmed] = useState<string | null>(null)
   const [altArmed, setAltArmed] = useState(false)
   const [gradArmed, setGradArmed] = useState(false)
+  const [stpArmed, setStpArmed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -136,7 +137,7 @@ export default function OpportunityCard({
           {a.override && (
             <p className="mb-1 text-[10px] font-body text-navy bg-amber-50 border border-amber-300 rounded px-2 py-1">
               <span className="font-semibold uppercase tracking-wide">Override active ({a.override.type === 'desk_rate' ? "Michael's desk rate" : "Michael's pick"})</span>{' '}
-              {a.override.rate}% {a.override.lender}
+              {a.override.rate}% ({comparableTermLabel(a.override.termMonths)}) {a.override.lender}
               {a.override.sourceNote ? ` · ${a.override.sourceNote}` : ''} · reason: {a.override.reason}
             </p>
           )}
@@ -146,7 +147,7 @@ export default function OpportunityCard({
               {a.graduation && (
                 <p className="text-[10px] font-body text-navy bg-lime/10 border border-lime/40 rounded px-2 py-1">
                   <span className="font-semibold uppercase tracking-wide">Graduation flag ({a.graduation.toTier.toUpperCase()} tier)</span>{' '}
-                  {a.graduation.comparable.rate}% {a.graduation.comparable.lender}, as of {shortDate(a.graduation.comparable.asOf)}. {a.graduation.note}
+                  {a.graduation.comparable.rate}% ({comparableTermLabel(a.graduation.comparable.termMonths)}) {a.graduation.comparable.lender}, as of {shortDate(a.graduation.comparable.asOf)}. {a.graduation.note}
                 </p>
               )}
             </div>
@@ -158,7 +159,7 @@ export default function OpportunityCard({
                 {a.comparable.kind === 'floating' && a.comparable.primeUsed != null && (
                   <span className="text-gray-400">(prime {a.comparable.primeUsed}% {a.comparable.variance != null ? (a.comparable.variance < 0 ? a.comparable.variance : `+${a.comparable.variance}`) : ''}) </span>
                 )}
-                <span className="text-gray-400">{a.comparable.lender}, {a.productClass}, as of {shortDate(a.comparable.asOf)}</span>
+                <span className="text-gray-400">({comparableTermLabel(a.comparable.termMonths)}) {a.comparable.lender}, {a.productClass}, as of {shortDate(a.comparable.asOf)}</span>
               </p>
               <p className="text-gray-600">
                 Payment {money2(a.currentPayment)} → {money2(a.newPayment)}
@@ -180,7 +181,20 @@ export default function OpportunityCard({
               {a.graduation && !a.graduationRecommended && (
                 <p className="mt-1 text-[10px] font-body text-navy bg-lime/10 border border-lime/40 rounded px-2 py-1">
                   <span className="font-semibold uppercase tracking-wide">Graduation flag ({a.graduation.toTier.toUpperCase()} tier)</span>{' '}
-                  {a.graduation.comparable.rate}% {a.graduation.comparable.lender}, as of {shortDate(a.graduation.comparable.asOf)}. {a.graduation.note}
+                  {a.graduation.comparable.rate}% ({comparableTermLabel(a.graduation.comparable.termMonths)}) {a.graduation.comparable.lender}, as of {shortDate(a.graduation.comparable.asOf)}. {a.graduation.note}
+                </p>
+              )}
+              {a.shortTermStrategy && (
+                <p className="mt-1 text-[10px] font-body text-navy bg-sky-50 border border-sky-300 rounded px-2 py-1">
+                  <span className="font-semibold uppercase tracking-wide">
+                    {a.shortTermStrategy.applied
+                      ? a.shortTermRecommended
+                        ? 'Short-term play (Michael approved)'
+                        : 'Short-term play (projection shortened)'
+                      : 'Short-term play available'}
+                  </span>{' '}
+                  {a.shortTermStrategy.comparable.rate}% ({comparableTermLabel(a.shortTermStrategy.termMonths)}){' '}
+                  {a.shortTermStrategy.comparable.lender}, as of {shortDate(a.shortTermStrategy.comparable.asOf)}. {a.shortTermStrategy.note}
                 </p>
               )}
               {a.alternative && (
@@ -198,7 +212,7 @@ export default function OpportunityCard({
                         ){' '}
                       </span>
                     )}
-                    <span className="text-gray-400">{a.alternative.comparable.lender}, as of {shortDate(a.alternative.comparable.asOf)}</span>
+                    <span className="text-gray-400">({comparableTermLabel(a.alternative.comparable.termMonths)}) {a.alternative.comparable.lender}, as of {shortDate(a.alternative.comparable.asOf)}</span>
                     {' '}payment {money2(a.alternative.newPayment)}
                     {a.alternative.monthlySaving > 0 ? ` (${money2(a.alternative.monthlySaving)}/mo less)` : ''}
                   </p>
@@ -261,6 +275,35 @@ export default function OpportunityCard({
               {altArmed
                 ? `Confirm: recommend the ${a.alternative.comparable.rateType ?? 'other'} option?`
                 : `Report with the ${a.alternative.comparable.rateType ?? 'other'} option`}
+            </button>
+          </form>
+        )}
+        {canManage && a.shortTermStrategy && !a.shortTermRecommended && (
+          // Two-tap confirmed action, POST-only: a deliberately short-term
+          // play on a client document is Michael's call. Approving it
+          // shortens the projection to the term and is recorded on the
+          // savings-analysis log with the applied state.
+          <form
+            method="POST"
+            action={`/api/portal/admin/opportunities/${encodeURIComponent(householdId)}/pdf`}
+            onSubmit={e => {
+              if (!stpArmed) {
+                e.preventDefault()
+                setStpArmed(true)
+                setTimeout(() => setStpArmed(false), 4000)
+              }
+            }}
+            className="inline"
+          >
+            <input type="hidden" name="upload" value={uploadId} />
+            <input type="hidden" name="stp" value="approve" />
+            <button
+              type="submit"
+              className={`text-xs font-semibold rounded-lg px-3 py-1.5 border ${stpArmed ? 'bg-navy text-white border-navy' : 'text-navy border-sky-300 hover:border-sky-500'}`}
+            >
+              {stpArmed
+                ? `Confirm: price the ${comparableTermLabel(a.shortTermStrategy.termMonths)} play?`
+                : `Report on the ${comparableTermLabel(a.shortTermStrategy.termMonths)} play`}
             </button>
           </form>
         )}

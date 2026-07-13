@@ -497,6 +497,10 @@ export function bestFixedComparable(
 // prime 4.45); prime_variance is display, never sort order. Class is HARD,
 // never assumed: a refinance compares only against `productClass` quotes; if
 // none exist the comparable is null (honest), never a wrong-class rate.
+// TERM policy (Task 0b): `coverMonths` is the comparison horizon; the default
+// comparable is the best quote whose term COVERS it (a 12-month rate must
+// never headline a 36-month projection). When nothing covers, the longest
+// available term leads and the caller shortens the projection to its term.
 export function bestEligibleComparable(
   quotes: BookQuote[],
   productClass: string,
@@ -505,7 +509,7 @@ export function bestEligibleComparable(
   primeFor: (slug: string) => number,
   isEligible: (q: BookQuote, transaction: TransactionKind) => boolean,
   rateFamilies: readonly string[],
-  preferredTermMonths = 60,
+  coverMonths = 60,
 ): Comparable | null {
   const ranked = eligibleComparablesRanked(
     quotes,
@@ -515,14 +519,16 @@ export function bestEligibleComparable(
     primeFor,
     isEligible,
     rateFamilies,
-    preferredTermMonths,
+    coverMonths,
   )
   return ranked[0] ?? null
 }
 
-/** Every eligible comparable, priced and ranked (preferred-term rows first,
- * then the rest, each group by effective rate ascending). bestEligible-
- * Comparable is [0]; the override picker shows the head of this list. */
+/** Every eligible comparable, priced and ranked: quotes whose term covers
+ * `coverMonths` first (by effective rate ascending), then the shorter terms
+ * (longest first, then by effective rate — the fallback order when nothing
+ * covers is "the longest available"). bestEligibleComparable is [0]; the
+ * override picker shows the head of this list. */
 export function eligibleComparablesRanked(
   quotes: BookQuote[],
   productClass: string,
@@ -531,7 +537,7 @@ export function eligibleComparablesRanked(
   primeFor: (slug: string) => number,
   isEligible: (q: BookQuote, transaction: TransactionKind) => boolean,
   rateFamilies: readonly string[],
-  preferredTermMonths = 60,
+  coverMonths = 60,
 ): Comparable[] {
   const priced = quotes
     .filter(
@@ -578,7 +584,9 @@ export function eligibleComparablesRanked(
     primeUsed: x.primeUsed,
     rateType: x.q.rateType,
   })
-  const preferred = priced.filter(x => x.q.termMonths === preferredTermMonths).sort((a, b) => a.eff - b.eff)
-  const rest = priced.filter(x => x.q.termMonths !== preferredTermMonths).sort((a, b) => a.eff - b.eff)
-  return [...preferred, ...rest].map(toComparable)
+  const covering = priced.filter(x => x.q.termMonths >= coverMonths).sort((a, b) => a.eff - b.eff)
+  const shorter = priced
+    .filter(x => x.q.termMonths < coverMonths)
+    .sort((a, b) => b.q.termMonths - a.q.termMonths || a.eff - b.eff)
+  return [...covering, ...shorter].map(toComparable)
 }

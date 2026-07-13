@@ -241,3 +241,47 @@ describe('daysToMaturity', () => {
     expect(daysToMaturity('2026-07-11', TODAY)).toBe(-1)
   })
 })
+
+// ─── Task 0c: the renewal pool is funded-stage deals only, no child records ──
+// The lapsed alarm was sweeping in property rows as if they were mortgages.
+// Pool membership is a pure rule: funded stage (both legacy spellings) AND
+// not an Additional Properties child record — whatever stage a property row
+// was left in (7 sit mis-staged in Options today, and two children of the
+// lost deal BRXM-F021892 carry amounts and past maturity dates).
+import { isAdditionalPropertyRecord, isRenewalPoolDeal } from '@/config/pipeline'
+
+describe('renewal pool membership (Task 0c)', () => {
+  it('admits funded-stage deals under both legacy stage names', () => {
+    expect(isRenewalPoolDeal('Mortgage Funded', 'BRXM-F024213')).toBe(true)
+    expect(isRenewalPoolDeal('Funded', 'BRXM-F060001')).toBe(true)
+  })
+
+  it('excludes every non-funded stage, children of a lost deal included', () => {
+    expect(isRenewalPoolDeal('Additional Properties', '23 Grey Oak drive - BRXM-F020737')).toBe(false)
+    expect(isRenewalPoolDeal('Options', 'Joseph Jackett - Additional Property')).toBe(false)
+    expect(isRenewalPoolDeal('Mortgage Lost', 'BRXM-F021892')).toBe(false)
+    expect(isRenewalPoolDeal('Closed', 'IFMS-F028652')).toBe(false)
+  })
+
+  it('excludes an Additional Properties child even when it sits in a funded stage', () => {
+    // The acceptance fixture: a property row carrying an amount and a past
+    // maturity, mis-staged funded, never enters the pool.
+    expect(isRenewalPoolDeal('Mortgage Funded', 'Shawn Hutten - Additional Property')).toBe(false)
+    expect(isRenewalPoolDeal('Funded', '1814 5 Street South - BRXM-F021892 - second Mortgage')).toBe(false)
+    expect(isRenewalPoolDeal('Mortgage Funded', '1021 Concession 6 road W - BRXM-F020729')).toBe(false)
+  })
+
+  it('recognizes every live child-name convention and no bare file reference', () => {
+    // Children (live vocabulary 2026-07-13):
+    expect(isAdditionalPropertyRecord('Joseph Jackett - Additional Property')).toBe(true)
+    expect(isAdditionalPropertyRecord('340 Cannon street E - BRXM-F021892 - second Mortgage')).toBe(true)
+    expect(isAdditionalPropertyRecord('220 Geddes street - BRXM-F021821 - first Mortgage')).toBe(true)
+    expect(isAdditionalPropertyRecord('806-1307 Atkinson street - BRXM-F020724')).toBe(true)
+    expect(isAdditionalPropertyRecord('18065 Thorndale road - BRXM-F024629')).toBe(true)
+    // Real deals are the bare reference, whatever the prefix or spacing:
+    expect(isAdditionalPropertyRecord('BRXM-F024213')).toBe(false)
+    expect(isAdditionalPropertyRecord('IFMS-F011671')).toBe(false)
+    expect(isAdditionalPropertyRecord('IFMS - 109501')).toBe(false)
+    expect(isAdditionalPropertyRecord('IFMS-109548')).toBe(false)
+  })
+})

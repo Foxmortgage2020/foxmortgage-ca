@@ -136,3 +136,31 @@ export function isSummaryStage(stage: string): boolean {
 export function isFundedStage(stage: string): boolean {
   return (FUNDED_STAGES as readonly string[]).includes(stage)
 }
+
+// ─── Additional Properties CHILD records (property rows, never mortgages) ────
+// The org attaches property-tracking rows to files under two NAME conventions
+// (live vocabulary, 2026-07-13): "<Contact> - Additional Property" and
+// "<address> - BRXM-Fxxxxx[ - first/second Mortgage]". Most sit in the
+// Additional Properties stage (caught by isSummaryStage), but the class is
+// one mis-stage away from any stage-filtered pool — 7 sit in Options today,
+// and two children of a lost deal (BRXM-F021892) carry amounts and past
+// maturity dates. Any pool that means "mortgages" must exclude them by NAME
+// as well as by stage (Task 0c). Bare file-reference names ("BRXM-F024213",
+// "IFMS - 109501") never match.
+export function isAdditionalPropertyRecord(dealName: string): boolean {
+  const name = dealName.trim()
+  if (/additional propert/i.test(name)) return true
+  if (/\s-\s*(first|second|third)\s+mortgage\s*$/i.test(name)) return true
+  // An address-prefixed file reference ("22 Birch Ave - BRXM-F020729") is the
+  // property-row naming convention; a real deal is the bare reference.
+  if (/\S\s+-\s*(BRXM|IFMS)\s*-?\s*F?\d+/i.test(name) && !/^(BRXM|IFMS)\b/i.test(name)) return true
+  return false
+}
+
+/** The renewal-pool membership rule (Task 0c): the Renewal Radar's pools —
+ * lapsed included — derive from FUNDED-stage deals only (both legacy stage
+ * spellings) and never from Additional Properties child records, whatever
+ * stage a property row was left in. */
+export function isRenewalPoolDeal(stage: string, dealName: string): boolean {
+  return isFundedStage(stage) && !isAdditionalPropertyRecord(dealName)
+}

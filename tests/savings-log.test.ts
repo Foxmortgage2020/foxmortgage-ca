@@ -56,8 +56,8 @@ function entryFor(crossFamilyApproved = false) {
 describe('savings-analysis log entries', () => {
   it('carries the calc version, a canonical hash, and every quote with its sheet date', () => {
     const entry = entryFor()
-    expect(entry.calc_version).toBe(2)
-    expect(SAVINGS_CALC_VERSION).toBe(2)
+    expect(entry.calc_version).toBe(3)
+    expect(SAVINGS_CALC_VERSION).toBe(3)
     expect(String(entry.inputs_hash)).toMatch(/^[0-9a-f]{64}$/)
     const quotes = entry.quotes as { role: string; sheetDate: string | null; rate: number }[]
     expect(quotes.map(q => q.role).sort()).toEqual(['alternative', 'headline'])
@@ -89,6 +89,59 @@ describe('savings-analysis log entries', () => {
     expect(replayed).toEqual(entry.figures)
     expect((entry.figures as Record<string, unknown>).monthlySaving).toBeCloseTo(409.84, 2)
     expect((entry.figures as Record<string, unknown>).crossFamilyRecommended).toBe(true)
+  })
+
+  it('REPLAY: a short-term-approved entry reproduces the shortened horizon and its bucket', () => {
+    // A cheaper 1-year beside the covering 3-year: Michael approves the play,
+    // the projection shortens to 12 months, and replay reproduces exactly —
+    // the applied state rides the inputs (Task 0b).
+    const termBook: BookQuote[] = [
+      { rate: 4.19, rateType: 'fixed', termMonths: 12, productClass: 'conventional', asOfDate: '2026-07-02', status: 'approved', lenderSlug: 'mcap', primeVariance: null, eligibilitySource: 'variant:(none)' },
+      { rate: 4.8, rateType: 'fixed', termMonths: 36, productClass: 'conventional', asOfDate: '2026-06-30', status: 'approved', lenderSlug: 'rfa', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    ]
+    const row = seasonedRow()
+    const { analysis } = analyzeMortgage(row, termBook, ASOF, { shortTermApproved: true })
+    expect(analysis.comparable?.termMonths).toBe(12)
+    expect(analysis.shortTermRecommended).toBe(true)
+    const entry = buildSavingsLogEntry({
+      row,
+      analysis,
+      surface: 'pdf',
+      uploadId: null,
+      actingEmail: 'test@foxmortgage.ca',
+      todayYMD: ASOF,
+      methodologyKnown: false,
+      crossFamilyApproved: false,
+    })
+    expect((entry.inputs as SavingsLogInputs).shortTermApplied).toBe(true)
+    const replayed = replaySavingsAnalysis(entry.inputs as SavingsLogInputs)
+    expect(replayed).toEqual(entry.figures)
+    expect((entry.figures as Record<string, unknown>).horizonMonths).toBe(12)
+    expect((entry.figures as Record<string, unknown>).shortTermRecommended).toBe(true)
+  })
+
+  it('every logged quote carries its term beside its rate, the short-term flag included', () => {
+    const termBook: BookQuote[] = [
+      { rate: 4.19, rateType: 'fixed', termMonths: 12, productClass: 'conventional', asOfDate: '2026-07-02', status: 'approved', lenderSlug: 'mcap', primeVariance: null, eligibilitySource: 'variant:(none)' },
+      { rate: 4.8, rateType: 'fixed', termMonths: 36, productClass: 'conventional', asOfDate: '2026-06-30', status: 'approved', lenderSlug: 'rfa', primeVariance: null, eligibilitySource: 'variant:(none)' },
+    ]
+    const row = seasonedRow()
+    const { analysis } = analyzeMortgage(row, termBook, ASOF)
+    const entry = buildSavingsLogEntry({
+      row,
+      analysis,
+      surface: 'board',
+      uploadId: null,
+      actingEmail: 'test@foxmortgage.ca',
+      todayYMD: ASOF,
+      methodologyKnown: false,
+      crossFamilyApproved: false,
+    })
+    const quotes = entry.quotes as { role: string; termMonths: number; rate: number }[]
+    expect(quotes.map(q => q.role)).toContain('short_term_flag')
+    expect(quotes.every(q => typeof q.termMonths === 'number' && q.termMonths > 0)).toBe(true)
+    const headline = quotes.find(q => q.role === 'headline')!
+    expect(headline.termMonths).toBe(36)
   })
 })
 

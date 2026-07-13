@@ -19,6 +19,7 @@ import { torontoTodayYMD, ymdAddDays } from '@/lib/dates'
 import {
   PIPELINE_STAGE_ORDER,
   isFundedStage,
+  isRenewalPoolDeal,
   isSummaryStage,
   isTerminalStage,
 } from '@/config/pipeline'
@@ -639,7 +640,10 @@ async function fetchFundedRenewalDeals(): Promise<RenewalDeal[]> {
     }
     const data = await res.json()
     for (const d of data?.data ?? []) {
-      if (!isFundedStage(String(d.Stage ?? '').trim())) continue
+      // The renewal pool is FUNDED-stage deals only (both legacy spellings),
+      // never Additional Properties child rows — a property row carrying an
+      // amount and a maturity date is not a mortgage (Task 0c).
+      if (!isRenewalPoolDeal(String(d.Stage ?? '').trim(), String(d.Deal_Name ?? ''))) continue
       all.push(normalizeRenewalDeal(d))
     }
     if (data?.info?.more_records !== true) break

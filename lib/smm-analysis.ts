@@ -20,8 +20,10 @@
 import {
   analyzeOpportunity,
   clientRateFamily,
+  comparableTermLabel,
   computeLtv,
   deriveTransaction,
+  naturalComparisonHorizon,
   RATE_FAMILIES,
   rateFamilyRiskLine,
   tierRateMismatch,
@@ -103,6 +105,7 @@ export function overrideCandidates(row: SmmParsedRow, book: BookQuote[], todayYM
     primeFor,
     sameTierEligible,
     RATE_FAMILIES,
+    naturalComparisonHorizon(row, transaction, todayYMD),
   ).slice(0, limit)
 }
 
@@ -144,6 +147,11 @@ export interface AnalyzeMortgageOptions {
   /** Michael explicitly approved pricing the graduation tier (better paper)
    * as the headline. Without it, graduation is a flag, never a price. */
   graduationApproved?: boolean
+  /** Michael explicitly approved the deliberately short-term play (a
+   * same-tier rate whose term ends before the comparison horizon). Without
+   * it, the play is a flag and the shortened projection never drives
+   * act_now. */
+  shortTermApproved?: boolean
   /** Michael's active manual override for this household (loaded from the
    * FOXCA store by the caller). Takes precedence over every default
    * comparable; the eligibility fail-close was enforced when it was set. */
@@ -213,18 +221,42 @@ export function analyzeMortgage(
   const classForTier = (t: LenderTier): string => (t === 'b' ? 'b_side' : baseClass)
   const productClass = tier != null ? classForTier(tier) : baseClass
 
-  const likeForLike =
+  // The comparison horizon (Task 0b): the client's own projection window.
+  // Every default selection below must COVER it — a short-term rate never
+  // headlines a longer projection; when nothing covers, the longest available
+  // leads and the projection shortens to its term (flagged, approval-gated).
+  const horizonCover = naturalComparisonHorizon(row, transaction, todayYMD)
+
+  const sameFamilyRanked =
     tierBlockReason || tier == null
-      ? null
-      : bestEligibleComparable(book, classForTier(tier), transaction, lenderDisplayName, primeFor, sameTierEligible, [family])
+      ? []
+      : eligibleComparablesRanked(book, classForTier(tier), transaction, lenderDisplayName, primeFor, sameTierEligible, [family], horizonCover)
+  const likeForLike = sameFamilyRanked[0] ?? null
   const crossFamily =
     tierBlockReason || tier == null
       ? null
-      : bestEligibleComparable(book, classForTier(tier), transaction, lenderDisplayName, primeFor, sameTierEligible, otherFamilies)
+      : bestEligibleComparable(book, classForTier(tier), transaction, lenderDisplayName, primeFor, sameTierEligible, otherFamilies, horizonCover)
 
-  // Graduation: the best BETTER-tier option in the client's own family,
-  // priced in the TARGET tier's class vocabulary. An opportunity Michael
-  // assesses, never an automatic price.
+  // The deliberately short-term play (Task 0b item 3): a same-tier,
+  // same-family rate whose term ends before the horizon but prices below the
+  // covering headline (the 1-year B term with a plan at renewal). A flag for
+  // Michael, exactly like cross-family and graduation; his approval headlines
+  // it and shortens the projection to its term.
+  const shortPlay =
+    likeForLike != null && likeForLike.termMonths >= horizonCover
+      ? (sameFamilyRanked
+          .filter(c => c.termMonths < horizonCover && c.rate < likeForLike.rate)
+          .sort((a, b) => a.rate - b.rate || b.termMonths - a.termMonths)[0] ?? null)
+      : null
+
+  // Graduation (Task 0a): the best BETTER-tier option in the client's own
+  // family, priced CONVENTIONAL only for an A target (a B target books as
+  // b_side). A graduation is a NEW application on better paper — the current
+  // mortgage's insurance class never travels with it, so an insurable or
+  // insured quote can never serve as the graduation comparable. This is the
+  // refinance discipline, applied to every graduation regardless of the
+  // transaction window.
+  const gradClassFor = (t: LenderTier): string => (t === 'b' ? 'b_side' : 'conventional')
   const targets = tier ? graduationTargets(tier) : []
   let gradComparable: Comparable | null = null
   let gradTier: LenderTier | null = null
@@ -232,7 +264,7 @@ export function analyzeMortgage(
     for (const target of targets) {
       const targetEligible = (q: BookQuote, t: TransactionKind) =>
         comparableEligible(q, t) && tierFor(q.lenderSlug)?.tier === target
-      const c = bestEligibleComparable(book, classForTier(target), transaction, lenderDisplayName, primeFor, targetEligible, [family])
+      const c = bestEligibleComparable(book, gradClassFor(target), transaction, lenderDisplayName, primeFor, targetEligible, [family], horizonCover)
       if (c && (gradComparable == null || c.rate < gradComparable.rate)) {
         gradComparable = c
         gradTier = target
@@ -241,17 +273,19 @@ export function analyzeMortgage(
   }
 
   // Precedence: Michael's override > approved graduation > approved
-  // cross-family > the like-for-like default. A stored floating book-quote
-  // override is REPRICED at today's per-lender prime before use (review
-  // finding 2026-07-13: a frozen effective rate must never pair with
-  // today's prime as-of on a client document); desk rates pass through as
-  // Michael stated them.
+  // cross-family > approved short-term play > the like-for-like default. A
+  // stored floating book-quote override is REPRICED at today's per-lender
+  // prime before use (review finding 2026-07-13: a frozen effective rate
+  // must never pair with today's prime as-of on a client document); desk
+  // rates pass through as Michael stated them.
   const override = opts.override
     ? { ...opts.override, comparable: refreshComparablePricing(opts.override.comparable) }
     : null
   const gradApproved = override == null && opts.graduationApproved === true && gradComparable != null && gradTier != null
   const crossIsBetter = crossFamily != null && (likeForLike == null || crossFamily.rate < likeForLike.rate)
   const approved = override == null && !gradApproved && opts.crossFamilyApproved === true && crossIsBetter
+  const shortApplied =
+    override == null && !gradApproved && !approved && opts.shortTermApproved === true && shortPlay != null
 
   const comparable = override
     ? override.comparable
@@ -259,13 +293,16 @@ export function analyzeMortgage(
       ? gradComparable
       : approved
         ? crossFamily
-        : likeForLike
+        : shortApplied
+          ? shortPlay
+          : likeForLike
   let analysis = analyzeOpportunity(row, comparable, methodologyKnown, todayYMD, {
     transaction,
     productClass,
     ltv,
     tier,
     tierBlockReason,
+    shortTermApproved: opts.shortTermApproved === true,
   })
 
   if (override && analysis.bucket !== 'review') {
@@ -279,11 +316,33 @@ export function analyzeMortgage(
         type: override.type,
         lender: override.comparable.lender,
         rate: override.comparable.rate,
+        termMonths: override.comparable.termMonths,
         reason: override.reason,
         sourceNote: override.sourceNote,
       },
     }
     return { analysis, productClass, transaction }
+  }
+
+  // The short-term play rides the analysis as a FLAG beside a covering
+  // headline (rate, term, and sheet date only — no projected figures until
+  // Michael approves it; approving shortens the projection to the term).
+  // When the headline itself was shortened (nothing covers the horizon),
+  // analyzeOpportunity already attached the applied flag.
+  if (shortPlay && !shortApplied && analysis.shortTermStrategy == null && !gradApproved && !approved && analysis.comparable != null) {
+    analysis = {
+      ...analysis,
+      shortTermStrategy: {
+        comparable: shortPlay,
+        termMonths: shortPlay.termMonths,
+        naturalHorizonMonths: horizonCover,
+        applied: false,
+        note:
+          `A ${comparableTermLabel(shortPlay.termMonths)} at ${shortPlay.rate}% prices below the ${comparableTermLabel(analysis.comparable.termMonths)} headline. ` +
+          `The projection would stop at that term's end and the client renews there${tier !== 'a' ? ' (a graduation checkpoint on better paper)' : ''}. ` +
+          'A deliberate short-term play is Michael\'s call, never an automatic act now.',
+      },
+    }
   }
 
   // Graduation rides the analysis as a FLAG (rate and sheet date only, no
@@ -310,7 +369,13 @@ export function analyzeMortgage(
   // An approved graduation headline carries no cross-family alternative —
   // the document carries the one escalation Michael approved.
   const remaining = analysis.remainingAmortizationMonths
-  const beside = gradApproved ? null : approved ? likeForLike : crossIsBetter ? crossFamily : null
+  const beside = gradApproved
+    ? null
+    : approved || shortApplied
+      ? likeForLike
+      : crossIsBetter
+        ? crossFamily
+        : null
   if (analysis.currentPayment != null && remaining != null && beside != null && row.balance != null) {
     const newPayment = monthlyPayment(row.balance, beside.rate, 'semi-annually', remaining)
     const monthlyDelta = newPayment - analysis.currentPayment
