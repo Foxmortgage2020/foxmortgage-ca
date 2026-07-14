@@ -13,6 +13,7 @@ import { getRenewalDeals } from '@/lib/zoho-admin'
 import { getAgentIdByEmail, getDealsSummary, getRateQuotesFull } from '@/lib/underwriting'
 import {
   RENEWAL_ACTIONS,
+  appearsRenewedPending,
   bestApprovedFixed,
   bucketRenewals,
   daysToMaturity,
@@ -29,12 +30,10 @@ import { recentRenewalEvents } from '@/lib/renewals-store'
 import { collapseCoBorrowers, parseSmmRow, type SmmMortgage } from '@/lib/smm'
 import {
   appearsRenewedEvidenceKey,
-  detectAppearsRenewed,
   findExportByName,
   indexMortgagesByName,
   reconcileLapsed,
   retentionSummary,
-  type AppearsRenewedEvidence,
   type Reconciliation,
 } from '@/lib/smm-match'
 import RenewalCard from '@/components/admin/RenewalCard'
@@ -152,23 +151,10 @@ export default async function RenewalsPage() {
     // A store outage means no declines load; files re-flag, which is the
     // conservative direction.
   }
-  const appearsRenewed: { deal: RenewalDeal; evidence: AppearsRenewedEvidence; from: 'action' | 'lapsed' }[] = []
-  if (exportIdx) {
-    for (const from of ['action', 'lapsed'] as const) {
-      for (const d of buckets[from].deals) {
-        const m = findExportByName(d.contactName, exportIdx)
-        if (!m) continue
-        const evidence = detectAppearsRenewed(
-          { closingDate: d.closingDate, lender: d.lenderName, rate: d.mortgageRate, maturity: d.maturityDate },
-          m,
-        )
-        if (!evidence) continue
-        // A decline clears THIS evidence only; a later feed change re-flags.
-        if (declined.has(d.id) && declined.get(d.id) === appearsRenewedEvidenceKey(evidence)) continue
-        appearsRenewed.push({ deal: d, evidence, from })
-      }
-    }
-  }
+  // The pending list comes from the SAME shared walk the Desk count layer
+  // uses (lib/renewals.ts appearsRenewedPending), so the Waiting-on-you
+  // strip reconciles with this page by construction.
+  const appearsRenewed = appearsRenewedPending(buckets, exportIdx, declined)
   const flaggedIds = new Set(appearsRenewed.map(x => x.deal.id))
   // Pre-suppression totals, so the delta (what was phantom) is visible.
   const beforeAction = { count: buckets.action.count, volume: buckets.action.volume }

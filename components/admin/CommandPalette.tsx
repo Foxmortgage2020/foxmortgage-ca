@@ -25,6 +25,7 @@ import {
   BookOpen,
   CornerDownLeft,
   FolderOpen,
+  MessageSquareText,
   Search,
   User,
   Users,
@@ -57,6 +58,7 @@ const TYPE_ICON: Record<SearchResultType, typeof Search> = {
   contact: User,
   partner: Users,
   knowledge: BookOpen,
+  askfox: MessageSquareText,
 }
 
 interface RecentItem {
@@ -103,7 +105,15 @@ interface Section {
   message?: string
 }
 
-export default function CommandPalette({ navItems }: { navItems: NavItemLike[] }) {
+export default function CommandPalette({
+  navItems,
+  askFoxHref = null,
+}: {
+  navItems: NavItemLike[]
+  // When the user holds agent.use, anything the search cannot resolve hands
+  // to Ask Fox as a question (one box, two talents). Null = row absent.
+  askFoxHref?: string | null
+}) {
   const [open, setOpen] = useState(false)
 
   const openPalette = useCallback(() => setOpen(true), [])
@@ -147,16 +157,16 @@ export default function CommandPalette({ navItems }: { navItems: NavItemLike[] }
         type="button"
         onClick={openPalette}
         aria-label="Search"
-        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white/95 px-2.5 py-1.5 text-sm text-gray-500 shadow-sm transition-colors hover:border-gray-300 hover:text-gray-700 sm:min-w-[16rem] sm:justify-start"
+        className="inline-flex items-center gap-2 rounded-[7px] border border-hairline bg-white px-2.5 py-1.5 text-sm text-muted motion-safe:transition-colors hover:border-muted-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-navy sm:min-w-[16rem] sm:justify-start"
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className="hidden font-body sm:inline">Search</span>
-        <kbd className="ml-auto hidden items-center gap-0.5 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-body text-[11px] font-medium text-gray-400 sm:inline-flex">
+        <span className="hidden font-ui sm:inline">Search or ask</span>
+        <kbd className="ml-auto hidden items-center gap-0.5 rounded border border-hairline bg-fog px-1.5 py-0.5 font-ui text-[11px] font-medium text-muted-2 sm:inline-flex">
           ⌘K
         </kbd>
       </button>
 
-      {open && <PaletteModal navItems={navItems} onClose={closePalette} />}
+      {open && <PaletteModal navItems={navItems} askFoxHref={askFoxHref} onClose={closePalette} />}
 
       <style jsx global>{`
         @keyframes foxPaletteFade {
@@ -182,7 +192,15 @@ export default function CommandPalette({ navItems }: { navItems: NavItemLike[] }
   )
 }
 
-function PaletteModal({ navItems, onClose }: { navItems: NavItemLike[]; onClose: () => void }) {
+function PaletteModal({
+  navItems,
+  askFoxHref,
+  onClose,
+}: {
+  navItems: NavItemLike[]
+  askFoxHref: string | null
+  onClose: () => void
+}) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
@@ -338,6 +356,23 @@ function PaletteModal({ navItems, onClose }: { navItems: NavItemLike[]; onClose:
         message: knowledgeResults.length === 0 ? 'No matches.' : undefined,
       })
 
+    // The hand-off: anything unresolved goes to Ask Fox as a question.
+    if (askFoxHref) {
+      out.push({
+        key: 'askfox',
+        label: 'Or ask',
+        results: [
+          {
+            type: 'askfox' as const,
+            id: 'askfox',
+            title: `Ask Fox: "${q}"`,
+            subtitle: 'Hand this to the practice agent as a question',
+            href: `${askFoxHref}?q=${encodeURIComponent(q)}`,
+          },
+        ],
+      })
+    }
+
     return out
   }, [
     debounced,
@@ -349,6 +384,7 @@ function PaletteModal({ navItems, onClose }: { navItems: NavItemLike[]; onClose:
     knowledge.error,
     knowledge.loading,
     knowledgeResults,
+    askFoxHref,
   ])
 
   // Flatten navigable results for keyboard traversal.
@@ -398,7 +434,7 @@ function PaletteModal({ navItems, onClose }: { navItems: NavItemLike[]; onClose:
       aria-label="Search"
     >
       <div
-        className="absolute inset-0 bg-navy/40 motion-safe:animate-[foxPaletteFade_120ms_ease-out]"
+        className="absolute inset-0 bg-ink-navy/40 motion-safe:animate-[foxPaletteFade_120ms_ease-out]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -453,13 +489,13 @@ function PaletteModal({ navItems, onClose }: { navItems: NavItemLike[]; onClose:
                     type="button"
                     onMouseEnter={() => setHighlight(index)}
                     onClick={() => navigate(result)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors ${
-                      active ? 'bg-lime/15' : 'hover:bg-gray-50'
+                    className={`flex w-full items-center gap-3 rounded-[7px] px-2 py-2 text-left motion-safe:transition-colors ${
+                      active ? 'bg-fog' : 'hover:bg-fog/60'
                     }`}
                   >
                     <span
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
-                        active ? 'bg-lime/25 text-navy' : 'bg-gray-100 text-gray-500'
+                        active ? 'bg-ink-navy text-white' : 'bg-fog text-muted'
                       }`}
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />

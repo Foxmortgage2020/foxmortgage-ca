@@ -19,6 +19,7 @@ import {
   pendingOfferNotifications,
   renewalCrossingNotifications,
   renewalLapsedNotifications,
+  laneFor,
   sheetReviewNotifications,
   syncFreshnessNotifications,
   type NotificationCategory,
@@ -220,6 +221,28 @@ export async function GET() {
     }
   } catch {
     /* degrade */
+  }
+
+  // A Decide-lane notification whose signal is no longer current is not a
+  // pending decision: the queue moved on (decided on the desk or in the
+  // CLI, or superseded). Auto-mark it read so the bell badge counts only
+  // genuinely queued decisions — the 88-unread state was exactly the alarm
+  // fatigue the 2026-07-14 shell redesign ends. Watch and Log keep their
+  // read state; nothing is deleted.
+  const currentKeys = new Set(inputs.map(i => i.dedupKey))
+  const staleDecide = items.filter(
+    n => !n.read && laneFor(n.category) === 'decide' && !currentKeys.has(n.dedupKey),
+  )
+  for (const n of staleDecide) {
+    try {
+      await markRead(n.id, gate.user.userId)
+    } catch {
+      /* degrade; the next poll retries */
+    }
+  }
+  if (staleDecide.length > 0) {
+    const staleIds = new Set(staleDecide.map(n => n.id))
+    items = items.map(n => (staleIds.has(n.id) ? { ...n, read: true } : n))
   }
 
   const unread = items.filter(n => !n.read).length

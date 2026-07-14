@@ -361,3 +361,46 @@ export function termAnomaly(termYears: number | null): string | null {
   if (termYears < 6) return `${termYears} is under six months as stored, likely a year count in a months field`
   return null
 }
+
+// ── Appears-renewed: the pending-confirmation list, shared verbatim ──────────
+// One walk used by BOTH the Renewals page and the Desk count layer
+// (lib/desk.ts), so the Waiting-on-you strip's "renewals to confirm" count
+// reconciles with the page it links to by construction. Pure: callers pass
+// the buckets, the name-indexed export, and the persisted declines.
+import {
+  appearsRenewedEvidenceKey as _arKey,
+  detectAppearsRenewed as _arDetect,
+  findExportByName as _arFind,
+  type AppearsRenewedEvidence,
+} from '@/lib/smm-match'
+import type { SmmMortgage } from '@/lib/smm'
+
+export interface AppearsRenewedFlag {
+  deal: RenewalDeal
+  evidence: AppearsRenewedEvidence
+  from: 'action' | 'lapsed'
+}
+
+export function appearsRenewedPending(
+  buckets: { action: { deals: RenewalDeal[] }; lapsed: { deals: RenewalDeal[] } },
+  exportIdx: Map<string, SmmMortgage | null> | null,
+  declined: Map<string, string>,
+): AppearsRenewedFlag[] {
+  const flags: AppearsRenewedFlag[] = []
+  if (!exportIdx) return flags
+  for (const from of ['action', 'lapsed'] as const) {
+    for (const d of buckets[from].deals) {
+      const m = _arFind(d.contactName, exportIdx)
+      if (!m) continue
+      const evidence = _arDetect(
+        { closingDate: d.closingDate, lender: d.lenderName, rate: d.mortgageRate, maturity: d.maturityDate },
+        m,
+      )
+      if (!evidence) continue
+      // A decline clears THIS evidence only; a later feed change re-flags.
+      if (declined.has(d.id) && declined.get(d.id) === _arKey(evidence)) continue
+      flags.push({ deal: d, evidence, from })
+    }
+  }
+  return flags
+}

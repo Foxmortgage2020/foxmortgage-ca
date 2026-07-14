@@ -131,10 +131,12 @@ describe('session 8 role baselines', () => {
 
 describe('effectiveAccess', () => {
   it('covers every nav page and every non-nav permission, for every role', () => {
-    const navPermissions = new Set(ADMIN_NAV.map(i => i.permission))
+    // Ask Fox left the nav list for the sidebar footer (2026-07-14 shell
+    // redesign) but stays a stated page in the matrix: nav + 1.
+    const navPermissions = new Set([...ADMIN_NAV.map(i => i.permission), 'agent.use'])
     for (const role of ROLES) {
       const access = effectiveAccess(role)
-      expect(access.pages.length).toBe(ADMIN_NAV.length)
+      expect(access.pages.length).toBe(ADMIN_NAV.length + 1)
       expect(access.actions.length).toBe(ALL_KEYS.filter(k => !navPermissions.has(k)).length)
     }
   })

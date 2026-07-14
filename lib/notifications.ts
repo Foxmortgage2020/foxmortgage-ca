@@ -32,6 +32,33 @@ export const NOTIFICATION_CATEGORIES = [
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number]
 
+// ─── Lanes (2026-07-14 shell redesign) ───────────────────────────────────────
+// The bell splits into three lanes and its badge counts DECISIONS only —
+// unread items in the Decide lane. Watch is worth knowing, Log is the record
+// of decisions made elsewhere. Pure mapping, unit-tested in tests/shell.test.ts.
+export type NotificationLane = 'decide' | 'watch' | 'log'
+
+export const NOTIFICATION_LANES: Record<NotificationCategory, NotificationLane> = {
+  sheet_review: 'decide',
+  pending_offers: 'decide',
+  renewal_lapsed: 'watch',
+  renewal_crossing: 'watch',
+  credential_expiry: 'watch',
+  sync_freshness: 'watch',
+  form_intake: 'watch',
+  gate_decision_external: 'log',
+}
+
+export const LANE_LABELS: Record<NotificationLane, string> = {
+  decide: 'Decide',
+  watch: 'Watch',
+  log: 'Log',
+}
+
+export function laneFor(category: string): NotificationLane {
+  return NOTIFICATION_LANES[category as NotificationCategory] ?? 'watch'
+}
+
 export interface CategoryConfig {
   key: NotificationCategory
   label: string

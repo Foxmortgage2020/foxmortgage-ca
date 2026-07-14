@@ -132,6 +132,10 @@ export interface PipelineView {
   stale: StalePipelineDeal[]
   staleCount: number
   staleVolume: number
+  // The active deals themselves (2026-07-14 shell redesign): the Home
+  // compact pipeline table renders them per file. Same set the stage rows
+  // aggregate; additive, nothing else changed.
+  activeDeals: SlimDeal[]
 }
 
 // todayYMD anchors the staleness rule; both callers pass torontoTodayYMD().
@@ -193,6 +197,7 @@ export function computePipeline(deals: SlimDeal[], todayYMD: string): PipelineVi
     stale: staleDeals,
     staleCount: staleDeals.length,
     staleVolume: staleDeals.reduce((s, d) => s + d.amount, 0),
+    activeDeals: active,
   }
 }
 

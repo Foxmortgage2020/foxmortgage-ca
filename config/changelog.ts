@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-14',
+    title: 'The Command Centre gets its shell: a calm machine with loud exceptions',
+    detail:
+      'The whole admin shell is redesigned around one rule: the bright green appears only where a decision is waiting on you. Sixteen flat sidebar items became five groups (Pipeline, Market, Practice, System) with Ask Fox as a persistent button at the bottom; a group shows a green dot when something inside it needs a decision, and badges count decisions, never events. The top of Home is now the Desk: a navy strip that says in one sentence everything waiting on you (rate sheets to approve, flags to resolve, renewals to confirm, files in review), each phrase linking straight to its queue — and when nothing is waiting it says so plainly, because an empty desk is the system working. Under it: up to three decision cards, then every active file with its stage and the next step in plain words. The sidebar collapses to an icon rail that remembers your choice, the notification bell now counts only genuine pending decisions (stale ones mark themselves read — the 88-unread pile is gone), the notification list splits into Decide, Watch, and Log, and search and Ask Fox share one box: anything the search cannot resolve hands to the practice agent as a question. Nothing was removed — every page is where it was, most renamed only where the old name described the plumbing instead of the job (Intel is now Lender intel, Settings is Users & settings). Page interiors are untouched; they adopt the new standards one surface at a time next.',
+  },
+  {
     date: '2026-07-13',
     title: 'Stage guard hardened, sync-created deals named properly, and no silent stages',
     detail:

@@ -197,6 +197,7 @@ export default function AgentChat({
               const params = new URLSearchParams(window.location.search)
               params.set('c', event.conversationId)
               params.delete('prep')
+              params.delete('q')
               router.replace(`${pathname}?${params.toString()}`, { scroll: false })
             } else if (event.type === 'text' && typeof event.delta === 'string') {
               patchDraft(d => ({ ...d, content: d.content + event.delta }))
@@ -243,13 +244,19 @@ export default function AgentChat({
   )
 
   // One-tap prep: /portal/admin/agent?prep=<file ref or client name>
+  // Search hand-off: /portal/admin/agent?q=<question> — the command palette
+  // hands anything it cannot resolve to Ask Fox as a question.
   useEffect(() => {
     if (autoSentRef.current) return
     const params = new URLSearchParams(window.location.search)
     const prep = params.get('prep')
+    const q = params.get('q')
     if (prep && !initial.conversationId) {
       autoSentRef.current = true
       void send(`Prep a call for ${prep}.`)
+    } else if (q && q.trim() && !initial.conversationId) {
+      autoSentRef.current = true
+      void send(q.trim())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

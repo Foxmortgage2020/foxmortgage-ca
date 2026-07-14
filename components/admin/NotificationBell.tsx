@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Check, Settings, X } from 'lucide-react'
+import { LANE_LABELS, laneFor, type NotificationLane } from '@/lib/notifications'
 
 interface Item {
   id: string
@@ -131,29 +132,41 @@ export default function NotificationBell() {
     post({ action: 'read_all' })
   }, [post])
 
-  const unread = payload?.unread ?? 0
   const items = payload?.items ?? []
   const categories = payload?.categories ?? []
   const catLabel = (key: string) => categories.find(c => c.key === key)?.label ?? key
 
-  // Group items by category, preserving the categories order.
-  const groups = categories
-    .map(c => ({ meta: c, rows: items.filter(i => i.category === c.key) }))
+  // The badge counts DECISIONS, not events: unread items in the Decide lane
+  // only. Watch and Log inform without alarming (2026-07-14 shell redesign;
+  // the 88-unread state was exactly the alarm fatigue this ends).
+  const unreadDecisions = items.filter(i => !i.read && laneFor(i.category) === 'decide').length
+
+  // Three lanes, fixed order.
+  const lanes = (['decide', 'watch', 'log'] as NotificationLane[])
+    .map(lane => ({
+      lane,
+      label: LANE_LABELS[lane],
+      rows: items.filter(i => laneFor(i.category) === lane),
+    }))
     .filter(g => g.rows.length > 0)
 
   return (
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+        aria-label={
+          unreadDecisions > 0
+            ? `Notifications, ${unreadDecisions} waiting on a decision`
+            : 'Notifications'
+        }
         aria-expanded={open}
         onClick={() => setOpen(o => !o)}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white motion-safe:transition-colors"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-fog hover:text-ink motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-navy"
       >
         <Bell className="h-5 w-5" />
-        {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[0.65rem] font-bold leading-4 text-white">
-            {unread > 99 ? '99+' : unread}
+        {unreadDecisions > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-decision px-1 text-[0.65rem] font-bold leading-4 text-decision-ink tabular-nums">
+            {unreadDecisions > 99 ? '99+' : unreadDecisions}
           </span>
         )}
       </button>
@@ -218,15 +231,15 @@ export default function NotificationBell() {
                 </div>
               ) : loading && !payload ? (
                 <div className="px-4 py-8 text-center font-body text-sm text-navy/50">Loading…</div>
-              ) : groups.length === 0 ? (
+              ) : lanes.length === 0 ? (
                 <div className="px-4 py-10 text-center">
                   <p className="font-body text-sm text-navy/70">You&rsquo;re all caught up.</p>
                 </div>
               ) : (
-                groups.map(g => (
-                  <div key={g.meta.key}>
+                lanes.map(g => (
+                  <div key={g.lane}>
                     <p className="sticky top-0 bg-navy/[0.03] px-4 py-1.5 font-body text-[0.7rem] font-semibold uppercase tracking-wide text-navy/50">
-                      {g.meta.label}
+                      {g.label}
                     </p>
                     <ul>
                       {g.rows.map(item => (
@@ -240,10 +253,17 @@ export default function NotificationBell() {
                             className="block px-4 py-3 hover:bg-navy/[0.03]"
                           >
                             <div className="flex items-start gap-2">
+                              {/* Unread marker: decision lime ONLY in the
+                                  Decide lane; Watch and Log mark unread in
+                                  slate (informational, never alarm). */}
                               <span
                                 aria-hidden
                                 className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                                  item.read ? 'bg-transparent' : 'bg-lime'
+                                  item.read
+                                    ? 'bg-transparent'
+                                    : g.lane === 'decide'
+                                      ? 'bg-decision'
+                                      : 'bg-muted-2'
                                 }`}
                               />
                               <div className="min-w-0 flex-1">

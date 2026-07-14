@@ -4,7 +4,7 @@
 // third source of truth is introduced; if the matrix or the nav changes,
 // this view changes with it. Unit-tested in tests/authority.test.ts.
 
-import { ADMIN_NAV } from '@/config/admin-nav'
+import { ADMIN_NAV, ASK_FOX } from '@/config/admin-nav'
 import {
   PERMISSIONS,
   PERMISSION_LABELS,
@@ -34,12 +34,16 @@ export interface EffectiveAccess {
   actions: EffectiveAction[]
 }
 
-const NAV_PERMISSIONS = new Set<Permission>(ADMIN_NAV.map(item => item.permission))
+// Ask Fox left the mid-list nav for the sidebar footer (2026-07-14 shell
+// redesign) but remains a page every role's access is stated for.
+const NAV_PAGES = [...ADMIN_NAV, ASK_FOX] as { label: string; href: string; permission: Permission }[]
+
+const NAV_PERMISSIONS = new Set<Permission>(NAV_PAGES.map(item => item.permission))
 
 export function effectiveAccess(role: Role): EffectiveAccess {
   const roles = [role]
 
-  const pages: EffectivePage[] = ADMIN_NAV.map(item => ({
+  const pages: EffectivePage[] = NAV_PAGES.map(item => ({
     label: item.label,
     href: item.href,
     permission: item.permission,

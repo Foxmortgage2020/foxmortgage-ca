@@ -10,7 +10,9 @@
 import type { WorkbenchDeal } from '@/lib/underwriting'
 import type { SlimDeal } from '@/lib/zoho-admin'
 
-export type SearchResultType = 'nav' | 'deal' | 'contact' | 'partner' | 'knowledge'
+// 'askfox' is the palette's hand-off row: anything unresolved goes to the
+// practice agent as a question (one box, two talents).
+export type SearchResultType = 'nav' | 'deal' | 'contact' | 'partner' | 'knowledge' | 'askfox'
 
 export interface SearchResult {
   type: SearchResultType

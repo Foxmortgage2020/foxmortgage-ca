@@ -29,26 +29,27 @@ import {
   type OpenTask,
   type SlimDeal,
 } from '@/lib/zoho-admin'
-import { bucketRenewals, renewalBook } from '@/lib/renewals'
+import { appearsRenewedPending, bucketRenewals, renewalBook } from '@/lib/renewals'
 import {
   getAgentIdByEmail,
   getConditionsDue,
   getDealsSummary,
   getIntakeFreshness,
-  getOfferQueue,
   getOpenConditionCounts,
   getOpenFlags,
-  getPendingSheetReviews,
-  getPendingStatementReviews,
   getRateQuoteStats,
   getRateQuotesFull,
-  getShadowQueue,
   type UwResult,
 } from '@/lib/underwriting'
+import { getApprovalsData } from '@/lib/approvals-data'
 import { recentUploads, rawRowsForUpload, smmStoreConfigured } from '@/lib/smm-store'
-import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
+import { recentRenewalEvents } from '@/lib/renewals-store'
+import { collapseCoBorrowers, parseSmmRow, type SmmMortgage } from '@/lib/smm'
 import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
-import type { BookQuote } from '@/lib/smm-match'
+import { indexMortgagesByName, type BookQuote } from '@/lib/smm-match'
+import { deskFragments, nextStepForStage, type DeskCounts } from '@/lib/desk'
+import DeskStrip from '@/components/admin/DeskStrip'
+import { isDemoMode } from '@/lib/demo'
 import { listCredentials } from '@/lib/compliance'
 import { credentialTone } from '@/lib/compliance-logic'
 import {
@@ -199,7 +200,10 @@ export default async function AdminHome() {
   const workbenchOff = !agentRes.configured
   const workbenchErr = agentRes.configured && !agentRes.ok ? agentRes.error : null
 
-  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, stmtsR, sheetsR, offersR, shadowR, wbDealsR, ratesR, freshR, credsR, renewalsRes] =
+  // The approvals queues arrive through the SAME shared loader the desk page
+  // and the Desk count layer use (getApprovalsData), so the Waiting-on-you
+  // strip, the rail, and the Approvals page reconcile by construction.
+  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, approvalsData, wbDealsR, ratesR, freshR, credsR, renewalsRes] =
     await Promise.all([
       getAllDealsSlim()
         .then(d => ({ ok: true as const, data: d }))
@@ -210,10 +214,7 @@ export default async function AdminHome() {
       agentId ? getOpenFlags(agentId) : null,
       agentId ? getConditionsDue(agentId, CONDITIONS_DUE_SOON_DAYS) : null,
       agentId ? getOpenConditionCounts(agentId) : null,
-      agentId ? getPendingStatementReviews(agentId) : null,
-      agentId ? getPendingSheetReviews(agentId) : null,
-      agentId ? getOfferQueue(agentId) : null,
-      agentId ? getShadowQueue(agentId) : null,
+      agentId ? getApprovalsData(agentId) : null,
       agentId ? getDealsSummary(agentId) : null,
       agentId ? getRateQuoteStats(agentId) : null,
       agentId ? getIntakeFreshness(agentId) : null,
@@ -261,52 +262,110 @@ export default async function AdminHome() {
     : 0
   const canRenewals = can(user, 'renewals.view')
 
-  // Opportunities: the act-now count from the latest Strategic Mortgage
-  // Monitoring export (opportunities.view only). Read-only; degrades silently.
+  // The latest monitoring export, loaded once: it powers the act-now rail
+  // line, the Desk's files-in-review count (opportunities.view), and the
+  // renewals-to-confirm count (renewals.view). Read-only; degrades silently.
   const canOpps = can(user, 'opportunities.view')
   let oppActNow: { count: number; netBenefit: number } | null = null
-  if (canOpps && smmStoreConfigured()) {
+  let reviewFiles: number | null = null
+  let exportMortgages: SmmMortgage[] | null = null
+  if ((canOpps || canRenewals) && smmStoreConfigured()) {
     try {
       const uploadsR = await recentUploads(3)
       const uploads = uploadsR.configured && uploadsR.ok ? uploadsR.data : []
       const cur = uploads.find(u => !u.superseded) ?? uploads[0] ?? null
       if (cur) {
-        const [rowsR, quotesR] = await Promise.all([
-          rawRowsForUpload(cur.id),
-          agentId ? getRateQuotesFull(agentId) : Promise.resolve(null),
-        ])
+        const rowsR = await rawRowsForUpload(cur.id)
         if (rowsR.configured && rowsR.ok) {
-          const book: BookQuote[] =
-            quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
-          const { mortgages } = collapseCoBorrowers(rowsR.data.map(parseSmmRow))
-          let count = 0
-          let net = 0
-          for (const m of mortgages) {
-            const { analysis } = analyzeMortgage(m.primary, book, todayYMD)
-            if (analysis.bucket === 'act_now') {
-              count++
-              net += analysis.netBenefit ?? 0
-            }
-          }
-          if (count > 0) oppActNow = { count, netBenefit: net }
+          exportMortgages = collapseCoBorrowers(rowsR.data.map(parseSmmRow)).mortgages
         }
       }
     } catch {
-      oppActNow = null
+      exportMortgages = null
     }
+  }
+  if (canOpps && exportMortgages) {
+    try {
+      const quotesR = agentId ? await getRateQuotesFull(agentId) : null
+      const book: BookQuote[] =
+        quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
+      let count = 0
+      let net = 0
+      let review = 0
+      for (const m of exportMortgages) {
+        const { analysis } = analyzeMortgage(m.primary, book, todayYMD)
+        if (analysis.bucket === 'act_now') {
+          count++
+          net += analysis.netBenefit ?? 0
+        }
+        if (analysis.bucket === 'review') review++
+      }
+      if (count > 0) oppActNow = { count, netBenefit: net }
+      reviewFiles = review
+    } catch {
+      oppActNow = null
+      reviewFiles = null
+    }
+  }
+
+  // Renewals to confirm: the SAME shared walk the Renewals page runs
+  // (appearsRenewedPending), over the buckets and export loaded above.
+  let renewalsToConfirm: number | null = null
+  if (canRenewals && renewalBuckets && exportMortgages) {
+    const declined = new Map<string, string>()
+    if (!isDemoMode()) {
+      try {
+        const eventsR = await recentRenewalEvents(500)
+        if (eventsR.configured && eventsR.ok) {
+          for (const e of eventsR.data) {
+            if (e.action === 'appears_renewed_declined' && !declined.has(e.dealId)) {
+              declined.set(
+                e.dealId,
+                typeof e.fields?.evidenceKey === 'string' ? (e.fields.evidenceKey as string) : '',
+              )
+            }
+          }
+        }
+      } catch {
+        // Store outage: no declines load; files re-flag (conservative).
+      }
+    }
+    renewalsToConfirm = appearsRenewedPending(
+      renewalBuckets,
+      indexMortgagesByName(exportMortgages),
+      declined,
+    ).length
   }
 
   const flags = val(flagsR) ?? []
   const conds = val(condsR)
   const condCounts = val(condCountsR) ?? {}
-  const stmts = val(stmtsR) ?? []
-  const sheets = val(sheetsR) ?? []
-  const offers = val(offersR) ?? []
+  // Actionable queues from the shared approvals loader: sheets exclude the
+  // parked province-excluded shelf, exactly as the Approvals page counts.
+  const stmts = approvalsData?.statements ?? []
+  const sheets = approvalsData?.sheets ?? []
+  const offers = approvalsData?.offers ?? []
   const pendingOffers = offers.length
-  const shadow = val(shadowR)
+  const shadow = approvalsData?.shadow ?? null
   const wbDeals = val(wbDealsR) ?? []
   const rates = val(ratesR)
   const fresh = val(freshR)
+
+  // ── The Desk: everything waiting on a human, one sentence ────────────────
+  const canApprovals = can(user, 'approvals.view')
+  const deskCounts: DeskCounts = {
+    sheets: canApprovals && approvalsData ? approvalsData.sheets.length : null,
+    statements: canApprovals && approvalsData ? approvalsData.statements.length : null,
+    offers: canApprovals && approvalsData ? approvalsData.offers.length : null,
+    flags: canApprovals && approvalsData ? approvalsData.flags.length : null,
+    shadow: canApprovals && approvalsData ? approvalsData.shadow.length : null,
+    renewalsToConfirm,
+    reviewFiles,
+    // No passive source exists for manual matches in Phase A: the backfill
+    // scan is on-demand and priced in Zoho searches (recorded deviation).
+    manualMatches: null,
+  }
+  const desk = deskFragments(deskCounts)
 
   // Zoho deal id → workbench deal (for the closings join).
   const wbByZohoId = new Map<string, (typeof wbDeals)[number]>()
@@ -345,6 +404,75 @@ export default async function AdminHome() {
     day: 'numeric',
     year: 'numeric',
   })
+  const torontoHour = Number(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Toronto',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date()),
+  )
+  const greeting =
+    torontoHour < 12 ? 'Good morning' : torontoHour < 17 ? 'Good afternoon' : 'Good evening'
+  const firstName = user.name.split(' ')[0] || 'there'
+
+  // Up to three decision cards under the strip: decisions carry the lime
+  // top border, review carries amber. No filler; fewer queues, fewer cards.
+  const approvalsTotal =
+    (deskCounts.sheets ?? 0) +
+    (deskCounts.statements ?? 0) +
+    (deskCounts.offers ?? 0) +
+    (deskCounts.flags ?? 0) +
+    (deskCounts.shadow ?? 0)
+  const decisionCards: {
+    key: string
+    kind: 'decide' | 'review'
+    count: number
+    title: string
+    body: string
+    cta: string
+    href: string
+  }[] = []
+  if (approvalsTotal > 0) {
+    decisionCards.push({
+      key: 'approvals',
+      kind: 'decide',
+      count: approvalsTotal,
+      title: 'Approvals waiting',
+      body: `${deskCounts.sheets ?? 0} sheets, ${deskCounts.statements ?? 0} statements, ${deskCounts.offers ?? 0} offers, ${deskCounts.flags ?? 0} flags, ${deskCounts.shadow ?? 0} to score.`,
+      cta: 'Review the queue',
+      href: '/portal/admin/approvals',
+    })
+  }
+  if ((renewalsToConfirm ?? 0) > 0) {
+    decisionCards.push({
+      key: 'renewals-confirm',
+      kind: 'decide',
+      count: renewalsToConfirm as number,
+      title: 'Renewals to confirm',
+      body: 'The monitoring feed contradicts the recorded terms. Confirm renewed with us or clear with a reason.',
+      cta: 'Confirm renewals',
+      href: '/portal/admin/renewals',
+    })
+  }
+  if ((reviewFiles ?? 0) > 0) {
+    decisionCards.push({
+      key: 'review-files',
+      kind: 'review',
+      count: reviewFiles as number,
+      title: 'Files in review',
+      body: 'Balances that did not reconcile or data the analysis will not state a figure on.',
+      cta: 'Review files',
+      href: '/portal/admin/opportunities',
+    })
+  }
+  const topDecisionCards = decisionCards.slice(0, 3)
+
+  // Compact pipeline: the active files with a plain-words next step.
+  const compactPipeline = pipeline
+    ? [...pipeline.activeDeals].sort((a, b) =>
+        (a.closingDate ?? '9999').localeCompare(b.closingDate ?? '9999'),
+      )
+    : []
 
   const attentionCards: React.ReactNode[] = []
 
@@ -593,11 +721,104 @@ export default async function AdminHome() {
 
   return (
     <div className="max-w-6xl">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="font-heading text-navy text-2xl font-bold">Home</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">{headerDate}</p>
+      {/* Greeting — the one serif moment (Fraunces), the same face clients
+          see on Fox Mortgage documents. The sub-line carries funded YTD. */}
+      <div className="mb-5">
+        <h1 className="font-greeting text-ink-navy text-[26px] sm:text-[30px] font-semibold leading-tight">
+          {greeting}, {firstName}.
+        </h1>
+        <p className="text-muted font-ui text-sm mt-1">
+          {headerDate}
+          {can(user, 'revenue.view') && funded
+            ? ` · ${fmtMoneyCompact(funded.volume)} funded this year across ${funded.count} ${funded.count === 1 ? 'file' : 'files'}`
+            : ''}
+        </p>
       </div>
+
+      {/* The Desk: everything waiting on a human, one plain sentence. */}
+      <div className="mb-5">
+        <DeskStrip fragments={desk} />
+      </div>
+
+      {/* Decision cards: lime top border = decide, amber = review. */}
+      {topDecisionCards.length > 0 && (
+        <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {topDecisionCards.map(c => (
+            <Link
+              key={c.key}
+              href={c.href}
+              className={`block rounded-[10px] bg-white border border-hairline border-t-4 shadow-card px-4 py-3.5 hover:border-ink-navy/30 motion-safe:transition-colors ${
+                c.kind === 'decide' ? 'border-t-decision' : 'border-t-caution'
+              }`}
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="font-ui font-bold text-2xl text-ink tabular-nums">{c.count}</span>
+                <span className="font-ui font-semibold text-sm text-ink">{c.title}</span>
+              </div>
+              <p className="mt-1 font-ui text-xs text-muted leading-snug">{c.body}</p>
+              <p
+                className={`mt-2 font-ui text-[13px] font-semibold text-ink underline decoration-2 underline-offset-4 ${
+                  c.kind === 'decide' ? 'decoration-decision' : 'decoration-caution'
+                }`}
+              >
+                {c.cta}
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Compact pipeline: every active file, its stage, and the next step
+          in plain words. Stage names render display values (the display/
+          actual indirection is documented in config/pipeline.ts). */}
+      {compactPipeline.length > 0 && (
+        <div className="mb-8 rounded-[10px] bg-white border border-hairline shadow-card overflow-x-auto">
+          <table className="w-full text-sm font-ui">
+            <thead>
+              <tr className="bg-[#FAFBFC] text-left text-[11px] text-muted uppercase tracking-wide">
+                <th className="py-2.5 px-4 font-semibold">Client</th>
+                <th className="py-2.5 px-3 font-semibold">Stage</th>
+                <th className="py-2.5 px-3 font-semibold text-right">Amount</th>
+                <th className="py-2.5 px-3 font-semibold">Closes</th>
+                <th className="py-2.5 px-3 font-semibold">Next step</th>
+                <th className="py-2.5 px-4 font-semibold text-right"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {compactPipeline.map(d => {
+                const wb = wbByZohoId.get(d.id)
+                return (
+                  <tr key={d.id} className="border-t border-hairline hover:bg-[#FAFCF5]">
+                    <td className="py-2.5 px-4 text-ink font-medium truncate max-w-[240px]">
+                      {d.dealName}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className="inline-block rounded-full bg-fog px-2 py-0.5 text-[11px] font-semibold text-muted">
+                        {d.stage}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-ink tabular-nums">
+                      {fmtMoneyCompact(d.amount)}
+                    </td>
+                    <td className="py-2.5 px-3 text-muted tabular-nums">
+                      {d.closingDate ? fmtShortDate(d.closingDate) : 'not set'}
+                    </td>
+                    <td className="py-2.5 px-3 text-muted">{nextStepForStage(d.stage)}</td>
+                    <td className="py-2.5 px-4 text-right">
+                      <Link
+                        href={wb ? `/portal/admin/deals/${wb.id}` : '/portal/admin/deals'}
+                        className="font-semibold text-ink text-[13px] underline decoration-hairline underline-offset-4 hover:decoration-ink-navy"
+                      >
+                        Open
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Needs Attention rail */}
       <div className="mb-8">

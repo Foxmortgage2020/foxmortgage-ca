@@ -175,3 +175,37 @@ describe('demo mode on the coverage + approvals fetchers (regression session)', 
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+// The Desk (2026-07-14 shell redesign): the count layer behind the strip,
+// the sidebar badges, and the poll route makes zero real reads in demo —
+// every underlying fetcher is demo-guarded, the renewal-events store (no
+// guard of its own) is skipped, and the rate book fetch is skipped too.
+import { computeDeskCounts } from '@/lib/desk'
+
+describe('demo mode on the Desk count layer', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '',
+      headers: new Headers(),
+    } as unknown as Response)
+  })
+
+  it('computeDeskCounts reads nothing real for an admin in demo', async () => {
+    const counts = await computeDeskCounts({
+      userId: 'demo-user',
+      email: 'demo@example.com',
+      name: 'Demo Admin',
+      roles: ['admin'],
+    })
+    // Approvals queues resolve from fixtures (numbers, not nulls); the
+    // export-dependent sections stay honest nulls (demo store is empty).
+    expect(typeof counts.sheets).toBe('number')
+    expect(counts.reviewFiles).toBeNull()
+    expect(counts.manualMatches).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})

@@ -1,6 +1,8 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 14, 2026, eighth session + STAGE-GUARD ADDENDUM (same night — the load-bearing finding: the Deals Stage picklist carries a DISPLAY/ACTUAL indirection and Zoho READS return DISPLAY values while WRITES take ACTUAL values (verified live: actual 'Underwritting In Progress' double-t displays single-t; actual 'Application Sent To Lender' displays 'Conditionally Approved'; actual 'Application Pending' displays 'Application Started'; actual 'Ready To Close' displays 'Broker Complete'; actual 'Mortgage Closed' displays 'Mortgage Funded') — so the sync's stage guard was comparing display-space reads against an actual-space STAGE_ORDER and only ever matched where the two coincide. FIXED in Finmo Sync v2 (published 5fd50c60): STAGE_ORDER covers all 13 hand-settable stages in ACTUAL space funnel-ordered by picklist probability, reads canonicalize through STAGE_READ_ALIASES, an unknown non-null current stage is PRESERVED loudly (never overwritten — the old guard overwrote unknowns), the COQL-confirm path re-runs the guard (it wrote Stage unguarded when the search index lagged), and the create path names deals '{fileRef} — {primary borrower}' (isMainBorrower, else earliest-created; bare ref when none) matching the book convention. REPORT-ONLY finding: NOTHING renames deals post-creation — the marketplace extension births them named, Michael hand-renamed Aitken's tonight (timeline: crm_ui 22:03, no automation). Portal: 'Submitted' weighted 0.15 + 'Conditions Fulfilled' 0.75 in STAGE_WEIGHTS, PIPELINE_STAGE_ORDER rebuilt as the true 13-stage funnel (display space — the brief's 'key on actual values' is inverted, reads speak display), and unmapped active stages render a loud amber flag on Home + Revenue (lib/pacing unmappedPipelineStages) never a silent zero bucket. Live: Aitken's $359,000 rides the weighted forecast at $53,850, unmapped list empty. See the stage-guard ledger entry. The eighth-session header follows.)
+## Last Updated: July 14, 2026, ninth session (COMMAND CENTRE SHELL REDESIGN, PHASE A — calm machine, loud exceptions: the admin shell is rebuilt around ONE RULE, lime (`decision` token #C6F53F) renders only where a human decision is queued (nav dots, decision badges, the Waiting-on-you Desk strip, decision-card primary actions, plus the brief-sanctioned dark focus ring) — enforced by tests/shell.test.ts. Sixteen flat nav items became FIVE GROUPS (Pipeline/Market/Practice/System + Today) with Ask Fox as the persistent sidebar footer; renames per the nav-IA rule: Home→Today, Intel→Lender intel, Audit Log→Audit log, Settings→Users & settings. THE DESK: lib/desk.ts computes decision counts from the OWNING pages' own loaders (getApprovalsData actionable queues; appearsRenewedPending extracted into lib/renewals.ts and shared by the Renewals page + desk; the board's review bucket), rendered as the navy Waiting-on-you strip on Home (proud empty state) + sidebar badges/dots via GET /api/portal/admin/desk. Home above the fold: Fraunces greeting (the one serif moment; Archivo is the shell face — both OFL, vendored via fontsource), Desk strip, three decision cards, compact pipeline table with plain-words next steps (lib/desk nextStepForStage). BELL COUNTS DECISIONS: Decide/Watch/Log lanes (lib/notifications NOTIFICATION_LANES); the route auto-marks-read stale Decide items whose signal is gone — live 63→1. Palette + Ask Fox merged (⌘K "Or ask" row → agent?q=…). Agent-only roles see Today/Pipeline/Market/Ask Fox (presentation scoping, server authz untouched — verified live). Collapsible 68px rail persisted per user. FINDINGS: the companion mockup file is NOT on this machine (built from the brief's written spec); the IA table missed Roadmap (→System) + the portals block (kept, own section); manual matches have NO passive source (fragment exists, null until a scan result persists — backlogged); the OLD shell's active-nav bg-lime was itself a rule violation, gone. Phase A only: every page interior renders unchanged inside the new shell (route-inventory test = the nothing-removed proof). See the 2026-07-14 shell ledger entry. The stage-guard addendum + eighth session follow.)
+
+### Prior: eighth session + STAGE-GUARD ADDENDUM (same night — the load-bearing finding: the Deals Stage picklist carries a DISPLAY/ACTUAL indirection and Zoho READS return DISPLAY values while WRITES take ACTUAL values (verified live: actual 'Underwritting In Progress' double-t displays single-t; actual 'Application Sent To Lender' displays 'Conditionally Approved'; actual 'Application Pending' displays 'Application Started'; actual 'Ready To Close' displays 'Broker Complete'; actual 'Mortgage Closed' displays 'Mortgage Funded') — so the sync's stage guard was comparing display-space reads against an actual-space STAGE_ORDER and only ever matched where the two coincide. FIXED in Finmo Sync v2 (published 5fd50c60): STAGE_ORDER covers all 13 hand-settable stages in ACTUAL space funnel-ordered by picklist probability, reads canonicalize through STAGE_READ_ALIASES, an unknown non-null current stage is PRESERVED loudly (never overwritten — the old guard overwrote unknowns), the COQL-confirm path re-runs the guard (it wrote Stage unguarded when the search index lagged), and the create path names deals '{fileRef} — {primary borrower}' (isMainBorrower, else earliest-created; bare ref when none) matching the book convention. REPORT-ONLY finding: NOTHING renames deals post-creation — the marketplace extension births them named, Michael hand-renamed Aitken's tonight (timeline: crm_ui 22:03, no automation). Portal: 'Submitted' weighted 0.15 + 'Conditions Fulfilled' 0.75 in STAGE_WEIGHTS, PIPELINE_STAGE_ORDER rebuilt as the true 13-stage funnel (display space — the brief's 'key on actual values' is inverted, reads speak display), and unmapped active stages render a loud amber flag on Home + Revenue (lib/pacing unmappedPipelineStages) never a silent zero bucket. Live: Aitken's $359,000 rides the weighted forecast at $53,850, unmapped list empty. See the stage-guard ledger entry. The eighth-session header follows.)
 
 ### Eighth session header (FINMO SYNC V2 HARDENED — n8n Cloud only, ZERO repo code changes beyond this file: Finmo Sync v2 (IFDRp2BGHAbzKpHH) gained an error workflow (BeRBcxNv1bQjx5v8, Error Trigger → Resend email to Michael — verified by 13 REAL firings during the replay, not synthetics), a 12h heartbeat dead-man check (9c6IUbuqA4GIIsQw: alerts when the sync is DEACTIVATED or has zero executions in a labeled 24h WINDOW_HOURS — 72h PROPOSED, not silently widened, because retained history shows healthy 2+ day quiet stretches), an early out-of-scope 200 for document events BEFORE the heavy Library path (the 2026-07-08 burst mechanism: ten concurrent documentRequest events each ran Library/hash/idempotency before their 200; signature verification stays upstream — pin-data verified, Library never ran), and an H13 deal-not-found email that names the ACTUAL event type + the Finmo file ref and carries a one-command per-application backfill repair whose token is PROMPTED at run time, never embedded. FINDINGS: the brief's referenced spec + token files are NOT on this machine (the token's single source of truth is the workflow's own Verify Backfill Token node + 1Password); the backfill is a thin PER-APPLICATION trigger, not a date-range replay, and as built could never repair a missed CREATE (fixed: syncSource==='backfill' now exempts the deal-not-found HITL routing and creates with the full payload); TWO PRE-EXISTING DEFECTS fixed live — Apply COQL Result rebuilt context from the COQL HTTP response, so on the known OAUTH_SCOPE_MISMATCH it obliterated context and PUT to /Deals/undefined, and Build Junction Payload hard-referenced the skippable module-cache node (referencing an unexecuted node THROWS), killing every warm-cache borrower sync. GAP REPLAYED (2026-07-08T13:00Z→now): BRXM-F059751 CREATED in Zoho (7112178000006038003, Finmo_Application_UUID d4e2494a — the named acceptance, COQL-verified), Crnkovic BRXM-F057400 + Bannerman BRXM-F053725 recovered missed Conditionally Approved → APPROVED transitions, BRXM-F025547 partial (unmapped Finmo Payoff_Status, H16 emailed), Islam clean; FIVE open files un-fetchable on Finmo 403 Forbidden (Kerr BRXM-F056361, Mehmi BRXM-F053107, Fensham BRXM-F054033, Stafford BRXM-F054420, Spek BRXM-F057623 — realtime fails identically; Michael's hand-reconcile list). Inventory: 41 active workflows, 39 with NO error workflow (reported, not attached, per the brief). See the 2026-07-13/14 ledger entry. The prior seventh-session header follows.)
 
@@ -1499,6 +1501,120 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-14 — Command Centre shell redesign, Phase A: calm machine, loud exceptions
+- FINDINGS FIRST: (1) the brief's companion mockup
+  (fox-command-centre-redesign-mockup.html) is NOT in the repo, the docs, or
+  anywhere on this machine (repo find + Spotlight) — the brief's own written
+  spec (tokens table, IA table, Desk copy, component standards) served as
+  the visual contract. (2) The IA table MISSED two nav surfaces, both kept:
+  ROADMAP (placed in System) and the PORTALS block (View-as + five portal
+  quick links; kept as its own sidebar section above the footer,
+  portals.view-as-gated as before). (3) The brief's Desk example includes
+  "1 manual match" and says all sources are already computed — manual
+  matches are NOT passively computable (the backfill scan is on-demand and
+  priced in Zoho contact searches; no scan result persists). DEVIATION: the
+  fragment type exists in the pure builder and lights up the day a scan
+  result is persisted; until then the count stays null (backlogged).
+  (4) lib/renewals-store.ts carries NO demo guard (pre-existing); the desk
+  path skips it in demo (files re-flag, the conservative direction).
+  (5) One place the lime rule needed its sanctioned exception: the keyboard
+  focus ring on dark surfaces is decision-lime BY THE BRIEF'S OWN RULE 4 —
+  enumerated in the audit test, not quietly broken.
+- THE LIME RULE, enforced by test: the new `decision` token (#C6F53F, ink
+  #3D4F0A) renders ONLY in group dots, item badges, the Desk strip's
+  fragment links, decision-card top borders + primary actions, the bell's
+  decision badge + Decide-lane unread dot, and the dark focus ring.
+  tests/shell.test.ts walks the shell component sources and fails on any
+  lime/decision class outside the enumerated files and roles. Active nav is
+  ink-navy3 (the OLD shell's active state was bg-lime — a rule violation on
+  day one, gone). Tokens in tailwind.config.ts: ink.navy/.navy2/.navy3,
+  fog, hairline, muted/.2, decision/.ink, caution/.bg, danger, shadow-card.
+  Fonts VENDORED via @fontsource-variable/archivo + fraunces (OFL),
+  imported in the admin layout only; font-ui = Archivo, font-greeting =
+  Fraunces (the Home greeting line ONLY — the face clients see on Fox
+  documents).
+- IA: config/admin-nav.ts became five groups (Today | Pipeline: Deals,
+  Approvals, Renewals, Opportunities | Market: Rates, Lender intel,
+  Knowledge | Practice: Revenue, Partners, Compliance, Bookkeeping,
+  Directory | System: Audit log, Changelog, Status, Users & settings,
+  Roadmap) + ASK_FOX as the sidebar footer button. RENAMES (nav-IA note per
+  the standing rule): Home → Today, Intel → Lender intel, Audit Log →
+  Audit log, Settings → Users & settings; Ask Fox left the mid-list nav.
+  S-session tags came off the nav. scopeNavForRoles: agent-ONLY role sets
+  see Today/Pipeline/Market/Ask Fox (presentation scoping on top of can(),
+  never widening; verified live — a direct URL to /portal/admin/revenue as
+  agent bounces exactly as server authz always did). lib/effective-access
+  gained ASK_FOX so the Settings matrix still states it per role.
+- THE DESK: lib/desk.ts is the count layer — computeDeskCounts(user)
+  sources the SAME loaders the owning pages render (getApprovalsData's
+  actionable queues; appearsRenewedPending — a pure shared walk EXTRACTED
+  into lib/renewals.ts and now called by BOTH the Renewals page and the
+  desk, reconciliation by construction; the review bucket via the board's
+  own analyzeMortgage path). deskFragments/deskBadges are pure and
+  unit-tested. GET /api/portal/admin/desk (deals.view; sections filtered by
+  the caller's permissions) feeds the sidebar badges + group dots (mount +
+  focus + 5-minute poll). Home computes the same counts server-side for the
+  strip — and its four separate approvals fetchers were REPLACED by the one
+  shared getApprovalsData call, so Home's rail, the strip, and the
+  Approvals page count the same actionable (park-partitioned) queues.
+- HOME above the fold: Fraunces greeting (Good morning/afternoon/evening,
+  {first name} + date + funded-YTD sub-line behind revenue.view), the
+  navy DeskStrip ("Waiting on you: … Everything else is running on its
+  own." / the proud empty "Nothing needs you right now."), up to three
+  decision cards (lime top border = decide, amber = review, verb CTAs),
+  and the compact pipeline table (client, stage pill, amount, closes,
+  NEXT STEP in plain words via nextStepForStage — display-space keys,
+  unknown stage gets an honest generic; Open links into the deal room
+  where the workbench join matches). computePipeline gained activeDeals
+  (additive). EVERYTHING below the fold kept: rail, KPI strip, stage
+  table, tasks, pacing, rates tile, closings.
+- BELL: badge counts DECISIONS — unread Decide-lane items only
+  (NOTIFICATION_LANES in lib/notifications.ts: decide = sheet_review +
+  pending_offers; watch = renewals/credentials/sync/intake; log =
+  gate_decision_external). THE 88-UNREAD FIX with teeth: the notifications
+  route now auto-marks-read any unread Decide item whose dedupKey is not in
+  the freshly produced current-signal set — a decision made on the desk or
+  in the CLI is not pending. Live: decide-lane unread went 63 → 1 (the one
+  genuinely pending sheet); Watch keeps its read state; nothing deleted.
+- PALETTE: one box, two talents — the existing ⌘K search plus an "Or ask"
+  row handing the raw query to Ask Fox (/portal/admin/agent?q=…;
+  AgentChat auto-sends q like prep). Restyled to tokens (its active-row
+  lime highlight is gone). Trigger copy: "Search or ask".
+- SHELL: components/admin/AdminShell.tsx rebuilt — ink-navy sidebar
+  (248px), collapsible 68px icon rail persisted per user
+  (localStorage fox_rail_v1:{userId}; badges become lime dots on icons
+  when collapsed), white topbar on fog with the collapse toggle + palette
+  + bell, mobile drawer preserved, DemoBanner intact, focus-visible rings
+  (decision on dark, ink-navy on light), motion-safe transitions only.
+- TESTS (tests/shell.test.ts, 26): route inventory walks
+  app/portal/admin/**/page.tsx and asserts every route has a nav ancestor
+  (the nothing-removed proof) + every nav href resolves to a real page;
+  agent scoping fixtures; desk fragment/badge builders incl. the brief's
+  exact sentence; appearsRenewedPending flag/decline/no-export cases; the
+  lime audit; lane mapping; nextStepForStage; rail/motion/focus statics.
+  tests/demo.test.ts gained the desk zero-real-reads proof (fetch spy;
+  getRateQuotesFull skipped in demo — the demo export is empty anyway).
+- VERIFIED LIVE (dev server + dev Clerk instance; TEST users
+  shell-admin/shell-agent +clerk_test created and REMOVED after):
+  admin Home renders the strip with the real live sentence ("1 rate sheet
+  to approve · 53 flags to resolve · 1 file to score · 3 renewals to
+  confirm · 15 files in review"), decision cards, the compact pipeline
+  (incl. tonight's BRXM-F059751 at Submitted → "Review the application and
+  collect documents"), badges Approvals 55 / Renewals 3 / Opportunities 15
+  with group dots; bell 63 → 1 after the stale-decide reconciliation;
+  collapsed rail persists across navigation; the legacy Rates page renders
+  unchanged inside the new shell; agent Home shows the scoped nav + the
+  proud empty Desk + no funded figure; the palette hands "best 3 year
+  fixed for a rental" to Ask Fox. tsc clean, production build green,
+  suite green (count in the report).
+- Guardrails held: no route deleted or feature dropped (test-proven), no
+  new authority keys, server-side authz untouched, readonly workbench
+  (desk reads ride existing loaders), demo zero-real-reads on the new
+  surfaces (tested), copy rules on all new UI strings (sentence case,
+  verbs on buttons, no em dashes), PII discipline (TEST users only on the
+  dev instance, removed; screenshots not committed), fonts vendored not
+  hotlinked, public site fonts/pages untouched.
 
 ### 2026-07-13/14 (night, addendum) — Stage guard, portal stage vocabulary, deal naming
 - THE FINDING FIRST (contradicts the brief's parenthetical): the Deals Stage
