@@ -16,7 +16,7 @@ import {
   PIPELINE_STAGE_ORDER,
   STAGE_WEIGHTS,
 } from '@/config/pipeline'
-import { computePacing, weightedPipelineVolume } from '@/lib/pacing'
+import { computePacing, weightedPipelineVolume, unmappedPipelineStages } from '@/lib/pacing'
 import { isStaleOpenDeal } from '@/lib/pipeline-hygiene'
 import { isDemoMode } from '@/lib/demo'
 import {
@@ -176,6 +176,10 @@ export default async function RevenuePage() {
     { volume: 0, count: 0 },
   )
   const weighted = weightedPipelineVolume(pipelineStageVolumes(pipeline), STAGE_WEIGHTS)
+  // Active open stages the weight map does not know. These count at zero in
+  // the weighted pipeline and the forecast, so they render as a loud flag
+  // beside both figures, never a silent bucket.
+  const unmappedStages = unmappedPipelineStages(pipelineStageVolumes(pipeline), STAGE_WEIGHTS)
   const pacing = computePacing({
     fundedYTD: fundedYTD.volume,
     weightedPipeline: weighted,
@@ -369,6 +373,21 @@ export default async function RevenuePage() {
             }
           />
         </div>
+
+        {unmappedStages.length > 0 && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+            <p className="text-xs font-semibold text-amber-900">
+              Unmapped stage{unmappedStages.length > 1 ? 's' : ''} in the active pipeline
+            </p>
+            <p className="text-xs text-amber-800 font-body mt-0.5">
+              {unmappedStages
+                .map(s => `${s.stage} (${s.count} file${s.count === 1 ? '' : 's'}, ${fmtMoneyCompact(s.volume)})`)
+                .join(', ')}{' '}
+              carry no stage weight, so they count at zero in the weighted pipeline and the
+              forecast until the stage is mapped in config/pipeline.ts.
+            </p>
+          </div>
+        )}
 
         <MonthBars
           rows={trend.map(m => ({
@@ -583,8 +602,17 @@ export default async function RevenuePage() {
                 <div className="text-xs font-body text-gray-600 w-24 text-right">
                   {row.count} · {fmtMoneyCompact(row.volume)}
                 </div>
-                <div className="text-[11px] font-body text-gray-400 w-14 text-right">
-                  {weight != null ? `w ${weight}` : 'w 0'}
+                <div className="text-[11px] font-body w-16 text-right">
+                  {weight != null ? (
+                    <span className="text-gray-400">{`w ${weight}`}</span>
+                  ) : (
+                    <span
+                      className="inline-block rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900"
+                      title="This stage has no weight in config/pipeline.ts, so it counts at zero in the weighted pipeline and the forecast."
+                    >
+                      unmapped
+                    </span>
+                  )}
                 </div>
               </div>
             )

@@ -17,7 +17,7 @@ import {
   WORKBENCH_AGENT_EMAIL,
 } from '@/config/targets'
 import { STAGE_WEIGHTS } from '@/config/pipeline'
-import { computePacing, weightedPipelineVolume } from '@/lib/pacing'
+import { computePacing, weightedPipelineVolume, unmappedPipelineStages } from '@/lib/pacing'
 import {
   computeClosings,
   computeFundedYTD,
@@ -234,6 +234,10 @@ export default async function AdminHome() {
   const weighted = pipeline
     ? weightedPipelineVolume(pipelineStageVolumes(pipeline), STAGE_WEIGHTS)
     : null
+  // Loud, never silent: active stages the weight map does not know.
+  const unmappedStages = pipeline
+    ? unmappedPipelineStages(pipelineStageVolumes(pipeline), STAGE_WEIGHTS)
+    : []
   const pacing =
     funded && weighted !== null
       ? computePacing({
@@ -812,6 +816,14 @@ export default async function AdminHome() {
                     </p>
                   </div>
                 </div>
+
+                {unmappedStages.length > 0 && (
+                  <p className="mt-3 rounded bg-amber-50 border border-amber-300 px-2.5 py-1.5 text-[11px] font-body text-amber-900">
+                    <span className="font-semibold">Unmapped stage{unmappedStages.length > 1 ? 's' : ''}:</span>{' '}
+                    {unmappedStages.map(s => `${s.stage} (${fmtMoneyCompact(s.volume)})`).join(', ')} counted at
+                    zero weight until mapped in config/pipeline.ts.
+                  </p>
+                )}
 
                 {/* Progress vs the straight-line marker */}
                 <div className="mt-5">

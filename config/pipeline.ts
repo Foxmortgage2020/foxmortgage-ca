@@ -15,15 +15,42 @@
 //   - 'Cancelled' — a dead-end stage; not forward pipeline.
 // Recorded in docs/portal-audit-2026-07.md and CLAUDE.md.
 
-// Display ordering proven in the Daily Deal Briefing. Open stages not in
-// this list render after it, alphabetically, so new picklist values are
-// never silently hidden.
+// ─── Stage vocabulary: the display/actual indirection (verified live 2026-07-14) ──
+// The Zoho Deals Stage picklist carries DISPLAY and ACTUAL values that differ
+// on five used stages. READS (records API + COQL — everything this portal
+// consumes) return the DISPLAY value; WRITES (the Finmo sync) take the ACTUAL
+// value. Every stage string in this file is therefore a DISPLAY value, and
+// that is correct — do not "fix" them to actual values. The pairs that differ:
+//   actual 'Application Pending'        → displays 'Application Started'
+//   actual 'Underwritting In Progress'  → displays 'Underwriting In Progress'
+//     (the double-t typo lives in the ACTUAL value only; reads never show it)
+//   actual 'Application Sent To Lender' → displays 'Conditionally Approved'
+//   actual 'Ready To Close'             → displays 'Broker Complete'
+//   actual 'Mortgage Closed'            → displays 'Mortgage Funded'
+// The sync's own stage guard keys on actual values with a display→actual
+// alias map (Finmo Sync v2, Build Deal Payload node).
+
+// Funnel ordering for the pipeline-by-stage views, DISPLAY values, ordered by
+// the picklist's probability (5→100). Covers every stage Michael can hand-set
+// plus the legacy stages still on live records (Pending, Options). Open stages
+// not in this list render after it, alphabetically, so new picklist values are
+// never silently hidden — and any such stage also trips the unmapped-stage
+// flag (lib/pacing.ts unmappedPipelineStages) so it is loud, never a quiet
+// zero-weight bucket.
 export const PIPELINE_STAGE_ORDER = [
+  'Lead',
   'Pending',
+  'Application Started',
+  'Submitted',
   'Collecting Documentation',
   'Options',
-  'Conditionally Approved',
   'Underwriting In Progress',
+  'Ready to Submit',
+  'Submitted to Lender',
+  'Conditionally Approved',
+  'Conditions Fulfilled',
+  'Approved',
+  'Broker Complete',
 ] as const
 
 // Stages that end a file's forward journey. Excluded from the pipeline
@@ -82,6 +109,9 @@ export const STALE_CREATED_DAYS = 180
 
 // Probability weights for the goal pacing widget's weighted pipeline.
 // Open-stage volume times weight approximates expected funded volume.
+// Keys are DISPLAY values (what reads return — see the indirection note
+// above). A stage with no key here contributes zero AND surfaces through
+// the unmapped-stage flag on Home and Revenue — never a silent bucket.
 export const STAGE_WEIGHTS: Record<string, number> = {
   // Seed defaults from the Session 1 brief:
   'Lead': 0.05,
@@ -99,6 +129,13 @@ export const STAGE_WEIGHTS: Record<string, number> = {
   'Qualification': 0.05,
   'Options': 0.3,
   'Approved': 0.75,
+  // 2026-07-14: 'Submitted' re-enabled in the picklist (probability 25) and
+  // now written by the Finmo sync's in_progress mapping; positioned between
+  // Application Started (.1) and Collecting Documentation (.2). 'Conditions
+  // Fulfilled' is a used picklist stage the seed predated (probability 50 —
+  // beside Conditionally Approved, before Approved, so it shares their .75).
+  'Submitted': 0.15,
+  'Conditions Fulfilled': 0.75,
 }
 
 export function isTerminalStage(stage: string): boolean {

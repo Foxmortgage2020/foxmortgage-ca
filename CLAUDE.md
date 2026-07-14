@@ -1,6 +1,8 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 14, 2026, eighth session (FINMO SYNC V2 HARDENED — n8n Cloud only, ZERO repo code changes beyond this file: Finmo Sync v2 (IFDRp2BGHAbzKpHH) gained an error workflow (BeRBcxNv1bQjx5v8, Error Trigger → Resend email to Michael — verified by 13 REAL firings during the replay, not synthetics), a 12h heartbeat dead-man check (9c6IUbuqA4GIIsQw: alerts when the sync is DEACTIVATED or has zero executions in a labeled 24h WINDOW_HOURS — 72h PROPOSED, not silently widened, because retained history shows healthy 2+ day quiet stretches), an early out-of-scope 200 for document events BEFORE the heavy Library path (the 2026-07-08 burst mechanism: ten concurrent documentRequest events each ran Library/hash/idempotency before their 200; signature verification stays upstream — pin-data verified, Library never ran), and an H13 deal-not-found email that names the ACTUAL event type + the Finmo file ref and carries a one-command per-application backfill repair whose token is PROMPTED at run time, never embedded. FINDINGS: the brief's referenced spec + token files are NOT on this machine (the token's single source of truth is the workflow's own Verify Backfill Token node + 1Password); the backfill is a thin PER-APPLICATION trigger, not a date-range replay, and as built could never repair a missed CREATE (fixed: syncSource==='backfill' now exempts the deal-not-found HITL routing and creates with the full payload); TWO PRE-EXISTING DEFECTS fixed live — Apply COQL Result rebuilt context from the COQL HTTP response, so on the known OAUTH_SCOPE_MISMATCH it obliterated context and PUT to /Deals/undefined, and Build Junction Payload hard-referenced the skippable module-cache node (referencing an unexecuted node THROWS), killing every warm-cache borrower sync. GAP REPLAYED (2026-07-08T13:00Z→now): BRXM-F059751 CREATED in Zoho (7112178000006038003, Finmo_Application_UUID d4e2494a — the named acceptance, COQL-verified), Crnkovic BRXM-F057400 + Bannerman BRXM-F053725 recovered missed Conditionally Approved → APPROVED transitions, BRXM-F025547 partial (unmapped Finmo Payoff_Status, H16 emailed), Islam clean; FIVE open files un-fetchable on Finmo 403 Forbidden (Kerr BRXM-F056361, Mehmi BRXM-F053107, Fensham BRXM-F054033, Stafford BRXM-F054420, Spek BRXM-F057623 — realtime fails identically; Michael's hand-reconcile list). Inventory: 41 active workflows, 39 with NO error workflow (reported, not attached, per the brief). See the 2026-07-13/14 ledger entry. The prior seventh-session header follows.)
+## Last Updated: July 14, 2026, eighth session + STAGE-GUARD ADDENDUM (same night — the load-bearing finding: the Deals Stage picklist carries a DISPLAY/ACTUAL indirection and Zoho READS return DISPLAY values while WRITES take ACTUAL values (verified live: actual 'Underwritting In Progress' double-t displays single-t; actual 'Application Sent To Lender' displays 'Conditionally Approved'; actual 'Application Pending' displays 'Application Started'; actual 'Ready To Close' displays 'Broker Complete'; actual 'Mortgage Closed' displays 'Mortgage Funded') — so the sync's stage guard was comparing display-space reads against an actual-space STAGE_ORDER and only ever matched where the two coincide. FIXED in Finmo Sync v2 (published 5fd50c60): STAGE_ORDER covers all 13 hand-settable stages in ACTUAL space funnel-ordered by picklist probability, reads canonicalize through STAGE_READ_ALIASES, an unknown non-null current stage is PRESERVED loudly (never overwritten — the old guard overwrote unknowns), the COQL-confirm path re-runs the guard (it wrote Stage unguarded when the search index lagged), and the create path names deals '{fileRef} — {primary borrower}' (isMainBorrower, else earliest-created; bare ref when none) matching the book convention. REPORT-ONLY finding: NOTHING renames deals post-creation — the marketplace extension births them named, Michael hand-renamed Aitken's tonight (timeline: crm_ui 22:03, no automation). Portal: 'Submitted' weighted 0.15 + 'Conditions Fulfilled' 0.75 in STAGE_WEIGHTS, PIPELINE_STAGE_ORDER rebuilt as the true 13-stage funnel (display space — the brief's 'key on actual values' is inverted, reads speak display), and unmapped active stages render a loud amber flag on Home + Revenue (lib/pacing unmappedPipelineStages) never a silent zero bucket. Live: Aitken's $359,000 rides the weighted forecast at $53,850, unmapped list empty. See the stage-guard ledger entry. The eighth-session header follows.)
+
+### Eighth session header (FINMO SYNC V2 HARDENED — n8n Cloud only, ZERO repo code changes beyond this file: Finmo Sync v2 (IFDRp2BGHAbzKpHH) gained an error workflow (BeRBcxNv1bQjx5v8, Error Trigger → Resend email to Michael — verified by 13 REAL firings during the replay, not synthetics), a 12h heartbeat dead-man check (9c6IUbuqA4GIIsQw: alerts when the sync is DEACTIVATED or has zero executions in a labeled 24h WINDOW_HOURS — 72h PROPOSED, not silently widened, because retained history shows healthy 2+ day quiet stretches), an early out-of-scope 200 for document events BEFORE the heavy Library path (the 2026-07-08 burst mechanism: ten concurrent documentRequest events each ran Library/hash/idempotency before their 200; signature verification stays upstream — pin-data verified, Library never ran), and an H13 deal-not-found email that names the ACTUAL event type + the Finmo file ref and carries a one-command per-application backfill repair whose token is PROMPTED at run time, never embedded. FINDINGS: the brief's referenced spec + token files are NOT on this machine (the token's single source of truth is the workflow's own Verify Backfill Token node + 1Password); the backfill is a thin PER-APPLICATION trigger, not a date-range replay, and as built could never repair a missed CREATE (fixed: syncSource==='backfill' now exempts the deal-not-found HITL routing and creates with the full payload); TWO PRE-EXISTING DEFECTS fixed live — Apply COQL Result rebuilt context from the COQL HTTP response, so on the known OAUTH_SCOPE_MISMATCH it obliterated context and PUT to /Deals/undefined, and Build Junction Payload hard-referenced the skippable module-cache node (referencing an unexecuted node THROWS), killing every warm-cache borrower sync. GAP REPLAYED (2026-07-08T13:00Z→now): BRXM-F059751 CREATED in Zoho (7112178000006038003, Finmo_Application_UUID d4e2494a — the named acceptance, COQL-verified), Crnkovic BRXM-F057400 + Bannerman BRXM-F053725 recovered missed Conditionally Approved → APPROVED transitions, BRXM-F025547 partial (unmapped Finmo Payoff_Status, H16 emailed), Islam clean; FIVE open files un-fetchable on Finmo 403 Forbidden (Kerr BRXM-F056361, Mehmi BRXM-F053107, Fensham BRXM-F054033, Stafford BRXM-F054420, Spek BRXM-F057623 — realtime fails identically; Michael's hand-reconcile list). Inventory: 41 active workflows, 39 with NO error workflow (reported, not attached, per the brief). See the 2026-07-13/14 ledger entry. The prior seventh-session header follows.)
 
 ### Prior header: seventh session (RATES GRID REGRESSION — THE 1,000-ROW CAP: Supabase PostgREST caps EVERY response at 1,000 rows regardless of the limit param; when the approved+superseded book hit 1,765 rows the as_of_date-ordered getRateQuotesFull silently dropped whole lenders off the tail — 11 live cards, 24 false coverage chips, and the Opportunities board quietly down to 1 act_now from 3. NOT a commit (diff-proven; the suspected aa3c1ea touched zero rates surfaces). FIX: uwSelectAll offset pagination (id.asc tiebreak, whole-read failure on any page, loud 20k backstop) across all 13 large-limit fetchers + full-history getIntelItems; coverage pending REDEFINED (only a lender whose NEWEST rates-class item is extraction_failed/no_pipeline, chip names the failing sheet; approved lenders never chip; live cards get a newer-sheet-needs-attention badge instead of demotion); province-excluded lenders' sheets PARK out of the approvals queue onto an auto-releasing shelf (lib/sheet-park.ts — presentation-layer, stated deviation: no gates hold action exists); null-slug rates sheets surface on the Lenders tab (tonight's was Alterna Savings, b1cfd0c1 — workbench follow-up to add the slug). Live after: 22 cards / 6 chips / book 1,257 across 25. See the late-2026-07-13 ledger entry. Sixth session, TASK 0 + PART 2 — TERM POLICY, GRADUATION CLASS, THE LAPSED POOL, AND THE CLIENT REPORT REBUILT: every comparable carries its TERM beside its rate on every surface and in savings_analysis_log (calc_version 3; inputs gained termMonths + shortTermApplied; figures gained breakEvenPenalty, the samePaymentPlan trio, and the horizon-end positions; replay reproduces exactly); the DEFAULT comparable must COVER the comparison horizon (refinance = months left on the current term; switch = the client's OWN term, else 60) or the projection SHORTENS to the quote's term — a short rate is never projected past its term, and a deliberately short-term play is a flagged strategy (labelled, reasoned, logged as quotes role short_term_flag) taking Michael's two-tap stp=approve on the PDF route, NEVER an automatic act_now (demoted to marginal unapproved); GRADUATION prices CONVENTIONAL only (b targets book b_side) — a move to better paper never inherits an insurance class (the Part 1 leak: a switch-basis B file ported 'Insurable' into the graduation target and quoted the insurable 4.29; the flag now prices conventional, live 4.39 3-yr, and the B file's act_now STANDS on term-consistent grounds — the feed says the client is on a 12-MONTH term, so the 4.69 12-month quote genuinely covers their like-for-like horizon); the RENEWAL POOL is funded-stage deals only AND excludes Additional-Property child rows by NAME (config/pipeline isRenewalPoolDeal/isAdditionalPropertyRecord — the org's property rows are one mis-stage away from any stage-filtered pool; two children of lost BRXM-F021892 carry amounts + past maturities today) — LIVE FINDING, stated against the brief's expectation: the three extra 2023 lapsed rows (IFMS-F011671/F002599/F007027, exactly the $1,725,000 difference) are NOT Additional-Properties children — verified record-by-record they are funded-STAGE prior-term private-lending rows whose stories continued elsewhere (F011671 renewed as F012754, the property's BRX file then Mortgage Lost; F002599 renewed as F021782; F007027's BRX file is Archive), so the pool stays 18/$11,004,023 until Michael records their outcomes through the radar's own enumerated actions (residual after appears-renewed suppression 12/$5,204,023; after resolving the three, pool 15/$9,279,023 → true residual 10/$4,479,023 — F002599 is both a phantom AND appears-renewed-flagged); PART 2 SHIPPED: lib/savings-pdf.ts is the three-page choice document (masthead, option cards "$X a month back" / "N yrs sooner" with paymentsAvoided, the no-lender-name rate strip carrying term + sheet date, drawn amortization bars, the side-by-side table at the horizon end from FoxAnalysis.comparison, the penalty MINIMUM + break-even GAUGE, conditional next-step cards in place of ANY fixed-break verdict — and the min-exceeds-break-even shape states does-not-clear-the-bar; stay_put ALWAYS gets the one-page wait document whatever small saving exists; review/insufficient/province-pending state no figure; unapproved cross-family/graduation/short-term escalations NEVER print) rendered ONLY through savingsPdfInputFromAnalysis, the one mapper the route AND the golden tests share; FoxAnalysis gained shortTermStrategy/shortTermRecommended/samePaymentPlan/comparison; fonts are the brief-sanctioned Helvetica + Times-Bold fallback (no OFL TTFs vendored; swap the embed lines when Archivo/Fraunces land). See the 2026-07-13 Task 0 + Part 2 ledger entry. The prior fifth-session header follows; its "Part 2 NOT started" claim is superseded.)
 
@@ -1497,6 +1499,96 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-13/14 (night, addendum) — Stage guard, portal stage vocabulary, deal naming
+- THE FINDING FIRST (contradicts the brief's parenthetical): the Deals Stage
+  picklist carries DISPLAY/ACTUAL pairs that differ on five used stages, and
+  Zoho READS (records API + COQL, everything the portal and the sync's
+  searches consume) return the DISPLAY value while WRITES take the ACTUAL
+  value. Verified live by getFields + a grouped COQL read ('Mortgage Funded'
+  48, 'Conditionally Approved' 2, 'Underwriting In Progress' single-t 1 —
+  all display forms). The brief said "portal reads must key on actual
+  values"; the truth is inverted — the portal correctly keys on display, the
+  sync correctly writes actual, and the GUARD was broken precisely because it
+  compared the two spaces directly. The double-t typo is real and lives in
+  the ACTUAL value only: 'Underwritting In Progress' (displays single-t).
+  Pairs: 'Application Pending'→'Application Started', 'Underwritting In
+  Progress'→'Underwriting In Progress', 'Application Sent To Lender'→
+  'Conditionally Approved', 'Ready To Close'→'Broker Complete', 'Mortgage
+  Closed'→'Mortgage Funded' (+ unused 'Closed Lost to Competition'→
+  'Mortgage Lost').
+- CHECK 1 (Finmo Sync v2, Build Deal Payload + Apply COQL Result; atomic ops
+  + publish, active version 5fd50c60): STAGE_ORDER was 7 actual-space stages;
+  the guard's unknown-current branch OVERWROTE — so every display-space read
+  ('Conditionally Approved', 'Underwriting In Progress'…) and every hand-set
+  stage outside the list (Collecting Documentation, legacy Options/Pending/
+  Archive) fell to currentIdx===-1 and was clobbered by whatever Finmo
+  mapped. Now: STAGE_ORDER = all 13 hand-settable stages (used picklist) in
+  ACTUAL space, funnel-ordered by picklist probability, 'Underwritting In
+  Progress' matched as stored, 'Mortgage Closed' last so funded history
+  never rewrites; STAGE_READ_ALIASES canonicalizes display-space reads
+  before comparison; an unknown NON-NULL current stage is PRESERVED with a
+  loud 'Stage preserved (unknown to stage order)' error on Finmo_Sync_Error
+  (null current still writes — the create path); borrower.update strips the
+  new noise like the old. ADJACENT GAP fixed while in there: the COQL-confirm
+  path (search-index lag) wrote dp.Stage UNGUARDED because Build Deal Payload
+  had guarded against a null current stage — Apply COQL Result now re-runs
+  the guard against the COQL-found live stage using the order/aliases
+  EXPORTED from Build Deal Payload (_stageOrder/_stageReadAliases/
+  _terminalStages — one definition, never duplicated).
+- CHECK 3 (deal naming): create-only Deal_Name is now '{fileRef} — {primary
+  borrower full name}' (space em-dash space; primary = isMainBorrower, else
+  earliest-created, mirroring Extract Borrowers Array so the name matches
+  Contact #1; bare reference when no borrower name). REPORT-ONLY finding:
+  NO automated renamer exists — the fimoextension marketplace flow births
+  deals already named (Spek's creation event carries the full name), and
+  bare sync-created ones were Michael's to fix by hand (Aitken renamed
+  crm_ui 22:03 tonight, no automation attached; workflow rules BLU023E/
+  BLU055 fire on deal edits but never touch Deal_Name). One legacy stray:
+  Crnkovic's name carries a plain hyphen, hand-typed variant.
+- VERIFICATION (n8n side): a local harness ran the REAL node code (fetched
+  back from n8n post-update, byte-identical to the reviewed files modulo a
+  trailing newline) against 22 fixtures — the acceptance pair (Collecting
+  Documentation + in_progress keeps its stage with the loud error; create
+  with primary borrower → 'BRXM-FTEST01 — First Last'; without → bare ref),
+  alias forward-motion ('Conditionally Approved' + approved → writes),
+  alias protection ('Underwriting In Progress' + in_progress → kept),
+  unknown-legacy preservation (Options + funded → kept + loud), terminal
+  still writes, the backfill missed-create exemption intact (now with the
+  named Deal_Name), COQL re-guard suppress/forward/error-as-not-found, and
+  borrower.update noise-stripping. 22/22.
+- CHECK 2 (portal, display space by design): STAGE_WEIGHTS gained
+  'Submitted': 0.15 (re-enabled stage, probability 25, between Application
+  Started .1 and Collecting Documentation .2) and 'Conditions Fulfilled':
+  0.75 (probability 50, beside Conditionally Approved — an initial .8 was
+  caught by the new monotonicity test contradicting the funnel);
+  PIPELINE_STAGE_ORDER rebuilt as the true 13-stage funnel (Lead → Pending →
+  Application Started → Submitted → Collecting Documentation → Options →
+  Underwriting In Progress → Ready to Submit → Submitted to Lender →
+  Conditionally Approved → Conditions Fulfilled → Approved → Broker
+  Complete — the old 5-stage order had Conditionally Approved BEFORE
+  Underwriting In Progress); the display/actual indirection documented at
+  the top of config/pipeline.ts. UNMAPPED IS LOUD: lib/pacing.ts
+  unmappedPipelineStages (pure, tested; a configured zero weight is mapped,
+  not flagged) renders an amber unmapped-stage flag on the Home pacing card
+  and the Revenue goal-pacing section (stage, files, volume, "counted at
+  zero weight until mapped"), and the conversion-funnel row shows an amber
+  'unmapped' chip instead of the old quiet 'w 0'. The deal board already
+  derives its stage list from live data (never silent). Tests: pacing suite
+  gained the unmapped helper cases + a stage-vocabulary contract (every
+  funnel stage weighted, weights non-decreasing along the funnel, every
+  sync-written display value resolves). tsc clean, 461 tests green,
+  production build green.
+- ACCEPTANCE, live: BRXM-F059751 — Nicholas Aitken | Stage Submitted |
+  $359,000 | closing 2026-09-29 | not stale → rides the weighted pipeline
+  at $53,850 (0.15 × 359,000; weighted total $2,462,280); unmapped-stage
+  list EMPTY (all seven live open display stages weighted). Temp verify
+  script deleted.
+- Guardrails held: n8n edits atomic + publish (never deactivated;
+  errorWorkflow BeRBcxNv1bQjx5v8 intact), no Zoho record writes (reads +
+  field metadata only; the timeline read is a read), readonly workbench
+  untouched, PII discipline (Aitken the only named client; borrower
+  fixtures synthetic), copy rules on the new UI copy.
 
 ### 2026-07-13/14 (night) — Finmo Sync v2 hardened: error workflow, heartbeat, burst-proofing, the repairable H13, and the gap replayed
 - WHERE: the n8n Cloud instance via the MCP connector; no repo code changed

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { computePacing, weightedPipelineVolume } from '../lib/pacing'
+import { computePacing, weightedPipelineVolume, unmappedPipelineStages } from '../lib/pacing'
+import { PIPELINE_STAGE_ORDER, STAGE_WEIGHTS } from '../config/pipeline'
 
 describe('weightedPipelineVolume', () => {
   const weights = { 'Collecting Documentation': 0.2, 'Conditionally Approved': 0.75 }
@@ -22,6 +23,73 @@ describe('weightedPipelineVolume', () => {
 
   it('returns zero for an empty pipeline', () => {
     expect(weightedPipelineVolume([], weights)).toBe(0)
+  })
+})
+
+describe('unmappedPipelineStages (the loud flag for zero-weight buckets)', () => {
+  const weights = { 'Collecting Documentation': 0.2 }
+
+  it('finds exactly the stages the weight map does not know, with their volume', () => {
+    const stages = [
+      { stage: 'Collecting Documentation', volume: 1_000_000, count: 2 },
+      { stage: 'Some Future Stage', volume: 359_000, count: 1 },
+    ]
+    expect(unmappedPipelineStages(stages, weights)).toEqual([
+      { stage: 'Some Future Stage', volume: 359_000, count: 1 },
+    ])
+  })
+
+  it('is empty when every stage is mapped', () => {
+    expect(
+      unmappedPipelineStages([{ stage: 'Collecting Documentation', volume: 1, count: 1 }], weights),
+    ).toEqual([])
+  })
+
+  it('a configured zero weight is MAPPED (deliberate), not flagged', () => {
+    expect(
+      unmappedPipelineStages([{ stage: 'Parked', volume: 1, count: 1 }], { Parked: 0 }),
+    ).toEqual([])
+  })
+})
+
+describe('stage vocabulary contract (display space; live picklist 2026-07-14)', () => {
+  it("every funnel-order stage carries a weight — 'Submitted' and 'Conditions Fulfilled' included", () => {
+    for (const stage of PIPELINE_STAGE_ORDER) {
+      expect(STAGE_WEIGHTS[stage], `missing weight for '${stage}'`).toBeTypeOf('number')
+    }
+    expect(STAGE_WEIGHTS['Submitted']).toBe(0.15)
+    expect(STAGE_WEIGHTS['Conditions Fulfilled']).toBe(0.75)
+  })
+
+  it('weights are non-decreasing along the funnel order', () => {
+    const ws = PIPELINE_STAGE_ORDER.map(s => STAGE_WEIGHTS[s])
+    for (let i = 1; i < ws.length; i++) {
+      expect(
+        ws[i],
+        `${PIPELINE_STAGE_ORDER[i]} should not weigh less than ${PIPELINE_STAGE_ORDER[i - 1]}`,
+      ).toBeGreaterThanOrEqual(ws[i - 1])
+    }
+  })
+
+  it('every sync-written open stage resolves in the vocabulary (reads return DISPLAY values)', () => {
+    // The Finmo sync writes ACTUAL picklist values; Zoho reads hand the
+    // portal these DISPLAY values. Each must sit in the funnel order with a
+    // weight, or Aitken-class deals fall into a zero-weight bucket.
+    const syncVisibleOpen = [
+      'Application Started', // actual: Application Pending
+      'Submitted',
+      'Submitted to Lender',
+      'Conditionally Approved', // actual: Application Sent To Lender
+      'Approved',
+      'Broker Complete', // actual: Ready To Close
+    ]
+    for (const stage of syncVisibleOpen) {
+      expect(
+        (PIPELINE_STAGE_ORDER as readonly string[]).includes(stage),
+        `'${stage}' missing from funnel order`,
+      ).toBe(true)
+      expect(STAGE_WEIGHTS[stage], `missing weight for '${stage}'`).toBeTypeOf('number')
+    }
   })
 })
 

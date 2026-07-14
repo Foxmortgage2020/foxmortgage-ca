@@ -12,12 +12,25 @@ export interface StageVolume {
 // Expected funded volume from the open pipeline: sum of stage volume times
 // stage weight. Stages with no configured weight contribute zero — a new
 // picklist value is visible in the pipeline table but never silently
-// inflates pacing.
+// inflates pacing. Zero-weighting must never be SILENT either: callers
+// surface unmappedPipelineStages() beside every figure this feeds.
 export function weightedPipelineVolume(
   stages: StageVolume[],
   weights: Record<string, number>,
 ): number {
   return stages.reduce((sum, s) => sum + s.volume * (weights[s.stage] ?? 0), 0)
+}
+
+// Active open stages carrying volume that STAGE_WEIGHTS does not know.
+// These contribute zero to the weighted pipeline and the forecast, so the
+// pages render them as a visible "unmapped stage" flag — a new picklist
+// value (Zoho reads return DISPLAY values; keys must match that space) is
+// loud until someone maps it in config/pipeline.ts, never a quiet bucket.
+export function unmappedPipelineStages(
+  stages: StageVolume[],
+  weights: Record<string, number>,
+): StageVolume[] {
+  return stages.filter(s => !(s.stage in weights))
 }
 
 export interface PacingInput {
