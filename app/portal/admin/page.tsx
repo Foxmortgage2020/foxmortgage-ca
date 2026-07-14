@@ -552,7 +552,7 @@ export default async function AdminHome() {
         tone="red"
         title="Overdue conditions"
         count={conds.overdue.length}
-        href="/portal/admin/deals"
+        href="/portal/admin/underwriting"
       >
         {conds.overdue.slice(0, 5).map(c => (
           <AttentionRow
@@ -575,7 +575,7 @@ export default async function AdminHome() {
         tone="amber"
         title={`Conditions due within ${CONDITIONS_DUE_SOON_DAYS} days`}
         count={conds.dueSoon.length}
-        href="/portal/admin/deals"
+        href="/portal/admin/underwriting"
       >
         {conds.dueSoon.slice(0, 5).map(c => (
           <AttentionRow
@@ -595,7 +595,7 @@ export default async function AdminHome() {
         tone="amber"
         title={`Closings within ${CLOSINGS_ATTENTION_DAYS} days needing eyes`}
         count={closingsNeedingAttention.length}
-        href="/portal/admin/deals"
+        href="/portal/admin/underwriting"
       >
         {closingsNeedingAttention.slice(0, 5).map(r => (
           <AttentionRow
@@ -619,7 +619,7 @@ export default async function AdminHome() {
         tone={highFlags.length > 0 ? 'red' : 'amber'}
         title="Open workbench flags"
         count={flags.length}
-        href="/portal/admin/deals"
+        href="/portal/admin/underwriting"
       >
         <AttentionRow
           left={`${highFlags.length} high, ${warnFlags.length} warning, ${infoFlags.length} info`}
@@ -806,7 +806,7 @@ export default async function AdminHome() {
                     <td className="py-2.5 px-3 text-muted">{nextStepForStage(d.stage)}</td>
                     <td className="py-2.5 px-4 text-right">
                       <Link
-                        href={wb ? `/portal/admin/deals/${wb.id}` : '/portal/admin/deals'}
+                        href={wb ? `/portal/admin/deals/${wb.id}` : '/portal/admin/underwriting#not-yet-bridged'}
                         className="font-semibold text-ink text-[13px] underline decoration-hairline underline-offset-4 hover:decoration-ink-navy"
                       >
                         Open
@@ -866,7 +866,7 @@ export default async function AdminHome() {
             />
           )}
           {pipeline && (
-            <KpiCell label="Active pipeline" value={`${pipeline.openCount} files`} sub={fmtMoneyCompact(pipeline.openVolume)} href="/portal/admin/deals" />
+            <KpiCell label="Active pipeline" value={`${pipeline.openCount} files`} sub={fmtMoneyCompact(pipeline.openVolume)} href="/portal/admin/underwriting" />
           )}
           {canRenewals && renewalBuckets && (
             <KpiCell
@@ -894,7 +894,7 @@ export default async function AdminHome() {
           <SectionCard
             title="Pipeline by stage"
             action={
-              <Link href="/portal/admin/deals" className="text-xs font-semibold text-navy hover:text-lime">
+              <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-navy hover:text-lime">
                 Deals &rarr;
               </Link>
             }
@@ -913,7 +913,7 @@ export default async function AdminHome() {
                     {[...pipeline.ordered, ...pipeline.other].map(row => (
                       <tr key={row.stage} className="border-t border-gray-100">
                         <td className="py-2">
-                          <Link href="/portal/admin/deals" className="text-navy hover:text-lime">
+                          <Link href="/portal/admin/underwriting" className="text-navy hover:text-lime">
                             {row.stage}
                           </Link>
                         </td>
@@ -1127,7 +1127,7 @@ export default async function AdminHome() {
       <SectionCard
         title={`Closings in the next ${CLOSINGS_STRIP_DAYS} days`}
         action={
-          <Link href="/portal/admin/deals" className="text-xs font-semibold text-navy hover:text-lime">
+          <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-navy hover:text-lime">
             Deals &rarr;
           </Link>
         }
@@ -1144,7 +1144,7 @@ export default async function AdminHome() {
               return (
                 <Link
                   key={c.id}
-                  href="/portal/admin/deals"
+                  href="/portal/admin/underwriting"
                   className="border border-gray-200 rounded-lg px-3 py-2.5 hover:border-lime transition-colors"
                 >
                   <p className="text-sm font-body font-semibold text-navy truncate">{c.dealName}</p>

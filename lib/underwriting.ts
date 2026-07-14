@@ -37,6 +37,7 @@ import { normalizeEvidence, type OfferEvidenceItem } from '@/lib/offers'
 // fictional fixture as its FIRST statement, before any uwFetch/network
 // call, so demo mode performs ZERO real workbench reads.
 import { isDemoMode, DEMO_AGENT_ID } from '@/lib/demo'
+import { isTestRoom } from '@/lib/test-rooms'
 import {
   demoResult,
   demoDeals,
@@ -559,15 +560,21 @@ export async function getDealsSummary(agentId: string): Promise<UwResult<Workben
     limit: '500',
   })
   return mapResult(res, rows =>
-    rows.map(r => ({
-      id: r.id,
-      fileRef: r.file_ref,
-      stage: r.stage ?? null,
-      closingDate: r.closing_date ?? null,
-      zohoPotentialId: r.zoho_potential_id ?? null,
-      status: r.status,
-      updatedAt: r.updated_at,
-    })),
+    rows
+      .map(r => ({
+        id: r.id,
+        fileRef: r.file_ref,
+        stage: r.stage ?? null,
+        closingDate: r.closing_date ?? null,
+        zohoPotentialId: r.zoho_potential_id ?? null,
+        status: r.status,
+        updatedAt: r.updated_at,
+      }))
+      // Structural test-room exclusion (Phase B1): applied HERE at the
+      // fetcher boundary so every consumer (board, search, counts, Today
+      // strip) inherits it — never per-page memory. Demo mode returned its
+      // fixtures above and never reaches this filter.
+      .filter(d => !isTestRoom(d.fileRef, d.status)),
   )
 }
 

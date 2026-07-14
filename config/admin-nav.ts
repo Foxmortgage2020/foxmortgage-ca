@@ -42,13 +42,16 @@ export const ADMIN_NAV: AdminNavItem[] = [
   },
   // ── Pipeline ──────────────────────────────────────────────────────────
   {
-    label: 'Deals',
-    href: '/portal/admin/deals',
+    // Phase B1 rename (nav-IA note in CLAUDE.md): Deals -> Underwriting.
+    // Deal ROOMS keep their /portal/admin/deals/[id] URLs; the old list
+    // route redirects permanently (next.config.js).
+    label: 'Underwriting',
+    href: '/portal/admin/underwriting',
     iconKey: 'FolderOpen',
     permission: 'deals.view',
     group: 'pipeline',
     description:
-      'Every active file in one place: Zoho stage, workbench evidence, conditions, and flags side by side.',
+      'The underwriting work queue: every bridged file by state, from intake to with-lender, with tomorrow’s files visible before they arrive.',
   },
   {
     label: 'Approvals',

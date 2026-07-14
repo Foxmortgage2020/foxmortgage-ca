@@ -1502,6 +1502,58 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ## Session Ledger
 
+### 2026-07-14 — Phase B1: the Underwriting surface (the bridge, the board, the rename)
+- FINDINGS FIRST: (1) the sweep provisions ACTIVE (non-stale) Submitted+
+  deals only — the brief's bare rule would room 14 dead Options ghosts and
+  15 more stale files; the brief's own ~10 expectation confirms the
+  active-only reading. Stale files get rooms when groomed back to life.
+  (2) VOCABULARY: the workbench stage field already carries the intake
+  pipeline's words (in_progress, underwriting, approved, funded); the board
+  MAPS both vocabularies onto its five columns (lib/underwriting-bridge
+  COLUMN_BY_STAGE; unknown stage lands in Evidence with a loud amber raw-
+  stage chip) rather than rewriting rooms. (3) Days-in-state has NO history
+  column; the card shows days since updated_at, labelled days idle.
+  (4) DEVIATION: the bridge is a NEW workbench write path (service-secret
+  machine path on fox-underwriting, the CRON_SECRET pattern) — a system
+  actor like the intake pipeline, NOT a human decision path; decisions stay
+  gates-only. Manual "Start underwriting early" rides the same endpoint but
+  gates on the NEW admin-only key underwriting.provision. (5) Screenshots
+  not captured this session (session limits); the board's data path was
+  verified live end-to-end instead (sweep + census below).
+- SHIPPED: fox-underwriting migration 0033 (partial unique index on
+  deals.zoho_potential_id — race-proof idempotency; deal_type gains
+  'unknown') + POST /api/bridge/rooms (BRIDGE_SECRET; empty containers
+  only, stage 'intake'; funded→stage funded; Cancelled/Declined/Lost→status
+  dormant; audit entries provisioned_by bridge|manual with the Zoho stage).
+  Portal: lib/underwriting-bridge.ts (pure plan, display-space Submitted+
+  from PIPELINE_STAGE_ORDER, tested), lib/underwriting-sweep.ts (runner),
+  sweep route (Clerk deals.view or x-bridge-secret; publicRoutes additive,
+  bookkeeping precedent), n8n schedule 3GoLqTD9SyGxLdmN (6h, credential
+  ju9Qj1NJTOg8P0SB, errorWorkflow BeRBcxNv1bQjx5v8), and the board at
+  /portal/admin/underwriting (Intake→Evidence→Conditions→Ready to submit→
+  With lender; funded+dormant behind a toggle; not-yet-bridged strip with
+  two-tap Start underwriting early; sweep on page load). NAV RENAME (IA
+  note): Deals → Underwriting; /portal/admin/deals redirects permanently
+  (next.config.js); deal ROOMS keep /deals/[id]; Today strip Open falls
+  back to the not-yet-bridged strip, never a page missing the file.
+- TEST ROOMS OUT, STRUCTURALLY: lib/test-rooms.ts isTestRoom (TEST- prefix
+  or status marker) applied at the getDealsSummary fetcher boundary — one
+  predicate, every consumer. TEST-GATES-COND-1 superseded live with audit
+  5838848d (it was still active — the seam Michael found). Test rooms stay
+  visible to the suite and demo fixtures.
+- LIVE ACCEPTANCE: first sweep provisioned EXACTLY 4 rooms — BRXM-F059751
+  (Aitken, in Intake untouched), BRXM-F057400, BRXM-F056361, BRXM-F054033 —
+  reconciling exactly to the 6 active Submitted+ files minus the 2 already
+  roomed (Mehmi, Bannerman). Second sweep planned 0 (idempotent live).
+  Census after: 10 rows = 7 real (4 intake + in_progress + approved +
+  funded) + 3 TEST all superseded. deal_type mapped renewal/refi/renewal/
+  purchase; Zoho ids + Finmo UUIDs linked. tsc clean both repos, build
+  green, suite 501 tests green.
+- Guardrails: nothing deleted anywhere; gates decision paths untouched;
+  readonly portal role untouched (the bridge lives server-side in
+  fox-underwriting); no payloads logged; env via REST (encrypted).
+
+
 ### 2026-07-14 — Command Centre shell redesign, Phase A: calm machine, loud exceptions
 - FINDINGS FIRST: (1) the brief's companion mockup
   (fox-command-centre-redesign-mockup.html) is NOT in the repo, the docs, or

@@ -5,6 +5,9 @@ import { authMiddleware } from '@clerk/nextjs/server'
 
 export default authMiddleware({
   publicRoutes: [
+    // Phase B1: the bridge sweep's machine path (n8n schedule) enforces its
+    // own x-bridge-secret; Clerk would 401 it before the handler runs.
+    '/api/portal/admin/underwriting/sweep',
     '/',
     '/about',
     '/services',

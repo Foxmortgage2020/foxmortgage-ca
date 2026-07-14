@@ -65,6 +65,10 @@ export const PERMISSIONS = {
   // fenced by the DEMO_MODE_ENABLED env flag so it cannot be turned on in a
   // project where the flag is unset.
   'demo.mode': ['admin'],
+  // Phase B1: opening a workbench room EARLY (below Submitted) is a human
+  // decision, not plumbing — admin only. The bridge's automatic
+  // provisioning is a machine path and carries no permission key.
+  'underwriting.provision': ['admin'],
   // ── Additive view keys (Session 1) ─────────────────────────────────────
   // Nav and page gating for sections the original matrix carries no key
   // for. All seeded admin-only except where a broader default is safe.
@@ -123,6 +127,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'people.manage': 'Provision and offboard people (staff, partners, agents)',
   'agents.provision': 'Create the workbench half of a new agent (Gates API)',
   'demo.mode': 'Switch the command center to fictional demo data',
+  'underwriting.provision': 'Start an underwriting room before a file reaches Submitted',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',
   'intel.view': 'See the lender intel feed',

@@ -5,6 +5,17 @@ const nextConfig = {
     // build timestamp (Vercel exposes no deploy-time env var).
     BUILD_TIME: new Date().toISOString(),
   },
+  async redirects() {
+    return [
+      {
+        // Phase B1: Deals became Underwriting. The LIST route moved; deal
+        // ROOMS keep their /portal/admin/deals/[id] URLs (no :path* here).
+        source: '/portal/admin/deals',
+        destination: '/portal/admin/underwriting',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

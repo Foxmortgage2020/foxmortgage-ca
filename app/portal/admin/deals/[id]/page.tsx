@@ -233,7 +233,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     <div className="max-w-4xl">
       {/* Snapshot header */}
       <div className="mb-2">
-        <Link href="/portal/admin/deals" className="text-xs font-semibold text-gray-400 hover:text-navy">
+        <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-gray-400 hover:text-navy">
           &larr; Deals
         </Link>
       </div>

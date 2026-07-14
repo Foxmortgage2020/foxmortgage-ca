@@ -44,9 +44,14 @@ export interface SlimDeal {
   // reliable stand-in for a last-activity signal Zoho does not provide here
   // (Last_Activity_Time is Finmo-mass-synced; see lib/pipeline-hygiene.ts).
   createdTime: string | null
+  // Bridge linkage (Phase B1): Transaction_Type maps onto the workbench
+  // deal_type vocabulary; the Finmo UUID links the room where present.
+  // Optional so SlimDeal-shaped fixtures and derived types stay valid.
+  transactionType?: string | null
+  finmoUuid?: string | null
 }
 
-const SLIM_DEAL_FIELDS = 'Deal_Name,Stage,Amount,Total_Loan_Amount,Closing_Date,Created_Time'
+const SLIM_DEAL_FIELDS = 'Deal_Name,Stage,Amount,Total_Loan_Amount,Closing_Date,Created_Time,Transaction_Type,Finmo_Application_UUID'
 
 // One shared 2-minute cache absorbs the burst of widgets on a single Home
 // render plus quick refreshes. Failures are never cached.
@@ -88,6 +93,8 @@ export async function getAllDealsSlim(): Promise<SlimDeal[]> {
         amount: dealAmount(d),
         closingDate: typeof d.Closing_Date === 'string' ? d.Closing_Date : null,
         createdTime: typeof d.Created_Time === 'string' ? d.Created_Time.slice(0, 10) : null,
+        transactionType: typeof d.Transaction_Type === 'string' ? d.Transaction_Type : null,
+        finmoUuid: typeof d.Finmo_Application_UUID === 'string' ? d.Finmo_Application_UUID : null,
       })
     }
     if (data?.info?.more_records !== true) break

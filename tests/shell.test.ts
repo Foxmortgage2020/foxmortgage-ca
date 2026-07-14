@@ -58,11 +58,27 @@ function routeOf(pagePath: string): string {
 }
 
 describe('route inventory: every admin route stays on the map', () => {
+  // Phase B1: the Deals LIST moved to Underwriting; the old route redirects
+  // permanently (next.config.js) while deal ROOMS keep /deals/[id] URLs.
+  // A redirected prefix counts as covered when its target is in the nav.
+  const REDIRECTED: Record<string, string> = {
+    '/portal/admin/deals': '/portal/admin/underwriting',
+  }
   const navHrefs = [
     ...ADMIN_NAV.map(i => i.href),
     ASK_FOX.href,
     ...PORTAL_QUICK_LINKS.map(l => l.href),
+    ...Object.entries(REDIRECTED)
+      .filter(([, target]) => ADMIN_NAV.some(i => i.href === target))
+      .map(([source]) => source),
   ]
+
+  it('the /deals redirect actually exists in next.config.js', () => {
+    const cfg = readFileSync('next.config.js', 'utf8')
+    expect(cfg).toContain("source: '/portal/admin/deals'")
+    expect(cfg).toContain("destination: '/portal/admin/underwriting'")
+    expect(cfg).toContain('permanent: true')
+  })
 
   it('every router page under /portal/admin has a nav ancestor', () => {
     const routes = walkPages('app/portal/admin').map(routeOf)
