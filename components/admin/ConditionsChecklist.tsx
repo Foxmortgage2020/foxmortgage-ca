@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import type { DealConditionRow, PendingCommitmentCondition } from '@/lib/underwriting'
 import { canVerify, conditionStatusPill, isCollected, type PillTone } from '@/lib/conditions-status'
+import CommitmentUploader from './CommitmentUploader'
 
 const OWNER_OPTIONS = ['borrower', 'solicitor', 'broker', 'lender', 'system'] as const
 const DOC_KIND_OPTIONS = [
@@ -61,6 +62,8 @@ export default function ConditionsChecklist({
   canDecide,
   canWaive,
   canRecompute,
+  canUpload,
+  hasRealCommitment,
   todayYMD,
 }: {
   dealId: string
@@ -73,6 +76,12 @@ export default function ConditionsChecklist({
   canDecide: boolean
   canWaive: boolean
   canRecompute: boolean
+  // canUpload gates the commitment/amendment dropzone (commitment.upload).
+  // hasRealCommitment is computed on document provenance — a retired
+  // synthetic/rejected commitment must NEVER count, so the dropzone is never
+  // suppressed by a stand-in (guardrail 20).
+  canUpload: boolean
+  hasRealCommitment: boolean
   todayYMD: string
 }) {
   const router = useRouter()
@@ -208,6 +217,34 @@ export default function ConditionsChecklist({
         setErrors={setErrors}
         post={post}
       />
+
+      {/* Every empty state that instructs an action carries the control inline.
+          No REAL commitment on file -> the bare commitment dropzone lives right
+          under the "upload the commitment" empty state. A real commitment on
+          file -> no second bare dropzone, but an amendment control. A retired
+          synthetic/rejected doc never counts as a commitment (guardrail 20). */}
+      {canUpload && (
+        hasRealCommitment ? (
+          <div className="mt-5 border-t border-gray-100 pt-4">
+            <CommitmentUploader
+              dealId={dealId}
+              kind="amendment"
+              title="Upload an amendment"
+              hint="If the lender revised the commitment, drop the amendment here — it supersedes the current condition set on approval."
+              compact
+            />
+          </div>
+        ) : (
+          <div className="mt-4">
+            <CommitmentUploader
+              dealId={dealId}
+              kind="commitment"
+              title="Upload the commitment"
+              hint="Drop the lender's commitment PDF to draft the checklist."
+            />
+          </div>
+        )
+      )}
     </div>
   )
 }

@@ -31,6 +31,7 @@ import {
   type UwResult,
 } from '@/lib/underwriting'
 import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
+import CommitmentUploader from '@/components/admin/CommitmentUploader'
 import RoomSectionNav from '@/components/admin/RoomSectionNav'
 import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
@@ -189,6 +190,19 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const canDecideCommitment = can(user, 'approvals.conditions.decide') && !isDemoMode()
   const canWaiveConditions = can(user, 'conditions.decide') && !isDemoMode()
   const canRecompute = can(user, 'conditions.recompute') && !isDemoMode()
+  const canUploadCommitment = can(user, 'commitment.upload') && !isDemoMode()
+
+  // "A commitment is present" is a REAL-provenance fact: a retired
+  // synthetic/rejected commitment never counts (guardrail 20), so it can never
+  // suppress the upload control. Fail toward offering the control when the
+  // documents surface is unavailable.
+  const documentRows = documents.kind === 'ok' ? documents.data : []
+  const hasRealCommitment = documentRows.some(
+    d =>
+      (d.docType === 'signed_commitment' || d.docType === 'commitment_amendment') &&
+      d.provenance === 'real' &&
+      d.reviewStatus !== 'rejected',
+  )
 
   // Board-column derivation for the plain-words next step in Overview.
   const { column: boardColumn } = boardColumnFor(deal.stage)
@@ -401,6 +415,8 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
             canDecide={canDecideCommitment}
             canWaive={canWaiveConditions}
             canRecompute={canRecompute}
+            canUpload={canUploadCommitment}
+            hasRealCommitment={hasRealCommitment}
             todayYMD={today}
           />
         </Section>
@@ -534,6 +550,21 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
 
         {/* Documents (granted 2026-07-09; metadata only) */}
         <Section id="documents" title="Documents">
+          {/* No real commitment on file -> this section instructs an upload
+              (incl. the synthetic-banner "a real commitment upload replaces
+              them"), so it carries the control inline. A retired synthetic doc
+              never counts as a commitment (guardrail 20). */}
+          {canUploadCommitment && !hasRealCommitment && (
+            <div className="mb-4">
+              <CommitmentUploader
+                dealId={deal.id}
+                kind="commitment"
+                title="Upload the commitment"
+                hint="No lender commitment is on file yet. Drop it here to draft the checklist."
+                compact
+              />
+            </div>
+          )}
           {documents.kind === 'ok' ? (
             documents.data.length === 0 ? (
               <Muted>No documents recorded on this file yet.</Muted>

@@ -129,6 +129,15 @@ files carry it per the closing ritual.
   (`conditions.recompute`, decides nothing); it never extracts, generates, approves, or supersedes
   conditions. Decision-control UI testing stays on preview deploys against seeded TEST rows only
   (the existing UI-test discipline standing rule).
+- **Every empty state that instructs an action carries the control for that action inline.** The
+  commitment dropzone (`components/admin/CommitmentUploader.tsx`, POSTs to the existing
+  `/api/portal/admin/commitments/[dealId]/upload` route) renders in the Conditions empty state and
+  the Documents section whenever no REAL commitment is on file; `hasRealCommitment` is computed on
+  document provenance so a retired synthetic/rejected commitment never counts and never suppresses
+  the control. A real commitment on file swaps the bare dropzone for an "upload amendment" control
+  (never a second bare dropzone). Gated on `commitment.upload` so the affordance matches the server
+  (presently admin-only by the tested authority posture; widening to agents is a coordinated
+  additive change if wanted).
 
 ### Nav IA (names are stable; renames need a note here)
 Home | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
