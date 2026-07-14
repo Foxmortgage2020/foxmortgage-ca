@@ -108,6 +108,28 @@ is the corrected baseline for routes, env vars, and module names as of July 2026
   (roles array, roles string, legacy role string). Unknown roles degrade to no access.
 - Settings renders the matrix read-only.
 
+### A machine may never write a human's identity (STANDING RULE, 2026-07-14 integrity incident)
+Mirrors fox-underwriting guardrails 19 + 20 (its `## 5. Hard guardrails`); both CLAUDE.md
+files carry it per the closing ritual.
+- **Human identity comes only from a verified session.** Every workbench decision the portal
+  makes goes through the gates API with a per-action, client-minted Clerk `gates` token
+  (`lib/gates-token.ts`); the workbench records the real human as `actor='portal'` + the Clerk
+  id/email. The portal never writes the workbench directly and never supplies a human actor
+  from a config value, env var, default, or service identity. The bridge (`lib/underwriting-bridge.ts`)
+  is a MACHINE path (`x-bridge-secret`) and its rows attribute to `bridge`/`manual`/`system` —
+  never a specific person. The FOXCA operational tables (notifications, constraints, people,
+  impersonation) attribute humans via the verified gate session (`gate.user.email`/`userId`,
+  `acting_email`), never from a non-session source; public forms attribute NO human.
+- **Synthetic artifacts are loud and never on a live file.** A workbench document/condition may
+  carry `provenance='synthetic'`; the deal-room Documents table renders a loud "SYNTHETIC — not a
+  lender document" banner for it (`getDealDocuments` selects `provenance`), and a synthetic
+  document can never be approved. A stand-in used to prove a loop belongs on a synthetic FIXTURE
+  deal, never on a real client's room.
+- **Opening a room does not write.** Room open recomputes document PRESENCE only
+  (`conditions.recompute`, decides nothing); it never extracts, generates, approves, or supersedes
+  conditions. Decision-control UI testing stays on preview deploys against seeded TEST rows only
+  (the existing UI-test discipline standing rule).
+
 ### Nav IA (names are stable; renames need a note here)
 Home | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
 Changelog (S4, under Knowledge) | Compliance (S6) | Revenue (S7) |

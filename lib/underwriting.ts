@@ -1597,12 +1597,16 @@ export interface DocumentRow {
   receivedAt: string | null
   reviewStatus: string
   createdAt: string
+  // 'real' (default) or 'synthetic'. A synthetic document is a stand-in that
+  // must never be mistaken for a lender document (workbench guardrail 20); the
+  // room renders it with a loud banner and it can never be approved.
+  provenance: string
 }
 
 export async function getDealDocuments(agentId: string, dealId: string): Promise<UwResult<DocumentRow[]>> {
   if (isDemoMode()) return demoResult(demoDealDocuments(dealId))
   const res = await uwSelect<any>('documents', {
-    select: 'id,doc_type,source,received_at,review_status,created_at',
+    select: 'id,doc_type,source,received_at,review_status,created_at,provenance',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
     order: 'created_at.desc',
@@ -1616,6 +1620,7 @@ export async function getDealDocuments(agentId: string, dealId: string): Promise
       receivedAt: r.received_at ?? null,
       reviewStatus: r.review_status,
       createdAt: r.created_at,
+      provenance: r.provenance ?? 'real',
     })),
   )
 }

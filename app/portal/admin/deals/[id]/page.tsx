@@ -539,6 +539,13 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
               <Muted>No documents recorded on this file yet.</Muted>
             ) : (
               <div className="overflow-x-auto">
+                {documents.data.some(d => d.provenance === 'synthetic') && (
+                  <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                    <span className="font-semibold">Synthetic (stand-in) document on this file.</span>{' '}
+                    One or more documents below are marked <span className="font-mono">synthetic</span> — they are NOT lender
+                    documents, cannot be approved, and do not feed the checklist. A real commitment upload replaces them.
+                  </div>
+                )}
                 <table className="w-full text-sm font-body min-w-[480px]">
                   <thead>
                     <tr className="text-left text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
@@ -549,9 +556,18 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                     </tr>
                   </thead>
                   <tbody>
-                    {documents.data.map(d => (
-                      <tr key={d.id} className="border-b border-gray-50">
-                        <td className="py-2 pr-3 text-gray-700 capitalize">{label(d.docType)}</td>
+                    {documents.data.map(d => {
+                      const synthetic = d.provenance === 'synthetic'
+                      return (
+                      <tr key={d.id} className={`border-b border-gray-50${synthetic ? ' bg-red-50/60' : ''}`}>
+                        <td className="py-2 pr-3 text-gray-700 capitalize">
+                          {label(d.docType)}
+                          {synthetic && (
+                            <span className="ml-2 inline-block rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white align-middle">
+                              Synthetic — not a lender document
+                            </span>
+                          )}
+                        </td>
                         <td className="py-2 pr-3 text-gray-500">{d.source}</td>
                         <td className="py-2 pr-3 text-gray-500">
                           {d.receivedAt ? fmtDateTime(d.receivedAt) : 'not recorded'}
@@ -572,7 +588,8 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                           </Chip>
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
