@@ -492,3 +492,28 @@ export function lenderMethodologyFor(nameOrSlug: string | null | undefined): Len
     ) ?? null
   )
 }
+
+/**
+ * Read an IRD method from an approved ird_comparison_basis knowledge claim
+ * (the lender-knowledge pipeline). Fail closed: only the two bases that map
+ * cleanly onto this file's method vocabulary flip method-known —
+ * 'posted_rate' → 'standard', 'discounted_rate' → 'discounted'. Anything
+ * else (contract_rate, reinvestment_rate, malformed values) returns null and
+ * the penalty framing keeps its honest "methodology not documented" state.
+ * The source string ('knowledge_claim:<id>@<as_of_date>') rides the
+ * savings-analysis log so a method-known determination is traceable to the
+ * claim that made it so AND to when the fact was true, not just which row
+ * said it.
+ */
+export function methodologyFromClaim(
+  claim: { claim_value: unknown; id: string; asOfDate?: string | null } | null,
+): { irdMethod: 'standard' | 'discounted'; source: string } | null {
+  if (!claim) return null
+  const v = claim.claim_value
+  const basis =
+    v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>).basis : undefined
+  const source = `knowledge_claim:${claim.id}${claim.asOfDate ? `@${claim.asOfDate}` : ''}`
+  if (basis === 'posted_rate') return { irdMethod: 'standard', source }
+  if (basis === 'discounted_rate') return { irdMethod: 'discounted', source }
+  return null
+}

@@ -30,8 +30,9 @@ import { PRIME_MIRROR } from '@/config/prime'
  *      short-term play is flagged and approval-gated, never an automatic
  *      act_now), graduation prices conventional only, and the client
  *      report's derived figures (same-payment plan, positions at the
- *      horizon end). */
-export const SAVINGS_CALC_VERSION = 3
+ *      horizon end).
+ *  4 — methodology_source joined the hashed inputs. */
+export const SAVINGS_CALC_VERSION = 4
 
 /** Every input that affects a printed figure, replayable. Figures are money
  * and rates only; no client name enters the log inputs (the household id is
@@ -52,6 +53,13 @@ export interface SavingsLogInputs {
   insuranceType: string | null
   productClass: string | null
   methodologyKnown: boolean
+  /** Where methodologyKnown came from when true: 'lenders_table' (the
+   * hardcoded LENDERS record) or 'knowledge_claim:<id>@<as_of_date>' (an
+   * approved lender-wide ird_comparison_basis claim, dated to when the
+   * fact was true). Joined the hashed inputs at calc version 4 — the
+   * version bump is the signal separating pre-source entries from dated
+   * ones; the key is omitted entirely when unset. */
+  methodology_source?: string
   crossFamilyApproved: boolean
   /** The paper grade the analysis ran under, and the tier review block when
    * one fired (replay must reproduce a tier-blocked row as blocked). */
@@ -97,6 +105,7 @@ export function savingsLogInputs(
   todayYMD: string,
   methodologyKnown: boolean,
   crossFamilyApproved: boolean,
+  methodologySource?: string,
 ): SavingsLogInputs {
   // The tier block reason is reconstructed from the analysis: a tier-blocked
   // row carries its reason as the blockReason on a review bucket with a tier
@@ -120,6 +129,9 @@ export function savingsLogInputs(
     insuranceType: row.insuranceType,
     productClass: analysis.productClass,
     methodologyKnown,
+    // Spread-conditional so an absent source adds NO key (hash stability
+    // for every entry logged before the knowledge pipeline existed).
+    ...(methodologySource ? { methodology_source: methodologySource } : {}),
     crossFamilyApproved,
     tier: analysis.tier,
     tierBlockReason: tierBlocked,
@@ -186,13 +198,14 @@ export function buildSavingsLogEntry(args: {
   actingEmail: string
   todayYMD: string
   methodologyKnown: boolean
+  methodologySource?: string
   crossFamilyApproved: boolean
 }): Record<string, unknown> {
   // The inputs carry the APPLIED cross-family state (what actually drove the
   // figures); the row's cross_family_approved column records the approval
   // event itself, which can be true even when no better cross-family quote
   // existed to apply it to.
-  const inputs = savingsLogInputs(args.row, args.analysis, args.todayYMD, args.methodologyKnown, args.analysis.crossFamilyRecommended)
+  const inputs = savingsLogInputs(args.row, args.analysis, args.todayYMD, args.methodologyKnown, args.analysis.crossFamilyRecommended, args.methodologySource)
   const quotes: Record<string, unknown>[] = []
   if (args.analysis.comparable) {
     const c = args.analysis.comparable

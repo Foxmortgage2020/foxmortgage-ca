@@ -16,7 +16,7 @@ import ApprovalsDesk from '@/components/admin/ApprovalsDesk'
 
 export const dynamic = 'force-dynamic'
 
-const TAB_KEYS = ['statements', 'sheets', 'offers', 'flags', 'shadow'] as const
+const TAB_KEYS = ['statements', 'sheets', 'offers', 'flags', 'shadow', 'knowledge'] as const
 
 export default async function ApprovalsPage({
   searchParams,
@@ -77,6 +77,7 @@ export default async function ApprovalsPage({
             offers: !demo && can(user, 'approvals.offer.decide'),
             flags: !demo && can(user, 'flags.disposition'),
             shadow: !demo && can(user, 'shadow.score'),
+            knowledge: !demo && can(user, 'approvals.knowledge.decide'),
           }}
         />
       </div>
@@ -88,8 +89,8 @@ export default async function ApprovalsPage({
       <div>
         <h1 className="font-heading text-navy text-2xl font-bold">Approvals</h1>
         <p className="text-gray-500 font-body text-sm mt-1">
-          Statement reviews, rate sheets, promotional offers, flags, and shadow scores. Every decision
-          is recorded in the workbench audit log under your name.
+          Statement reviews, rate sheets, promotional offers, flags, shadow scores, and lender
+          knowledge claims. Every decision is recorded in the workbench audit log under your name.
         </p>
       </div>
       {body}

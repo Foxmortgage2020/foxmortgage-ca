@@ -1502,6 +1502,41 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ## Session Ledger
 
+### 2026-07-14 — Lender knowledge: claims-backed pages, Knowledge approvals tab, Ask Fox retrieval, penalty consumer
+- The workbench grew `lender_knowledge_claims` (migration 0034 there; portal_readonly
+  SELECT on claims + document_pages) and two gates-API surfaces this portal now drives:
+  `POST /api/gates/knowledge/upload` (dropzone, `knowledge.upload` admin, 3MB decoded cap —
+  Vercel's body ceiling is the real wall) and knowledge-claims/knowledge-docs decisions
+  (`approvals.knowledge.decide` admin; edit-then-approve; as-of supply for undated claims;
+  batch per document with held-for-as-of feedback). Authority keys additive in BOTH repos.
+- Knowledge pages render **Approved knowledge** sections by topic with citation chips
+  (document, page, as-of via the 60s signed-URL proxy; plain-words staleness past 12 months)
+  above the existing markdown; pages now render for registry lenders with NO markdown page
+  ("claims only" note) so uploads/claims are never orphaned. Per-document status trail;
+  failures loud. Approvals desk gained the Knowledge tab (grouped by document, verbatim
+  snippets, per-claim + batch decisions). New underwriting.ts fetchers (agent_id-filtered,
+  demo-first): claims, claim queue, knowledge docs, page search. Ask Fox knowledge_lookup
+  answers approved-claims-first — `APPROVED KNOWLEDGE (source, p.N, as of DATE)` vs
+  `FROM THE DOCUMENT (UNREVIEWED)` — distinction always stated.
+- **Penalty consumer (the proving path):** an approved lender-wide `ird_comparison_basis`
+  claim flips savings-analysis method-known for lenders the hardcoded LENDERS table does
+  not cover — `posted_rate`→standard, `discounted_rate`→discounted, everything else fails
+  closed, and **program-scoped claims never apply lender-wide** (adversarial-review catch;
+  the fallback that did is deleted and the test inverted). `savings_analysis_log` inputs
+  carry `methodology_source: knowledge_claim:<id>@<as_of>` | `lenders_table`;
+  SAVINGS_CALC_VERSION 3→4 (methodology_source joined the hashed inputs). Bucket math
+  untouched — 3MI floor stands; method-known changes framing only.
+- KNOWN ISSUE (named, deferred, pre-existing): `lenderMethodologyFor`'s prefix match makes
+  "First National Excalibur" table-known as First National Prime (A-paper methodology
+  asserted for a B-side program; the claim path is unreachable for it). Fix needs an
+  exact-slug/alias-aware pass over all 37 table lenders.
+- MCAP proving run lives workbench-side (84 claims from 28 documents; `ird_comparison_basis`
+  NOT found — penalty structure is printed, the comparison basis lives in standard charge
+  terms; note the LENDERS table marks MCAP known via "Industry standard", the grade of
+  unsourced assumption the claims system retires). Full report:
+  fox-underwriting/reports/knowledge-pipeline-2026-07-14.md. 524 tests green (+23), build
+  green, tsc clean.
+
 ### 2026-07-14 — Phase B1: the Underwriting surface (the bridge, the board, the rename)
 - FINDINGS FIRST: (1) the sweep provisions ACTIVE (non-stale) Submitted+
   deals only — the brief's bare rule would room 14 dead Options ghosts and

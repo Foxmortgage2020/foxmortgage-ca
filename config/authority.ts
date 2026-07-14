@@ -69,6 +69,12 @@ export const PERMISSIONS = {
   // decision, not plumbing — admin only. The bridge's automatic
   // provisioning is a machine path and carries no permission key.
   'underwriting.provision': ['admin'],
+  // Lender-knowledge pipeline: uploading a source document (broker guide,
+  // comp schedule, bulletin) mints PENDING claims in the workbench, and
+  // deciding a claim makes it citable knowledge. Both key names are a
+  // CONTRACT with the fox-underwriting gates API; admin only on both sides.
+  'knowledge.upload': ['admin'],
+  'approvals.knowledge.decide': ['admin'],
   // ── Additive view keys (Session 1) ─────────────────────────────────────
   // Nav and page gating for sections the original matrix carries no key
   // for. All seeded admin-only except where a broader default is safe.
@@ -128,6 +134,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'agents.provision': 'Create the workbench half of a new agent (Gates API)',
   'demo.mode': 'Switch the command center to fictional demo data',
   'underwriting.provision': 'Start an underwriting room before a file reaches Submitted',
+  'knowledge.upload': 'Upload lender knowledge documents (claims stay pending until approved)',
+  'approvals.knowledge.decide': 'Decide lender knowledge claims (approve / reject)',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',
   'intel.view': 'See the lender intel feed',

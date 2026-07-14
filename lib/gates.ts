@@ -25,6 +25,7 @@
 // rates-reference GETs stay real — they are reference material, not
 // borrower data — so a demo walkthrough still shows live lender knowledge.
 import { isDemoMode, DemoWriteBlocked } from '@/lib/demo'
+import { KNOWLEDGE_UPLOAD_KINDS, type KnowledgeUploadKind } from '@/lib/knowledge-claims'
 
 export type GateErrorKind =
   | 'auth'
@@ -298,6 +299,132 @@ export function decideCondition(
 ): Promise<GateResult<ConditionDecisionResponse>> {
   if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideCondition'))
   return gateCall(`/api/gates/conditions/${conditionId}/decision`, withNote({ action }, note), token)
+}
+
+// ─── Knowledge pipeline (upload, claim decisions, document URL) ─────────────
+// Uploading a lender document mints PENDING claims only — nothing becomes
+// citable knowledge until a claim decision approves it. The upload body is
+// the strict documented shape; gateCall logs method/path/status only, so
+// document bytes never reach a log line.
+
+// The kind vocabulary lives in lib/knowledge-claims.ts (isomorphic) so the
+// client upload form can render the select without pulling this server-only
+// module into the browser bundle; re-exported here for the route handlers.
+export { KNOWLEDGE_UPLOAD_KINDS }
+export type { KnowledgeUploadKind }
+
+export interface KnowledgeUploadBody {
+  lender_slug: string
+  file_name: string
+  kind: KnowledgeUploadKind
+  content_base64: string
+}
+
+export interface KnowledgeUploadResponse {
+  documentId: string
+  pages: number
+  dupOf: string | null
+  extraction: {
+    outcome: string
+    drafted: number
+    confirmations: number
+    conflicts: number
+    byTopic: Record<string, number>
+  } | null
+}
+
+export function uploadKnowledgeDocument(
+  body: KnowledgeUploadBody,
+  token: string | null,
+): Promise<GateResult<KnowledgeUploadResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('uploadKnowledgeDocument'))
+  return gateCall('/api/gates/knowledge/upload', {
+    lender_slug: body.lender_slug,
+    file_name: body.file_name,
+    kind: body.kind,
+    content_base64: body.content_base64,
+  }, token)
+}
+
+export type KnowledgeClaimAction = 'approve' | 'reject'
+export const KNOWLEDGE_CLAIM_ACTIONS: readonly KnowledgeClaimAction[] = ['approve', 'reject']
+
+// as_of_date is REQUIRED by the gate to approve a claim whose stored
+// as_of_date is null (a dateless claim is not citable); edited_text and
+// edited_value ride only when Michael actually changed something.
+export interface KnowledgeClaimDecisionBody {
+  action: KnowledgeClaimAction
+  note?: string
+  edited_value?: unknown
+  edited_text?: string
+  as_of_date?: string
+}
+
+export interface KnowledgeClaimDecisionResponse {
+  claimId: string
+  action: string
+  status?: string
+  auditId?: string
+}
+
+export function decideKnowledgeClaim(
+  claimId: string,
+  body: KnowledgeClaimDecisionBody,
+  token: string | null,
+): Promise<GateResult<KnowledgeClaimDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideKnowledgeClaim'))
+  const payload: Record<string, unknown> = { action: body.action }
+  if (body.edited_value !== undefined) payload.edited_value = body.edited_value
+  const editedText = body.edited_text?.trim()
+  if (editedText) payload.edited_text = editedText
+  const asOf = body.as_of_date?.trim()
+  if (asOf) payload.as_of_date = asOf
+  return gateCall(`/api/gates/knowledge-claims/${claimId}/decision`, withNote(payload, body.note), token)
+}
+
+export type KnowledgeDocAction = 'approve' | 'reject'
+export const KNOWLEDGE_DOC_ACTIONS: readonly KnowledgeDocAction[] = ['approve', 'reject']
+
+export interface KnowledgeDocDecisionBody {
+  action: KnowledgeDocAction
+  note?: string
+}
+
+// Batch decision over one document's pending claims. Claims with a null
+// as_of are held out of a batch approve and returned as heldForAsOf, each
+// resolved individually with a supplied date.
+export interface KnowledgeDocDecisionResponse {
+  documentId: string
+  action: string
+  approved?: number
+  rejected?: number
+  heldForAsOf?: unknown
+  auditId?: string
+}
+
+export function decideKnowledgeDoc(
+  documentId: string,
+  body: KnowledgeDocDecisionBody,
+  token: string | null,
+): Promise<GateResult<KnowledgeDocDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideKnowledgeDoc'))
+  return gateCall(`/api/gates/knowledge-docs/${documentId}/decision`, withNote({ action: body.action }, body.note), token)
+}
+
+// Short-lived signed URL to open a knowledge source document (60 seconds;
+// mint per click, never store). Read side, knowledge.view token — lender
+// reference material, so it stays real in demo like the other knowledge
+// GETs.
+export interface KnowledgeDocumentUrl {
+  url: string
+  expires_in: number
+}
+
+export function getKnowledgeDocumentUrl(
+  documentId: string,
+  token: string | null,
+): Promise<GateResult<KnowledgeDocumentUrl>> {
+  return gateGet(`/api/knowledge/document-url/${encodeURIComponent(documentId)}`, token)
 }
 
 // ─── Agent provisioning (Session 8; fox-underwriting micro-session 4) ──────

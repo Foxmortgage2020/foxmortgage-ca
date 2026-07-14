@@ -38,7 +38,7 @@ import { graduationTargets, tierFor, type LenderTier } from '@/config/lender-tie
 import { PRIME_MIRROR } from '@/config/prime'
 import type { Comparable } from '@/lib/smm'
 import { bestEligibleComparable, eligibleComparablesRanked, insuranceToProductClass, type BookQuote } from '@/lib/smm-match'
-import { lenderMethodologyFor } from '@/lib/lenders'
+import { lenderMethodologyFor, methodologyFromClaim } from '@/lib/lenders'
 import { lenderDisplayName } from '@/config/lenders'
 import { primeFor } from '@/config/prime'
 import { evaluateQuote, type TransactionType } from '@/lib/eligibility'
@@ -161,6 +161,13 @@ export interface AnalyzeMortgageOptions {
     reason: string
     sourceNote: string | null
   } | null
+  /** An APPROVED, lender-wide (program-null) ird_comparison_basis knowledge
+   * claim for this mortgage's lender, when one exists (fetched by the
+   * caller through the read-only role via selectIrdBasisClaim).
+   * methodologyKnown = hardcoded-table-known OR claim-known; a claim whose
+   * basis does not map (contract_rate, reinvestment_rate) fails closed via
+   * methodologyFromClaim and changes nothing. */
+  methodologyClaim?: { claim_value: unknown; id: string; asOfDate?: string | null } | null
 }
 
 /** A stored floating comparable repriced at today's per-lender prime, so a
@@ -183,7 +190,9 @@ export function analyzeMortgage(
   // Refinance is uninsurable → conventional only. Switch ports the client's
   // original class. (Tier reshapes this below: B paper books as b_side.)
   const baseClass = transaction === 'refinance' ? 'conventional' : insuranceToProductClass(row.insuranceType)
-  const methodologyKnown = lenderMethodologyFor(row.lender.display) != null
+  const methodologyKnown =
+    lenderMethodologyFor(row.lender.display) != null ||
+    methodologyFromClaim(opts.methodologyClaim ?? null) != null
 
   // Paper grade (tier): the mortgage's tier is its current lender/program
   // tier from the explicit feed map. Unknown fails closed to review, and a

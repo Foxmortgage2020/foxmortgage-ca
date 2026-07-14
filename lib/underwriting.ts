@@ -66,6 +66,9 @@ import {
   demoLastDecided,
   demoOpenFlagCountsByDeal,
   demoShadowScoredDimCounts,
+  demoKnowledgeClaims,
+  demoKnowledgeDocuments,
+  demoKnowledgePageHits,
 } from '@/lib/demo-fixtures'
 
 export type UwResult<T> =
@@ -1811,6 +1814,182 @@ export async function getNumberLinks(agentId: string): Promise<UwResult<NumberLi
       zohoContactId: r.zoho_contact_id ?? null,
       zohoPartnerId: r.zoho_partner_id ?? null,
       createdAt: r.created_at,
+    })),
+  )
+}
+
+// ─── Lender knowledge claims (knowledge pipeline session) ───────────────────
+// lender_knowledge_claims is a granted SELECT surface: AI-extracted claims
+// from uploaded lender documents, citable ONLY once Michael approves them
+// through the gates API. Pending rows render as counts and queue cards,
+// never as knowledge. Knowledge documents live in the documents table with
+// deal_id NULL (they are lender reference material, not deal files).
+
+export interface KnowledgeClaimRow {
+  id: string
+  lenderSlug: string
+  program: string | null
+  topic: string
+  claimKey: string
+  claimValue: unknown
+  claimText: string
+  sourceDocumentId: string | null
+  sourcePage: number | null
+  sourceSnippet: string | null
+  asOfDate: string | null
+  asOfSource: string | null
+  status: 'pending' | 'approved'
+  confidence: number | null
+  extractedBy: string | null
+  createdAt: string
+  decidedAt: string | null
+}
+
+const knowledgeClaimRow = (r: any): KnowledgeClaimRow => ({
+  id: r.id,
+  lenderSlug: r.lender_slug,
+  program: r.program ?? null,
+  topic: r.topic,
+  claimKey: r.claim_key,
+  claimValue: r.claim_value ?? null,
+  claimText: r.claim_text,
+  sourceDocumentId: r.source_document_id ?? null,
+  sourcePage: r.source_page ?? null,
+  sourceSnippet: r.source_snippet ?? null,
+  asOfDate: r.as_of_date ?? null,
+  asOfSource: r.as_of_source ?? null,
+  status: r.status,
+  confidence: numOrNull(r.confidence),
+  extractedBy: r.extracted_by ?? null,
+  createdAt: r.created_at,
+  decidedAt: r.decided_at ?? null,
+})
+
+const KNOWLEDGE_CLAIM_SELECT =
+  'id,lender_slug,program,topic,claim_key,claim_value,claim_text,source_document_id,source_page,source_snippet,as_of_date,as_of_source,status,confidence,extracted_by,created_at,decided_at'
+
+// One lender's approved + pending claims: approved render as knowledge with
+// citations, pending render only as a count pointing at the approvals tab.
+export async function getKnowledgeClaims(
+  agentId: string,
+  lenderSlug: string,
+): Promise<UwResult<KnowledgeClaimRow[]>> {
+  if (isDemoMode()) return demoResult(demoKnowledgeClaims.filter(c => c.lenderSlug === lenderSlug))
+  const res = await uwSelectAll<any>('lender_knowledge_claims', {
+    select: KNOWLEDGE_CLAIM_SELECT,
+    agent_id: `eq.${agentId}`,
+    lender_slug: `eq.${lenderSlug}`,
+    status: 'in.(approved,pending)',
+    order: 'topic.asc,claim_key.asc',
+  })
+  return mapResult(res, rows => rows.map(knowledgeClaimRow))
+}
+
+// Every pending claim across lenders — the approvals tab queue.
+export async function getKnowledgeClaimQueue(agentId: string): Promise<UwResult<KnowledgeClaimRow[]>> {
+  if (isDemoMode()) return demoResult(demoKnowledgeClaims.filter(c => c.status === 'pending'))
+  const res = await uwSelectAll<any>('lender_knowledge_claims', {
+    select: KNOWLEDGE_CLAIM_SELECT,
+    agent_id: `eq.${agentId}`,
+    status: 'eq.pending',
+    order: 'lender_slug.asc,source_document_id.asc,claim_key.asc',
+  })
+  return mapResult(res, rows => rows.map(knowledgeClaimRow))
+}
+
+export interface KnowledgeDocumentRow {
+  id: string
+  docType: string
+  knowledgeKind: string | null
+  knowledgeStatus: 'uploaded' | 'processing' | 'extracted' | 'extraction_failed' | 'no_claims' | null
+  knowledgeError: string | null
+  receivedAt: string | null
+  lenderSlug: string | null
+}
+
+// Knowledge documents: deal_id IS NULL marks a lender knowledge upload,
+// distinct from every deal-attached document.
+export async function getKnowledgeDocuments(
+  agentId: string,
+  lenderSlug?: string,
+): Promise<UwResult<KnowledgeDocumentRow[]>> {
+  if (isDemoMode()) {
+    return demoResult(
+      lenderSlug ? demoKnowledgeDocuments.filter(d => d.lenderSlug === lenderSlug) : demoKnowledgeDocuments,
+    )
+  }
+  const params: Record<string, string> = {
+    select: 'id,doc_type,knowledge_kind,knowledge_status,knowledge_error,received_at,lender_slug',
+    agent_id: `eq.${agentId}`,
+    deal_id: 'is.null',
+    order: 'received_at.desc',
+  }
+  if (lenderSlug) params.lender_slug = `eq.${lenderSlug}`
+  const res = await uwSelectAll<any>('documents', params)
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      docType: r.doc_type,
+      knowledgeKind: r.knowledge_kind ?? null,
+      knowledgeStatus: r.knowledge_status ?? null,
+      knowledgeError: r.knowledge_error ?? null,
+      receivedAt: r.received_at ?? null,
+      lenderSlug: r.lender_slug ?? null,
+    })),
+  )
+}
+
+export interface KnowledgePageHit {
+  documentId: string
+  pageNo: number
+  snippet: string
+}
+
+// PostgREST ilike patterns treat % _ * and the reserved list syntax as
+// operators; a search term is plain words, so anything else becomes a space.
+function sanitizeIlikeTerm(query: string): string {
+  return query.replace(/[%_*,()\\."']/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// A 240-character window around the first case-insensitive match, so the
+// caller renders context, never the whole redacted page.
+function snippetAround(text: string, term: string): string {
+  const idx = text.toLowerCase().indexOf(term.toLowerCase())
+  if (idx < 0) return text.slice(0, 240)
+  const start = Math.max(0, idx - Math.floor((240 - term.length) / 2))
+  return text.slice(start, start + 240)
+}
+
+// Full-text-ish search over a lender's knowledge document pages (redacted
+// text only, exactly as stored). Two steps because document_pages carries
+// no lender column: knowledge documents for the lender first, then pages
+// whose text matches. Bounded to 5 hits — this is a citation finder, not a
+// reader.
+export async function searchKnowledgePages(
+  agentId: string,
+  lenderSlug: string,
+  query: string,
+): Promise<UwResult<KnowledgePageHit[]>> {
+  if (isDemoMode()) return demoResult(demoKnowledgePageHits)
+  const term = sanitizeIlikeTerm(query)
+  if (!term) return { configured: true, ok: true, data: [] }
+  const docsRes = await getKnowledgeDocuments(agentId, lenderSlug)
+  if (!docsRes.configured || !docsRes.ok) return docsRes
+  const docIds = docsRes.data.map(d => d.id)
+  if (docIds.length === 0) return { configured: true, ok: true, data: [] }
+  const res = await uwSelect<any>('document_pages', {
+    select: 'document_id,page_no,text_redacted',
+    agent_id: `eq.${agentId}`,
+    document_id: `in.(${docIds.join(',')})`,
+    text_redacted: `ilike.*${term}*`,
+    order: 'document_id.asc,page_no.asc',
+    limit: '5',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      documentId: r.document_id,
+      pageNo: r.page_no,
+      snippet: snippetAround(String(r.text_redacted ?? ''), term),
     })),
   )
 }

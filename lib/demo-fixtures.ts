@@ -39,6 +39,9 @@ import type {
   OpenFlagCard,
   LastDecided,
   StatementFieldRow,
+  KnowledgeClaimRow,
+  KnowledgeDocumentRow,
+  KnowledgePageHit,
 } from '@/lib/underwriting'
 import type { SlimDeal, OpenTask, SlimLead } from '@/lib/zoho-admin'
 import type { RevenueDeal } from '@/lib/revenue'
@@ -477,3 +480,69 @@ export const demoShadowScoredDimCounts: Record<string, number> = {
   'demo-deal-1': 4,
   'demo-deal-2': 1,
 }
+
+// ─── Workbench: lender knowledge claims + documents ─────────────────────────
+// Obviously-sample content for the demo lender ('sample-bank', the slug the
+// demo rate sheet queue uses). One approved claim per showcase topic, one
+// pending claim so the count line and the approvals tab have something to
+// show, and one failed document so the loud red state renders.
+
+export const demoKnowledgeDocuments: KnowledgeDocumentRow[] = [
+  {
+    id: 'demo-kd-1', docType: 'Sample Bank broker guide 2026 (demo)', knowledgeKind: 'broker_guide',
+    knowledgeStatus: 'extracted', knowledgeError: null, receivedAt: '2026-07-02T10:00:00Z', lenderSlug: 'sample-bank',
+  },
+  {
+    id: 'demo-kd-2', docType: 'Sample Bank comp schedule (demo)', knowledgeKind: 'comp_schedule',
+    knowledgeStatus: 'extraction_failed', knowledgeError: 'Demo: scanned pages below the OCR confidence floor.',
+    receivedAt: '2026-07-05T10:00:00Z', lenderSlug: 'sample-bank',
+  },
+]
+
+function knowledgeClaimFixture(over: Partial<KnowledgeClaimRow>): KnowledgeClaimRow {
+  return {
+    id: 'demo-kc',
+    lenderSlug: 'sample-bank',
+    program: null,
+    topic: 'policy',
+    claimKey: 'demo_claim',
+    claimValue: null,
+    claimText: 'Demo claim text.',
+    sourceDocumentId: 'demo-kd-1',
+    sourcePage: 1,
+    sourceSnippet: 'Demo knowledge document — synthetic text, not a real lender guide.',
+    asOfDate: '2026-07-02',
+    asOfSource: 'document date (demo)',
+    status: 'approved',
+    confidence: 0.95,
+    extractedBy: 'demo-extractor',
+    createdAt: '2026-07-02T10:05:00Z',
+    decidedAt: '2026-07-03T09:00:00Z',
+    ...over,
+  }
+}
+
+export const demoKnowledgeClaims: KnowledgeClaimRow[] = [
+  knowledgeClaimFixture({
+    id: 'demo-kc-1', topic: 'penalty_methodology', claimKey: 'ird_comparison_basis',
+    claimValue: { basis: 'posted_rate' },
+    claimText: 'Demo: fixed-rate IRD compares against the posted rate for the nearest comparable term.',
+    sourcePage: 12,
+  }),
+  knowledgeClaimFixture({
+    id: 'demo-kc-2', topic: 'compensation', claimKey: 'base_comp_bps',
+    claimValue: { bps: 105 },
+    claimText: 'Demo: base compensation is 105 bps on 5-year fixed terms.',
+    sourcePage: 3,
+  }),
+  knowledgeClaimFixture({
+    id: 'demo-kc-3', topic: 'program_criteria', claimKey: 'rental_max_ltv',
+    claimValue: { max_ltv_pct: 80 },
+    claimText: 'Demo: rental program caps LTV at 80 percent.',
+    sourcePage: 7, asOfDate: null, asOfSource: null, status: 'pending', decidedAt: null,
+  }),
+]
+
+export const demoKnowledgePageHits: KnowledgePageHit[] = [
+  { documentId: 'demo-kd-1', pageNo: 4, snippet: 'Demo guide text — synthetic passage matching the search term, kept short.' },
+]

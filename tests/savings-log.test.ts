@@ -56,8 +56,9 @@ function entryFor(crossFamilyApproved = false) {
 describe('savings-analysis log entries', () => {
   it('carries the calc version, a canonical hash, and every quote with its sheet date', () => {
     const entry = entryFor()
-    expect(entry.calc_version).toBe(3)
-    expect(SAVINGS_CALC_VERSION).toBe(3)
+    // v4: methodology_source joined the hashed inputs.
+    expect(entry.calc_version).toBe(4)
+    expect(SAVINGS_CALC_VERSION).toBe(4)
     expect(String(entry.inputs_hash)).toMatch(/^[0-9a-f]{64}$/)
     const quotes = entry.quotes as { role: string; sheetDate: string | null; rate: number }[]
     expect(quotes.map(q => q.role).sort()).toEqual(['alternative', 'headline'])

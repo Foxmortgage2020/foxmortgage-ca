@@ -18,7 +18,9 @@ import {
   type OverrideRow,
 } from '@/lib/smm-store'
 import { buildSavingsLogEntry } from '@/lib/savings-log'
-import { lenderMethodologyFor } from '@/lib/lenders'
+import { lenderMethodologyFor, methodologyFromClaim } from '@/lib/lenders'
+import { selectIrdBasisClaim } from '@/lib/knowledge-claims'
+import { getKnowledgeClaims } from '@/lib/underwriting'
 import OverridePanel from '@/components/admin/OverridePanel'
 import {
   collapseCoBorrowers,
@@ -113,6 +115,43 @@ export default async function OpportunitiesPage() {
   const book: BookQuote[] =
     quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
 
+  // Approved LENDER-WIDE ird_comparison_basis knowledge claims (fail-closed
+  // selection in selectIrdBasisClaim: program-scoped claims never apply
+  // lender-wide): methodologyKnown = hardcoded-table-known OR claim-known,
+  // so only lenders the LENDERS table does not cover are looked up (one read
+  // per distinct slug, small set). A claim whose basis does not map fails
+  // closed in methodologyFromClaim.
+  const irdClaimBySlug = new Map<string, { claim_value: unknown; id: string; asOfDate: string | null }>()
+  if (agentId) {
+    const claimSlugs = Array.from(
+      new Set(
+        mortgages
+          .map(m => m.primary)
+          .filter(p => lenderMethodologyFor(p.lender.display) == null && p.lender.slug)
+          .map(p => p.lender.slug!),
+      ),
+    )
+    await Promise.all(
+      claimSlugs.map(async slug => {
+        const r = await getKnowledgeClaims(agentId, slug)
+        if (r.configured && r.ok) {
+          const claim = selectIrdBasisClaim(r.data)
+          if (claim) irdClaimBySlug.set(slug, claim)
+        }
+      }),
+    )
+  }
+  const irdClaimFor = (p: (typeof mortgages)[number]['primary']) =>
+    (p.lender.slug ? irdClaimBySlug.get(p.lender.slug) : undefined) ?? null
+  const methodologyFor = (p: (typeof mortgages)[number]['primary']) => {
+    const tableKnown = lenderMethodologyFor(p.lender.display) != null
+    const claimMethod = tableKnown ? null : methodologyFromClaim(irdClaimFor(p))
+    return {
+      known: tableKnown || claimMethod != null,
+      source: tableKnown ? 'lenders_table' : claimMethod?.source,
+    }
+  }
+
   // Michael's active overrides (retire-not-delete store; validated at set
   // time). One read; each household's override drives its analysis.
   const overridesR = await activeOverrides()
@@ -138,6 +177,7 @@ export default async function OpportunitiesPage() {
             sourceNote: ovr.sourceNote,
           }
         : null,
+      methodologyClaim: irdClaimFor(p),
     })
     // The scenario prefill purpose follows the transaction so the Rates page
     // lands on the same class the comparable used.
@@ -171,18 +211,20 @@ export default async function OpportunitiesPage() {
   // the same board writes nothing new; a new upload, a book change, or a math
   // change writes fresh rows. Demo writes nothing (store-refused).
   const loggedBatch = await recordSavingsAnalysisBatch(
-    views.map(v =>
-      buildSavingsLogEntry({
+    views.map(v => {
+      const methodology = methodologyFor(v.mortgage.primary)
+      return buildSavingsLogEntry({
         row: v.mortgage.primary,
         analysis: v.analysis,
         surface: 'board',
         uploadId: current.id,
         actingEmail: user.email,
         todayYMD,
-        methodologyKnown: lenderMethodologyFor(v.mortgage.primary.lender.display) != null,
+        methodologyKnown: methodology.known,
+        methodologySource: methodology.source,
         crossFamilyApproved: false,
-      }),
-    ),
+      })
+    }),
   )
   if (views.length > 0 && (!loggedBatch.configured || !loggedBatch.ok)) {
     console.error('[opportunities] board analysis log batch did not land')

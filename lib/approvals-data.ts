@@ -4,6 +4,8 @@
 // only; every branch degrades to an honest empty-with-error state.
 
 import {
+  getKnowledgeClaimQueue,
+  getKnowledgeDocuments,
   getLastDecided,
   getOfferQueue,
   getOpenDiscrepancyFlags,
@@ -12,6 +14,8 @@ import {
   getShadowQueue,
   getStatementQueue,
   type DiscrepancyFlag,
+  type KnowledgeClaimRow,
+  type KnowledgeDocumentRow,
   type LastDecided,
   type OfferQueueCard,
   type OpenFlagCard,
@@ -41,9 +45,14 @@ export interface ApprovalsData {
   // urgency. Rendered in a collapsed section, never counted in the badge.
   flagsOnClosed: OpenFlagCard[]
   shadow: ShadowQueueCard[]
+  // Pending lender-knowledge claims (the Knowledge tab), grouped by their
+  // source document at render time; knowledgeDocs exists to NAME those
+  // documents (doc_type), all lenders.
+  knowledgeClaims: KnowledgeClaimRow[]
+  knowledgeDocs: KnowledgeDocumentRow[]
   lastDecided: LastDecided
   // Per-queue fetch problems, keyed for honest per-tab error banners.
-  errors: Partial<Record<'statements' | 'sheets' | 'offers' | 'flags' | 'shadow', string>>
+  errors: Partial<Record<'statements' | 'sheets' | 'offers' | 'flags' | 'shadow' | 'knowledge', string>>
 }
 
 function take<T>(res: UwResult<T[]>, fallback: T[] = []): { data: T[]; error?: string } {
@@ -53,13 +62,15 @@ function take<T>(res: UwResult<T[]>, fallback: T[] = []): { data: T[]; error?: s
 }
 
 export async function getApprovalsData(agentId: string): Promise<ApprovalsData> {
-  const [stmtsR, discR, sheetsR, offersR, flagsR, shadowR, lastR] = await Promise.all([
+  const [stmtsR, discR, sheetsR, offersR, flagsR, shadowR, kclaimsR, kdocsR, lastR] = await Promise.all([
     getStatementQueue(agentId),
     getOpenDiscrepancyFlags(agentId),
     getRateSheetQueue(agentId),
     getOfferQueue(agentId),
     getOpenFlagCards(agentId),
     getShadowQueue(agentId),
+    getKnowledgeClaimQueue(agentId),
+    getKnowledgeDocuments(agentId),
     getLastDecided(agentId),
   ])
   const stmts = take(stmtsR)
@@ -68,12 +79,17 @@ export async function getApprovalsData(agentId: string): Promise<ApprovalsData> 
   const offers = take(offersR)
   const flags = take(flagsR)
   const shadow = take(shadowR)
+  const kclaims = take(kclaimsR)
+  const kdocs = take(kdocsR)
   const errors: ApprovalsData['errors'] = {}
   if (stmts.error) errors.statements = stmts.error
   if (sheets.error) errors.sheets = sheets.error
   if (offers.error) errors.offers = offers.error
   if (flags.error) errors.flags = flags.error
   if (shadow.error) errors.shadow = shadow.error
+  // Either read failing degrades the tab honestly: a docs failure means
+  // claims render under "Untitled document", which is a partial load too.
+  if (kclaims.error || kdocs.error) errors.knowledge = kclaims.error ?? kdocs.error
   const sheetSplit = partitionSheetQueue(sheets.data)
   return {
     statements: stmts.data,
@@ -84,6 +100,8 @@ export async function getApprovalsData(agentId: string): Promise<ApprovalsData> 
     flags: flags.data.filter(f => !f.dealTerminal),
     flagsOnClosed: flags.data.filter(f => f.dealTerminal),
     shadow: shadow.data,
+    knowledgeClaims: kclaims.data,
+    knowledgeDocs: kdocs.data,
     lastDecided:
       lastR.configured && lastR.ok
         ? lastR.data

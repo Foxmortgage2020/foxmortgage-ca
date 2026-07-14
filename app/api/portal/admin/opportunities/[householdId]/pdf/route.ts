@@ -16,11 +16,12 @@ import { NextResponse } from 'next/server'
 import { apiPermission, type ApiPermission } from '@/lib/authz'
 import { isDemoMode } from '@/lib/demo'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
-import { getAgentIdByEmail, getRateQuotesFull } from '@/lib/underwriting'
+import { getAgentIdByEmail, getKnowledgeClaims, getRateQuotesFull } from '@/lib/underwriting'
 import { activeOverrides, rawRowsForUpload, recentUploads, recordSavingsAnalysis, smmStoreConfigured } from '@/lib/smm-store'
 import type { Comparable } from '@/lib/smm'
 import { buildSavingsLogEntry } from '@/lib/savings-log'
-import { lenderMethodologyFor } from '@/lib/lenders'
+import { lenderMethodologyFor, methodologyFromClaim } from '@/lib/lenders'
+import { selectIrdBasisClaim } from '@/lib/knowledge-claims'
 import { collapseCoBorrowers, parseSmmRow } from '@/lib/smm'
 import type { BookQuote } from '@/lib/smm-match'
 import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
@@ -103,6 +104,18 @@ async function renderPdf(
   const ovr =
     overridesR.configured && overridesR.ok ? (overridesR.data.find(o => o.householdId === householdId) ?? null) : null
 
+  // Approved LENDER-WIDE ird_comparison_basis knowledge claim for this
+  // lender (program-scoped claims fail closed in selectIrdBasisClaim), when
+  // the hardcoded LENDERS table does not cover it: methodologyKnown =
+  // table-known OR claim-known, exactly as the board computes it.
+  const tableKnown = lenderMethodologyFor(p.lender.display) != null
+  let irdClaim: { claim_value: unknown; id: string; asOfDate: string | null } | null = null
+  if (!tableKnown && agentId && p.lender.slug) {
+    const claimsR = await getKnowledgeClaims(agentId, p.lender.slug)
+    if (claimsR.configured && claimsR.ok) irdClaim = selectIrdBasisClaim(claimsR.data)
+  }
+  const claimMethod = tableKnown ? null : methodologyFromClaim(irdClaim)
+
   const todayYMD = torontoTodayYMD()
   const { analysis } = analyzeMortgage(p, book, todayYMD, {
     ...approvals,
@@ -114,6 +127,7 @@ async function renderPdf(
           sourceNote: ovr.sourceNote,
         }
       : null,
+    methodologyClaim: irdClaim,
   })
   const a = analysis
 
@@ -162,7 +176,8 @@ async function renderPdf(
       uploadId,
       actingEmail: gate.user.email,
       todayYMD,
-      methodologyKnown: lenderMethodologyFor(p.lender.display) != null,
+      methodologyKnown: tableKnown || claimMethod != null,
+      methodologySource: tableKnown ? 'lenders_table' : claimMethod?.source,
       crossFamilyApproved: a.crossFamilyRecommended,
     }),
     false, // every generated document is its own event

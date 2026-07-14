@@ -29,9 +29,11 @@ import {
   OfferWindowBadge,
 } from '@/components/admin/offer-display'
 import { lenderDisplayName } from '@/config/lenders'
+import { groupPendingByDocument, heldForAsOfCount, topicLabel } from '@/lib/knowledge-claims'
 import type { ApprovalsData } from '@/lib/approvals-data'
 import type {
   DiscrepancyFlag,
+  KnowledgeClaimRow,
   OfferQueueCard,
   OpenFlagCard,
   ShadowQueueCard,
@@ -219,7 +221,7 @@ async function postDecision(
 
 // ─── The desk ───────────────────────────────────────────────────────────────
 
-export type TabKey = 'statements' | 'sheets' | 'offers' | 'flags' | 'shadow'
+export type TabKey = 'statements' | 'sheets' | 'offers' | 'flags' | 'shadow' | 'knowledge'
 
 export interface CanDecide {
   statements: boolean
@@ -227,6 +229,7 @@ export interface CanDecide {
   offers: boolean
   flags: boolean
   shadow: boolean
+  knowledge: boolean
 }
 
 export default function ApprovalsDesk({
@@ -252,6 +255,11 @@ export default function ApprovalsDesk({
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
+  // Knowledge tab inputs: the as-of date a dateless claim needs to approve,
+  // and the optional edited claim text behind its toggle.
+  const [asOfInputs, setAsOfInputs] = useState<Record<string, string>>({})
+  const [editOpen, setEditOpen] = useState<Record<string, boolean>>({})
+  const [editedTexts, setEditedTexts] = useState<Record<string, string>>({})
   const [armed, setArmed] = useState<{ key: string; at: number } | null>(null)
   const [toast, setToast] = useState<{ tone: 'green' | 'amber'; text: string } | null>(null)
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -439,6 +447,61 @@ export default function ApprovalsDesk({
     })
   }
 
+  const decideKnowledgeClaimAction = (claim: KnowledgeClaimRow, action: 'approve' | 'reject') => {
+    const key = `kclaim:${claim.id}`
+    const asOf = (asOfInputs[claim.id] ?? '').trim()
+    if (action === 'approve' && claim.asOfDate === null && !asOf) {
+      setCardErrors(e => ({ ...e, [key]: 'This claim has no as-of date. Supply one to approve it.' }))
+      return
+    }
+    const edited = editOpen[claim.id] ? (editedTexts[claim.id] ?? '').trim() : ''
+    void act({
+      key,
+      url: `/api/portal/admin/gates/knowledge-claims/${claim.id}/decision`,
+      body: {
+        action,
+        ...(note(key).trim() ? { note: note(key).trim() } : {}),
+        // Sent only when the claim stored none: the gate requires it there.
+        ...(action === 'approve' && claim.asOfDate === null && asOf ? { as_of_date: asOf } : {}),
+        // Sent only when Michael actually changed the text.
+        ...(edited && edited !== claim.claimText ? { edited_text: edited } : {}),
+      },
+      onSuccess: () => {
+        setData(d => ({ ...d, knowledgeClaims: d.knowledgeClaims.filter(c => c.id !== claim.id) }))
+      },
+      successText: () =>
+        action === 'approve'
+          ? `Approved ${label(claim.claimKey)} for ${lenderDisplayName(claim.lenderSlug)}: it is citable knowledge now.`
+          : `Rejected ${label(claim.claimKey)} for ${lenderDisplayName(claim.lenderSlug)}.`,
+    })
+  }
+
+  const approveKnowledgeDoc = (documentId: string, docName: string) => {
+    const key = `kdoc:${documentId}`
+    void act({
+      key,
+      url: `/api/portal/admin/gates/knowledge-docs/${documentId}/decision`,
+      body: { action: 'approve', ...(note(key).trim() ? { note: note(key).trim() } : {}) },
+      onSuccess: () => {
+        // Claims with a null as_of stay (the gate held them out of the
+        // batch); the refetch reconciles exactly.
+        setData(d => ({
+          ...d,
+          knowledgeClaims: d.knowledgeClaims.filter(
+            c => c.sourceDocumentId !== documentId || c.asOfDate === null,
+          ),
+        }))
+      },
+      successText: r => {
+        const held = heldForAsOfCount(r?.heldForAsOf)
+        const approved = typeof r?.approved === 'number' ? `${r.approved} claims approved` : 'claims approved'
+        return held > 0
+          ? `Approved ${docName}: ${approved}. ${held} held: supply as-of individually.`
+          : `Approved ${docName}: ${approved}.`
+      },
+    })
+  }
+
   // ── Tabs ──────────────────────────────────────────────────────────────────
 
   // One flag card, shared by the live severity groups and the collapsed
@@ -524,6 +587,7 @@ export default function ApprovalsDesk({
     { key: 'offers', title: 'Offers', count: data.offers.length },
     { key: 'flags', title: 'Flags', count: data.flags.length },
     { key: 'shadow', title: 'Shadow scores', count: data.shadow.length },
+    { key: 'knowledge', title: 'Knowledge', count: data.knowledgeClaims.length },
   ]
 
   const lastDecidedFor: Record<TabKey, string | null> = {
@@ -532,6 +596,7 @@ export default function ApprovalsDesk({
     offers: null,
     flags: data.lastDecided.flags,
     shadow: data.lastDecided.shadow,
+    knowledge: null,
   }
 
   const emptyCopy: Record<TabKey, string> = {
@@ -540,9 +605,10 @@ export default function ApprovalsDesk({
     offers: 'No promotional offers pending.',
     flags: 'No open flags.',
     shadow: 'No shadow scores due.',
+    knowledge: 'No lender knowledge claims pending.',
   }
 
-  const queueError = { statements: data.errors.statements, sheets: data.errors.sheets, offers: data.errors.offers, flags: data.errors.flags, shadow: data.errors.shadow }[tab]
+  const queueError = { statements: data.errors.statements, sheets: data.errors.sheets, offers: data.errors.offers, flags: data.errors.flags, shadow: data.errors.shadow, knowledge: data.errors.knowledge }[tab]
 
   return (
     <div>
@@ -1128,6 +1194,154 @@ export default function ApprovalsDesk({
                 </div>
               </div>
             ))
+          ))}
+
+        {/* ── Knowledge claims (grouped by source document) ── */}
+        {tab === 'knowledge' &&
+          (data.knowledgeClaims.length === 0 ? (
+            <EmptyState text={emptyCopy.knowledge} lastDecided={lastDecidedFor.knowledge} />
+          ) : (
+            groupPendingByDocument(data.knowledgeClaims, data.knowledgeDocs).map(group => {
+              const docKey = `kdoc:${group.documentId ?? 'none'}`
+              return (
+                <div key={docKey} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <LenderMark slug={group.lenderSlug} size={26} />
+                    <h3 className="font-heading font-bold text-navy text-base break-words">{group.docName}</h3>
+                    <Chip tone="gray">{lenderDisplayName(group.lenderSlug)}</Chip>
+                    <Chip tone="amber">
+                      {group.claims.length} claim{group.claims.length === 1 ? '' : 's'}
+                    </Chip>
+                  </div>
+
+                  <div className="mt-3 divide-y divide-gray-100">
+                    {group.claims.map(claim => {
+                      const key = `kclaim:${claim.id}`
+                      return (
+                        <div key={claim.id} className="py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Chip tone="navy">{topicLabel(claim.topic)}</Chip>
+                            <span className="text-xs font-body text-gray-500">{claim.claimKey}</span>
+                            {claim.program && <Chip tone="gray">program: {claim.program}</Chip>}
+                            {claim.confidence !== null && (
+                              <span className="text-[11px] text-gray-400">conf {claim.confidence}</span>
+                            )}
+                          </div>
+                          <p className="text-sm font-body text-gray-700 mt-1.5">{claim.claimText}</p>
+                          {claim.claimValue !== null && (
+                            <p className="text-[11px] text-gray-500 font-mono mt-1 break-words">
+                              {JSON.stringify(claim.claimValue)}
+                            </p>
+                          )}
+                          {claim.sourceSnippet && (
+                            <details className="mt-1">
+                              <summary className="text-[11px] text-gray-400 cursor-pointer select-none">
+                                source snippet, verbatim
+                              </summary>
+                              <p className="mt-0.5 text-[11px] text-gray-600 font-body whitespace-pre-wrap break-words bg-gray-50 rounded p-2">
+                                {claim.sourceSnippet}
+                              </p>
+                            </details>
+                          )}
+                          <p className="text-[11px] text-gray-400 font-body mt-1">
+                            {claim.sourcePage !== null ? `p.${claim.sourcePage} · ` : ''}
+                            {claim.asOfDate ? `as of ${claim.asOfDate}` : 'no as-of — supply to approve'}
+                          </p>
+
+                          {canDecide.knowledge ? (
+                            <>
+                              {claim.asOfDate === null && (
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  <label className="text-xs font-body text-gray-500" htmlFor={`asof-${claim.id}`}>
+                                    as-of date
+                                  </label>
+                                  <input
+                                    id={`asof-${claim.id}`}
+                                    type="date"
+                                    value={asOfInputs[claim.id] ?? ''}
+                                    onChange={e => setAsOfInputs(m => ({ ...m, [claim.id]: e.target.value }))}
+                                    className="text-sm font-body border border-gray-200 rounded-lg px-2 py-1.5"
+                                  />
+                                </div>
+                              )}
+                              <button
+                                onClick={() =>
+                                  setEditOpen(m => {
+                                    const open = !m[claim.id]
+                                    if (open && editedTexts[claim.id] === undefined) {
+                                      setEditedTexts(t => ({ ...t, [claim.id]: claim.claimText }))
+                                    }
+                                    return { ...m, [claim.id]: open }
+                                  })
+                                }
+                                className="mt-2 text-xs font-semibold text-navy underline hover:text-lime py-1"
+                              >
+                                {editOpen[claim.id] ? 'discard edit' : 'edit claim text'}
+                              </button>
+                              {editOpen[claim.id] && (
+                                <textarea
+                                  value={editedTexts[claim.id] ?? claim.claimText}
+                                  onChange={e => setEditedTexts(t => ({ ...t, [claim.id]: e.target.value }))}
+                                  maxLength={2000}
+                                  rows={2}
+                                  className="mt-1 w-full text-sm font-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
+                                />
+                              )}
+                              <NoteField value={note(key)} onChange={v => setNote(key, v)} />
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <ConfirmButton
+                                  label="Approve"
+                                  confirmLabel="Tap again to approve"
+                                  tone="approve"
+                                  busy={Boolean(busy[key])}
+                                  armed={armed?.key === `${key}:approve`}
+                                  armedAt={armed?.at}
+                                  onArm={() => arm(`${key}:approve`)}
+                                  onFire={() => decideKnowledgeClaimAction(claim, 'approve')}
+                                />
+                                <ConfirmButton
+                                  label="Reject"
+                                  confirmLabel="Tap again to reject"
+                                  tone="reject"
+                                  busy={Boolean(busy[key])}
+                                  armed={armed?.key === `${key}:reject`}
+                                  armedAt={armed?.at}
+                                  onArm={() => arm(`${key}:reject`)}
+                                  onFire={() => decideKnowledgeClaimAction(claim, 'reject')}
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <ViewOnlyNote />
+                          )}
+                          {cardErrors[key] && <CardError message={cardErrors[key]} />}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {canDecide.knowledge && group.documentId && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <ConfirmButton
+                        label={`Approve document (${group.claims.length})`}
+                        confirmLabel="Tap again to approve all"
+                        tone="approve"
+                        busy={Boolean(busy[docKey])}
+                        armed={armed?.key === `${docKey}:approve`}
+                        armedAt={armed?.at}
+                        onArm={() => arm(`${docKey}:approve`)}
+                        onFire={() => approveKnowledgeDoc(group.documentId!, group.docName)}
+                      />
+                      <p className="text-[11px] text-gray-400 font-body mt-2">
+                        Batch approval. Claims without an as-of date are held out and decided
+                        individually with a supplied date.
+                      </p>
+                    </div>
+                  )}
+                  {cardErrors[docKey] && <CardError message={cardErrors[docKey]} />}
+                </div>
+              )
+            })
           ))}
       </div>
     </div>

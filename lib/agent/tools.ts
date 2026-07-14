@@ -22,12 +22,17 @@ import {
   getDealIncomeCalcs,
   getDealRatioCalcs,
   getDealShadowHistory,
+  getKnowledgeClaims,
+  getKnowledgeDocuments,
   getPendingQuoteTypeCounts,
   getRateQuotesFull,
   isPermissionRefusal,
+  searchKnowledgePages,
+  type KnowledgeClaimRow,
   type RateQuoteFullRow,
   type UwResult,
 } from '@/lib/underwriting'
+import { claimCitation } from '@/lib/knowledge-claims'
 import {
   getKnowledgeLender,
   getKnowledgeLenders,
@@ -148,11 +153,16 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
   {
     name: 'knowledge_lookup',
     description:
-      'Read the lender knowledge base: profile figures with as-of dates, the floating payment-mechanism note with its pending-confirmation caveat where flagged, and the penalty methodology state (not documented today; say so). Pass slug "index" to list available lenders.',
+      'Read the lender knowledge base: profile figures with as-of dates, the floating payment-mechanism note with its pending-confirmation caveat where flagged, plus APPROVED knowledge claims extracted from lender documents (each with document, page, and as-of citation). Pass a query to match claims; when no approved claim matches, the tool searches the underlying document text and returns UNREVIEWED snippets — always keep the two labels distinct and never present unreviewed text as approved fact. Pass slug "index" to list available lenders.',
     input_schema: {
       type: 'object',
       properties: {
         slug: { type: 'string', description: 'Lender knowledge slug (fn, scotia, mcap, td) or "index".' },
+        query: {
+          type: 'string',
+          description:
+            'Free-text terms to match against approved claims (and, failing that, the document text). Omit to list all approved claims.',
+        },
       },
       required: ['slug'],
     },
@@ -600,6 +610,59 @@ async function runKnowledgeLookup(input: any, ctx: AgentToolContext): Promise<To
   const reference = await memoReference(ctx)
   const mech = mechanismForLender(reference, slug)
   const d = res.data
+
+  // Approved knowledge claims first (the human-gated pipeline); when a
+  // query matches none, fall back to searching the underlying document
+  // text, rendered EXPLICITLY as unreviewed. The two labels never blend.
+  const query = s(input?.query, 200).trim()
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(t => t.length >= 3)
+  let approvedKnowledge: string[] = []
+  let unreviewedHits: string[] = []
+  let approvedPenaltyClaims: string[] = []
+  if (ctx.workbenchAgentId) {
+    const [claimsR, docsR] = await Promise.all([
+      getKnowledgeClaims(ctx.workbenchAgentId, slug),
+      getKnowledgeDocuments(ctx.workbenchAgentId, slug),
+    ])
+    const claims = claimsR.configured && claimsR.ok ? claimsR.data : []
+    const docNameById = new Map(
+      (docsR.configured && docsR.ok ? docsR.data : []).map(doc => [doc.id, doc.docType]),
+    )
+    const approved = claims.filter(c => c.status === 'approved')
+    const renderClaim = (c: KnowledgeClaimRow): string => {
+      const docName = c.sourceDocumentId ? (docNameById.get(c.sourceDocumentId) ?? null) : null
+      return `APPROVED KNOWLEDGE [${slug} ${c.claimKey}] ${c.claimText} (source: ${claimCitation(c, docName)})`
+    }
+    const matches =
+      terms.length === 0
+        ? approved
+        : approved.filter(c =>
+            terms.some(
+              t =>
+                c.claimText.toLowerCase().includes(t) ||
+                c.claimKey.toLowerCase().includes(t) ||
+                c.topic.toLowerCase().includes(t),
+            ),
+          )
+    approvedKnowledge = matches.slice(0, 12).map(renderClaim)
+    approvedPenaltyClaims = approved
+      .filter(c => c.topic === 'penalty_methodology')
+      .slice(0, 4)
+      .map(renderClaim)
+    if (query && matches.length === 0) {
+      const pagesR = await searchKnowledgePages(ctx.workbenchAgentId, slug, query)
+      if (pagesR.configured && pagesR.ok) {
+        unreviewedHits = pagesR.data.map(h => {
+          const docName = docNameById.get(h.documentId) ?? 'source document'
+          return `FROM THE DOCUMENT (UNREVIEWED) [${docName} p.${h.pageNo}]: "${h.snippet}"`
+        })
+      }
+    }
+  }
+
   return {
     ok: true,
     result: {
@@ -619,10 +682,17 @@ async function runKnowledgeLookup(input: any, ctx: AgentToolContext): Promise<To
             pending_confirmation: mechanismPending(mech),
           }
         : 'no lender-specific mechanism note; use the convention language with care',
-      penalty_methodology: 'not documented in the knowledge base yet; Michael confirms with the lender',
+      penalty_methodology:
+        approvedPenaltyClaims.length > 0
+          ? approvedPenaltyClaims
+          : 'not documented in the knowledge base yet; Michael confirms with the lender',
+      approved_knowledge: approvedKnowledge,
+      document_search_unreviewed: unreviewedHits,
+      knowledge_note:
+        'APPROVED KNOWLEDGE lines are Michael-approved claims, citable with their document, page, and as-of. FROM THE DOCUMENT (UNREVIEWED) lines are raw source text nobody has approved — present them only as unreviewed document text, never as approved fact, and never blend the two without their labels.',
       markdown_excerpt: s(d.markdown, 2400),
     },
-    summary: `knowledge ${slug} as of ${d.as_of ?? 'n/a'}`,
+    summary: `knowledge ${slug} as of ${d.as_of ?? 'n/a'}: ${approvedKnowledge.length} approved claim(s), ${unreviewedHits.length} unreviewed hit(s)`,
   }
 }
 
