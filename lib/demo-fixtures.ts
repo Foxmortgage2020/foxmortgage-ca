@@ -274,6 +274,7 @@ const condBase = {
   verifiedBy: null as string | null,
   verifiedAt: null as string | null,
   gateStatus: 'approved' as const,
+  loadBearing: false,
 }
 
 export function demoDealConditions(dealId: string): DealConditionRow[] {
@@ -317,8 +318,8 @@ export function demoDealConditions(dealId: string): DealConditionRow[] {
 export function demoPendingCommitmentConditions(dealId: string): PendingCommitmentCondition[] {
   if (dealId === 'demo-deal-1') {
     return [
-      { id: 'demo-pc-1', documentId: 'demo-commit-1', condNumber: '1', text: 'Letter of employment for the primary applicant dated within 30 days', owner: 'borrower', docKind: 'letter_of_employment', borrowerId: 'demo-b-1', category: 'general_verification', kind: 'document_chase', sourcePage: 1, sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 94 },
-      { id: 'demo-pc-2', documentId: 'demo-commit-1', condNumber: '2', text: 'Fire insurance binder naming the lender as first loss payee', owner: 'borrower', docKind: 'fire_insurance_binder', borrowerId: null, category: 'property_valuation', kind: 'document_chase', sourcePage: 2, sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 91 },
+      { id: 'demo-pc-1', documentId: 'demo-commit-1', condNumber: '1', text: 'Letter of employment for the primary applicant dated within 30 days', owner: 'borrower', docKind: 'letter_of_employment', borrowerId: 'demo-b-1', category: 'general_verification', kind: 'document_chase', sourcePage: 1, sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 94, loadBearing: false },
+      { id: 'demo-pc-2', documentId: 'demo-commit-1', condNumber: '2', text: 'Fire insurance binder naming the lender as first loss payee', owner: 'borrower', docKind: 'fire_insurance_binder', borrowerId: null, category: 'property_valuation', kind: 'document_chase', sourcePage: 2, sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 91, loadBearing: false },
     ]
   }
   return []

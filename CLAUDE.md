@@ -129,6 +129,14 @@ files carry it per the closing ritual.
   (`conditions.recompute`, decides nothing); it never extracts, generates, approves, or supersedes
   conditions. Decision-control UI testing stays on preview deploys against seeded TEST rows only
   (the existing UI-test discipline standing rule).
+- **Condition axes (fox-underwriting migration 0038, format-aware session 2026-07-14).** The
+  checklist renders an UNDERWRITING owner (`presence = not_applicable` → a neutral "underwriting"
+  pill, counted as done not outstanding — an adjudication constraint is never a document chase), a
+  `loadBearing` badge (an appraisal a plan limit derives from — a low appraisal re-adjudicates), and
+  the FlexLine doc-kinds (`product_assessment_form`, `term_portion_amendment`) in the edit options.
+  `getDealConditions`/`getPendingCommitmentConditions` select `load_bearing`; a cross-source
+  `cross_source_mortgage_contradiction` flag (commitment vs monitoring-feed existing-mortgage
+  balance) renders through the existing flags surface.
 - **Every empty state that instructs an action carries the control for that action inline.** The
   commitment dropzone (`components/admin/CommitmentUploader.tsx`, POSTs to the existing
   `/api/portal/admin/commitments/[dealId]/upload` route) renders in the Conditions empty state and

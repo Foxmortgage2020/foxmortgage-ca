@@ -22,11 +22,12 @@ import type { DealConditionRow, PendingCommitmentCondition } from '@/lib/underwr
 import { canVerify, conditionStatusPill, isCollected, type PillTone } from '@/lib/conditions-status'
 import CommitmentUploader from './CommitmentUploader'
 
-const OWNER_OPTIONS = ['borrower', 'solicitor', 'broker', 'lender', 'system'] as const
+const OWNER_OPTIONS = ['borrower', 'solicitor', 'broker', 'lender', 'system', 'underwriting'] as const
 const DOC_KIND_OPTIONS = [
   'letter_of_employment', 'pay_stub', 't4_noa', 'void_cheque', 'fire_insurance_binder',
   'gift_letter', 'aps', 'appraisal', 'id', 'signed_commitment', 'disclosure',
-  'sale_confirmation', 'other',
+  'sale_confirmation', 'mortgage_statement', 'property_tax', 'payout_statement', 'ccb',
+  'product_assessment_form', 'term_portion_amendment', 'other',
 ] as const
 
 const label = (s: string) => s.replace(/_/g, ' ')
@@ -421,6 +422,7 @@ function PendingRow({
       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-body text-gray-500">
         <span className="capitalize">{cond.owner}</span>
         {cond.docKind && <span className="rounded-full bg-white/70 px-2 py-0.5 text-gray-600">{label(cond.docKind)}</span>}
+        {cond.loadBearing && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">load-bearing</span>}
         {cond.sourcePage !== null && <span className="text-gray-400">p{cond.sourcePage}</span>}
         {canDecide && (
           <button
@@ -660,6 +662,7 @@ function ChecklistRow({
         {cond.docKind && (
           <span className="rounded-full bg-gray-50 px-2 py-0.5 text-gray-600">{label(cond.docKind)}</span>
         )}
+        {cond.loadBearing && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">load-bearing</span>}
         <span className="capitalize">{cond.owner}</span>
         <span className={overdue ? 'text-red-700 font-semibold' : ''}>
           {cond.dueDate ? `due ${fmtShort(cond.dueDate)}${overdue ? ' (overdue)' : ''}` : 'no due date'}

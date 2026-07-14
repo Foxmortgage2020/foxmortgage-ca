@@ -12,7 +12,7 @@
 // because presence is not verification); verified and satisfied are green;
 // requested and waived are neutral.
 
-export type ConditionPresence = 'needs_input' | 'requested' | 'obtained' | 'verified'
+export type ConditionPresence = 'needs_input' | 'requested' | 'obtained' | 'verified' | 'not_applicable'
 
 export type PillTone = 'green' | 'amber' | 'lime' | 'gray'
 
@@ -41,6 +41,10 @@ export function conditionStatusPill(input: {
       return { label: 'obtained · in review', tone: 'amber' }
     case 'verified':
       return { label: 'verified', tone: 'green' }
+    case 'not_applicable':
+      // An underwriting constraint (fox-underwriting migration 0038): adjudicated
+      // at underwriting, not a document to collect — never lime, never outstanding.
+      return { label: 'underwriting', tone: 'gray' }
     default:
       return { label: 'pending', tone: 'gray' }
   }
@@ -88,8 +92,10 @@ export function conditionCounts(
     a.total += 1
     const collected = isCollected(r)
     if (collected) a.collected += 1
-    // done is the union of collected and waived, counted once per row.
-    if (collected || r.status === 'waived') a.done += 1
+    // done is the union of collected, waived, and underwriting constraints
+    // (not_applicable — adjudicated, never a document to chase), counted once
+    // per row so a constraint never sits as permanent outstanding.
+    if (collected || r.status === 'waived' || r.presence === 'not_applicable') a.done += 1
   }
   const out: Record<string, ConditionCount> = {}
   for (const [dealId, a] of Object.entries(acc)) {

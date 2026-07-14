@@ -1116,7 +1116,10 @@ export interface DealConditionRow extends ConditionRow {
   // borrower (null = General). `gateStatus` is the approval axis (a pending
   // commitment condition is not yet the checklist). verified_by/at record the
   // human verify; source_page/snippet/confidence are extraction provenance.
-  presence: 'needs_input' | 'requested' | 'obtained' | 'verified' | null
+  // 'not_applicable' (fox-underwriting migration 0038): an UNDERWRITING
+  // constraint ("TDS must be under 48%") is adjudicated, not a document chase —
+  // never needs-input.
+  presence: 'needs_input' | 'requested' | 'obtained' | 'verified' | 'not_applicable' | null
   presenceDetail: Record<string, unknown> | null
   docKind: string | null
   borrowerId: string | null
@@ -1126,10 +1129,13 @@ export interface DealConditionRow extends ConditionRow {
   sourcePage: number | null
   sourceSnippet: string | null
   confidence: number | null
+  // A condition whose satisfaction re-adjudicates the deal (an appraisal a plan
+  // limit derives from), loud on the checklist (fox-underwriting migration 0038).
+  loadBearing: boolean
 }
 
 const CONDITION_SELECT =
-  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence'
+  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence,load_bearing'
 
 const dealConditionRow = (r: any): DealConditionRow => ({
   id: r.id,
@@ -1160,6 +1166,7 @@ const dealConditionRow = (r: any): DealConditionRow => ({
   sourcePage: r.source_page ?? null,
   sourceSnippet: r.source_snippet ?? null,
   confidence: numOrNull(r.confidence),
+  loadBearing: r.load_bearing === true,
 })
 
 // LIVE conditions on a deal (Ask Fox and any general consumer): a pending,
@@ -1224,6 +1231,7 @@ export interface PendingCommitmentCondition {
   sourcePage: number | null
   sourceSnippet: string | null
   confidence: number | null
+  loadBearing: boolean
 }
 
 export async function getPendingCommitmentConditions(
@@ -1233,7 +1241,7 @@ export async function getPendingCommitmentConditions(
   if (isDemoMode()) return demoResult(demoPendingCommitmentConditions(dealId))
   const res = await uwSelect<any>('conditions', {
     select:
-      'id,document_id,cond_number,text,owner,doc_kind,borrower_id,category,kind,source_page,source_snippet,confidence',
+      'id,document_id,cond_number,text,owner,doc_kind,borrower_id,category,kind,source_page,source_snippet,confidence,load_bearing',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
     source: 'eq.commitment',
@@ -1255,6 +1263,7 @@ export async function getPendingCommitmentConditions(
       sourcePage: r.source_page ?? null,
       sourceSnippet: r.source_snippet ?? null,
       confidence: numOrNull(r.confidence),
+      loadBearing: r.load_bearing === true,
     })),
   )
 }
