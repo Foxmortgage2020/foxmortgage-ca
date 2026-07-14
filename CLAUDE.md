@@ -1,6 +1,8 @@
 # foxmortgage.ca — Claude Code Build Context
 
-## Last Updated: July 13, 2026, seventh session (RATES GRID REGRESSION — THE 1,000-ROW CAP: Supabase PostgREST caps EVERY response at 1,000 rows regardless of the limit param; when the approved+superseded book hit 1,765 rows the as_of_date-ordered getRateQuotesFull silently dropped whole lenders off the tail — 11 live cards, 24 false coverage chips, and the Opportunities board quietly down to 1 act_now from 3. NOT a commit (diff-proven; the suspected aa3c1ea touched zero rates surfaces). FIX: uwSelectAll offset pagination (id.asc tiebreak, whole-read failure on any page, loud 20k backstop) across all 13 large-limit fetchers + full-history getIntelItems; coverage pending REDEFINED (only a lender whose NEWEST rates-class item is extraction_failed/no_pipeline, chip names the failing sheet; approved lenders never chip; live cards get a newer-sheet-needs-attention badge instead of demotion); province-excluded lenders' sheets PARK out of the approvals queue onto an auto-releasing shelf (lib/sheet-park.ts — presentation-layer, stated deviation: no gates hold action exists); null-slug rates sheets surface on the Lenders tab (tonight's was Alterna Savings, b1cfd0c1 — workbench follow-up to add the slug). Live after: 22 cards / 6 chips / book 1,257 across 25. See the late-2026-07-13 ledger entry. Sixth session, TASK 0 + PART 2 — TERM POLICY, GRADUATION CLASS, THE LAPSED POOL, AND THE CLIENT REPORT REBUILT: every comparable carries its TERM beside its rate on every surface and in savings_analysis_log (calc_version 3; inputs gained termMonths + shortTermApplied; figures gained breakEvenPenalty, the samePaymentPlan trio, and the horizon-end positions; replay reproduces exactly); the DEFAULT comparable must COVER the comparison horizon (refinance = months left on the current term; switch = the client's OWN term, else 60) or the projection SHORTENS to the quote's term — a short rate is never projected past its term, and a deliberately short-term play is a flagged strategy (labelled, reasoned, logged as quotes role short_term_flag) taking Michael's two-tap stp=approve on the PDF route, NEVER an automatic act_now (demoted to marginal unapproved); GRADUATION prices CONVENTIONAL only (b targets book b_side) — a move to better paper never inherits an insurance class (the Part 1 leak: a switch-basis B file ported 'Insurable' into the graduation target and quoted the insurable 4.29; the flag now prices conventional, live 4.39 3-yr, and the B file's act_now STANDS on term-consistent grounds — the feed says the client is on a 12-MONTH term, so the 4.69 12-month quote genuinely covers their like-for-like horizon); the RENEWAL POOL is funded-stage deals only AND excludes Additional-Property child rows by NAME (config/pipeline isRenewalPoolDeal/isAdditionalPropertyRecord — the org's property rows are one mis-stage away from any stage-filtered pool; two children of lost BRXM-F021892 carry amounts + past maturities today) — LIVE FINDING, stated against the brief's expectation: the three extra 2023 lapsed rows (IFMS-F011671/F002599/F007027, exactly the $1,725,000 difference) are NOT Additional-Properties children — verified record-by-record they are funded-STAGE prior-term private-lending rows whose stories continued elsewhere (F011671 renewed as F012754, the property's BRX file then Mortgage Lost; F002599 renewed as F021782; F007027's BRX file is Archive), so the pool stays 18/$11,004,023 until Michael records their outcomes through the radar's own enumerated actions (residual after appears-renewed suppression 12/$5,204,023; after resolving the three, pool 15/$9,279,023 → true residual 10/$4,479,023 — F002599 is both a phantom AND appears-renewed-flagged); PART 2 SHIPPED: lib/savings-pdf.ts is the three-page choice document (masthead, option cards "$X a month back" / "N yrs sooner" with paymentsAvoided, the no-lender-name rate strip carrying term + sheet date, drawn amortization bars, the side-by-side table at the horizon end from FoxAnalysis.comparison, the penalty MINIMUM + break-even GAUGE, conditional next-step cards in place of ANY fixed-break verdict — and the min-exceeds-break-even shape states does-not-clear-the-bar; stay_put ALWAYS gets the one-page wait document whatever small saving exists; review/insufficient/province-pending state no figure; unapproved cross-family/graduation/short-term escalations NEVER print) rendered ONLY through savingsPdfInputFromAnalysis, the one mapper the route AND the golden tests share; FoxAnalysis gained shortTermStrategy/shortTermRecommended/samePaymentPlan/comparison; fonts are the brief-sanctioned Helvetica + Times-Bold fallback (no OFL TTFs vendored; swap the embed lines when Archivo/Fraunces land). See the 2026-07-13 Task 0 + Part 2 ledger entry. The prior fifth-session header follows; its "Part 2 NOT started" claim is superseded.)
+## Last Updated: July 14, 2026, eighth session (FINMO SYNC V2 HARDENED — n8n Cloud only, ZERO repo code changes beyond this file: Finmo Sync v2 (IFDRp2BGHAbzKpHH) gained an error workflow (BeRBcxNv1bQjx5v8, Error Trigger → Resend email to Michael — verified by 13 REAL firings during the replay, not synthetics), a 12h heartbeat dead-man check (9c6IUbuqA4GIIsQw: alerts when the sync is DEACTIVATED or has zero executions in a labeled 24h WINDOW_HOURS — 72h PROPOSED, not silently widened, because retained history shows healthy 2+ day quiet stretches), an early out-of-scope 200 for document events BEFORE the heavy Library path (the 2026-07-08 burst mechanism: ten concurrent documentRequest events each ran Library/hash/idempotency before their 200; signature verification stays upstream — pin-data verified, Library never ran), and an H13 deal-not-found email that names the ACTUAL event type + the Finmo file ref and carries a one-command per-application backfill repair whose token is PROMPTED at run time, never embedded. FINDINGS: the brief's referenced spec + token files are NOT on this machine (the token's single source of truth is the workflow's own Verify Backfill Token node + 1Password); the backfill is a thin PER-APPLICATION trigger, not a date-range replay, and as built could never repair a missed CREATE (fixed: syncSource==='backfill' now exempts the deal-not-found HITL routing and creates with the full payload); TWO PRE-EXISTING DEFECTS fixed live — Apply COQL Result rebuilt context from the COQL HTTP response, so on the known OAUTH_SCOPE_MISMATCH it obliterated context and PUT to /Deals/undefined, and Build Junction Payload hard-referenced the skippable module-cache node (referencing an unexecuted node THROWS), killing every warm-cache borrower sync. GAP REPLAYED (2026-07-08T13:00Z→now): BRXM-F059751 CREATED in Zoho (7112178000006038003, Finmo_Application_UUID d4e2494a — the named acceptance, COQL-verified), Crnkovic BRXM-F057400 + Bannerman BRXM-F053725 recovered missed Conditionally Approved → APPROVED transitions, BRXM-F025547 partial (unmapped Finmo Payoff_Status, H16 emailed), Islam clean; FIVE open files un-fetchable on Finmo 403 Forbidden (Kerr BRXM-F056361, Mehmi BRXM-F053107, Fensham BRXM-F054033, Stafford BRXM-F054420, Spek BRXM-F057623 — realtime fails identically; Michael's hand-reconcile list). Inventory: 41 active workflows, 39 with NO error workflow (reported, not attached, per the brief). See the 2026-07-13/14 ledger entry. The prior seventh-session header follows.)
+
+### Prior header: seventh session (RATES GRID REGRESSION — THE 1,000-ROW CAP: Supabase PostgREST caps EVERY response at 1,000 rows regardless of the limit param; when the approved+superseded book hit 1,765 rows the as_of_date-ordered getRateQuotesFull silently dropped whole lenders off the tail — 11 live cards, 24 false coverage chips, and the Opportunities board quietly down to 1 act_now from 3. NOT a commit (diff-proven; the suspected aa3c1ea touched zero rates surfaces). FIX: uwSelectAll offset pagination (id.asc tiebreak, whole-read failure on any page, loud 20k backstop) across all 13 large-limit fetchers + full-history getIntelItems; coverage pending REDEFINED (only a lender whose NEWEST rates-class item is extraction_failed/no_pipeline, chip names the failing sheet; approved lenders never chip; live cards get a newer-sheet-needs-attention badge instead of demotion); province-excluded lenders' sheets PARK out of the approvals queue onto an auto-releasing shelf (lib/sheet-park.ts — presentation-layer, stated deviation: no gates hold action exists); null-slug rates sheets surface on the Lenders tab (tonight's was Alterna Savings, b1cfd0c1 — workbench follow-up to add the slug). Live after: 22 cards / 6 chips / book 1,257 across 25. See the late-2026-07-13 ledger entry. Sixth session, TASK 0 + PART 2 — TERM POLICY, GRADUATION CLASS, THE LAPSED POOL, AND THE CLIENT REPORT REBUILT: every comparable carries its TERM beside its rate on every surface and in savings_analysis_log (calc_version 3; inputs gained termMonths + shortTermApplied; figures gained breakEvenPenalty, the samePaymentPlan trio, and the horizon-end positions; replay reproduces exactly); the DEFAULT comparable must COVER the comparison horizon (refinance = months left on the current term; switch = the client's OWN term, else 60) or the projection SHORTENS to the quote's term — a short rate is never projected past its term, and a deliberately short-term play is a flagged strategy (labelled, reasoned, logged as quotes role short_term_flag) taking Michael's two-tap stp=approve on the PDF route, NEVER an automatic act_now (demoted to marginal unapproved); GRADUATION prices CONVENTIONAL only (b targets book b_side) — a move to better paper never inherits an insurance class (the Part 1 leak: a switch-basis B file ported 'Insurable' into the graduation target and quoted the insurable 4.29; the flag now prices conventional, live 4.39 3-yr, and the B file's act_now STANDS on term-consistent grounds — the feed says the client is on a 12-MONTH term, so the 4.69 12-month quote genuinely covers their like-for-like horizon); the RENEWAL POOL is funded-stage deals only AND excludes Additional-Property child rows by NAME (config/pipeline isRenewalPoolDeal/isAdditionalPropertyRecord — the org's property rows are one mis-stage away from any stage-filtered pool; two children of lost BRXM-F021892 carry amounts + past maturities today) — LIVE FINDING, stated against the brief's expectation: the three extra 2023 lapsed rows (IFMS-F011671/F002599/F007027, exactly the $1,725,000 difference) are NOT Additional-Properties children — verified record-by-record they are funded-STAGE prior-term private-lending rows whose stories continued elsewhere (F011671 renewed as F012754, the property's BRX file then Mortgage Lost; F002599 renewed as F021782; F007027's BRX file is Archive), so the pool stays 18/$11,004,023 until Michael records their outcomes through the radar's own enumerated actions (residual after appears-renewed suppression 12/$5,204,023; after resolving the three, pool 15/$9,279,023 → true residual 10/$4,479,023 — F002599 is both a phantom AND appears-renewed-flagged); PART 2 SHIPPED: lib/savings-pdf.ts is the three-page choice document (masthead, option cards "$X a month back" / "N yrs sooner" with paymentsAvoided, the no-lender-name rate strip carrying term + sheet date, drawn amortization bars, the side-by-side table at the horizon end from FoxAnalysis.comparison, the penalty MINIMUM + break-even GAUGE, conditional next-step cards in place of ANY fixed-break verdict — and the min-exceeds-break-even shape states does-not-clear-the-bar; stay_put ALWAYS gets the one-page wait document whatever small saving exists; review/insufficient/province-pending state no figure; unapproved cross-family/graduation/short-term escalations NEVER print) rendered ONLY through savingsPdfInputFromAnalysis, the one mapper the route AND the golden tests share; FoxAnalysis gained shortTermStrategy/shortTermRecommended/samePaymentPlan/comparison; fonts are the brief-sanctioned Helvetica + Times-Bold fallback (no OFL TTFs vendored; swap the embed lines when Archivo/Fraunces land). See the 2026-07-13 Task 0 + Part 2 ledger entry. The prior fifth-session header follows; its "Part 2 NOT started" claim is superseded.)
 
 ### Prior header: fifth session (TIERS + APPEARS-RENEWED + OVERRIDES, Part 1 of the two-part brief: every lender carries a paper grade (a/b/private; registry-seeded unconfirmed, program-level overrides, explicit feed-string map failing closed to unknown) and comparables are SAME-TIER only — B prices the b_side book (live finding: all approved B quotes are class b_side), private is honest-insufficient, unknown tier or a rate contradicting the map routes to review, and GRADUATION to better paper is a figure-less flag unless Michael's two-tap grad=approve prices it; the radar + board suppress APPEARS_RENEWED files (feed start > Closing_Date+90d, or lender/rate contradictions; live: 5 of 8 action files, 6 of 18 lapsed) pending confirm ('Renewed With Us', exactly one field, NEW picklist value + resolved status) or a persisted reasoned decline; Michael can OVERRIDE any comparable (eligible book pick validated by construction or a desk rate with mandatory source note + reason, POST-only, badged on card + PDF, on the savings log); savings_analysis_log is append-only BY TRIGGER (privileged UPDATE/DELETE refused, proven live) and $1 placeholders route to review + never propose backfills. See the Part 1 ledger entry. Fourth session, FINAL CORRECTNESS PASS, Tasks 5-8: the savings PDF states 3MI as a MINIMUM with the break-even penalty and draws NO positive net-benefit conclusion on ANY fixed-rate break — adversarial review forced the strengthening past the brief: a documented IRD method still yields no figure, so method-known only changes the confirm path; the comparable is LIKE-FOR-LIKE by rate family (fixed→fixed, adjustable and variable never collapsed; the cheaper cross-family option is a labelled alternative with a quantified risk line; headline-ing it takes a two-tap manage-gated ?alt=approve recorded on the log); floating ranks on the EFFECTIVE rate from the per-lender prime everywhere (variance is display — convention corrected in fox-underwriting §3 + gates-api.md); savings_analysis_log (FOXCA 20260713150000, append-only, functions-only, verified 42501) records every board render + client PDF with calc_version 2 + canonical inputs_hash and REPLAYS exactly; approved book live-verified 947 across 23 lenders. See the 2026-07-13 final-pass ledger entry. Third session, BACKFILL SHARED-IDENTITY FIX: decideMatch now resolves a (contact, mortgage) PAIR — an identity signal shared by 2+ export mortgages yields the new 'shared_identity' bucket, the contact's deals attribute by property address then amount via attributeDeals, contested deals are NEVER proposed into and land on a per-contact needs-manual-match card, and the apply route accepts Michael's explicit manualMatch pick only for contested deals, audited as 'ok (manual match)'. Live: 6 shared groups / 13 of 41 mortgages. See the 2026-07-13 backfill ledger entry. Second session, SMM PAYMENT CORRECTION: the Opportunities stated current payment now reconstructs the ORIGINAL schedule — payment(original amount, rate, original amortization), never a re-amortized current balance, which understated every seasoned mortgage's payment; monthsElapsed + remainingAmortizationMonths now ride FoxAnalysis and the comparison prices over the months actually left; a NEW reconciliation gate models the balance forward from origination and >0.5% drift blocks the file into the new 'review' board bucket with both figures + drift shown — a blocked file states NO figure anywhere, savings PDF included. Details in the 2026-07-13 SMM ledger entry. Earlier the same day, MIRROR 1 COLLAPSED: the eligibility backfill RAN in the workbench (verified live 2026-07-13: 947/949 approved rows carried eligibility_source; the only nulls were the 5 test-portal artifacts, 2 approved + 3 superseded — those 2 were themselves superseded later the same day, so the approved book is 947 across 23 lenders, every row classified), so the portal-side deriveEligibility/baseStem port was DELETED per guardrail 1 (deterministic code calculates in one place — the classifier lives ONLY in fox-underwriting src/skills/extract/eligibility.ts). lib/eligibility.ts evaluateQuote now reads the five rate_quotes columns (borrower_requirement/client_commitment/channel_requirement/transaction_types/eligibility_unknown) verbatim through portal_readonly. FAIL-CLOSED, two conditions: eligibility_unknown=true OR eligibility_source IS NULL → program_restricted with the 'unclassified' code, excluded from default ranking, revealable under show-restricted, and NEVER on a client document — not even pinned (includedInClientDoc hard-blocks undisclosedRestriction; a restriction nobody can name cannot be confirmed). A null source is what an unclassified row fresh from Roam looks like. tests/eligibility.test.ts is rewritten: golden = portal verdicts match the workbench columns (fixtures shaped like live rows), a module-absence proof (no deriveEligibility/baseStem/effectiveEligibility export), and a surface sweep asserting a null-source quote is excluded from scenario/Ask Fox (matchQuote), lender-browse (lenderCards), Opportunities+savings PDF (analyzeMortgage comparable), Renewals (bestApprovedFixed), and client docs (includedInClientDoc, pin included). Live parity proven: the fixture re-run under column-truth reproduces the derivation-era buckets exactly (marginal 14 / stay_put 13 / insufficient 6 / act_now 8; Sally Ryan still First National conventional adjustable P−0.50/3.95%). THREE MIRRORS REMAIN (plan recorded in the 2026-07-13 ledger entry; do not re-port them): config/lender-provinces.ts (mirrors knowledge/lender-registry.json), config/prime.ts (mirrors knowledge/prime.json), lib/mortgage-engine.ts (parallel to fox-underwriting/src/calc). The prior session header below is retained for context; its backfill claim is superseded by this note.
 
@@ -1163,6 +1165,9 @@ All agent emails route through n8n webhook `fox-briefing-and-alerts` → Resend 
 - `Rupc79GeJ8s6bbJa` QBO Nightly Transaction Categorization (FOX-107 full pipeline, AI + review queue + weekly summary) ❌ inactive — production realm still hardcoded; needs Zoho forms + sandbox realm migration before activation
 - `Uu6fsZ2A2gTn0gBs` Bookkeeping — Nightly Transaction Categorization ✅ active, 16 nodes, D2 AI Fallback live (published 2026-05-22, active version `ee34c1f9`). WRITE_TO_QBO=false. Three-night gate met; pending Mike sign-off + board approval to flip write mode.
 - `dh1qIttAuctSQ7L0` Daily Deal Briefing ❌ inactive as of 2026-07-09 live check (this file previously said active; n8n reports active=false with no recorded executions)
+- `IFDRp2BGHAbzKpHH` Finmo Sync v2 ✅ active — hardened 2026-07-13/14: errorWorkflow `BeRBcxNv1bQjx5v8` attached, early document-event 200, backfill creates missing deals, two pre-existing crash defects fixed (see the 2026-07-13/14 ledger entry)
+- `9c6IUbuqA4GIIsQw` Finmo Sync v2 — Heartbeat (dead-man check) ✅ active — every 12h, alerts on sync deactivation or zero executions in 24h (WINDOW_HOURS constant; 72h proposed if noisy)
+- `BeRBcxNv1bQjx5v8` Sync Error Handler — Email Michael ✅ published — Error Trigger → Resend; fires on PRODUCTION-mode errors of workflows that name it as errorWorkflow (only Finmo Sync v2 + the heartbeat do; 39 of 41 active workflows carry none, 2026-07-14 inventory)
 - Fuller live picture as of 2026-07-09 (incl. the newer UW bridges): config/n8n-workflows.ts + /portal/admin/status
 
 ### Known Issues / In Progress
@@ -1492,6 +1497,123 @@ Savings_Identified, Last_Activity_Time, Term_Years
 ---
 
 ## Session Ledger
+
+### 2026-07-13/14 (night) — Finmo Sync v2 hardened: error workflow, heartbeat, burst-proofing, the repairable H13, and the gap replayed
+- WHERE: the n8n Cloud instance via the MCP connector; no repo code changed
+  (this ledger entry is the only commit). FINDINGS FIRST:
+  (1) The brief's two referenced files are NOT on this machine —
+  .tokens-DO-NOT-COMMIT.txt and phase3-finmo-zoho-sync-spec.md exist nowhere
+  in foxmortgage-ca or fox-underwriting (and the token filename is not even
+  gitignored). The backfill token's single source of truth is the constant
+  inside the workflow's own Verify Backfill Token node (plus 1Password); the
+  replay extracted it from there programmatically, never printed. The spec
+  checks for Task 3 were grounded in the workflow itself + the live
+  executions instead.
+  (2) The backfill contract is NOT a date-range replay: it is a thin
+  per-application trigger ({applicationId, dealId?}) that forces
+  _eventType='application.statusChange' and was built for EXISTING deals
+  (Zoho-button refresh). As built it could never repair a missed create —
+  a missing deal routed straight back to H13 (execution 15155 proved it).
+  FIXED with a one-line exemption in Build Deal Payload
+  (_dealNotFoundForStatusChange now false for syncSource==='backfill'), so
+  Michael's token-gated backfill CREATES when the deal is missing (full
+  payload already built: the statusChange field-trim always exempted
+  backfill); the realtime path still never guesses.
+  (3) TWO PRE-EXISTING DEFECTS found live during the replay and fixed:
+  Apply COQL Result rebuilt context from its own INPUT — but its input is
+  the COQL HTTP node's response body, so on the (also-broken:
+  OAUTH_SCOPE_MISMATCH, the Zoho credential lacks ZohoCRM.coql.READ — the
+  documented prod gap) COQL error, the ENTIRE context was obliterated,
+  _isNewDeal read undefined, and the flow PUT to /Deals/undefined
+  (INVALID_URL_PATTERN). Now the context re-reads from Build Deal Payload
+  and an error response counts as not-found, never confirmation. AND Build
+  Junction Payload hard-referenced the skippable 'Update Module-Exists
+  Cache' node — referencing an unexecuted node THROWS (the author's own
+  ternary guard threw before falling through), killing every warm-cache
+  borrower sync; now probed via try/catch. Both shipped as atomic updates
+  + publish on the ACTIVE workflow (never deactivated).
+- TASK 1: error handler workflow BeRBcxNv1bQjx5v8 ('Sync Error Handler —
+  Email Michael': Error Trigger → Resend httpRequest, credential Resend API
+  Paperclip iJa8AHPr58GmNMda, from michael@app.foxmortgage.ca, carries
+  workflow name + execution id + failed node + error + execution link) set
+  as errorWorkflow on Finmo Sync v2. VERIFIED BY LIVE FIRE, not synthetic:
+  the replay's real failures fired it 13/13 successes (mode 'error'), each
+  an email to Michael. INVENTORY (counts only, per the brief): 41 active
+  workflows; 39 carry NO errorWorkflow — only Finmo Sync v2 and the new
+  heartbeat do. Attaching to the rest is Michael's prioritization call.
+- TASK 2: heartbeat 9c6IUbuqA4GIIsQw ('Finmo Sync v2 — Heartbeat
+  (dead-man check)', ACTIVE, every 12h, America/Toronto, errorWorkflow set
+  to the handler): reads the n8n API with the EXISTING X-N8N-API-KEY
+  credential (Z6kTlazhhYUsONyS — no new credential minted), alerts when the
+  sync is DEACTIVATED (the incident class: deactivation makes absence, not
+  errors) or has zero executions in WINDOW_HOURS. Dry-runs: happy path
+  (active, recentCount 1, no alert) and the forced-alert branch (FORCE_ALERT
+  flag; Resend message b6fcf52b sent, flag reverted). CADENCE FINDING per
+  the brief's ask: retained history shows 2+ day quiet stretches while the
+  sync was healthy (zero executions 07-06→07-08 12:59 within the retention
+  window), so zero-in-24h WILL false-alarm on quiet stretches. Shipped at
+  the brief's 24h anyway (not silently widened); PROPOSAL: widen to 72h by
+  editing the one labeled WINDOW_HOURS constant if the alerts read as noise
+  — Michael's call.
+- TASK 3: document events now terminate BEFORE the heavy path. New IF
+  'Document Event? (early out)' between Signature Valid? and Library
+  (signature verification stays upstream — nothing unauthenticated gets a
+  200) matching the document signature (body.documentTemplate.id + body.id
+  + body.status — the same structural test the classifier used, which is
+  why the 2026-07-08 burst's documentRequest events were headed through
+  Library/hash/idempotency before their out-of-scope 200: TEN concurrent
+  heavy preludes crashed the instance). Verified by pinned-data manual
+  execution 15167: a synthetic documentRequest-created payload routed to
+  'Respond 200 — Document Event (early, out-of-scope)' and Library NEVER
+  RAN. (A live signed simulation is impossible by design: Finmo signs
+  RSA-PSS and only Finmo holds the private key.) The crashed executions
+  and all history retained; nothing deleted.
+- TASK 4: the H13 email now carries the repair. Prepare HITL — H13 states
+  the actual event type (the old template hardcoded application.statusChange
+  — 15155 was actually borrower.update), names the Finmo file ref
+  (_lendeskApplicationId), and appends a copy-paste Terminal command that
+  PROMPTS for the backfill token (paste from 1Password; never embedded in
+  the email) and triggers the per-application backfill. With fix (2) above,
+  a confirmed missed create is now a one-command repair; wrong-match and
+  stale-event cases stay with Michael's eyes. Test render verified incl.
+  the token-not-in-email check.
+- TASK 5, THE REPLAY: Finmo's list endpoint is 403 no_access for
+  integration tokens (fox-underwriting finding, cross-checked), so the gap
+  cannot be enumerated from Finmo — the replay set was BRXM-F059751's
+  create (UUID recovered from execution 15155's retained data) plus a
+  refresh of every OPEN-stage Finmo-linked Zoho deal (9; terminal-stage
+  deals left alone — the stage guard would block regressions and nothing
+  actionable changes post-terminal). Backfill bypasses idempotency by
+  design (user-initiated force-resync), so the second pass after the fixes
+  fully re-ran. RECOVERED: BRXM-F059751 CREATED in Zoho
+  (7112178000006038003, Finmo_Application_UUID d4e2494a-d375-41b0-b483-
+  7e13ed05daa7, Synced/Backfill, Stage Submitted, Renewal, $359,000,
+  closing 2026-09-29 — the named acceptance, verified by COQL); Crnkovic
+  BRXM-F057400 Conditionally Approved → APPROVED (a real missed transition);
+  Bannerman BRXM-F053725 Conditionally Approved → APPROVED; BRXM-F025547 →
+  Approved (Partial: unmapped Finmo Payoff_Status value, H16 emailed);
+  Islam BRXM-F050350 refreshed clean. NOT RECOVERABLE, for Michael's hand
+  reconciliation: (a) five open files whose Finmo applications the
+  integration token cannot fetch — 403 Forbidden resource on Kerr
+  BRXM-F056361, Mehmi BRXM-F053107, Fensham BRXM-F054033, Stafford
+  BRXM-F054420, Spek BRXM-F057623 (their REALTIME syncs fail the same way;
+  hypothesis: archived or cross-team applications — ties to the open
+  Zavitz cross-team question; each failure emailed via the new handler);
+  (b) any OTHER application created during the outage is structurally
+  invisible until its next Finmo event fires an H13 — which is now a
+  one-command repair.
+- Ancillary observations, not acted on: 'application_update_event' rows in
+  Zoho (e.g. Erin Hall, synced 23:14Z tonight) come from a DIFFERENT flow
+  than Finmo Sync v2 — its event vocabulary contains no such type;
+  TEMP-named workflows and the archived TEMP errorWorkflow-inventory
+  workflow (yPMel3O2aWPsA5mp, mine, archived after one run) remain for
+  housekeeping. Michael's inbox received ~13 error-handler emails + assorted
+  H3/H13/H16/H11 HITLs + one TEST heartbeat alert tonight — each one honest,
+  and the volume itself is the error workflow proving it works.
+- Guardrails held: workflow never deactivated (atomic ops + publish), token
+  neither rotated nor committed nor printed, HITL sender/pattern unchanged,
+  crashed executions + history retained, PII from execution payloads not
+  propagated beyond deal refs/UUIDs, no repo code commits beyond this entry.
 
 ### 2026-07-13 (late) — Rates grid regression: the 1,000-row response cap, not the deploy
 - THE FINDING, against the brief's expectation: NO commit caused this — neither
