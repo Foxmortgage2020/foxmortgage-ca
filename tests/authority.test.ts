@@ -66,7 +66,16 @@ const grantSet = (role: string) => ALL_KEYS.filter(k => roleCan([role], k)).sort
 describe('session 8 role baselines', () => {
   it('ops baseline: views only, no decide keys', () => {
     expect(grantSet('ops')).toEqual(
-      ['deals.view', 'compliance.view', 'knowledge.view', 'status.view', 'roadmap.view'].sort(),
+      [
+        'deals.view',
+        'compliance.view',
+        'knowledge.view',
+        'status.view',
+        'roadmap.view',
+        // Phase B2: recomputing document presence is read-only and open to
+        // every internal role (it decides nothing).
+        'conditions.recompute',
+      ].sort(),
     )
   })
 
@@ -80,6 +89,7 @@ describe('session 8 role baselines', () => {
         'roadmap.view',
         'approvals.view',
         'agent.use',
+        'conditions.recompute',
       ].sort(),
     )
   })
@@ -92,7 +102,7 @@ describe('session 8 role baselines', () => {
 
   it('agent baseline: their own scope', () => {
     expect(grantSet('agent')).toEqual(
-      ['deals.view', 'knowledge.view', 'agent.use', 'roadmap.view'].sort(),
+      ['deals.view', 'knowledge.view', 'agent.use', 'roadmap.view', 'conditions.recompute'].sort(),
     )
   })
 
@@ -103,6 +113,8 @@ describe('session 8 role baselines', () => {
       'flags.disposition',
       'shadow.score',
       'conditions.decide',
+      'commitment.upload',
+      'approvals.conditions.decide',
       'agent.execute',
       'compliance.manage',
       'constraints.manage',

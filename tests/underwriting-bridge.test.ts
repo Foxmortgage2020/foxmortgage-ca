@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BELOW_SUBMITTED,
+  BOARD_COLUMNS,
   CLOSED_ZOHO_STAGES,
   SUBMITTED_AND_BEYOND,
   boardColumnFor,
@@ -142,18 +143,40 @@ describe('isTestRoom (the ONE structural predicate)', () => {
 })
 
 describe('the board mapping (workbench vocabulary onto columns)', () => {
+  it('carries the seven columns in ladder order', () => {
+    expect(BOARD_COLUMNS.map(c => c.key)).toEqual([
+      'intake',
+      'evidence',
+      'packaging',
+      'with_lender',
+      'conditions',
+      'ready',
+      'funded',
+    ])
+    expect(BOARD_COLUMNS.find(c => c.key === 'conditions')!.label).toBe('Commitment · conditions')
+  })
+
   it('maps the live legacy values and flags unknowns instead of hiding them', () => {
     expect(boardColumnFor('intake')).toEqual({ column: 'intake', mapped: true })
     expect(boardColumnFor('in_progress')).toEqual({ column: 'evidence', mapped: true })
     expect(boardColumnFor('underwriting')).toEqual({ column: 'evidence', mapped: true })
-    expect(boardColumnFor('approved')).toEqual({ column: 'with_lender', mapped: true })
+    expect(boardColumnFor('packaging')).toEqual({ column: 'packaging', mapped: true })
+    expect(boardColumnFor('submitted')).toEqual({ column: 'with_lender', mapped: true })
+    // Phase B2: approved / conditionally approved come back to the conditions
+    // column, and funded is its own column now (not filtered off the board).
+    expect(boardColumnFor('approved')).toEqual({ column: 'conditions', mapped: true })
+    expect(boardColumnFor('conditionally_approved')).toEqual({ column: 'conditions', mapped: true })
+    expect(boardColumnFor('ready')).toEqual({ column: 'ready', mapped: true })
+    expect(boardColumnFor('Mortgage Funded')).toEqual({ column: 'funded', mapped: true })
     expect(boardColumnFor('something_new')).toEqual({ column: 'evidence', mapped: false })
   })
 
   it('next steps read in plain words', () => {
     expect(nextStepForRoom('intake', null)).toBe('Collect the client documents')
     expect(nextStepForRoom('conditions', 2)).toBe('2 conditions open')
-    expect(nextStepForRoom('ready', null)).toBe('Package ready, pick a lender')
+    expect(nextStepForRoom('packaging', null)).toBe('Packaging the file for a lender')
+    expect(nextStepForRoom('ready', null)).toBe('Cleared to close')
+    expect(nextStepForRoom('funded', null)).toBe('Funded')
   })
 
   it('daysIdle counts whole days since last movement', () => {

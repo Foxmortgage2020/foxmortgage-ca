@@ -42,7 +42,9 @@ import type {
   KnowledgeClaimRow,
   KnowledgeDocumentRow,
   KnowledgePageHit,
+  PendingCommitmentCondition,
 } from '@/lib/underwriting'
+import type { ConditionCount } from '@/lib/conditions-status'
 import type { SlimDeal, OpenTask, SlimLead } from '@/lib/zoho-admin'
 import type { RevenueDeal } from '@/lib/revenue'
 import type { RenewalDeal } from '@/lib/renewals'
@@ -266,19 +268,66 @@ const stmtField = (
   status,
 })
 
+const condBase = {
+  dealRef: null,
+  presenceDetail: null as Record<string, unknown> | null,
+  verifiedBy: null as string | null,
+  verifiedAt: null as string | null,
+  gateStatus: 'approved' as const,
+}
+
 export function demoDealConditions(dealId: string): DealConditionRow[] {
   if (dealId === 'demo-deal-1') {
     return [
-      { id: 'demo-cond-1', dealRef: null, text: 'Confirm down payment source (90-day history)', owner: 'borrower', status: 'open', dueDate: '2026-07-08', condNumber: '1', source: 'lender', evidenceRefCount: 1, category: 'general_verification', kind: null, precheckStatus: 'pass' },
-      { id: 'demo-cond-2', dealRef: null, text: 'Solicitor to confirm title insurance', owner: 'solicitor', status: 'open', dueDate: '2026-07-20', condNumber: '2', source: 'lender', evidenceRefCount: 0, category: 'solicitor', kind: null, precheckStatus: null },
+      {
+        ...condBase, id: 'demo-cond-1', text: 'Confirm down payment source (90-day history)', owner: 'borrower',
+        status: 'open', dueDate: '2026-07-08', condNumber: '1', source: 'commitment', evidenceRefCount: 1,
+        category: 'general_verification', kind: 'document_chase', precheckStatus: 'pass',
+        presence: 'obtained', presenceDetail: { matched_finmo_name: 'TD chequing — 90 day history', finmo_status: 'accepted', recomputed_at: '2026-07-09T13:20:00Z' },
+        docKind: 'void_cheque', borrowerId: 'demo-b-1', sourcePage: 2,
+        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 96,
+      },
+      {
+        ...condBase, id: 'demo-cond-2', text: 'Solicitor to confirm title insurance', owner: 'solicitor',
+        status: 'open', dueDate: '2026-07-20', condNumber: '2', source: 'commitment', evidenceRefCount: 0,
+        category: 'solicitor', kind: null, precheckStatus: null,
+        presence: 'needs_input', presenceDetail: { reason: 'no matching document in Finmo' },
+        docKind: null, borrowerId: null, sourcePage: 3,
+        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 90,
+      },
     ]
   }
   if (dealId === 'demo-deal-2') {
     return [
-      { id: 'demo-cond-3', dealRef: null, text: 'Signed commitment returned', owner: 'borrower', status: 'satisfied', dueDate: '2026-07-02', condNumber: '1', source: 'lender', evidenceRefCount: 2, category: 'borrower_execution', kind: null, precheckStatus: 'pass' },
+      {
+        ...condBase, id: 'demo-cond-3', text: 'Signed commitment returned', owner: 'borrower',
+        status: 'satisfied', dueDate: '2026-07-02', condNumber: '1', source: 'commitment', evidenceRefCount: 2,
+        category: 'borrower_execution', kind: null, precheckStatus: 'pass',
+        presence: 'verified', docKind: 'signed_commitment', borrowerId: null, sourcePage: 1,
+        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 98,
+        verifiedBy: 'demo-agent', verifiedAt: '2026-07-03T10:00:00Z',
+      },
     ]
   }
   return []
+}
+
+// The approval banner: conditions extracted from a commitment, still pending
+// the list gate. demo-deal-1 shows a two-item pile so the banner renders.
+export function demoPendingCommitmentConditions(dealId: string): PendingCommitmentCondition[] {
+  if (dealId === 'demo-deal-1') {
+    return [
+      { id: 'demo-pc-1', documentId: 'demo-commit-1', condNumber: '1', text: 'Letter of employment for the primary applicant dated within 30 days', owner: 'borrower', docKind: 'letter_of_employment', borrowerId: 'demo-b-1', category: 'general_verification', kind: 'document_chase', sourcePage: 1, sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 94 },
+      { id: 'demo-pc-2', documentId: 'demo-commit-1', condNumber: '2', text: 'Fire insurance binder naming the lender as first loss payee', owner: 'borrower', docKind: 'fire_insurance_binder', borrowerId: null, category: 'property_valuation', kind: 'document_chase', sourcePage: 2, sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 91 },
+    ]
+  }
+  return []
+}
+
+// Board-card counts (approved commitment conditions only).
+export const demoConditionCountsByDeal: Record<string, ConditionCount> = {
+  'demo-deal-1': { total: 2, collected: 1, outstanding: 1 },
+  'demo-deal-2': { total: 1, collected: 1, outstanding: 0 },
 }
 
 export function demoDealFlags(dealId: string): DealFlagRow[] {

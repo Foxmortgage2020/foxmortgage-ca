@@ -145,14 +145,26 @@ export function computeBridgePlan(input: {
 // board maps BOTH vocabularies onto its five columns; an unknown stage lands
 // in Evidence with its raw value shown on the card, loud, never silent.
 
-export type BoardColumn = 'intake' | 'evidence' | 'conditions' | 'ready' | 'with_lender'
+// Phase B2: the ladder grows to seven columns so the commitment/conditions
+// leg and the funded outcome each get their own place instead of being folded
+// into With-lender or filtered off the board.
+export type BoardColumn =
+  | 'intake'
+  | 'evidence'
+  | 'packaging'
+  | 'with_lender'
+  | 'conditions'
+  | 'ready'
+  | 'funded'
 
 export const BOARD_COLUMNS: { key: BoardColumn; label: string }[] = [
   { key: 'intake', label: 'Intake' },
   { key: 'evidence', label: 'Evidence' },
-  { key: 'conditions', label: 'Conditions' },
-  { key: 'ready', label: 'Ready to submit' },
+  { key: 'packaging', label: 'Packaging' },
   { key: 'with_lender', label: 'With lender' },
+  { key: 'conditions', label: 'Commitment · conditions' },
+  { key: 'ready', label: 'Ready to close' },
+  { key: 'funded', label: 'Funded' },
 ]
 
 const COLUMN_BY_STAGE: Record<string, BoardColumn> = {
@@ -160,13 +172,21 @@ const COLUMN_BY_STAGE: Record<string, BoardColumn> = {
   evidence: 'evidence',
   in_progress: 'evidence',
   underwriting: 'evidence',
+  packaging: 'packaging',
+  submitted: 'with_lender',
+  submitted_to_lender: 'with_lender',
+  with_lender: 'with_lender',
+  'application sent to lender': 'conditions',
+  conditionally_approved: 'conditions',
+  approved: 'conditions',
   conditions: 'conditions',
+  'ready to close': 'ready',
   ready: 'ready',
   ready_to_submit: 'ready',
-  submitted: 'with_lender',
-  with_lender: 'with_lender',
-  approved: 'with_lender',
-  conditionally_approved: 'with_lender',
+  broker_complete: 'ready',
+  funded: 'funded',
+  'mortgage funded': 'funded',
+  'mortgage closed': 'funded',
 }
 
 export function boardColumnFor(stage: string | null): { column: BoardColumn; mapped: boolean } {
@@ -182,16 +202,20 @@ export function nextStepForRoom(column: BoardColumn, openConditions: number | nu
       return 'Collect the client documents'
     case 'evidence':
       return 'Evidence and calcs in progress'
+    case 'packaging':
+      return 'Packaging the file for a lender'
+    case 'with_lender':
+      return openConditions && openConditions > 0
+        ? `${openConditions} ${openConditions === 1 ? 'condition' : 'conditions'} open with the lender`
+        : 'Waiting on the lender'
     case 'conditions':
       return openConditions && openConditions > 0
         ? `${openConditions} ${openConditions === 1 ? 'condition' : 'conditions'} open`
         : 'Conditions working'
     case 'ready':
-      return 'Package ready, pick a lender'
-    case 'with_lender':
-      return openConditions && openConditions > 0
-        ? `${openConditions} ${openConditions === 1 ? 'condition' : 'conditions'} open with the lender`
-        : 'Waiting on the lender'
+      return 'Cleared to close'
+    case 'funded':
+      return 'Funded'
   }
 }
 

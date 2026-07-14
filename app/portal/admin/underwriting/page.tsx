@@ -15,7 +15,13 @@ import Link from 'next/link'
 import { can, requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { computePipeline, getAllDealsSlim, type SlimDeal } from '@/lib/zoho-admin'
-import { getAgentIdByEmail, getDealsSummary, getOpenConditionCounts, type WorkbenchDeal } from '@/lib/underwriting'
+import {
+  getAgentIdByEmail,
+  getConditionCountsByDeal,
+  getDealsSummary,
+  getOpenConditionCounts,
+  type WorkbenchDeal,
+} from '@/lib/underwriting'
 import {
   BOARD_COLUMNS,
   boardColumnFor,
@@ -24,6 +30,8 @@ import {
   DAYS_IDLE_AMBER,
   nextStepForRoom,
 } from '@/lib/underwriting-bridge'
+import { closingPillAmber, type ConditionCount } from '@/lib/conditions-status'
+import { daysUntil } from '@/lib/compliance-logic'
 import { runBridgeSweep } from '@/lib/underwriting-sweep'
 import { isDemoMode } from '@/lib/demo'
 import { fmtMoneyCompact, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
@@ -51,16 +59,20 @@ export default async function UnderwritingPage({
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
 
-  const [dealsRes, roomsR, condCountsR] = await Promise.all([
+  const [dealsRes, roomsR, condCountsR, condChecklistR] = await Promise.all([
     getAllDealsSlim()
       .then(d => ({ ok: true as const, data: d }))
       .catch(() => ({ ok: false as const, data: null })),
     agentId ? getDealsSummary(agentId) : null,
     agentId ? getOpenConditionCounts(agentId) : null,
+    agentId ? getConditionCountsByDeal(agentId) : null,
   ])
   const deals: SlimDeal[] | null = dealsRes.ok ? dealsRes.data : null
   const rooms: WorkbenchDeal[] = roomsR && roomsR.configured && roomsR.ok ? roomsR.data : []
   const condCounts = (condCountsR && condCountsR.configured && condCountsR.ok ? condCountsR.data : {}) as Record<string, number>
+  // Phase B2: per-deal collected/outstanding over approved commitment
+  // conditions, for the conditions-column card line and its closing pill.
+  const condChecklist = (condChecklistR && condChecklistR.configured && condChecklistR.ok ? condChecklistR.data : {}) as Record<string, ConditionCount>
 
   const dealByZohoId = new Map((deals ?? []).map(d => [d.id, d]))
   const pipeline = deals ? computePipeline(deals, todayYMD) : null
@@ -70,13 +82,22 @@ export default async function UnderwritingPage({
       : null
   const notYetBridged = plan?.notYetBridged ?? []
 
-  const live = rooms.filter(r => r.status === 'active' && r.stage !== 'funded')
-  const parked = rooms.filter(r => r.status !== 'active' || r.stage === 'funded')
+  // Phase B2: funded is its own board column, but it must not grow without
+  // bound — a room funded months ago is not today's work. Signal used: days
+  // since last movement (updated_at, the only always-present timestamp; a
+  // funded room's last movement is when it funded). Recently-funded rooms stay
+  // on the board; older funded joins dormant behind the toggle.
+  const FUNDED_RECENT_DAYS = 30
+  const staleFunded = (r: WorkbenchDeal) =>
+    boardColumnFor(r.stage).column === 'funded' && daysIdle(r.updatedAt, todayYMD) > FUNDED_RECENT_DAYS
+  const live = rooms.filter(r => r.status === 'active' && !staleFunded(r))
+  const parked = rooms.filter(r => r.status !== 'active' || staleFunded(r))
 
   const cardFor = (r: WorkbenchDeal) => {
     const z = r.zohoPotentialId ? dealByZohoId.get(r.zohoPotentialId) : null
     const { column, mapped } = boardColumnFor(r.stage)
     const idle = daysIdle(r.updatedAt, todayYMD)
+    const closing = z?.closingDate ?? r.closingDate
     return {
       room: r,
       column,
@@ -84,8 +105,10 @@ export default async function UnderwritingPage({
       idle,
       clientLine: z ? z.dealName : r.fileRef,
       amount: z && z.amount > 0 ? z.amount : null,
-      closing: z?.closingDate ?? r.closingDate,
+      closing,
       conds: condCounts[r.id] ?? null,
+      checklist: condChecklist[r.id] ?? null,
+      closeDays: closing ? daysUntil(closing, todayYMD) : null,
     }
   }
   const cards = live.map(cardFor)
@@ -147,8 +170,8 @@ export default async function UnderwritingPage({
         )}
       </div>
 
-      {/* The board */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* The board — seven columns (Phase B2) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {BOARD_COLUMNS.map(col => {
           const colCards = byColumn.get(col.key) ?? []
           return (
@@ -175,9 +198,29 @@ export default async function UnderwritingPage({
                       {c.closing ? ` · closes ${fmtShortDate(c.closing)}` : ''}
                     </p>
                     <p className="mt-1 font-ui text-xs text-muted">
-                      {nextStepForRoom(c.column, c.conds)}
+                      {c.column === 'conditions' && c.checklist
+                        ? `${c.checklist.outstanding} of ${c.checklist.total} ${
+                            c.checklist.total === 1 ? 'condition' : 'conditions'
+                          } outstanding${
+                            c.closeDays !== null && c.closeDays >= 0
+                              ? ` · closes in ${c.closeDays} ${c.closeDays === 1 ? 'day' : 'days'}`
+                              : ''
+                          }`
+                        : nextStepForRoom(c.column, c.conds)}
                     </p>
-                    <p className="mt-1.5 flex items-center gap-1.5">
+                    <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {c.column === 'conditions' && c.checklist && c.closeDays !== null && (
+                        <span
+                          className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-ui font-semibold tabular-nums ${
+                            closingPillAmber(c.closeDays, c.checklist.outstanding)
+                              ? 'bg-caution-bg text-caution'
+                              : 'bg-fog text-muted-2'
+                          }`}
+                          title="Days to the recorded closing date"
+                        >
+                          {c.closeDays >= 0 ? `closes in ${c.closeDays}d` : `closed ${Math.abs(c.closeDays)}d ago`}
+                        </span>
+                      )}
                       <span
                         className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-ui font-semibold tabular-nums ${
                           c.idle >= DAYS_IDLE_AMBER
@@ -202,7 +245,8 @@ export default async function UnderwritingPage({
         })}
       </div>
 
-      {/* Funded + dormant, present but out of the way. */}
+      {/* Older funded + dormant rooms, present but out of the way (recently
+          funded rooms live on the board). */}
       <div className="mt-6">
         <Link
           href={showParked ? '/portal/admin/underwriting' : '/portal/admin/underwriting?show=all'}

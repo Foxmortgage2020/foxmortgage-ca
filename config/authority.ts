@@ -75,6 +75,18 @@ export const PERMISSIONS = {
   // CONTRACT with the fox-underwriting gates API; admin only on both sides.
   'knowledge.upload': ['admin'],
   'approvals.knowledge.decide': ['admin'],
+  // Phase B2: commitment conditions become the room's gated checklist. Both
+  // key names are a CONTRACT with the fox-underwriting gates API. Uploading a
+  // commitment mints PENDING conditions, and deciding the extracted list (or a
+  // single drafted condition, or verifying presence) is a human decision —
+  // admin only on both sides.
+  'commitment.upload': ['admin'],
+  'approvals.conditions.decide': ['admin'],
+  // Phase B2: recomputing document presence on room open is read-only to
+  // Finmo and idempotent — every internal role that can see a deal room may
+  // trigger it (it never approves or decides anything). CONTRACT key with the
+  // workbench gates API.
+  'conditions.recompute': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
   // ── Additive view keys (Session 1) ─────────────────────────────────────
   // Nav and page gating for sections the original matrix carries no key
   // for. All seeded admin-only except where a broader default is safe.
@@ -136,6 +148,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'underwriting.provision': 'Start an underwriting room before a file reaches Submitted',
   'knowledge.upload': 'Upload lender knowledge documents (claims stay pending until approved)',
   'approvals.knowledge.decide': 'Decide lender knowledge claims (approve / reject)',
+  'commitment.upload': 'Upload a commitment or amendment (conditions stay pending until the list is approved)',
+  'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
+  'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',
   'intel.view': 'See the lender intel feed',

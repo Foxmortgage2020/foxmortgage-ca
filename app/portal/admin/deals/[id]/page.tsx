@@ -15,9 +15,9 @@ import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { isTerminalWorkbenchDeal } from '@/config/pipeline'
 import {
   getAgentIdByEmail,
+  getApprovedConditions,
   getDealAudit,
   getDealBorrowers,
-  getDealConditions,
   getDealDetail,
   getDealDocuments,
   getDealFlags,
@@ -25,17 +25,22 @@ import {
   getDealRatioCalcs,
   getDealShadowHistory,
   getDealStatementDocs,
+  getPendingCommitmentConditions,
   getRateQuotesFull,
   isPermissionRefusal,
   type UwResult,
 } from '@/lib/underwriting'
-import ConditionsPanel from '@/components/admin/ConditionsPanel'
+import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
+import RoomSectionNav from '@/components/admin/RoomSectionNav'
 import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
 import { scenarioFromParams, scenarioParamsFromDeal, scenarioVerdict } from '@/lib/scenario'
 import { activeConstraints } from '@/lib/constraints'
 import { constraintsFor } from '@/lib/constraints-store'
 import { dealConstraintCost, costSentence } from '@/lib/constraint-cost'
+import { boardColumnFor, nextStepForRoom } from '@/lib/underwriting-bridge'
+import { closingHeaderAmber } from '@/lib/conditions-status'
+import { daysUntil } from '@/lib/compliance-logic'
 import { lenderDisplayName } from '@/config/lenders'
 import { fmtDateTime, fmtMoney, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
 
@@ -65,13 +70,15 @@ function Section({
   title,
   children,
   action,
+  id,
 }: {
   title: string
   children: React.ReactNode
   action?: React.ReactNode
+  id?: string
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div id={id} className="scroll-mt-24 bg-white border border-gray-200 rounded-xl p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-navy font-bold text-base">{title}</h2>
         {action}
@@ -142,9 +149,13 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     )
   }
 
-  const [condsR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR] =
     await Promise.all([
-      getDealConditions(agentId, deal.id),
+      // The room CHECKLIST is approved conditions only; pending commitment
+      // conditions are the approval banner, invisible to the checklist until
+      // the list gate fires.
+      getApprovedConditions(agentId, deal.id),
+      getPendingCommitmentConditions(agentId, deal.id),
       getDealFlags(agentId, deal.id),
       getDealStatementDocs(agentId, deal.id),
       getDealShadowHistory(agentId, deal.id),
@@ -155,6 +166,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       getDealDocuments(agentId, deal.id),
     ])
   const conds = val(condsR) ?? []
+  const pendingCommit = val(pendingCommitR) ?? []
   const flags = val(flagsR) ?? []
   const stmtDocs = val(stmtDocsR) ?? []
   const shadow = val(shadowR) ?? []
@@ -163,15 +175,34 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const income = sectionState(incomeR)
   const ratios = sectionState(ratiosR)
   const documents = sectionState(documentsR)
+  const borrowerList = borrowers.kind === 'ok' ? borrowers.data.map(b => ({ id: b.id, fullName: b.fullName })) : []
 
   const today = torontoTodayYMD()
   const openConds = conds.filter(c => c.status !== 'satisfied' && c.status !== 'waived')
   const openFlags = flags.filter(f => f.status === 'open')
   const pendingStmtDocs = stmtDocs.filter(d => d.fields.some(f => f.status === 'extracted'))
   const terminal = isTerminalWorkbenchDeal(deal)
-  // Session 9: demo mode is read-only — hide the condition decision controls
-  // (the server also rejects any write with DemoWriteBlocked).
-  const canDecideConditions = can(user, 'conditions.decide') && !isDemoMode()
+  // Phase B2: the approval banner + edit-then-approve + Verify are the
+  // commitment-decisions key; Waive is the existing conditions.decide key (its
+  // server proxy requires it), so the UI control uses the SAME key. Recompute
+  // is open to every internal role that sees the room (read-only to Finmo).
+  const canDecideCommitment = can(user, 'approvals.conditions.decide') && !isDemoMode()
+  const canWaiveConditions = can(user, 'conditions.decide') && !isDemoMode()
+  const canRecompute = can(user, 'conditions.recompute') && !isDemoMode()
+
+  // Board-column derivation for the plain-words next step in Overview.
+  const { column: boardColumn } = boardColumnFor(deal.stage)
+  const nextStep = nextStepForRoom(boardColumn, openConds.length)
+  const closeDays = deal.closingDate ? daysUntil(deal.closingDate, today) : null
+  const closingAmber = closingHeaderAmber(closeDays)
+
+  const ROOM_SECTIONS = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'conditions', label: 'Conditions' },
+    { id: 'documents', label: 'Documents' },
+    { id: 'notes', label: 'Notes' },
+    { id: 'activity', label: 'Activity' },
+  ]
 
   // Part 4 — suitability documentation: an active client constraint with its
   // reason AND a quantified cost is the documented suitability assessment FSRA
@@ -242,6 +273,13 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
         <Chip tone="gray">{label(deal.dealType)}</Chip>
         {deal.stage && <Chip tone="gray">{label(deal.stage)}</Chip>}
         <Chip tone={deal.status === 'active' ? 'green' : 'gray'}>{deal.status}</Chip>
+        {closeDays !== null && (
+          <Chip tone={closingAmber ? 'amber' : 'gray'}>
+            {closeDays >= 0
+              ? `closes in ${closeDays} ${closeDays === 1 ? 'day' : 'days'}`
+              : `closed ${Math.abs(closeDays)} ${Math.abs(closeDays) === 1 ? 'day' : 'days'} ago`}
+          </Chip>
+        )}
         {/* Prefill only reads the deals row into rates searchParams; it
             writes nothing anywhere (Session 5 Part 4). */}
         <div className="ml-auto flex items-center gap-2">
@@ -325,7 +363,48 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
         </p>
       )}
 
+      <RoomSectionNav sections={ROOM_SECTIONS} />
+
       <div className="mt-6 space-y-4">
+        {/* Overview: blockers first, then the next step in plain words. */}
+        <Section id="overview" title="Overview">
+          {openFlags.length > 0 ? (
+            <div className="mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Blockers</p>
+              <ul className="space-y-1.5">
+                {openFlags.map(f => (
+                  <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm font-body text-gray-700">
+                    <Chip tone={f.severity === 'high' ? 'red' : f.severity === 'warning' ? 'amber' : 'gray'}>
+                      {f.severity}
+                    </Chip>
+                    <span className="capitalize">{label(f.kind)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm font-body text-gray-500 mb-3">No open blockers on this file.</p>
+          )}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Next step</p>
+            <p className="text-sm font-body text-gray-700 mt-0.5">{nextStep}</p>
+          </div>
+        </Section>
+
+        {/* Conditions — the commitment checklist (Phase B2 centerpiece) */}
+        <Section id="conditions" title={`Conditions (${openConds.length} open of ${conds.length})`}>
+          <ConditionsChecklist
+            dealId={deal.id}
+            pending={pendingCommit}
+            approved={conds}
+            borrowers={borrowerList}
+            canDecide={canDecideCommitment}
+            canWaive={canWaiveConditions}
+            canRecompute={canRecompute}
+            todayYMD={today}
+          />
+        </Section>
+
         {/* Compliance (Session 6): posture from recorded signals only,
             gaps stated honestly, linked into the module. */}
         <ComplianceCard
@@ -454,7 +533,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
         </Section>
 
         {/* Documents (granted 2026-07-09; metadata only) */}
-        <Section title="Documents">
+        <Section id="documents" title="Documents">
           {documents.kind === 'ok' ? (
             documents.data.length === 0 ? (
               <Muted>No documents recorded on this file yet.</Muted>
@@ -576,11 +655,6 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
           </p>
         </Section>
 
-        {/* Conditions with decisions (Session 4) */}
-        <Section title={`Conditions (${openConds.length} open of ${conds.length})`}>
-          <ConditionsPanel conditions={conds} canDecide={canDecideConditions} todayYMD={today} />
-        </Section>
-
         {/* Flags with disposition history */}
         <Section title={`Flags (${openFlags.length} open of ${flags.length})`}>
           {flags.length === 0 ? (
@@ -666,7 +740,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
         </Section>
 
         {/* Notes: no notes table exists in the workbench yet (report artifacts only) */}
-        <Section title="Submission notes">
+        <Section id="notes" title="Submission notes">
           <Muted>
             The workbench generates submission notes as report artifacts, not stored rows, so
             there is nothing the read-only role can render here yet. When a notes table lands
@@ -676,6 +750,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
 
         {/* Deal-scoped audit */}
         <Section
+          id="activity"
           title="Recent audit entries"
           action={
             <Link href="/portal/admin/audit" className="text-xs font-semibold text-navy hover:text-lime">

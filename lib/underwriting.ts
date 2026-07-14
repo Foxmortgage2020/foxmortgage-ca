@@ -38,11 +38,14 @@ import { normalizeEvidence, type OfferEvidenceItem } from '@/lib/offers'
 // call, so demo mode performs ZERO real workbench reads.
 import { isDemoMode, DEMO_AGENT_ID } from '@/lib/demo'
 import { isTestRoom } from '@/lib/test-rooms'
+import { conditionCounts, type ConditionCount } from '@/lib/conditions-status'
 import {
   demoResult,
   demoDeals,
   demoDealDetail,
   demoDealConditions,
+  demoPendingCommitmentConditions,
+  demoConditionCountsByDeal,
   demoDealFlags,
   demoDealStatementDocs,
   demoDealShadowHistory,
@@ -534,6 +537,9 @@ export async function getOpenConditionCounts(
   const res = await uwSelectAll<any>('conditions', {
     select: 'deal_id',
     agent_id: `eq.${agentId}`,
+    // Phase B2: a pending (un-approved) commitment condition is not the
+    // checklist, so it must not inflate the "N conditions open" card line.
+    gate_status: 'eq.approved',
     status: 'not.in.(satisfied,waived)',
     limit: '1000',
   })
@@ -1102,35 +1108,179 @@ export interface DealConditionRow extends ConditionRow {
   category: string | null
   kind: string | null
   precheckStatus: string | null
+  // Phase B2 (migration 0035): the commitment-conditions checklist axes.
+  // `presence` is the machine's document-collection axis (needs_input up to
+  // obtained; verified is a human tap); `presenceDetail` carries the recompute
+  // outcome, including the matched Finmo document name. `docKind` is the closed
+  // document-type vocabulary the matcher keys on; `borrowerId` groups per
+  // borrower (null = General). `gateStatus` is the approval axis (a pending
+  // commitment condition is not yet the checklist). verified_by/at record the
+  // human verify; source_page/snippet/confidence are extraction provenance.
+  presence: 'needs_input' | 'requested' | 'obtained' | 'verified' | null
+  presenceDetail: Record<string, unknown> | null
+  docKind: string | null
+  borrowerId: string | null
+  gateStatus: 'pending' | 'approved' | 'rejected' | 'superseded'
+  verifiedBy: string | null
+  verifiedAt: string | null
+  sourcePage: number | null
+  sourceSnippet: string | null
+  confidence: number | null
 }
 
+const CONDITION_SELECT =
+  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence'
+
+const dealConditionRow = (r: any): DealConditionRow => ({
+  id: r.id,
+  dealRef: null,
+  text: r.text,
+  owner: r.owner,
+  status: r.status,
+  dueDate: r.due_date ?? null,
+  condNumber: r.cond_number ?? null,
+  source: r.source,
+  evidenceRefCount: Array.isArray(r.evidence_ids) ? r.evidence_ids.length : 0,
+  category: r.category ?? null,
+  kind: r.kind ?? null,
+  precheckStatus:
+    r.precheck && typeof r.precheck === 'object' && typeof r.precheck.status === 'string'
+      ? r.precheck.status
+      : null,
+  presence: r.presence ?? null,
+  presenceDetail:
+    r.presence_detail && typeof r.presence_detail === 'object'
+      ? (r.presence_detail as Record<string, unknown>)
+      : null,
+  docKind: r.doc_kind ?? null,
+  borrowerId: r.borrower_id ?? null,
+  gateStatus: r.gate_status ?? 'approved',
+  verifiedBy: r.verified_by ?? null,
+  verifiedAt: r.verified_at ?? null,
+  sourcePage: r.source_page ?? null,
+  sourceSnippet: r.source_snippet ?? null,
+  confidence: numOrNull(r.confidence),
+})
+
+// LIVE conditions on a deal (Ask Fox and any general consumer): a pending,
+// superseded, or rejected row is NOT a live condition and never renders as
+// one. Legacy DP/internal/compliance conditions default to gate_status
+// 'approved' so they stay visible; only the non-live gate states are excluded.
+const LIVE_CONDITION_GATE = 'not.in.(superseded,rejected,pending)'
+const isLiveGate = (g: string) => g !== 'superseded' && g !== 'rejected' && g !== 'pending'
+
 export async function getDealConditions(agentId: string, dealId: string): Promise<UwResult<DealConditionRow[]>> {
-  if (isDemoMode()) return demoResult(demoDealConditions(dealId))
+  if (isDemoMode()) return demoResult(demoDealConditions(dealId).filter(c => isLiveGate(c.gateStatus)))
   const res = await uwSelect<any>('conditions', {
-    select: 'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck',
+    select: CONDITION_SELECT,
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
+    gate_status: LIVE_CONDITION_GATE,
     order: 'due_date.asc.nullslast',
+    limit: '300',
+  })
+  return mapResult(res, rows => rows.map(dealConditionRow))
+}
+
+// The room CHECKLIST: approved conditions from the commitment pipeline only
+// (commitment + template-seeded). A pending commitment condition is invisible
+// until the list gate approves it; legacy DP/internal/compliance conditions
+// live in the deal room's other surfaces, not the commitment checklist.
+export const CHECKLIST_SOURCES = 'in.(commitment,condition_template)'
+const isChecklistSource = (s: string) => s === 'commitment' || s === 'condition_template'
+
+export async function getApprovedConditions(agentId: string, dealId: string): Promise<UwResult<DealConditionRow[]>> {
+  if (isDemoMode()) {
+    return demoResult(
+      demoDealConditions(dealId).filter(c => c.gateStatus === 'approved' && isChecklistSource(c.source)),
+    )
+  }
+  const res = await uwSelect<any>('conditions', {
+    select: CONDITION_SELECT,
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    source: CHECKLIST_SOURCES,
+    gate_status: 'eq.approved',
+    order: 'due_date.asc.nullslast',
+    limit: '300',
+  })
+  return mapResult(res, rows => rows.map(dealConditionRow))
+}
+
+// Conditions extracted from an uploaded commitment/amendment, awaiting the
+// list gate. These are the approval banner's rows: enough to show the text,
+// owner, doc_kind, and the source page + verbatim snippet Michael approves,
+// grouped by their source document.
+export interface PendingCommitmentCondition {
+  id: string
+  documentId: string | null
+  condNumber: string | null
+  text: string
+  owner: string
+  docKind: string | null
+  borrowerId: string | null
+  category: string | null
+  kind: string | null
+  sourcePage: number | null
+  sourceSnippet: string | null
+  confidence: number | null
+}
+
+export async function getPendingCommitmentConditions(
+  agentId: string,
+  dealId: string,
+): Promise<UwResult<PendingCommitmentCondition[]>> {
+  if (isDemoMode()) return demoResult(demoPendingCommitmentConditions(dealId))
+  const res = await uwSelect<any>('conditions', {
+    select:
+      'id,document_id,cond_number,text,owner,doc_kind,borrower_id,category,kind,source_page,source_snippet,confidence',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    source: 'eq.commitment',
+    gate_status: 'eq.pending',
+    order: 'document_id.asc,cond_number.asc',
     limit: '300',
   })
   return mapResult(res, rows =>
     rows.map(r => ({
       id: r.id,
-      dealRef: null,
+      documentId: r.document_id ?? null,
+      condNumber: r.cond_number ?? null,
       text: r.text,
       owner: r.owner,
-      status: r.status,
-      dueDate: r.due_date ?? null,
-      condNumber: r.cond_number ?? null,
-      source: r.source,
-      evidenceRefCount: Array.isArray(r.evidence_ids) ? r.evidence_ids.length : 0,
+      docKind: r.doc_kind ?? null,
+      borrowerId: r.borrower_id ?? null,
       category: r.category ?? null,
       kind: r.kind ?? null,
-      precheckStatus:
-        r.precheck && typeof r.precheck === 'object' && typeof r.precheck.status === 'string'
-          ? r.precheck.status
-          : null,
+      sourcePage: r.source_page ?? null,
+      sourceSnippet: r.source_snippet ?? null,
+      confidence: numOrNull(r.confidence),
     })),
+  )
+}
+
+// Board-card counts: over the SAME population the room checklist renders
+// (approved commitment + template conditions) per deal, the total, the
+// collected set, and what remains outstanding, so the board "N of M" and the
+// room progress line agree. The counting rule is the pure conditionCounts
+// helper (lib/conditions-status.ts), unit-tested there.
+export async function getConditionCountsByDeal(
+  agentId: string,
+): Promise<UwResult<Record<string, ConditionCount>>> {
+  if (isDemoMode()) return demoResult(demoConditionCountsByDeal)
+  const res = await uwSelectAll<any>('conditions', {
+    select: 'deal_id,status,presence',
+    agent_id: `eq.${agentId}`,
+    source: CHECKLIST_SOURCES,
+    gate_status: 'eq.approved',
+    limit: '1000',
+  })
+  return mapResult(res, rows =>
+    conditionCounts(
+      rows
+        .filter(r => r.deal_id)
+        .map(r => ({ dealId: r.deal_id as string, status: r.status, presence: r.presence ?? null })),
+    ),
   )
 }
 

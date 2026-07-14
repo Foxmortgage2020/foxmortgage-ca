@@ -1502,6 +1502,41 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ## Session Ledger
 
+### 2026-07-14 — Phase B2: the deal room, and commitments become conditions
+- Board ladder → SEVEN columns (lib/underwriting-bridge.ts BOARD_COLUMNS/COLUMN_BY_STAGE):
+  Intake → Evidence → Packaging → With lender → Commitment · conditions → Ready to close →
+  Funded. approved/conditionally_approved/'application sent to lender' → conditions;
+  'ready to close'/broker_complete → ready; funded is its own column (capped to recently-
+  funded by updated_at idle ≤30d; older funded joins dormant behind the toggle). Cards in
+  the conditions column show "{outstanding} of {total} conditions outstanding · closes in N
+  days", closing pill amber only when 0 ≤ days ≤ 10 AND outstanding > 0.
+- **Deal room interior** (app/portal/admin/deals/[id]/page.tsx + components/admin/
+  ConditionsChecklist.tsx + RoomSectionNav.tsx): sticky Overview/Conditions/Documents/Notes/
+  Activity nav + closing countdown. Conditions centerpiece: pending-approval banner (approve
+  list / reject / per-condition edit-then-approve) then the approved checklist — progress
+  line, grouped General first then per-borrower, status pill (lime ONLY on needs_input + the
+  Verify tap), one-tap verify, waive-with-reason. Presence recomputes on room open (client
+  effect, fire-and-forget, demo-silent, non-admin-inert).
+- lib/underwriting.ts: getApprovedConditions (the room checklist — source in commitment/
+  condition_template, gate_status=approved), getPendingCommitmentConditions (the banner),
+  getConditionCountsByDeal (board "N of M", same population as the checklist); getDeal
+  Conditions (Ask Fox) excludes pending/superseded/rejected; getOpenConditionCounts gained
+  gate_status=approved. lib/gates.ts: uploadCommitment, decideCommitmentList, approveCondition
+  (edit), verifyCondition, recomputePresence (DemoWriteBlocked-guarded). config/authority.ts
+  +commitment.upload +approvals.conditions.decide +conditions.recompute (additive cross-repo).
+- **The workbench matcher/extractor had real bugs an adversarial review caught pre-commit**
+  (fixed workbench-side): real PDF commitments never parsed (newline anchoring vs space-joined
+  pdfjs text — the whole feature was inert on the dominant format; now re-extracts 25
+  conditions from the golden PDF); cross-borrower false match via shared surname; presence
+  recompute clobbering a human verify. Portal-side confirmed + fixed here: gate_status leak
+  into the checklist/board readers, conditionCounts double-subtracting a waived row, the
+  closing-amber lower bound, the funded-column bound, the waive permission/route alignment.
+- 542 tests (+18) green, tsc clean, build green. Workbench contract:
+  fox-underwriting docs/gates-api.md; report fox-underwriting/reports/phase-b2-2026-07-14.md.
+  The Finmo Sync v2 document-event branch (n8n) still needs wiring to
+  POST /api/bridge/presence-recompute — the one deploy step, the early-200 hardening not
+  reverted.
+
 ### 2026-07-14 — Lender knowledge: claims-backed pages, Knowledge approvals tab, Ask Fox retrieval, penalty consumer
 - The workbench grew `lender_knowledge_claims` (migration 0034 there; portal_readonly
   SELECT on claims + document_pages) and two gates-API surfaces this portal now drives:

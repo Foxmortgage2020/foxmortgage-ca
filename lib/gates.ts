@@ -301,6 +301,144 @@ export function decideCondition(
   return gateCall(`/api/gates/conditions/${conditionId}/decision`, withNote({ action }, note), token)
 }
 
+// ─── Phase B2: commitment conditions become the room's gated checklist ──────
+// A commitment upload mints PENDING conditions on the workbench; the LIST gate
+// makes them the checklist. Uploading and every decision below carry a person
+// (browser-minted token), exactly like the other gates. Nothing here computes
+// anything or bypasses the pending stage.
+
+export type CommitmentKind = 'commitment' | 'amendment'
+export const COMMITMENT_KINDS: readonly CommitmentKind[] = ['commitment', 'amendment']
+
+export interface CommitmentUploadBody {
+  file_name: string
+  kind: CommitmentKind
+  content_base64: string
+}
+
+export interface CommitmentUploadResponse {
+  documentId: string
+  pages: number
+  dupOf: string | null
+  extraction: {
+    parseable: boolean
+    drafted: number
+    reason: string | null
+    fallback: string | null
+  } | null
+}
+
+export function uploadCommitment(
+  dealId: string,
+  body: CommitmentUploadBody,
+  token: string | null,
+): Promise<GateResult<CommitmentUploadResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('uploadCommitment'))
+  return gateCall(
+    `/api/gates/commitments/${dealId}/upload`,
+    { file_name: body.file_name, kind: body.kind, content_base64: body.content_base64 },
+    token,
+  )
+}
+
+// The LIST gate: approve makes the extracted set the checklist (and supersedes
+// a prior document's set); reject discards it. Keyed on the source document.
+export type CommitmentListAction = 'approve' | 'reject'
+export const COMMITMENT_LIST_ACTIONS: readonly CommitmentListAction[] = ['approve', 'reject']
+
+export interface CommitmentListDecisionResponse {
+  documentId: string
+  action: string
+  approved?: number
+  rejected?: number
+  superseded?: number
+  auditId?: string
+}
+
+export function decideCommitmentList(
+  documentId: string,
+  action: CommitmentListAction,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<CommitmentListDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideCommitmentList'))
+  return gateCall(
+    `/api/gates/commitment-conditions/${documentId}/decision`,
+    withNote({ action }, note),
+    token,
+  )
+}
+
+// Edit-then-approve ONE drafted condition (before the list is approved, or a
+// single correction). Only the edited fields ride; provenance is untouchable.
+export interface ConditionApproveBody {
+  edited_text?: string
+  edited_owner?: string
+  edited_doc_kind?: string
+  edited_borrower_id?: string
+  note?: string
+}
+
+export interface ConditionApproveResponse {
+  conditionId: string
+  action: string
+  gateStatus?: string
+  auditId?: string
+}
+
+export function approveCondition(
+  conditionId: string,
+  body: ConditionApproveBody,
+  token: string | null,
+): Promise<GateResult<ConditionApproveResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('approveCondition'))
+  const payload: Record<string, unknown> = {}
+  const text = body.edited_text?.trim()
+  if (text) payload.edited_text = text
+  const owner = body.edited_owner?.trim()
+  if (owner) payload.edited_owner = owner
+  const docKind = body.edited_doc_kind?.trim()
+  if (docKind) payload.edited_doc_kind = docKind
+  const borrowerId = body.edited_borrower_id?.trim()
+  if (borrowerId) payload.edited_borrower_id = borrowerId
+  return gateCall(`/api/gates/conditions/${conditionId}/approve`, withNote(payload, body.note), token)
+}
+
+// Human-only presence -> verified (records the actor). presence is the
+// machine axis capped at obtained; verified is a person's tap.
+export interface ConditionVerifyResponse {
+  conditionId: string
+  presence?: string
+  verifiedAt?: string
+  auditId?: string
+}
+
+export function verifyCondition(
+  conditionId: string,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<ConditionVerifyResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('verifyCondition'))
+  return gateCall(`/api/gates/conditions/${conditionId}/verify`, withNote({}, note), token)
+}
+
+// Recompute document presence on room open. Idempotent, read-only to Finmo;
+// every internal role that sees a room may trigger it (conditions.recompute).
+export interface RecomputePresenceResponse {
+  dealId: string
+  recomputed?: number
+  changed?: number
+  auditId?: string
+}
+
+export function recomputePresence(
+  dealId: string,
+  token: string | null,
+): Promise<GateResult<RecomputePresenceResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('recomputePresence'))
+  return gateCall(`/api/gates/deals/${dealId}/recompute-presence`, {}, token)
+}
+
 // ─── Knowledge pipeline (upload, claim decisions, document URL) ─────────────
 // Uploading a lender document mints PENDING claims only — nothing becomes
 // citable knowledge until a claim decision approves it. The upload body is
