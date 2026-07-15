@@ -418,6 +418,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
             canUpload={canUploadCommitment}
             hasRealCommitment={hasRealCommitment}
             todayYMD={today}
+            userId={user.userId}
           />
         </Section>
 

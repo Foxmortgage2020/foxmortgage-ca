@@ -1132,10 +1132,15 @@ export interface DealConditionRow extends ConditionRow {
   // A condition whose satisfaction re-adjudicates the deal (an appraisal a plan
   // limit derives from), loud on the checklist (fox-underwriting migration 0038).
   loadBearing: boolean
+  // The field names Michael set by hand (fox-underwriting migration 0039). A
+  // non-empty list marks a condition whose owner/text/etc. came from him, not
+  // the machine — the room shows an "edited" chip; a re-extraction never
+  // overwrites these fields.
+  humanEditedFields: string[]
 }
 
 const CONDITION_SELECT =
-  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence,load_bearing'
+  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence,load_bearing,human_edited_fields'
 
 const dealConditionRow = (r: any): DealConditionRow => ({
   id: r.id,
@@ -1167,6 +1172,7 @@ const dealConditionRow = (r: any): DealConditionRow => ({
   sourceSnippet: r.source_snippet ?? null,
   confidence: numOrNull(r.confidence),
   loadBearing: r.load_bearing === true,
+  humanEditedFields: Array.isArray(r.human_edited_fields) ? (r.human_edited_fields as string[]) : [],
 })
 
 // LIVE conditions on a deal (Ask Fox and any general consumer): a pending,
@@ -1193,8 +1199,11 @@ export async function getDealConditions(agentId: string, dealId: string): Promis
 // (commitment + template-seeded). A pending commitment condition is invisible
 // until the list gate approves it; legacy DP/internal/compliance conditions
 // live in the deal room's other surfaces, not the commitment checklist.
-export const CHECKLIST_SOURCES = 'in.(commitment,condition_template)'
-const isChecklistSource = (s: string) => s === 'commitment' || s === 'condition_template'
+// Manual conditions (fox-underwriting migration 0039) are their own source —
+// added by hand, immediately on the working checklist — so they belong in the
+// same population as commitment + template conditions.
+export const CHECKLIST_SOURCES = 'in.(commitment,condition_template,manual)'
+const isChecklistSource = (s: string) => s === 'commitment' || s === 'condition_template' || s === 'manual'
 
 export async function getApprovedConditions(agentId: string, dealId: string): Promise<UwResult<DealConditionRow[]>> {
   if (isDemoMode()) {
@@ -1278,17 +1287,19 @@ export async function getConditionCountsByDeal(
 ): Promise<UwResult<Record<string, ConditionCount>>> {
   if (isDemoMode()) return demoResult(demoConditionCountsByDeal)
   const res = await uwSelectAll<any>('conditions', {
-    select: 'deal_id,status,presence',
+    select: 'deal_id,status,presence,owner',
     agent_id: `eq.${agentId}`,
     source: CHECKLIST_SOURCES,
     gate_status: 'eq.approved',
     limit: '1000',
   })
+  // The board card reflects the work Michael owns — broker conditions (Task 2).
   return mapResult(res, rows =>
     conditionCounts(
       rows
         .filter(r => r.deal_id)
-        .map(r => ({ dealId: r.deal_id as string, status: r.status, presence: r.presence ?? null })),
+        .map(r => ({ dealId: r.deal_id as string, status: r.status, presence: r.presence ?? null, owner: r.owner ?? null })),
+      { ownerScope: 'broker' },
     ),
   )
 }

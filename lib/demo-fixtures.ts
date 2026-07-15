@@ -275,6 +275,7 @@ const condBase = {
   verifiedAt: null as string | null,
   gateStatus: 'approved' as const,
   loadBearing: false,
+  humanEditedFields: [] as string[],
 }
 
 export function demoDealConditions(dealId: string): DealConditionRow[] {
@@ -295,6 +296,25 @@ export function demoDealConditions(dealId: string): DealConditionRow[] {
         presence: 'needs_input', presenceDetail: { reason: 'no matching document in Finmo' },
         docKind: null, borrowerId: null, sourcePage: 3,
         sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 90,
+      },
+      {
+        // A broker condition Michael re-assigned by hand (shows the "edited" chip).
+        ...condBase, id: 'demo-cond-4', text: 'Broker to provide the most recent T4 and NOA for the primary applicant', owner: 'broker',
+        status: 'open', dueDate: '2026-07-15', condNumber: '3', source: 'commitment', evidenceRefCount: 1,
+        category: 'general_verification', kind: 'document_chase', precheckStatus: 'pass',
+        presence: 'obtained', presenceDetail: { matched_finmo_name: 'T4 2025 — primary applicant', finmo_status: 'accepted', recomputed_at: '2026-07-09T13:20:00Z' },
+        docKind: 't4_noa', borrowerId: 'demo-b-1', sourcePage: 1,
+        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 93,
+        humanEditedFields: ['owner'],
+      },
+      {
+        // A broker condition Michael added by hand (shows the "added by hand" chip).
+        ...condBase, id: 'demo-cond-5', text: 'Broker to confirm the strata insurance certificate names the lender', owner: 'broker',
+        status: 'open', dueDate: '2026-07-18', condNumber: 'M-1a2b3c', source: 'manual', evidenceRefCount: 0,
+        category: 'broker_deliverable', kind: null, precheckStatus: null,
+        presence: 'needs_input', presenceDetail: { manual: true },
+        docKind: 'fire_insurance_binder', borrowerId: null, sourcePage: null,
+        sourceSnippet: null, confidence: null,
       },
     ]
   }
@@ -325,10 +345,14 @@ export function demoPendingCommitmentConditions(dealId: string): PendingCommitme
   return []
 }
 
-// Board-card counts (approved commitment conditions only).
+// Board-card counts — BROKER conditions only (the work Michael owns, Task 2).
+// demo-deal-1 has two broker conditions: the T4/NOA (collected) and the
+// added-by-hand strata certificate (outstanding).
 export const demoConditionCountsByDeal: Record<string, ConditionCount> = {
   'demo-deal-1': { total: 2, collected: 1, outstanding: 1 },
-  'demo-deal-2': { total: 1, collected: 1, outstanding: 0 },
+  // demo-deal-2's only condition is a borrower condition, so its broker-scoped
+  // count is zero — matching what the live broker-scoped counter would produce.
+  'demo-deal-2': { total: 0, collected: 0, outstanding: 0 },
 }
 
 export function demoDealFlags(dealId: string): DealFlagRow[] {

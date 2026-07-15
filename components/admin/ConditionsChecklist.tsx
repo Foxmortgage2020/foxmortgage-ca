@@ -19,10 +19,21 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import type { DealConditionRow, PendingCommitmentCondition } from '@/lib/underwriting'
-import { canVerify, conditionStatusPill, isCollected, type PillTone } from '@/lib/conditions-status'
+import { canVerify, conditionStatusPill, isBrokerCondition, isCollected, type PillTone } from '@/lib/conditions-status'
 import CommitmentUploader from './CommitmentUploader'
 
-const OWNER_OPTIONS = ['borrower', 'solicitor', 'broker', 'lender', 'system', 'underwriting'] as const
+// The valid condition owner classes (fox-underwriting conditions_owner_check /
+// the manual-control gate schema). Broker leads Michael's view; the rest are
+// grouped behind a disclosure.
+const OWNER_OPTIONS = ['broker', 'solicitor', 'borrower', 'underwriting', 'product_mechanics'] as const
+// The non-broker owners, in the order their collapsed groups appear, with the
+// plural noun for the disclosure label.
+const NON_BROKER_GROUPS: { owner: string; noun: string }[] = [
+  { owner: 'solicitor', noun: 'solicitor conditions' },
+  { owner: 'borrower', noun: 'borrower conditions' },
+  { owner: 'underwriting', noun: 'underwriting constraints' },
+  { owner: 'product_mechanics', noun: 'product-mechanics conditions' },
+]
 const DOC_KIND_OPTIONS = [
   'letter_of_employment', 'pay_stub', 't4_noa', 'void_cheque', 'fire_insurance_binder',
   'gift_letter', 'aps', 'appraisal', 'id', 'signed_commitment', 'disclosure',
@@ -66,11 +77,15 @@ export default function ConditionsChecklist({
   canUpload,
   hasRealCommitment,
   todayYMD,
+  userId,
 }: {
   dealId: string
   pending: PendingCommitmentCondition[]
   approved: DealConditionRow[]
   borrowers: { id: string; fullName: string }[]
+  // The logged-in user's id — the key the "hide non-broker" view preference
+  // persists under (per user, on their device; never a real write).
+  userId: string
   // canDecide gates the list gate + edit-then-approve + Verify
   // (approvals.conditions.decide). canWaive gates Waive, whose server proxy
   // requires conditions.decide — so its UI control uses the SAME key.
@@ -206,6 +221,8 @@ export default function ConditionsChecklist({
       )}
 
       <ApprovedChecklist
+        dealId={dealId}
+        userId={userId}
         approved={approved}
         borrowers={borrowers}
         canDecide={canDecide}
@@ -444,7 +461,7 @@ function PendingRow({
             value={text}
             onChange={e => setText(e.target.value)}
             rows={2}
-            maxLength={2000}
+            maxLength={1000}
             className="w-full text-sm font-body border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
           />
           <div className="flex flex-wrap gap-2">
@@ -505,9 +522,66 @@ function PendingRow({
   )
 }
 
-// ─── The approved checklist ──────────────────────────────────────────────────
+// ─── The approved checklist (broker-first) ───────────────────────────────────
+
+// Per-user "hide non-broker conditions" preference. Persisted in localStorage
+// under the user's id — genuinely per user, on their device, and NEVER a real
+// write (demo-safe by construction). Default is collapsed-not-hidden.
+function useHideNonBroker(userId: string): [boolean, (v: boolean) => void] {
+  const key = `fox_hide_nonbroker:${userId}`
+  const [hide, setHide] = useState(false)
+  useEffect(() => {
+    try {
+      setHide(window.localStorage.getItem(key) === '1')
+    } catch {
+      /* storage unavailable -> default not hidden */
+    }
+  }, [key])
+  const set = useCallback(
+    (v: boolean) => {
+      setHide(v)
+      try {
+        window.localStorage.setItem(key, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    [key],
+  )
+  return [hide, set]
+}
+
+type RowProps = {
+  borrowers: { id: string; fullName: string }[]
+  canDecide: boolean
+  canWaive: boolean
+  todayYMD: string
+  busy: Record<string, boolean>
+  errors: Record<string, string>
+  armed: { key: string; at: number } | null
+  arm: (key: string) => void
+  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  post: PostFn
+}
+
+function groupByBorrower(
+  rows: DealConditionRow[],
+  borrowers: { id: string; fullName: string }[],
+  nameById: Map<string, string>,
+): { key: string; label: string; rows: DealConditionRow[] }[] {
+  const generalRows = rows.filter(c => !c.borrowerId || !nameById.has(c.borrowerId))
+  const groups: { key: string; label: string; rows: DealConditionRow[] }[] = []
+  if (generalRows.length > 0) groups.push({ key: 'general', label: 'General', rows: generalRows })
+  for (const b of borrowers) {
+    const brows = rows.filter(c => c.borrowerId === b.id)
+    if (brows.length > 0) groups.push({ key: b.id, label: b.fullName, rows: brows })
+  }
+  return groups
+}
 
 function ApprovedChecklist({
+  dealId,
+  userId,
   approved,
   borrowers,
   canDecide,
@@ -520,6 +594,8 @@ function ApprovedChecklist({
   setErrors,
   post,
 }: {
+  dealId: string
+  userId: string
   approved: DealConditionRow[]
   borrowers: { id: string; fullName: string }[]
   canDecide: boolean
@@ -532,63 +608,265 @@ function ApprovedChecklist({
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
   post: PostFn
 }) {
-  if (approved.length === 0) {
-    return (
-      <p className="text-sm text-gray-400 font-body">
-        No approved conditions on this file yet. Upload the commitment to draft the checklist.
-      </p>
-    )
-  }
-
-  const collected = approved.filter(isCollected).length
+  const [hideNonBroker, setHideNonBroker] = useHideNonBroker(userId)
+  const [addOpen, setAddOpen] = useState(false)
   const nameById = new Map(borrowers.map(b => [b.id, b.fullName]))
 
-  // General first (borrowerId null OR an id we cannot resolve), then each
-  // borrower in the given order.
-  const generalRows = approved.filter(c => !c.borrowerId || !nameById.has(c.borrowerId))
-  const groups: { key: string; label: string; rows: DealConditionRow[] }[] = []
-  if (generalRows.length > 0) groups.push({ key: 'general', label: 'General', rows: generalRows })
-  for (const b of borrowers) {
-    const rows = approved.filter(c => c.borrowerId === b.id)
-    if (rows.length > 0) groups.push({ key: b.id, label: b.fullName, rows })
-  }
+  // Broker leads: it is the work Michael performs, so it heads the view and the
+  // progress count is computed over it. Everything else is present but grouped.
+  const brokerRows = approved.filter(c => isBrokerCondition(c.owner))
+  const nonBrokerRows = approved.filter(c => !isBrokerCondition(c.owner))
+  const brokerCollected = brokerRows.filter(isCollected).length
+  const brokerGroups = groupByBorrower(brokerRows, borrowers, nameById)
+
+  const knownNonBroker = new Set(NON_BROKER_GROUPS.map(g => g.owner))
+  const nonBrokerGroups = NON_BROKER_GROUPS
+    .map(g => ({ owner: g.owner, noun: g.noun, rows: nonBrokerRows.filter(c => (c.owner ?? '') === g.owner) }))
+    .filter(g => g.rows.length > 0)
+  const otherRows = nonBrokerRows.filter(c => !knownNonBroker.has(c.owner ?? ''))
+  if (otherRows.length > 0) nonBrokerGroups.push({ owner: 'other', noun: 'other conditions', rows: otherRows })
+
+  const rowProps: RowProps = { borrowers, canDecide, canWaive, todayYMD, busy, errors, armed, arm, setErrors, post }
 
   return (
     <div>
-      <p className="text-xs font-body text-gray-500 mb-3 tabular-nums">
-        <span className="font-semibold text-navy">{collected}</span> of{' '}
-        <span className="font-semibold text-navy">{approved.length}</span> collected
-      </p>
-      <div className="space-y-4">
-        {groups.map(g => (
-          <div key={g.key}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">{g.label}</p>
-            <div className="space-y-2">
-              {g.rows.map(c => (
-                <ChecklistRow
-                  key={c.id}
-                  cond={c}
-                  canDecide={canDecide}
-                  canWaive={canWaive}
-                  todayYMD={todayYMD}
-                  busy={busy}
-                  errors={errors}
-                  armed={armed}
-                  arm={arm}
-                  setErrors={setErrors}
-                  post={post}
-                />
+      {/* Manual control is always available — regardless of extraction state. */}
+      {canDecide && (
+        <AddConditionBar
+          dealId={dealId}
+          borrowers={borrowers}
+          open={addOpen}
+          setOpen={setAddOpen}
+          busy={busy}
+          errors={errors}
+          post={post}
+        />
+      )}
+
+      {approved.length === 0 ? (
+        <p className="text-sm text-gray-400 font-body">
+          No conditions on this file yet. Upload the commitment to draft the checklist, or add one by hand above.
+        </p>
+      ) : (
+        <>
+          <p className="text-xs font-body text-gray-500 mb-3 tabular-nums">
+            <span className="font-semibold text-navy">{brokerCollected}</span> of{' '}
+            <span className="font-semibold text-navy">{brokerRows.length}</span> broker{' '}
+            {brokerRows.length === 1 ? 'condition' : 'conditions'} collected
+          </p>
+
+          {brokerRows.length === 0 ? (
+            <p className="text-sm text-gray-400 font-body">No broker conditions on this file.</p>
+          ) : (
+            <div className="space-y-4">
+              {brokerGroups.map(g => (
+                <div key={g.key}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">{g.label}</p>
+                  <div className="space-y-2">
+                    {g.rows.map(c => <ChecklistRow key={c.id} cond={c} {...rowProps} />)}
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
-        ))}
-      </div>
+          )}
+
+          {/* Non-broker conditions: present but collapsed, so Michael knows they
+              exist when tracking whether the file closes. Nothing is deleted. */}
+          {nonBrokerRows.length > 0 && (
+            <div className="mt-5 border-t border-gray-100 pt-4">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <p className="text-[11px] font-body text-gray-400">
+                  {nonBrokerRows.length} non-broker {nonBrokerRows.length === 1 ? 'condition' : 'conditions'} on this file
+                </p>
+                <label className="flex items-center gap-1.5 text-[11px] font-body text-gray-500 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={hideNonBroker}
+                    onChange={e => setHideNonBroker(e.target.checked)}
+                    className="accent-navy"
+                  />
+                  Hide non-broker
+                </label>
+              </div>
+              {!hideNonBroker && (
+                <div className="space-y-2">
+                  {nonBrokerGroups.map(g => (
+                    <Disclosure key={g.owner} label={`${g.rows.length} ${g.noun}`}>
+                      <div className="space-y-2 mt-2">
+                        {g.rows.map(c => <ChecklistRow key={c.id} cond={c} {...rowProps} />)}
+                      </div>
+                    </Disclosure>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
 
+function Disclosure({ label: labelText, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-lg border border-gray-100">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 rounded-lg"
+      >
+        <span className="text-xs font-body font-semibold text-gray-600">{labelText}</span>
+        <span className="text-gray-400 text-[11px] font-body">{open ? 'hide' : 'show'}</span>
+      </button>
+      {open && <div className="px-3 pb-3">{children}</div>}
+    </div>
+  )
+}
+
+// ─── Add a condition by hand ─────────────────────────────────────────────────
+
+function AddConditionBar({
+  dealId,
+  borrowers,
+  open,
+  setOpen,
+  busy,
+  errors,
+  post,
+}: {
+  dealId: string
+  borrowers: { id: string; fullName: string }[]
+  open: boolean
+  setOpen: (v: boolean) => void
+  busy: Record<string, boolean>
+  errors: Record<string, string>
+  post: PostFn
+}) {
+  const [text, setText] = useState('')
+  const [owner, setOwner] = useState<(typeof OWNER_OPTIONS)[number]>('broker')
+  const [docKind, setDocKind] = useState('')
+  const [borrowerId, setBorrowerId] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [loadBearing, setLoadBearing] = useState(false)
+  const addBusy = Boolean(busy['add-condition'])
+
+  const submit = async () => {
+    const body: Record<string, unknown> = { text: text.trim(), owner }
+    if (docKind) body.doc_kind = docKind
+    if (borrowerId) body.borrower_id = borrowerId
+    if (dueDate) body.due_date = dueDate
+    if (loadBearing) body.load_bearing = true
+    const ok = await post('add-condition', 'add-condition', `/api/portal/admin/gates/deals/${dealId}/conditions`, body, 'Condition added to the checklist.')
+    if (ok) {
+      setText('')
+      setDocKind('')
+      setBorrowerId('')
+      setDueDate('')
+      setLoadBearing(false)
+      setOpen(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="mb-4">
+        <button
+          onClick={() => setOpen(true)}
+          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50"
+        >
+          + Add condition
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3 space-y-2">
+      <p className="text-xs font-semibold font-body text-navy">Add a condition by hand</p>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        rows={2}
+        maxLength={1000}
+        placeholder="Condition text"
+        className="w-full text-sm font-body border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
+      />
+      <div className="flex flex-wrap gap-2 items-end">
+        <SelectField label="Owner" value={owner} onChange={v => setOwner(v as (typeof OWNER_OPTIONS)[number])}>
+          {OWNER_OPTIONS.map(o => <option key={o} value={o}>{label(o)}</option>)}
+        </SelectField>
+        <SelectField label="Document" value={docKind} onChange={setDocKind}>
+          <option value="">none</option>
+          {DOC_KIND_OPTIONS.map(k => <option key={k} value={k}>{label(k)}</option>)}
+        </SelectField>
+        <SelectField label="Borrower" value={borrowerId} onChange={setBorrowerId}>
+          <option value="">General</option>
+          {borrowers.map(b => <option key={b.id} value={b.id}>{b.fullName}</option>)}
+        </SelectField>
+        <label className="text-[11px] font-body text-gray-500">
+          Due date
+          <input
+            type="date"
+            value={dueDate}
+            onChange={e => setDueDate(e.target.value)}
+            className="ml-1 block text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+          />
+        </label>
+        <label className="text-[11px] font-body text-gray-500 flex items-center gap-1.5 pb-1">
+          <input type="checkbox" checked={loadBearing} onChange={e => setLoadBearing(e.target.checked)} className="accent-navy" />
+          load-bearing
+        </label>
+      </div>
+      <div className="flex gap-2">
+        <button
+          disabled={addBusy || text.trim().length < 4}
+          onClick={() => void submit()}
+          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-navy text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {addBusy ? 'Working…' : 'Add condition'}
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+      </div>
+      {errors['add-condition'] && <p className="text-xs text-red-700 font-body">{errors['add-condition']}</p>}
+    </div>
+  )
+}
+
+function SelectField({
+  label: labelText,
+  value,
+  onChange,
+  children,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  children: React.ReactNode
+}) {
+  return (
+    <label className="text-[11px] font-body text-gray-500">
+      {labelText}
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="ml-1 block text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+      >
+        {children}
+      </select>
+    </label>
+  )
+}
+
+// ─── One checklist row (verify / waive + manual edit / re-assign / remove) ───
+
 function ChecklistRow({
   cond,
+  borrowers,
   canDecide,
   canWaive,
   todayYMD,
@@ -598,20 +876,20 @@ function ChecklistRow({
   arm,
   setErrors,
   post,
-}: {
-  cond: DealConditionRow
-  canDecide: boolean
-  canWaive: boolean
-  todayYMD: string
-  busy: Record<string, boolean>
-  errors: Record<string, string>
-  armed: { key: string; at: number } | null
-  arm: (key: string) => void
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
-  post: PostFn
-}) {
+}: { cond: DealConditionRow } & RowProps) {
   const [waiveOpen, setWaiveOpen] = useState(false)
   const [note, setNote] = useState('')
+  const [editOpen, setEditOpen] = useState(false)
+  const [removeOpen, setRemoveOpen] = useState(false)
+  const [removeReason, setRemoveReason] = useState('')
+  // Edit form state.
+  const [eText, setEText] = useState(cond.text)
+  const [eOwner, setEOwner] = useState(cond.owner)
+  const [eDoc, setEDoc] = useState(cond.docKind ?? '')
+  const [eBorrower, setEBorrower] = useState(cond.borrowerId ?? '')
+  const [eDue, setEDue] = useState(cond.dueDate ?? '')
+  const [eLoad, setELoad] = useState(cond.loadBearing)
+
   const pill = conditionStatusPill(cond)
   const decided = cond.status === 'satisfied' || cond.status === 'waived'
   const overdue = cond.dueDate !== null && cond.dueDate < todayYMD && !decided
@@ -622,31 +900,53 @@ function ChecklistRow({
       : null
   const verifyKey = `verify:${cond.id}`
   const waiveKey = `waive:${cond.id}`
+  const removeKey = `remove:${cond.id}`
+  const busyKey = `cond:${cond.id}`
+  const isManual = cond.source === 'manual'
+  const isEdited = Array.isArray(cond.humanEditedFields) && cond.humanEditedFields.length > 0
 
   const verify = () =>
-    void post(
-      `cond:${cond.id}`,
-      `cond:${cond.id}`,
-      `/api/portal/admin/gates/conditions/${cond.id}/verify`,
-      {},
-      `Condition ${cond.condNumber ? cond.condNumber + ' ' : ''}verified.`,
-    )
+    void post(busyKey, busyKey, `/api/portal/admin/gates/conditions/${cond.id}/verify`, {}, `Condition ${cond.condNumber ? cond.condNumber + ' ' : ''}verified.`)
 
   const waive = () => {
     if (note.trim().length < 5) {
-      setErrors(e => ({
-        ...e,
-        [`cond:${cond.id}`]: 'Waive removes an obligation without evidence, so it needs a note of at least 5 characters.',
-      }))
+      setErrors(e => ({ ...e, [busyKey]: 'Waive removes an obligation without evidence, so it needs a note of at least 5 characters.' }))
       return
     }
-    void post(
-      `cond:${cond.id}`,
-      `cond:${cond.id}`,
-      `/api/portal/admin/gates/conditions/${cond.id}/decision`,
-      { action: 'waived', note: note.trim() },
-      `Condition ${cond.condNumber ? cond.condNumber + ' ' : ''}waived.`,
-    )
+    void post(busyKey, busyKey, `/api/portal/admin/gates/conditions/${cond.id}/decision`, { action: 'waived', note: note.trim() }, `Condition ${cond.condNumber ? cond.condNumber + ' ' : ''}waived.`)
+  }
+
+  const reassign = (owner: string) => {
+    if (!owner || owner === cond.owner) return
+    void post(busyKey, busyKey, `/api/portal/admin/gates/conditions/${cond.id}/reassign`, { owner }, `Owner changed to ${owner}.`)
+  }
+
+  const submitEdit = async () => {
+    const body: Record<string, unknown> = {}
+    if (eText.trim() && eText.trim() !== cond.text) body.text = eText.trim()
+    if (eOwner !== cond.owner) body.owner = eOwner
+    if ((eDoc || null) !== (cond.docKind ?? null)) body.doc_kind = eDoc || null
+    if ((eBorrower || '') !== (cond.borrowerId ?? '')) body.borrower_id = eBorrower || null
+    if ((eDue || '') !== (cond.dueDate ?? '')) body.due_date = eDue || null
+    if (eLoad !== cond.loadBearing) body.load_bearing = eLoad
+    if (typeof body.text === 'string' && (body.text as string).length < 4) {
+      setErrors(e => ({ ...e, [busyKey]: 'Condition text needs at least 4 characters.' }))
+      return
+    }
+    if (Object.keys(body).length === 0) {
+      setErrors(e => ({ ...e, [busyKey]: 'No changes to apply.' }))
+      return
+    }
+    const ok = await post(busyKey, busyKey, `/api/portal/admin/gates/conditions/${cond.id}/edit`, body, `Condition ${cond.condNumber ? cond.condNumber + ' ' : ''}updated.`)
+    if (ok) setEditOpen(false)
+  }
+
+  const remove = () => {
+    if (removeReason.trim().length < 5) {
+      setErrors(e => ({ ...e, [busyKey]: 'Removing a condition needs a reason of at least 5 characters (it is superseded, never deleted).' }))
+      return
+    }
+    void post(busyKey, busyKey, `/api/portal/admin/gates/conditions/${cond.id}/remove`, { reason: removeReason.trim() }, `Condition ${cond.condNumber ? cond.condNumber + ' ' : ''}removed.`)
   }
 
   return (
@@ -659,28 +959,25 @@ function ChecklistRow({
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-body text-gray-500">
         <Pill tone={pill.tone}>{pill.label}</Pill>
-        {cond.docKind && (
-          <span className="rounded-full bg-gray-50 px-2 py-0.5 text-gray-600">{label(cond.docKind)}</span>
-        )}
+        {cond.docKind && <span className="rounded-full bg-gray-50 px-2 py-0.5 text-gray-600">{label(cond.docKind)}</span>}
         {cond.loadBearing && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">load-bearing</span>}
+        {isManual && <span className="rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">added by hand</span>}
+        {!isManual && isEdited && <span className="rounded-full bg-purple-50 px-2 py-0.5 font-semibold text-purple-700">edited</span>}
         <span className="capitalize">{cond.owner}</span>
         <span className={overdue ? 'text-red-700 font-semibold' : ''}>
           {cond.dueDate ? `due ${fmtShort(cond.dueDate)}${overdue ? ' (overdue)' : ''}` : 'no due date'}
         </span>
         {matchedName && <span className="text-gray-400">matched: {matchedName}</span>}
       </div>
+
       {(canDecide || canWaive) && !decided && (
         <div className="mt-2 flex flex-wrap items-start gap-2">
           {canDecide && canVerify(cond) && (
             <button
               disabled={rowBusy}
-              onClick={() =>
-                armed?.key === verifyKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? verify() : arm(verifyKey)
-              }
+              onClick={() => (armed?.key === verifyKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? verify() : arm(verifyKey))}
               className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
-                armed?.key === verifyKey
-                  ? 'bg-navy text-white'
-                  : 'bg-decision text-decision-ink hover:bg-decision/80'
+                armed?.key === verifyKey ? 'bg-navy text-white' : 'bg-decision text-decision-ink hover:bg-decision/80'
               }`}
             >
               {rowBusy ? 'Working…' : armed?.key === verifyKey ? 'Tap again to verify' : 'Verify'}
@@ -707,9 +1004,7 @@ function ChecklistRow({
               <div className="mt-1.5 flex gap-2">
                 <button
                   disabled={rowBusy}
-                  onClick={() =>
-                    armed?.key === waiveKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? waive() : arm(waiveKey)
-                  }
+                  onClick={() => (armed?.key === waiveKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? waive() : arm(waiveKey))}
                   className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
                     armed?.key === waiveKey ? 'bg-navy text-white' : 'bg-navy text-white hover:opacity-90'
                   }`}
@@ -718,10 +1013,7 @@ function ChecklistRow({
                 </button>
                 <button
                   disabled={rowBusy}
-                  onClick={() => {
-                    setWaiveOpen(false)
-                    setNote('')
-                  }}
+                  onClick={() => { setWaiveOpen(false); setNote('') }}
                   className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancel
@@ -731,7 +1023,103 @@ function ChecklistRow({
           ) : null}
         </div>
       )}
-      {errors[`cond:${cond.id}`] && <p className="mt-2 text-xs text-red-700 font-body">{errors[`cond:${cond.id}`]}</p>}
+
+      {/* Manual control — available regardless of decision state, so Michael can
+          fix the list by hand the instant the machine is wrong. */}
+      {canDecide && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-body text-gray-500">
+          <button onClick={() => setEditOpen(v => !v)} className="text-navy font-semibold underline decoration-gray-300 hover:decoration-navy">
+            {editOpen ? 'Cancel edit' : 'Edit'}
+          </button>
+          <label className="text-gray-500">
+            Owner
+            <select
+              value=""
+              disabled={rowBusy}
+              onChange={e => { const o = e.target.value; if (o) reassign(o); e.currentTarget.selectedIndex = 0 }}
+              className="ml-1 text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+            >
+              <option value="">move…</option>
+              {OWNER_OPTIONS.filter(o => o !== cond.owner).map(o => <option key={o} value={o}>{label(o)}</option>)}
+            </select>
+          </label>
+          <button onClick={() => setRemoveOpen(v => !v)} className="text-red-600 font-semibold underline decoration-red-200 hover:decoration-red-600">
+            {removeOpen ? 'Cancel remove' : 'Remove'}
+          </button>
+        </div>
+      )}
+
+      {canDecide && editOpen && (
+        <div className="mt-2 space-y-2 rounded-lg border border-gray-200 bg-white p-2.5">
+          <textarea
+            value={eText}
+            onChange={e => setEText(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            className="w-full text-sm font-body border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
+          />
+          <div className="flex flex-wrap gap-2 items-end">
+            <SelectField label="Owner" value={eOwner} onChange={setEOwner}>
+              {OWNER_OPTIONS.map(o => <option key={o} value={o}>{label(o)}</option>)}
+            </SelectField>
+            <SelectField label="Document" value={eDoc} onChange={setEDoc}>
+              <option value="">none</option>
+              {DOC_KIND_OPTIONS.map(k => <option key={k} value={k}>{label(k)}</option>)}
+            </SelectField>
+            <SelectField label="Borrower" value={eBorrower} onChange={setEBorrower}>
+              <option value="">General</option>
+              {borrowers.map(b => <option key={b.id} value={b.id}>{b.fullName}</option>)}
+            </SelectField>
+            <label className="text-[11px] font-body text-gray-500">
+              Due date
+              <input type="date" value={eDue} onChange={e => setEDue(e.target.value)} className="ml-1 block text-xs font-body border border-gray-200 rounded px-1.5 py-1" />
+            </label>
+            <label className="text-[11px] font-body text-gray-500 flex items-center gap-1.5 pb-1">
+              <input type="checkbox" checked={eLoad} onChange={e => setELoad(e.target.checked)} className="accent-navy" />
+              load-bearing
+            </label>
+          </div>
+          <button
+            disabled={rowBusy}
+            onClick={() => void submitEdit()}
+            className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-navy text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {rowBusy ? 'Working…' : 'Save changes'}
+          </button>
+        </div>
+      )}
+
+      {canDecide && removeOpen && (
+        <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2.5">
+          <textarea
+            value={removeReason}
+            onChange={e => setRemoveReason(e.target.value)}
+            rows={1}
+            maxLength={2000}
+            placeholder="Why remove it? (required, 5+ characters — it is superseded, never deleted)"
+            className="w-full text-sm font-body border border-red-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-red-400 resize-y"
+          />
+          <div className="mt-1.5 flex gap-2">
+            <button
+              disabled={rowBusy}
+              onClick={() => (armed?.key === removeKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? remove() : arm(removeKey))}
+              className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+                armed?.key === removeKey ? 'bg-red-700 text-white' : 'bg-red-600 text-white hover:opacity-90'
+              }`}
+            >
+              {rowBusy ? 'Working…' : armed?.key === removeKey ? 'Tap again to remove' : 'Remove'}
+            </button>
+            <button
+              onClick={() => { setRemoveOpen(false); setRemoveReason('') }}
+              className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {errors[busyKey] && <p className="mt-2 text-xs text-red-700 font-body">{errors[busyKey]}</p>}
     </div>
   )
 }

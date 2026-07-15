@@ -439,6 +439,80 @@ export function recomputePresence(
   return gateCall(`/api/gates/deals/${dealId}/recompute-presence`, {}, token)
 }
 
+// ─── Manual condition control (2026-07-14) ──────────────────────────────────
+// Extraction is a draft Michael corrects, never an oracle. Add / edit /
+// re-assign / remove a condition by hand — each POST-only, each carrying a
+// person (browser-minted token), each demo-blocked, each writing one audit
+// entry on the workbench. Nothing computes anything; nothing is hard-deleted
+// (remove supersedes with a reason).
+
+export const MANUAL_OWNER_OPTIONS = ['broker', 'solicitor', 'borrower', 'underwriting', 'product_mechanics'] as const
+export type ManualOwner = (typeof MANUAL_OWNER_OPTIONS)[number]
+
+export interface ManualConditionAddBody {
+  text: string
+  owner: ManualOwner
+  doc_kind?: string | null
+  borrower_id?: string | null
+  due_date?: string | null
+  load_bearing?: boolean
+  note?: string
+}
+export interface ManualConditionEditBody {
+  text?: string
+  owner?: ManualOwner
+  doc_kind?: string | null
+  borrower_id?: string | null
+  due_date?: string | null
+  load_bearing?: boolean
+  note?: string
+}
+export interface ManualConditionResponse {
+  conditionId?: string
+  dealId?: string
+  editedFields?: string[]
+  from?: string
+  to?: string
+  auditId?: string
+}
+
+export function addManualCondition(
+  dealId: string,
+  body: ManualConditionAddBody,
+  token: string | null,
+): Promise<GateResult<ManualConditionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('addManualCondition'))
+  return gateCall(`/api/gates/deals/${dealId}/conditions`, { ...body }, token)
+}
+
+export function editCondition(
+  conditionId: string,
+  body: ManualConditionEditBody,
+  token: string | null,
+): Promise<GateResult<ManualConditionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('editCondition'))
+  return gateCall(`/api/gates/conditions/${conditionId}/edit`, { ...body }, token)
+}
+
+export function reassignConditionOwner(
+  conditionId: string,
+  owner: ManualOwner,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<ManualConditionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('reassignConditionOwner'))
+  return gateCall(`/api/gates/conditions/${conditionId}/reassign`, withNote({ owner }, note), token)
+}
+
+export function removeCondition(
+  conditionId: string,
+  reason: string,
+  token: string | null,
+): Promise<GateResult<ManualConditionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('removeCondition'))
+  return gateCall(`/api/gates/conditions/${conditionId}/remove`, { reason }, token)
+}
+
 // ─── Knowledge pipeline (upload, claim decisions, document URL) ─────────────
 // Uploading a lender document mints PENDING claims only — nothing becomes
 // citable knowledge until a claim decision approves it. The upload body is

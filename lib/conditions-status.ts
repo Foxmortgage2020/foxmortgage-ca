@@ -69,6 +69,15 @@ export function canVerify(input: { status: string; presence: string | null }): b
   return input.presence === 'obtained' || input.presence === 'requested' || input.presence === 'needs_input'
 }
 
+// ─── Owner grouping (broker-first view) ──────────────────────────────────────
+
+// Michael performs BROKER conditions; those lead his view and the board count
+// reflects the work he actually owns. Solicitor / borrower / underwriting /
+// product_mechanics are present but grouped separately (collapsed in the room).
+export function isBrokerCondition(owner: string | null | undefined): boolean {
+  return owner === 'broker'
+}
+
 // ─── Counts (board card + room progress line) ────────────────────────────────
 
 export interface ConditionCount {
@@ -81,13 +90,19 @@ export interface ConditionCount {
  * the collected set (above); `outstanding` is total minus the DONE set, where
  * done = collected OR waived — a single disjoint set, so a waived-but-collected
  * row is removed exactly once (never double-subtracted). One pass, each
- * condition counted once. */
+ * condition counted once.
+ *
+ * `opts.ownerScope='broker'` counts only broker conditions — the work Michael
+ * owns — so the board card reflects his outstanding load, not the solicitor's
+ * (Task 2). Default counts every owner (unchanged; the pure tests assert it). */
 export function conditionCounts(
-  rows: { dealId: string; status: string; presence: string | null }[],
+  rows: { dealId: string; status: string; presence: string | null; owner?: string | null }[],
+  opts?: { ownerScope?: 'broker' },
 ): Record<string, ConditionCount> {
   // Accumulate total, collected, and the disjoint "no longer outstanding" set.
   const acc: Record<string, { total: number; collected: number; done: number }> = {}
   for (const r of rows) {
+    if (opts?.ownerScope === 'broker' && !isBrokerCondition(r.owner)) continue
     const a = (acc[r.dealId] ??= { total: 0, collected: 0, done: 0 })
     a.total += 1
     const collected = isCollected(r)

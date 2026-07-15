@@ -10,6 +10,7 @@ import {
   closingPillAmber,
   conditionCounts,
   conditionStatusPill,
+  isBrokerCondition,
   isCollected,
   type PillTone,
 } from '../lib/conditions-status'
@@ -134,6 +135,28 @@ describe('conditionCounts shape', () => {
       { dealId: 'd1', status: 'satisfied', presence: null },
     ])
     expect(counts.d1.outstanding).toBe(0)
+  })
+})
+
+describe('broker-first counting (Task 2: the board reflects the work Michael owns)', () => {
+  const rows = [
+    { dealId: 'd1', status: 'open', presence: 'needs_input', owner: 'broker' }, // broker, outstanding
+    { dealId: 'd1', status: 'open', presence: 'obtained', owner: 'broker' }, // broker, collected
+    { dealId: 'd1', status: 'open', presence: 'needs_input', owner: 'solicitor' }, // non-broker
+    { dealId: 'd1', status: 'open', presence: 'not_applicable', owner: 'underwriting' }, // non-broker
+  ]
+  it('ownerScope broker counts only broker conditions', () => {
+    expect(conditionCounts(rows, { ownerScope: 'broker' }).d1).toEqual({ total: 2, collected: 1, outstanding: 1 })
+  })
+  it('default (no scope) counts every owner, unchanged', () => {
+    expect(conditionCounts(rows).d1.total).toBe(4)
+  })
+  it('isBrokerCondition is exactly owner === broker', () => {
+    expect(isBrokerCondition('broker')).toBe(true)
+    expect(isBrokerCondition('solicitor')).toBe(false)
+    expect(isBrokerCondition('underwriting')).toBe(false)
+    expect(isBrokerCondition(null)).toBe(false)
+    expect(isBrokerCondition(undefined)).toBe(false)
   })
 })
 
