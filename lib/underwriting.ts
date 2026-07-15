@@ -1749,23 +1749,59 @@ export interface DealContextCounts {
   emails: number
 }
 
+const EMAIL_WINDOW_DAYS = 180
+const CALL_WINDOW_DAYS = 60
+
 /**
  * COUNTS ONLY of the deal's linked calls and emails, for the readiness strip.
  * The portal reads NO content here — call/email content is intent-only
- * (guardrail 11) and is never rendered; only id/started_at (calls) and id
- * (emails) columns are selected. Emails join on the deal's Zoho id.
+ * (guardrail 11) and is never rendered; only id columns are selected.
+ *
+ * The bridge (workbench migration 0045): items are reached via the deal's
+ * borrowers' STABLE Zoho contact ids UNIONED with the deal id — so a churned
+ * deal id (Aitken's re-created Zoho record) still finds the correspondence via
+ * contact. Calls windowed to 60 days; emails to since deal creation, floored to
+ * 180 days so a re-created deal does not drop older correspondence.
  */
-export async function getDealContextCounts(agentId: string, dealId: string, zohoPotentialId: string | null): Promise<UwResult<DealContextCounts>> {
+export async function getDealContextCounts(agentId: string, dealId: string, zohoPotentialId: string | null, createdAt: string | null = null): Promise<UwResult<DealContextCounts>> {
   if (isDemoMode()) return demoResult(demoDealContextCounts(dealId))
-  const callsRes = await uwSelect<any>('call_transcripts', {
-    select: 'id', agent_id: `eq.${agentId}`, deal_id: `eq.${dealId}`,
-  })
+
+  // The deal's borrowers' contact ids (the bridge). Propagate a not-connected /
+  // error result rather than reporting 0/0 as if the workbench answered.
+  const bRes = await uwSelect<any>('borrowers', { select: 'zoho_contact_id', agent_id: `eq.${agentId}`, deal_id: `eq.${dealId}`, zoho_contact_id: 'not.is.null' })
+  if (!bRes.configured || !bRes.ok) return bRes as UwResult<DealContextCounts>
+  // Only safe tokens reach the interpolated PostgREST .or() filter (a comma/dot
+  // /paren in an id would break the filter or match unintended rows).
+  const safeId = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(v)
+  const contactIds = Array.from(new Set(bRes.data.map(r => r.zoho_contact_id).filter(safeId))) as string[]
+
+  const now = Date.now()
+  const callCutoff = new Date(now - CALL_WINDOW_DAYS * 86_400_000).toISOString()
+  const floor = new Date(now - EMAIL_WINDOW_DAYS * 86_400_000).toISOString()
+  const emailSince = createdAt && createdAt < floor ? createdAt : floor
+
+  const orExpr = (dealKey: string, dealCol: string): string | null => {
+    const parts: string[] = []
+    if (contactIds.length) parts.push(`contact_zoho_id.in.(${contactIds.join(',')})`)
+    if (dealKey && /^[A-Za-z0-9_-]{1,64}$/.test(dealKey)) parts.push(`${dealCol}.eq.${dealKey}`)
+    return parts.length ? `(${parts.join(',')})` : null
+  }
+
+  const callOr = orExpr(dealId, 'deal_id')
+  let calls = 0
+  if (callOr) {
+    const callsRes = await uwSelect<any>('call_transcripts', { select: 'id', agent_id: `eq.${agentId}`, or: callOr, started_at: `gte.${callCutoff}` })
+    if (callsRes.configured && callsRes.ok) calls = callsRes.data.length
+  }
+
+  const emailOr = orExpr(zohoPotentialId ?? '', 'deal_zoho_id')
   let emails = 0
-  if (zohoPotentialId) {
-    const emRes = await uwSelect<any>('email_messages', { select: 'id', agent_id: `eq.${agentId}`, deal_zoho_id: `eq.${zohoPotentialId}` })
+  if (emailOr) {
+    const emRes = await uwSelect<any>('email_messages', { select: 'id', agent_id: `eq.${agentId}`, or: emailOr, sent_at: `gte.${emailSince}` })
     if (emRes.configured && emRes.ok) emails = emRes.data.length
   }
-  return mapResult(callsRes, rows => ({ calls: rows.length, emails }))
+
+  return { configured: true, ok: true, data: { calls, emails } }
 }
 
 // ─── Session 4: rates browser, intel feed, directory ────────────────────────

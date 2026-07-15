@@ -172,7 +172,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       getDealDocuments(agentId, deal.id),
       getDealLenderNotes(agentId, deal.id),
       getDealFinmoSnapshot(agentId, deal.id),
-      getDealContextCounts(agentId, deal.id, deal.zohoPotentialId),
+      getDealContextCounts(agentId, deal.id, deal.zohoPotentialId, deal.createdAt),
     ])
   const conds = val(condsR) ?? []
   const pendingCommit = val(pendingCommitR) ?? []
