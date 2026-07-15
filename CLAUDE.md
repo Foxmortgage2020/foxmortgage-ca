@@ -1541,6 +1541,9 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ## Session Ledger
 
+### 2026-07-15 — Contact-bridge tail: COMPLETE (0045 applied live; getDealContextCounts now reads real contact ids)
+- The architect applied workbench migration 0045 + the `lender_notes_one_current` index live. `npm run link:backfill` ran (1 linked / 9 unmatched / 0 ambiguous): **Nicholas Aitken → contact `7112178000001403205`** (exact email match); Ewelina Hart unmatched (no tagged emails). Verified live through the real `borrowers.zoho_contact_id`: the deployed `.or(contact_zoho_id.in.(…),deal_id.eq.…)` shape surfaces his 2 emails + 2 calls (by-deal-only returned 0/0 — the Zoho churn). So `getDealContextCounts` (shipped last session) now returns his real contact ids and the readiness-strip Calls/Emails counts reflect the linked correspondence. No portal code changed. Supersedes the "still MCP-blocked" note below. See fox-underwriting CLAUDE.md "Contact-bridge tail: COMPLETE".
+
 ### 2026-07-15 — Contact-bridge tail: still MCP-blocked (portal side unchanged)
 - The workbench's DDL tail did NOT land this session — the Supabase MCP was unreachable from the sandbox (`net::ERR_FAILED` on every call; `borrowers.zoho_contact_id` verifiably still does not exist). So `getDealContextCounts` (the readiness-strip bridge, shipped last session) still reads zero contact ids until migration 0045 + `npm run link:backfill` land workbench-side. No portal code changed; this note records the live status. Aitken's borrower rows WERE created (workbench `npm run sync:borrowers`), and the deployed read-path query shape was verified live (his 2 emails + 2 calls surface by contact vs 0 by the churned deal id). See fox-underwriting CLAUDE.md "Contact-bridge tail: PARTIAL".
 
