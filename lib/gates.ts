@@ -398,6 +398,10 @@ export interface LenderNotesGenerateResponse {
   generatedText: string
   sources: string[]
   supersededCount?: number
+  replacedEditCount?: number
+  finmoSnapshot?: 'refreshed' | 'reused' | 'access_denied' | 'absent'
+  callsInWindow?: number
+  emailsLinked?: number
 }
 
 export function generateLenderNotes(
@@ -410,6 +414,59 @@ export function generateLenderNotes(
   const ctx = advisorContext?.trim()
   if (ctx) body.advisor_context = ctx.slice(0, 4000)
   return gateCall(`/api/deals/${dealId}/lender-notes`, body, token, { surfaceError: true })
+}
+
+// ─── The submission substrate (finmo-substrate session, 2026-07-15) ─────────
+
+export interface FinmoSnapshotPullResponse {
+  dealId: string
+  status: number
+  accessDenied: boolean
+  snapshotId: string | null
+  pulledAt: string | null
+  supersededCount: number
+  accessDeniedMessage?: string
+}
+export function pullFinmoSnapshot(dealId: string, token: string | null): Promise<GateResult<FinmoSnapshotPullResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('pullFinmoSnapshot'))
+  return gateCall(`/api/gates/deals/${dealId}/finmo-snapshot`, {}, token, { surfaceError: true })
+}
+
+export type SubmissionAction =
+  | 'set_target_lender' | 'clear_target_lender'
+  | 'set_insured_status' | 'clear_insured_status'
+  | 'set_rate_override' | 'clear_rate_override'
+export interface SubmissionSetResponse {
+  dealId: string
+  action: SubmissionAction
+  targetLender: string | null
+  insuredStatus: string | null
+  rateOverride: number | null
+}
+export function setSubmissionField(
+  dealId: string,
+  action: SubmissionAction,
+  value: string | number | null,
+  note: string | null,
+  token: string | null,
+): Promise<GateResult<SubmissionSetResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('setSubmissionField'))
+  const body: Record<string, unknown> = { action }
+  if (value !== null && value !== undefined) body.value = value
+  if (note && note.trim()) body.note = note.trim().slice(0, 2000)
+  return gateCall(`/api/gates/deals/${dealId}/submission`, body, token, { surfaceError: true })
+}
+
+export interface LenderNoteEditResponse {
+  noteId: string
+  dealId: string
+  chars: number
+  status: string
+  supersededCount: number
+}
+export function saveLenderNoteEdit(dealId: string, text: string, token: string | null): Promise<GateResult<LenderNoteEditResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('saveLenderNoteEdit'))
+  return gateCall(`/api/deals/${dealId}/lender-notes-edit`, { text }, token, { surfaceError: true })
 }
 
 // The LIST gate: approve makes the extracted set the checklist (and supersedes

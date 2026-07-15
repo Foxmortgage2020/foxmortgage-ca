@@ -54,6 +54,8 @@ import {
   demoDealRatioCalcs,
   demoDealDocuments,
   demoDealLenderNotes,
+  demoDealFinmoSnapshot,
+  demoDealContextCounts,
   demoDealAudit,
   demoOpenFlags,
   demoConditionsDue,
@@ -1063,6 +1065,14 @@ export interface DealDetail {
   product: string | null
   zohoPotentialId: string | null
   finmoAppId: string | null
+  // The submission decisions Finmo does not hold (finmo-substrate 0044).
+  // Human-set, gated. targetLender is required before a note generates.
+  targetLender: string | null
+  targetLenderSetAt: string | null
+  insuredStatus: 'insured' | 'insurable' | 'uninsured' | null
+  insuredStatusSetAt: string | null
+  rateOverride: number | null
+  rateOverrideNote: string | null
   createdAt: string
   updatedAt: string
 }
@@ -1071,7 +1081,7 @@ export async function getDealDetail(agentId: string, dealId: string): Promise<Uw
   if (isDemoMode()) return demoResult(demoDealDetail(dealId))
   const res = await uwSelect<any>('deals', {
     select:
-      'id,file_ref,deal_type,stage,status,purchase_price,mortgage_amount,closing_date,lender,product,zoho_potential_id,finmo_app_id,created_at,updated_at',
+      'id,file_ref,deal_type,stage,status,purchase_price,mortgage_amount,closing_date,lender,product,zoho_potential_id,finmo_app_id,target_lender,target_lender_set_at,insured_status,insured_status_set_at,rate_override,rate_override_note,created_at,updated_at',
     agent_id: `eq.${agentId}`,
     id: `eq.${dealId}`,
     limit: '1',
@@ -1092,6 +1102,12 @@ export async function getDealDetail(agentId: string, dealId: string): Promise<Uw
       product: r.product ?? null,
       zohoPotentialId: r.zoho_potential_id ?? null,
       finmoAppId: r.finmo_app_id ?? null,
+      targetLender: r.target_lender ?? null,
+      targetLenderSetAt: r.target_lender_set_at ?? null,
+      insuredStatus: r.insured_status ?? null,
+      insuredStatusSetAt: r.insured_status_set_at ?? null,
+      rateOverride: r.rate_override !== null && r.rate_override !== undefined ? Number(r.rate_override) : null,
+      rateOverrideNote: r.rate_override_note ?? null,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }
@@ -1669,17 +1685,20 @@ export interface LenderNotesRow {
   charCount: number | null
   model: string | null
   status: string
+  source?: string
   createdAt: string
   createdByEmail: string | null
 }
 
 export async function getDealLenderNotes(agentId: string, dealId: string): Promise<UwResult<LenderNotesRow | null>> {
   if (isDemoMode()) return demoResult(demoDealLenderNotes(dealId))
+  // The current note is the newest NON-superseded row: a generated draft OR a
+  // human_edited row (an in-place edit supersedes the draft; both survive).
   const res = await uwSelect<any>('lender_notes', {
-    select: 'id,generated_text,char_count,model,status,created_at,created_by_email',
+    select: 'id,generated_text,char_count,model,status,source,created_at,created_by_email',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
-    status: 'eq.draft',
+    status: 'in.(draft,human_edited)',
     order: 'created_at.desc',
     limit: '1',
   })
@@ -1692,10 +1711,61 @@ export async function getDealLenderNotes(agentId: string, dealId: string): Promi
       charCount: r.char_count ?? null,
       model: r.model ?? null,
       status: r.status,
+      source: r.source ?? 'generated',
       createdAt: r.created_at,
       createdByEmail: r.created_by_email ?? null,
     }
   })
+}
+
+// ─── Finmo application snapshot + context counts (finmo-substrate 0044) ──────
+
+export interface FinmoSnapshotRow {
+  pulledAt: string
+  mapped: Record<string, unknown>
+}
+
+/** The current Finmo application snapshot for the deal (for the readiness strip
+ * "pulled N hours ago" and the mapped view). */
+export async function getDealFinmoSnapshot(agentId: string, dealId: string): Promise<UwResult<FinmoSnapshotRow | null>> {
+  if (isDemoMode()) return demoResult(demoDealFinmoSnapshot(dealId))
+  const res = await uwSelect<any>('finmo_app_snapshots', {
+    select: 'pulled_at,mapped',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    status: 'eq.current',
+    order: 'pulled_at.desc',
+    limit: '1',
+  })
+  return mapResult(res, rows => {
+    const r = rows[0]
+    if (!r) return null
+    return { pulledAt: r.pulled_at, mapped: (r.mapped ?? {}) as Record<string, unknown> }
+  })
+}
+
+export interface DealContextCounts {
+  calls: number
+  emails: number
+}
+
+/**
+ * COUNTS ONLY of the deal's linked calls and emails, for the readiness strip.
+ * The portal reads NO content here — call/email content is intent-only
+ * (guardrail 11) and is never rendered; only id/started_at (calls) and id
+ * (emails) columns are selected. Emails join on the deal's Zoho id.
+ */
+export async function getDealContextCounts(agentId: string, dealId: string, zohoPotentialId: string | null): Promise<UwResult<DealContextCounts>> {
+  if (isDemoMode()) return demoResult(demoDealContextCounts(dealId))
+  const callsRes = await uwSelect<any>('call_transcripts', {
+    select: 'id', agent_id: `eq.${agentId}`, deal_id: `eq.${dealId}`,
+  })
+  let emails = 0
+  if (zohoPotentialId) {
+    const emRes = await uwSelect<any>('email_messages', { select: 'id', agent_id: `eq.${agentId}`, deal_zoho_id: `eq.${zohoPotentialId}` })
+    if (emRes.configured && emRes.ok) emails = emRes.data.length
+  }
+  return mapResult(callsRes, rows => ({ calls: rows.length, emails }))
 }
 
 // ─── Session 4: rates browser, intel feed, directory ────────────────────────

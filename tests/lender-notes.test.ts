@@ -3,7 +3,7 @@
 // reads the draft out of the GateResult envelope.
 
 import { describe, expect, it, vi } from 'vitest'
-import { runLenderNotesGeneration, DEMO_LENDER_NOTE, LENDER_NOTES_CEILING } from '@/lib/lender-notes-client'
+import { runLenderNotesGeneration, runFinmoPull, runSubmissionSet, runNoteEdit, DEMO_LENDER_NOTE, LENDER_NOTES_CEILING } from '@/lib/lender-notes-client'
 
 const HEADER = 'x-gates-token'
 
@@ -88,5 +88,50 @@ describe('runLenderNotesGeneration', () => {
       mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchImpl as unknown as typeof fetch,
     })
     expect(r).toEqual({ ok: false, message: 'Could not reach the server. Check your connection and retry.' })
+  })
+
+  it('surfaces context/snapshot counts + a replaced-edit warning on success', async () => {
+    const fetchImpl = vi.fn(async () => ({ status: 200, json: async () => ({ ok: true, data: { generatedText: 'N', finmoSnapshot: 'refreshed', callsInWindow: 2, emailsLinked: 3, replacedEditCount: 1 } }) }))
+    const r = await runLenderNotesGeneration({
+      dealId: 'd-1', advisorContext: '', demo: false,
+      mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+    expect(r).toMatchObject({ ok: true, finmoSnapshot: 'refreshed', callsInWindow: 2, emailsLinked: 3, replacedEditCount: 1 })
+  })
+})
+
+describe('the readiness-strip actions are demo-safe (zero real reads or writes)', () => {
+  const mintToken = () => { throw new Error('mintToken must not be called in demo') }
+  const fetchImpl = vi.fn()
+  const demoArgs = { demo: true, mintToken: mintToken as unknown as () => Promise<string | null>, gatesTokenHeader: HEADER, fetchImpl: fetchImpl as unknown as typeof fetch }
+
+  it('runFinmoPull no-ops in demo', async () => {
+    const r = await runFinmoPull({ dealId: 'demo-deal-1', ...demoArgs })
+    expect(r.ok).toBe(true); expect(r.demo).toBe(true); expect(fetchImpl).not.toHaveBeenCalled()
+  })
+  it('runSubmissionSet no-ops in demo', async () => {
+    const r = await runSubmissionSet({ dealId: 'demo-deal-1', action: 'set_target_lender', value: 'TD', ...demoArgs })
+    expect(r.ok).toBe(true); expect(r.demo).toBe(true); expect(fetchImpl).not.toHaveBeenCalled()
+  })
+  it('runNoteEdit no-ops in demo', async () => {
+    const r = await runNoteEdit({ dealId: 'demo-deal-1', text: 'edited body of a note long enough to save', ...demoArgs })
+    expect(r.ok).toBe(true); expect(r.demo).toBe(true); expect(fetchImpl).not.toHaveBeenCalled()
+  })
+})
+
+describe('the readiness-strip actions POST to the proxy outside demo', () => {
+  it('runSubmissionSet posts the action + value + note', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _opts: any) => ({ status: 200, json: async () => ({ ok: true, data: {} }) }))
+    await runSubmissionSet({ dealId: 'd-1', action: 'set_rate_override', value: 4.29, note: 'BDM quote', demo: false, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchImpl as unknown as typeof fetch })
+    const [url, opts] = fetchImpl.mock.calls[0]!
+    expect(url).toBe('/api/portal/admin/gates/deals/d-1/submission')
+    expect(JSON.parse(opts.body)).toEqual({ action: 'set_rate_override', value: 4.29, note: 'BDM quote' })
+    expect(opts.headers[HEADER]).toBe('tok')
+  })
+  it('runNoteEdit posts the edited text', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _opts: any) => ({ status: 200, json: async () => ({ ok: true, data: {} }) }))
+    await runNoteEdit({ dealId: 'd-1', text: 'the edited note body', demo: false, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(fetchImpl.mock.calls[0]![0]).toBe('/api/portal/admin/gates/deals/d-1/lender-notes/edit')
+    expect(JSON.parse(fetchImpl.mock.calls[0]![1].body)).toEqual({ text: 'the edited note body' })
   })
 })

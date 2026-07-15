@@ -48,6 +48,10 @@ export interface GenerateResult {
   note?: string
   message?: string
   demo?: boolean
+  finmoSnapshot?: string
+  callsInWindow?: number
+  emailsLinked?: number
+  replacedEditCount?: number
 }
 
 /**
@@ -81,7 +85,65 @@ export async function runLenderNotesGeneration(args: {
   }
   const json = await res.json().catch(() => null)
   if (json?.ok && json.data?.generatedText) {
-    return { ok: true, note: String(json.data.generatedText) }
+    return {
+      ok: true, note: String(json.data.generatedText),
+      finmoSnapshot: json.data.finmoSnapshot, callsInWindow: json.data.callsInWindow,
+      emailsLinked: json.data.emailsLinked, replacedEditCount: json.data.replacedEditCount,
+    }
   }
   return { ok: false, message: json?.message ?? `Generation failed (HTTP ${res.status}).` }
+}
+
+// ─── The readiness strip actions (finmo-substrate session) ──────────────────
+// Each mints a fresh gates token and POSTs to the portal proxy; each is a
+// no-op zero-network success in demo mode (proven by test). The card refreshes
+// the server view after an ok.
+
+export interface ActionResult { ok: boolean; message?: string; demo?: boolean }
+
+async function postAction(
+  path: string,
+  body: unknown,
+  args: { demo: boolean; mintToken: () => Promise<string | null>; gatesTokenHeader: string; fetchImpl?: typeof fetch },
+  demoMessage: string,
+): Promise<ActionResult> {
+  if (args.demo) return { ok: true, demo: true, message: demoMessage }
+  const doFetch = args.fetchImpl ?? fetch
+  const token = await args.mintToken()
+  let res: Response
+  try {
+    res = await doFetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { [args.gatesTokenHeader]: token } : {}) },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    return { ok: false, message: 'Could not reach the server. Check your connection and retry.' }
+  }
+  const json = await res.json().catch(() => null)
+  if (json?.ok) return { ok: true }
+  return { ok: false, message: json?.message ?? `Action failed (HTTP ${res.status}).` }
+}
+
+export function runFinmoPull(args: { dealId: string; demo: boolean; mintToken: () => Promise<string | null>; gatesTokenHeader: string; fetchImpl?: typeof fetch }): Promise<ActionResult> {
+  return postAction(`/api/portal/admin/gates/deals/${args.dealId}/finmo-snapshot`, {}, args, 'Demo: pretend-pulled the Finmo application.')
+}
+
+export type SubmissionActionName =
+  | 'set_target_lender' | 'clear_target_lender'
+  | 'set_insured_status' | 'clear_insured_status'
+  | 'set_rate_override' | 'clear_rate_override'
+
+export function runSubmissionSet(args: {
+  dealId: string; action: SubmissionActionName; value?: string | number | null; note?: string | null;
+  demo: boolean; mintToken: () => Promise<string | null>; gatesTokenHeader: string; fetchImpl?: typeof fetch
+}): Promise<ActionResult> {
+  const body: Record<string, unknown> = { action: args.action }
+  if (args.value !== null && args.value !== undefined && args.value !== '') body.value = args.value
+  if (args.note && args.note.trim()) body.note = args.note.trim()
+  return postAction(`/api/portal/admin/gates/deals/${args.dealId}/submission`, body, args, 'Demo: pretend-set the field.')
+}
+
+export function runNoteEdit(args: { dealId: string; text: string; demo: boolean; mintToken: () => Promise<string | null>; gatesTokenHeader: string; fetchImpl?: typeof fetch }): Promise<ActionResult> {
+  return postAction(`/api/portal/admin/gates/deals/${args.dealId}/lender-notes/edit`, { text: args.text }, args, 'Demo: pretend-saved the edit.')
 }

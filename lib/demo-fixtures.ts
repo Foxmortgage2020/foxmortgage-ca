@@ -44,6 +44,8 @@ import type {
   KnowledgePageHit,
   PendingCommitmentCondition,
   LenderNotesRow,
+  FinmoSnapshotRow,
+  DealContextCounts,
 } from '@/lib/underwriting'
 import type { ConditionCount } from '@/lib/conditions-status'
 import type { SlimDeal, OpenTask, SlimLead } from '@/lib/zoho-admin'
@@ -225,29 +227,59 @@ export const demoDeals: WorkbenchDeal[] = [
   { id: 'demo-deal-3', fileRef: 'DEMO-F0003', stage: 'funded', closingDate: '2026-06-18', zohoPotentialId: 'demo-z-10', status: 'active', updatedAt: '2026-06-19T09:00:00Z' },
 ]
 
+const submissionDefaults = {
+  targetLender: null as string | null, targetLenderSetAt: null as string | null,
+  insuredStatus: null as DealDetail['insuredStatus'], insuredStatusSetAt: null as string | null,
+  rateOverride: null as number | null, rateOverrideNote: null as string | null,
+}
+
 const DETAIL_BY_ID: Record<string, DealDetail> = {
   'demo-deal-1': {
     id: 'demo-deal-1', fileRef: 'DEMO-F0001', dealType: 'purchase', stage: 'underwriting', status: 'active',
     purchasePrice: 800000, mortgageAmount: 640000, closingDate: '2026-07-24', lender: 'Sample Bank',
     product: '5yr Fixed', zohoPotentialId: 'demo-z-1', finmoAppId: 'demo-finmo-1',
+    ...submissionDefaults, targetLender: 'Sample Bank', targetLenderSetAt: '2026-07-09T13:00:00Z', insuredStatus: 'insured', insuredStatusSetAt: '2026-07-09T13:00:00Z',
     createdAt: '2026-05-30T12:00:00Z', updatedAt: '2026-07-09T13:20:00Z',
   },
   'demo-deal-2': {
     id: 'demo-deal-2', fileRef: 'DEMO-F0002', dealType: 'refinance', stage: 'conditions', status: 'active',
     purchasePrice: 620000, mortgageAmount: 415000, closingDate: '2026-08-05', lender: 'Placeholder Trust',
     product: '3yr Fixed', zohoPotentialId: 'demo-z-2', finmoAppId: 'demo-finmo-2',
+    ...submissionDefaults,
     createdAt: '2026-06-04T12:00:00Z', updatedAt: '2026-07-08T18:05:00Z',
   },
   'demo-deal-3': {
     id: 'demo-deal-3', fileRef: 'DEMO-F0003', dealType: 'purchase', stage: 'funded', status: 'active',
     purchasePrice: 700000, mortgageAmount: 560000, closingDate: '2026-06-18', lender: 'Sample Bank',
     product: '5yr Fixed', zohoPotentialId: 'demo-z-10', finmoAppId: 'demo-finmo-3',
+    ...submissionDefaults, targetLender: 'Sample Bank', targetLenderSetAt: '2026-06-17T12:00:00Z',
     createdAt: '2026-03-02T12:00:00Z', updatedAt: '2026-06-19T09:00:00Z',
   },
 }
 
 export function demoDealDetail(dealId: string): DealDetail | null {
   return DETAIL_BY_ID[dealId] ?? null
+}
+
+export function demoDealFinmoSnapshot(dealId: string): FinmoSnapshotRow | null {
+  // demo-deal-1 has a "pulled" Finmo snapshot; the others do not (so the strip
+  // shows "not pulled"). All synthetic.
+  if (dealId !== 'demo-deal-1') return null
+  return {
+    pulledAt: '2026-07-09T13:05:00Z',
+    mapped: {
+      goal: 'purchase', province: 'ON',
+      requested: { amount: 640000, rate: 4.79, interest_type: 'fixed', product_label: '5-yr Fixed', term_months: 60, amortization_months: 300, payment_frequency: 'monthly', lender_name: null, gds: null, tds: null, ltv: null },
+      existing_mortgages: [],
+      subject_property: { type: 'detached', use: 'owner_occupied', worth: 800000, annual_taxes: 5200 },
+      incomes: [{ borrower: 'Marty McFixture', title: 'Analyst', employer: 'Sample Corp', income_annual: 140000, active: true, bonuses: false }],
+    },
+  }
+}
+
+export function demoDealContextCounts(dealId: string): DealContextCounts {
+  if (dealId === 'demo-deal-1') return { calls: 2, emails: 3 }
+  return { calls: 0, emails: 0 }
 }
 
 const stmtField = (

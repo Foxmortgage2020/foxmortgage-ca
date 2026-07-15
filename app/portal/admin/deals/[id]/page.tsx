@@ -23,6 +23,8 @@ import {
   getDealFlags,
   getDealIncomeCalcs,
   getDealLenderNotes,
+  getDealFinmoSnapshot,
+  getDealContextCounts,
   getDealRatioCalcs,
   getDealShadowHistory,
   getDealStatementDocs,
@@ -153,7 +155,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     )
   }
 
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, lenderNotesR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, lenderNotesR, finmoSnapR, contextCountsR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -169,6 +171,8 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       getDealRatioCalcs(agentId, deal.id),
       getDealDocuments(agentId, deal.id),
       getDealLenderNotes(agentId, deal.id),
+      getDealFinmoSnapshot(agentId, deal.id),
+      getDealContextCounts(agentId, deal.id, deal.zohoPotentialId),
     ])
   const conds = val(condsR) ?? []
   const pendingCommit = val(pendingCommitR) ?? []
@@ -181,6 +185,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const ratios = sectionState(ratiosR)
   const documents = sectionState(documentsR)
   const lenderNoteDraft = val(lenderNotesR) ?? null
+  const finmoSnap = val(finmoSnapR) ?? null
+  const contextCounts = val(contextCountsR) ?? { calls: 0, emails: 0 }
+  // The Finmo-carried requested rate (for the readiness "Rate" row), read from
+  // the snapshot's mapped requested block when present.
+  const finmoRequested = (finmoSnap?.mapped?.requested ?? null) as { rate?: number | null } | null
   const borrowerList = borrowers.kind === 'ok' ? borrowers.data.map(b => ({ id: b.id, fullName: b.fullName })) : []
   const borrowerNameById = new Map(borrowerList.map(b => [b.id, b.fullName]))
 
@@ -202,6 +211,9 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // note client-side (zero real reads/writes; the proxy + gate client are
   // demo-blocked as defense in depth). Outside demo it calls the workbench.
   const canGenerateNotes = can(user, 'notes.generate')
+  // The submission strip actions (pull / set target / insured / rate / save
+  // edit). Like generate, NOT gated on demo: the client lib no-ops in demo.
+  const canManageSubmission = can(user, 'submission.set')
 
   // "A commitment is present" is a REAL-provenance fact: a retired
   // synthetic/rejected commitment never counts (guardrail 20), so it can never
@@ -825,10 +837,23 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                     charCount: lenderNoteDraft.charCount,
                     createdAt: lenderNoteDraft.createdAt,
                     createdByEmail: lenderNoteDraft.createdByEmail,
+                    source: lenderNoteDraft.source,
                   }
                 : null
             }
+            readiness={{
+              targetLender: deal.targetLender,
+              insuredStatus: deal.insuredStatus,
+              rateOverride: deal.rateOverride,
+              rateFromFinmo: typeof finmoRequested?.rate === 'number' ? finmoRequested.rate : null,
+              snapshotPulledAt: finmoSnap?.pulledAt ?? null,
+              hasFinmoApp: Boolean(deal.finmoAppId),
+              platformInsuredSuggestion: null,
+              calls: contextCounts.calls,
+              emails: contextCounts.emails,
+            }}
             canGenerate={canGenerateNotes}
+            canManage={canManageSubmission}
             demo={isDemoMode()}
           />
         </Section>

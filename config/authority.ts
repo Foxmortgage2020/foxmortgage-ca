@@ -91,6 +91,14 @@ export const PERMISSIONS = {
   // button feeds the deal's own data through the lender-notes skill and lands
   // a draft; nothing is sent. Admin only on both sides.
   'notes.generate': ['admin'],
+  // The submission substrate (finmo-substrate session, 2026-07-15). CONTRACT
+  // keys with the workbench. finmo.snapshot.pull fetches the Finmo application
+  // (the DATA write audits as system there); submission.set records the target
+  // lender / insured status / rate override (human decisions); notes.edit saves
+  // an in-place edit of a generated note. Admin only on both sides.
+  'finmo.snapshot.pull': ['admin'],
+  'submission.set': ['admin'],
+  'notes.edit': ['admin'],
   // Phase B2: recomputing document presence on room open is read-only to
   // Finmo and idempotent — every internal role that can see a deal room may
   // trigger it (it never approves or decides anything). CONTRACT key with the
@@ -165,6 +173,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'commitment.upload': 'Upload a commitment or amendment (conditions stay pending until the list is approved)',
   'document.upload': 'Upload a borrower document to a deal room (indexed and matched against conditions)',
   'notes.generate': 'Generate a lender submission-note draft for a deal (draft only, nothing sent)',
+  'finmo.snapshot.pull': 'Pull the Finmo application into a structured, cited snapshot for a deal',
+  'submission.set': 'Set the target lender, insured status, or rate override on a deal',
+  'notes.edit': 'Save an in-place edit of a lender submission-note draft',
   'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',
