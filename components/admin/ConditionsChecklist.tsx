@@ -44,6 +44,19 @@ const DOC_KIND_OPTIONS = [
 const label = (s: string) => s.replace(/_/g, ' ')
 const ARM_WINDOW_MS = 4000
 
+// The document kinds that carry a numeric requirement the analysis checks
+// against (income / appraised value / CCB) — a target field only shows for
+// these, and the workbench rejects a target on any other kind.
+const REQUIREMENT_DOC_KINDS = new Set(['pay_stub', 't4_noa', 'appraisal', 'ccb'])
+
+/** Parse a positive dollar amount from a text field; null when blank/invalid. */
+function parseAmount(s: string): number | null {
+  const t = s.replace(/[,$\s]/g, '')
+  if (!t) return null
+  const n = Number(t)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
 function fmtShort(ymd: string): string {
   const d = new Date(`${ymd}T12:00:00Z`)
   if (isNaN(d.getTime())) return ymd
@@ -157,6 +170,33 @@ export default function ConditionsChecklist({
     toastTimer.current = setTimeout(() => setToast(null), 6000)
   }, [])
 
+  // Open the document a condition's analysis cited, at its page. Mints a
+  // 60-second signed URL per click (never stored); demo-blocked at the lib. The
+  // tab is opened synchronously (before the await) so the click is not swallowed
+  // by a popup blocker.
+  const openDocument = useCallback(
+    async (documentId: string, page: number | null) => {
+      const tab = window.open('', '_blank', 'noopener')
+      try {
+        const token = await mintGatesToken()
+        const res = await fetch(`/api/portal/admin/gates/documents/${encodeURIComponent(documentId)}/url`, {
+          headers: token ? { [GATES_TOKEN_HEADER]: token } : undefined,
+        })
+        const json = await res.json().catch(() => null)
+        if (json?.ok && typeof json.data?.url === 'string') {
+          const href = page != null ? `${json.data.url}#page=${page}` : json.data.url
+          if (tab) tab.location.href = href
+          else window.open(href, '_blank', 'noopener')
+        } else if (tab) {
+          tab.close()
+        }
+      } catch {
+        if (tab) tab.close() // demo-blocked or unreachable — never a visible error
+      }
+    },
+    [mintGatesToken],
+  )
+
   const post = useCallback(
     async (busyKey: string, errKey: string, path: string, body: Record<string, unknown>, okMsg: string) => {
       setArmed(null)
@@ -234,6 +274,7 @@ export default function ConditionsChecklist({
         arm={arm}
         setErrors={setErrors}
         post={post}
+        openDocument={openDocument}
       />
 
       {/* Every empty state that instructs an action carries the control inline.
@@ -412,6 +453,7 @@ function PendingRow({
   const [owner, setOwner] = useState(cond.owner)
   const [docKind, setDocKind] = useState(cond.docKind ?? '')
   const [borrowerId, setBorrowerId] = useState(cond.borrowerId ?? '')
+  const [reqAmount, setReqAmount] = useState('')
   const rowBusy = Boolean(busy[`cond:${cond.id}`])
   const armKey = `approve-one:${cond.id}`
 
@@ -421,6 +463,8 @@ function PendingRow({
     if (owner && owner !== cond.owner) body.edited_owner = owner
     if (docKind && docKind !== (cond.docKind ?? '')) body.edited_doc_kind = docKind
     if (borrowerId && borrowerId !== (cond.borrowerId ?? '')) body.edited_borrower_id = borrowerId
+    const amt = parseAmount(reqAmount)
+    if (amt != null && REQUIREMENT_DOC_KINDS.has(docKind)) body.edited_requirement_amount = amt
     void post(
       `cond:${cond.id}`,
       `cond:${cond.id}`,
@@ -503,6 +547,20 @@ function PendingRow({
                 ))}
               </select>
             </label>
+            {REQUIREMENT_DOC_KINDS.has(docKind) && (
+              <label className="text-[11px] font-body text-gray-500">
+                Requirement target ($)
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={reqAmount}
+                  onChange={e => setReqAmount(e.target.value)}
+                  placeholder="e.g. 150000"
+                  className="ml-1 w-24 text-xs font-body border border-gray-200 rounded px-1.5 py-1 tabular-nums"
+                />
+              </label>
+            )}
           </div>
           <button
             disabled={rowBusy}
@@ -562,6 +620,7 @@ type RowProps = {
   arm: (key: string) => void
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
   post: PostFn
+  openDocument: (documentId: string, page: number | null) => void
 }
 
 function groupByBorrower(
@@ -593,6 +652,7 @@ function ApprovedChecklist({
   arm,
   setErrors,
   post,
+  openDocument,
 }: {
   dealId: string
   userId: string
@@ -607,6 +667,7 @@ function ApprovedChecklist({
   arm: (key: string) => void
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
   post: PostFn
+  openDocument: (documentId: string, page: number | null) => void
 }) {
   const [hideNonBroker, setHideNonBroker] = useHideNonBroker(userId)
   const [addOpen, setAddOpen] = useState(false)
@@ -626,7 +687,7 @@ function ApprovedChecklist({
   const otherRows = nonBrokerRows.filter(c => !knownNonBroker.has(c.owner ?? ''))
   if (otherRows.length > 0) nonBrokerGroups.push({ owner: 'other', noun: 'other conditions', rows: otherRows })
 
-  const rowProps: RowProps = { borrowers, canDecide, canWaive, todayYMD, busy, errors, armed, arm, setErrors, post }
+  const rowProps: RowProps = { borrowers, canDecide, canWaive, todayYMD, busy, errors, armed, arm, setErrors, post, openDocument }
 
   return (
     <div>
@@ -748,7 +809,10 @@ function AddConditionBar({
   const [borrowerId, setBorrowerId] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [loadBearing, setLoadBearing] = useState(false)
+  const [reqAmount, setReqAmount] = useState('')
   const addBusy = Boolean(busy['add-condition'])
+  // A requirement target only applies to a value-bearing document kind.
+  const reqApplies = REQUIREMENT_DOC_KINDS.has(docKind)
 
   const submit = async () => {
     const body: Record<string, unknown> = { text: text.trim(), owner }
@@ -756,6 +820,8 @@ function AddConditionBar({
     if (borrowerId) body.borrower_id = borrowerId
     if (dueDate) body.due_date = dueDate
     if (loadBearing) body.load_bearing = true
+    const amt = parseAmount(reqAmount)
+    if (reqApplies && amt != null) body.requirement_amount = amt
     const ok = await post('add-condition', 'add-condition', `/api/portal/admin/gates/deals/${dealId}/conditions`, body, 'Condition added to the checklist.')
     if (ok) {
       setText('')
@@ -763,6 +829,7 @@ function AddConditionBar({
       setBorrowerId('')
       setDueDate('')
       setLoadBearing(false)
+      setReqAmount('')
       setOpen(false)
     }
   }
@@ -816,6 +883,20 @@ function AddConditionBar({
           <input type="checkbox" checked={loadBearing} onChange={e => setLoadBearing(e.target.checked)} className="accent-navy" />
           load-bearing
         </label>
+        {reqApplies && (
+          <label className="text-[11px] font-body text-gray-500">
+            Requirement target ($)
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={reqAmount}
+              onChange={e => setReqAmount(e.target.value)}
+              placeholder="e.g. 150000"
+              className="ml-1 block w-28 text-xs font-body border border-gray-200 rounded px-1.5 py-1 tabular-nums"
+            />
+          </label>
+        )}
       </div>
       <div className="flex gap-2">
         <button
@@ -862,6 +943,127 @@ function SelectField({
   )
 }
 
+// ─── The document-vs-requirement analysis (a cited draft) ───────────────────
+
+// Everything the workbench pre-computed for the card — no arithmetic here, only
+// display. The delta and the recency check are computed deterministically on
+// the workbench (guardrail 1); this reads the stored numbers.
+interface AnalysisData {
+  verdict?: string
+  reasoning?: string
+  extracted?: number | null
+  requirement?: number | null
+  requirement_kind?: string | null
+  requirement_source?: string | null
+  delta?: number | null
+  rule_note?: string | null
+  recency?: { days?: number | null; doc_age_days?: number | null; ok?: boolean | null } | null
+  value_citation?: { page?: number | null; snippet?: string | null } | null
+  document_id?: string | null
+  as_of?: string | null
+  confidence?: number | null
+}
+
+const fmtMoney = (n: number | null | undefined): string =>
+  typeof n === 'number' && Number.isFinite(n) ? `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'
+
+const KIND_LABEL: Record<string, string> = {
+  income_min: 'annual income',
+  value_min: 'appraised value',
+  ccb_min: 'child benefit',
+}
+
+// verdict -> the card's tone + a short human label. meets is green, a genuine
+// gap (short/stale/rule breach) is red, and anything awaiting judgment
+// (needs_review / kind mismatch) is amber. Never lime — the analysis is
+// informational; lime is reserved for a queued human action (verify).
+const VERDICT_TONE: Record<string, { box: string; label: string }> = {
+  meets: { box: 'bg-green-50 border-green-200 text-green-800', label: 'Meets the requirement' },
+  short: { box: 'bg-red-50 border-red-200 text-red-800', label: 'Short of the requirement' },
+  stale: { box: 'bg-red-50 border-red-200 text-red-800', label: 'Document is stale' },
+  rule_unmet: { box: 'bg-red-50 border-red-200 text-red-800', label: 'A document rule is unmet' },
+  needs_review: { box: 'bg-amber-50 border-amber-200 text-amber-800', label: 'Needs review' },
+  kind_mismatch: { box: 'bg-amber-50 border-amber-200 text-amber-800', label: 'Document does not match' },
+}
+
+function AnalysisBlock({
+  analysis,
+  openDocument,
+}: {
+  analysis: AnalysisData
+  openDocument: (documentId: string, page: number | null) => void
+}) {
+  const tone = VERDICT_TONE[analysis.verdict ?? ''] ?? VERDICT_TONE.needs_review
+  const kindLabel = KIND_LABEL[analysis.requirement_kind ?? ''] ?? 'figure'
+  const hasFigures = typeof analysis.extracted === 'number' && typeof analysis.requirement === 'number'
+  const isGap = analysis.verdict === 'short' || analysis.verdict === 'stale' || analysis.verdict === 'rule_unmet'
+  const rec = analysis.recency
+  const page = analysis.value_citation?.page ?? null
+
+  return (
+    <div className={`mt-1.5 text-xs font-body rounded-md px-2.5 py-1.5 border ${tone.box}`}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-semibold">Analysis (draft)</span>
+        <span className="opacity-90">· {tone.label}</span>
+        {isGap && (
+          <span className="rounded-full bg-red-100 text-red-700 px-1.5 py-0.5 text-[10px] font-semibold">requirement gap</span>
+        )}
+      </div>
+
+      {/* The figures line: read value vs requirement, with the pre-computed
+          delta. Shown only when both numbers exist; otherwise the reasoning
+          (below) explains why there is no comparison. */}
+      {hasFigures && (
+        <p className="mt-1">
+          {kindLabel[0]!.toUpperCase() + kindLabel.slice(1)} read <span className="font-semibold tabular-nums">{fmtMoney(analysis.extracted)}</span>
+          {' · requirement '}<span className="font-semibold tabular-nums">{fmtMoney(analysis.requirement)}</span>
+          {analysis.verdict === 'meets' && ' · meets'}
+          {analysis.verdict === 'short' && typeof analysis.delta === 'number' && (
+            <> · <span className="font-semibold">short by {fmtMoney(Math.abs(analysis.delta))}</span></>
+          )}
+        </p>
+      )}
+
+      {/* The 60-day (or stated) recency check — shown whether it passes or not,
+          so the check is visible, not just its failure. */}
+      {rec && typeof rec.days === 'number' && (
+        <p className="mt-0.5 opacity-90">
+          {analysis.as_of ? `Dated ${analysis.as_of}` : 'Date not read'}
+          {typeof rec.doc_age_days === 'number' ? ` · ${rec.doc_age_days} days old` : ''}
+          {' · '}
+          {rec.ok === true
+            ? `within ${rec.days} days ✓`
+            : rec.ok === false
+              ? `over the ${rec.days}-day limit ✗`
+              : `${rec.days}-day recency not confirmed`}
+        </p>
+      )}
+
+      {/* The rule note (2-year average, appraisal addressee, stale) in words. */}
+      {analysis.rule_note && <p className="mt-0.5">{analysis.rule_note}</p>}
+
+      {/* The reasoning fallback when there are no figures to line up. */}
+      {!hasFigures && analysis.reasoning && <p className="mt-1">{analysis.reasoning}</p>}
+
+      {/* Citation to the source it read, opening at the page. */}
+      <div className="mt-1 flex items-center gap-2 text-[11px] opacity-90">
+        {page != null && <span>p{page}</span>}
+        {typeof analysis.confidence === 'number' && analysis.confidence < 70 && <span>· read at {analysis.confidence}% confidence</span>}
+        {analysis.document_id && (
+          <button
+            type="button"
+            onClick={() => openDocument(analysis.document_id!, page)}
+            className="underline decoration-current/40 hover:decoration-current font-semibold"
+          >
+            open source
+          </button>
+        )}
+        <span className="uppercase tracking-wide text-[10px] opacity-70">verify to confirm</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── One checklist row (verify / waive + manual edit / re-assign / remove) ───
 
 function ChecklistRow({
@@ -876,6 +1078,7 @@ function ChecklistRow({
   arm,
   setErrors,
   post,
+  openDocument,
 }: { cond: DealConditionRow } & RowProps) {
   const [waiveOpen, setWaiveOpen] = useState(false)
   const [note, setNote] = useState('')
@@ -889,6 +1092,7 @@ function ChecklistRow({
   const [eBorrower, setEBorrower] = useState(cond.borrowerId ?? '')
   const [eDue, setEDue] = useState(cond.dueDate ?? '')
   const [eLoad, setELoad] = useState(cond.loadBearing)
+  const [eReq, setEReq] = useState(typeof cond.requirement?.target === 'number' ? String(cond.requirement.target) : '')
 
   const pill = conditionStatusPill(cond)
   const decided = cond.status === 'satisfied' || cond.status === 'waived'
@@ -899,11 +1103,11 @@ function ChecklistRow({
       ? (cond.presenceDetail.matched_finmo_name as string)
       : null
   // The document-vs-requirement analysis (Task 3): a DRAFT for Michael. The
-  // delta and the reasoning are pre-computed on the workbench (no arithmetic in
-  // the render layer); this only displays them.
+  // delta, the recency check, and the reasoning are pre-computed on the
+  // workbench (no arithmetic in the render layer); this only displays them.
   const analysis =
     cond.presenceDetail && typeof cond.presenceDetail.analysis === 'object' && cond.presenceDetail.analysis
-      ? (cond.presenceDetail.analysis as { verdict?: string; reasoning?: string; as_of?: string | null; confidence?: number | null })
+      ? (cond.presenceDetail.analysis as AnalysisData)
       : null
   const verifyKey = `verify:${cond.id}`
   const waiveKey = `waive:${cond.id}`
@@ -936,6 +1140,11 @@ function ChecklistRow({
     if ((eBorrower || '') !== (cond.borrowerId ?? '')) body.borrower_id = eBorrower || null
     if ((eDue || '') !== (cond.dueDate ?? '')) body.due_date = eDue || null
     if (eLoad !== cond.loadBearing) body.load_bearing = eLoad
+    // The requirement target (a value-bearing condition). A change from the
+    // stored target is Michael's authoritative value.
+    const reqAmt = parseAmount(eReq)
+    const currentTarget = typeof cond.requirement?.target === 'number' ? cond.requirement.target : null
+    if (reqAmt != null && reqAmt !== currentTarget) body.requirement_amount = reqAmt
     if (typeof body.text === 'string' && (body.text as string).length < 4) {
       setErrors(e => ({ ...e, [busyKey]: 'Condition text needs at least 4 characters.' }))
       return
@@ -967,6 +1176,14 @@ function ChecklistRow({
       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-body text-gray-500">
         <Pill tone={pill.tone}>{pill.label}</Pill>
         {cond.docKind && <span className="rounded-full bg-gray-50 px-2 py-0.5 text-gray-600">{label(cond.docKind)}</span>}
+        {typeof cond.requirement?.target === 'number' && (
+          <span
+            className="rounded-full bg-gray-50 px-2 py-0.5 text-gray-600 tabular-nums"
+            title={cond.requirement.source === 'manual' ? 'requirement target set by hand' : 'requirement target parsed from the condition'}
+          >
+            target {fmtMoney(cond.requirement.target)}
+          </span>
+        )}
         {cond.loadBearing && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">load-bearing</span>}
         {isManual && <span className="rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">added by hand</span>}
         {!isManual && isEdited && <span className="rounded-full bg-purple-50 px-2 py-0.5 font-semibold text-purple-700">edited</span>}
@@ -977,21 +1194,7 @@ function ChecklistRow({
         {matchedName && <span className="text-gray-400">matched: {matchedName}</span>}
       </div>
 
-      {analysis?.reasoning && (
-        <div className={`mt-1.5 text-xs font-body rounded-md px-2 py-1 border ${
-          analysis.verdict === 'meets'
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : analysis.verdict === 'short' || analysis.verdict === 'stale' || analysis.verdict === 'rule_unmet'
-              ? 'bg-red-50 border-red-200 text-red-800'
-              : 'bg-amber-50 border-amber-200 text-amber-800'
-        }`}>
-          <span className="font-semibold">Analysis (draft): </span>
-          {analysis.reasoning}
-          {analysis.as_of ? ` · dated ${analysis.as_of}` : ''}
-          {typeof analysis.confidence === 'number' && analysis.confidence < 70 ? ` · read at ${analysis.confidence}% confidence` : ''}
-          <span className="text-[10px] uppercase tracking-wide ml-1 opacity-70">verify to confirm</span>
-        </div>
-      )}
+      {analysis && <AnalysisBlock analysis={analysis} openDocument={openDocument} />}
 
       {(canDecide || canWaive) && !decided && (
         <div className="mt-2 flex flex-wrap items-start gap-2">
@@ -1101,6 +1304,20 @@ function ChecklistRow({
               <input type="checkbox" checked={eLoad} onChange={e => setELoad(e.target.checked)} className="accent-navy" />
               load-bearing
             </label>
+            {REQUIREMENT_DOC_KINDS.has(eDoc) && (
+              <label className="text-[11px] font-body text-gray-500">
+                Requirement target ($)
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={eReq}
+                  onChange={e => setEReq(e.target.value)}
+                  placeholder="e.g. 150000"
+                  className="ml-1 block w-28 text-xs font-body border border-gray-200 rounded px-1.5 py-1 tabular-nums"
+                />
+              </label>
+            )}
           </div>
           <button
             disabled={rowBusy}

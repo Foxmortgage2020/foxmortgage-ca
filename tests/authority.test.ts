@@ -75,6 +75,9 @@ describe('session 8 role baselines', () => {
         // Phase B2: recomputing document presence is read-only and open to
         // every internal role (it decides nothing).
         'conditions.recompute',
+        // Analysis session: opening a deal document for an analysis citation is
+        // a read, open to every internal role (tenancy-scoped in the workbench).
+        'document.view',
       ].sort(),
     )
   })
@@ -90,6 +93,7 @@ describe('session 8 role baselines', () => {
         'approvals.view',
         'agent.use',
         'conditions.recompute',
+        'document.view',
       ].sort(),
     )
   })
@@ -102,7 +106,7 @@ describe('session 8 role baselines', () => {
 
   it('agent baseline: their own scope', () => {
     expect(grantSet('agent')).toEqual(
-      ['deals.view', 'knowledge.view', 'agent.use', 'roadmap.view', 'conditions.recompute'].sort(),
+      ['deals.view', 'knowledge.view', 'agent.use', 'roadmap.view', 'conditions.recompute', 'document.view'].sort(),
     )
   })
 

@@ -35,6 +35,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (body?.borrower_id !== undefined) payload.borrower_id = str(body.borrower_id)?.trim() || null
   if (body?.due_date !== undefined) payload.due_date = str(body.due_date)?.trim() || null
   if (body?.load_bearing !== undefined) payload.load_bearing = body.load_bearing === true
+  if (typeof body?.requirement_amount === 'number' && Number.isFinite(body.requirement_amount) && body.requirement_amount > 0) payload.requirement_amount = body.requirement_amount
   if (typeof body?.note === 'string') payload.note = body.note
   const result = await editCondition(params.id, payload, req.headers.get('x-gates-token'))
   return NextResponse.json(result, { status: result.ok ? 200 : STATUS_BY_KIND[result.kind] })

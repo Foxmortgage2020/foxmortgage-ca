@@ -24,11 +24,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // an approve with no edits is valid — fall through with an empty body
   }
   const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
+  const amt = typeof body?.edited_requirement_amount === 'number' && Number.isFinite(body.edited_requirement_amount) && body.edited_requirement_amount > 0 ? body.edited_requirement_amount : undefined
   const payload: ConditionApproveBody = {
     edited_text: str(body?.edited_text),
     edited_owner: str(body?.edited_owner),
     edited_doc_kind: str(body?.edited_doc_kind),
     edited_borrower_id: str(body?.edited_borrower_id),
+    edited_requirement_amount: amt,
     note: str(body?.note),
   }
   const result = await approveCondition(params.id, payload, req.headers.get('x-gates-token'))

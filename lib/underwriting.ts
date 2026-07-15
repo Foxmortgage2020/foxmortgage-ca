@@ -1137,10 +1137,15 @@ export interface DealConditionRow extends ConditionRow {
   // the machine — the room shows an "edited" chip; a re-extraction never
   // overwrites these fields.
   humanEditedFields: string[]
+  // The structured numeric requirement (fox-underwriting migration 0041): the
+  // target the document-vs-requirement analysis compares against. Null when the
+  // condition carries no numeric target. { kind, target, source, ... }; the card
+  // shows the target and whether it is Michael's ('manual') or parsed.
+  requirement: { kind?: string; target?: number; source?: string } | null
 }
 
 const CONDITION_SELECT =
-  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence,load_bearing,human_edited_fields'
+  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence,load_bearing,human_edited_fields,requirement'
 
 const dealConditionRow = (r: any): DealConditionRow => ({
   id: r.id,
@@ -1173,6 +1178,10 @@ const dealConditionRow = (r: any): DealConditionRow => ({
   confidence: numOrNull(r.confidence),
   loadBearing: r.load_bearing === true,
   humanEditedFields: Array.isArray(r.human_edited_fields) ? (r.human_edited_fields as string[]) : [],
+  requirement:
+    r.requirement && typeof r.requirement === 'object'
+      ? (r.requirement as { kind?: string; target?: number; source?: string })
+      : null,
 })
 
 // LIVE conditions on a deal (Ask Fox and any general consumer): a pending,

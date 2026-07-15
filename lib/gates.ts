@@ -404,6 +404,9 @@ export interface ConditionApproveBody {
   edited_owner?: string
   edited_doc_kind?: string
   edited_borrower_id?: string
+  // Michael's requirement target for a value-bearing condition (income /
+  // appraisal / CCB). The document-vs-requirement analysis compares against it.
+  edited_requirement_amount?: number
   note?: string
 }
 
@@ -429,6 +432,7 @@ export function approveCondition(
   if (docKind) payload.edited_doc_kind = docKind
   const borrowerId = body.edited_borrower_id?.trim()
   if (borrowerId) payload.edited_borrower_id = borrowerId
+  if (typeof body.edited_requirement_amount === 'number') payload.edited_requirement_amount = body.edited_requirement_amount
   return gateCall(`/api/gates/conditions/${conditionId}/approve`, withNote(payload, body.note), token)
 }
 
@@ -484,6 +488,9 @@ export interface ManualConditionAddBody {
   borrower_id?: string | null
   due_date?: string | null
   load_bearing?: boolean
+  // Michael's requirement target for a value-bearing condition (income /
+  // appraisal / CCB); omitted -> parsed from the text where reliable.
+  requirement_amount?: number | null
   note?: string
 }
 export interface ManualConditionEditBody {
@@ -493,6 +500,7 @@ export interface ManualConditionEditBody {
   borrower_id?: string | null
   due_date?: string | null
   load_bearing?: boolean
+  requirement_amount?: number | null
   note?: string
 }
 export interface ManualConditionResponse {
@@ -665,6 +673,20 @@ export function getKnowledgeDocumentUrl(
   token: string | null,
 ): Promise<GateResult<KnowledgeDocumentUrl>> {
   return gateGet(`/api/knowledge/document-url/${encodeURIComponent(documentId)}`, token)
+}
+
+// Short-lived signed URL to open a DEAL document (analysis session,
+// 2026-07-15) — a condition's analysis citation links to the source it read.
+// 60 seconds; mint per click, never store. Tenancy-scoped in the workbench.
+// Unlike the knowledge citation (lender reference), a deal document is client
+// PII, so this new surface is demo-blocked: zero reads of a real deal document
+// in demo mode.
+export function getDealDocumentUrl(
+  documentId: string,
+  token: string | null,
+): Promise<GateResult<KnowledgeDocumentUrl>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('getDealDocumentUrl'))
+  return gateGet(`/api/gates/documents/${encodeURIComponent(documentId)}/url`, token)
 }
 
 // ─── Agent provisioning (Session 8; fox-underwriting micro-session 4) ──────

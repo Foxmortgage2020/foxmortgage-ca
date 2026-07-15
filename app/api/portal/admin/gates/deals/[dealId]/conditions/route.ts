@@ -31,6 +31,7 @@ export async function POST(req: Request, { params }: { params: { dealId: string 
     return NextResponse.json({ ok: false, kind: 'validation', message: `Owner must be one of ${MANUAL_OWNER_OPTIONS.join(', ')}.` }, { status: 422 })
   }
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
+  const amt = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined)
   const payload: ManualConditionAddBody = {
     text,
     owner: owner as ManualOwner,
@@ -38,6 +39,7 @@ export async function POST(req: Request, { params }: { params: { dealId: string 
     borrower_id: str(body?.borrower_id) ?? null,
     due_date: str(body?.due_date) ?? null,
     load_bearing: body?.load_bearing === true,
+    requirement_amount: amt(body?.requirement_amount),
     note: str(body?.note),
   }
   const result = await addManualCondition(params.dealId, payload, req.headers.get('x-gates-token'))

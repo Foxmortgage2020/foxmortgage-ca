@@ -91,6 +91,11 @@ export const PERMISSIONS = {
   // trigger it (it never approves or decides anything). CONTRACT key with the
   // workbench gates API.
   'conditions.recompute': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
+  // Read a deal document as a short-lived signed URL (analysis session,
+  // 2026-07-15) — a condition's analysis citation opens the source at its page.
+  // CONTRACT key with the workbench gates API; tenancy-scoped there. A read,
+  // granted to every internal role that can see a deal room.
+  'document.view': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
   // ── Additive view keys (Session 1) ─────────────────────────────────────
   // Nav and page gating for sections the original matrix carries no key
   // for. All seeded admin-only except where a broader default is safe.
@@ -156,6 +161,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'document.upload': 'Upload a borrower document to a deal room (indexed and matched against conditions)',
   'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
+  'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',
   'intel.view': 'See the lender intel feed',
