@@ -302,7 +302,7 @@ export function demoDealConditions(dealId: string): DealConditionRow[] {
         ...condBase, id: 'demo-cond-4', text: 'Broker to provide the most recent T4 and NOA for the primary applicant', owner: 'broker',
         status: 'open', dueDate: '2026-07-15', condNumber: '3', source: 'commitment', evidenceRefCount: 1,
         category: 'general_verification', kind: 'document_chase', precheckStatus: 'pass',
-        presence: 'obtained', presenceDetail: { matched_finmo_name: 'T4 2025 — primary applicant', finmo_status: 'accepted', recomputed_at: '2026-07-09T13:20:00Z' },
+        presence: 'obtained', presenceDetail: { matched_finmo_name: 'T4 2025 — primary applicant', finmo_status: 'accepted', recomputed_at: '2026-07-09T13:20:00Z', analysis: { verdict: 'short', reasoning: '$145,000 vs $150,000 requirement, short by $5,000', delta: -5000, extracted: 145000, requirement: 150000, as_of: '2026-07-01', confidence: 88, analyzed_at: '2026-07-09T13:20:00Z' } },
         docKind: 't4_noa', borrowerId: 'demo-b-1', sourcePage: 1,
         sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 93,
         humanEditedFields: ['owner'],

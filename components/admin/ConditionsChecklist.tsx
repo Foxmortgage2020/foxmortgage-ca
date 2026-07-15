@@ -898,6 +898,13 @@ function ChecklistRow({
     cond.presence === 'obtained' && cond.presenceDetail && typeof cond.presenceDetail.matched_finmo_name === 'string'
       ? (cond.presenceDetail.matched_finmo_name as string)
       : null
+  // The document-vs-requirement analysis (Task 3): a DRAFT for Michael. The
+  // delta and the reasoning are pre-computed on the workbench (no arithmetic in
+  // the render layer); this only displays them.
+  const analysis =
+    cond.presenceDetail && typeof cond.presenceDetail.analysis === 'object' && cond.presenceDetail.analysis
+      ? (cond.presenceDetail.analysis as { verdict?: string; reasoning?: string; as_of?: string | null; confidence?: number | null })
+      : null
   const verifyKey = `verify:${cond.id}`
   const waiveKey = `waive:${cond.id}`
   const removeKey = `remove:${cond.id}`
@@ -969,6 +976,22 @@ function ChecklistRow({
         </span>
         {matchedName && <span className="text-gray-400">matched: {matchedName}</span>}
       </div>
+
+      {analysis?.reasoning && (
+        <div className={`mt-1.5 text-xs font-body rounded-md px-2 py-1 border ${
+          analysis.verdict === 'meets'
+            ? 'bg-green-50 border-green-200 text-green-800'
+            : analysis.verdict === 'short' || analysis.verdict === 'stale' || analysis.verdict === 'rule_unmet'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <span className="font-semibold">Analysis (draft): </span>
+          {analysis.reasoning}
+          {analysis.as_of ? ` · dated ${analysis.as_of}` : ''}
+          {typeof analysis.confidence === 'number' && analysis.confidence < 70 ? ` · read at ${analysis.confidence}% confidence` : ''}
+          <span className="text-[10px] uppercase tracking-wide ml-1 opacity-70">verify to confirm</span>
+        </div>
+      )}
 
       {(canDecide || canWaive) && !decided && (
         <div className="mt-2 flex flex-wrap items-start gap-2">

@@ -1541,6 +1541,9 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ## Session Ledger
 
+### 2026-07-15 — Task 3 surface: the document-vs-requirement analysis note
+- The workbench now reads each present document against its condition's stated requirement (Finmo pull + analysis engine; see fox-underwriting CLAUDE.md). The room surfaces it: `components/admin/ConditionsChecklist.tsx` renders an **analysis note** on a condition when `presenceDetail.analysis` is set — green "meets", red "short by $X" / stale, amber "needs review" — showing the pre-computed reasoning + date + a "VERIFY TO CONFIRM" cue (a DRAFT; the machine never verifies, Michael confirms). NO arithmetic in the render layer — the delta and reasoning are computed on the workbench and displayed verbatim. Demo fixture carries a short-verdict analysis. Portal 545 tests green, tsc clean, `next build` green. (Task 2, the Finmo pull, is workbench-only.)
+
 ### 2026-07-14 — Task 1: manual document upload to the deal room
 - **The gap:** the deal room had no way to upload any document except the commitment, so the reading engine + matcher + analysis layer (all built on the workbench) sat idle — no borrower document could enter. This adds the general uploader (shipped alone first, per brief).
 - **DocumentUploader** (`components/admin/DocumentUploader.tsx`): a doc-kind selector (the closed vocabulary) + a borrower selector (Caitlin / Shane / General) + a dropzone (PDF/DOCX/DOC/TXT, 3 MB), demo-blocked, mounted in the Documents section (always available). On success it reports how many conditions moved. Proxy route `app/api/portal/admin/gates/deals/[dealId]/documents/route.ts` (POST-only, `apiPermission('document.upload')`, 3 MB ceiling, forwards x-gates-token); `lib/gates.ts uploadDealDocument` (demo-blocked). `document.upload` added to `config/authority.ts` PERMISSIONS + PERMISSION_LABELS (CONTRACT key with the workbench).
