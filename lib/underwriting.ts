@@ -53,6 +53,7 @@ import {
   demoDealIncomeCalcs,
   demoDealRatioCalcs,
   demoDealDocuments,
+  demoDealLenderNotes,
   demoDealAudit,
   demoOpenFlags,
   demoConditionsDue,
@@ -1656,6 +1657,45 @@ export async function getDealDocuments(agentId: string, dealId: string): Promise
       borrowerId: r.borrower_id ?? null,
     })),
   )
+}
+
+// The current submission-note DRAFT for a deal (lender-notes wiring session,
+// 2026-07-15). Read-only through portal_readonly; the room renders it with a
+// copy button. Only the newest draft is the current one (regeneration
+// supersedes on the workbench, append-only).
+export interface LenderNotesRow {
+  id: string
+  generatedText: string
+  charCount: number | null
+  model: string | null
+  status: string
+  createdAt: string
+  createdByEmail: string | null
+}
+
+export async function getDealLenderNotes(agentId: string, dealId: string): Promise<UwResult<LenderNotesRow | null>> {
+  if (isDemoMode()) return demoResult(demoDealLenderNotes(dealId))
+  const res = await uwSelect<any>('lender_notes', {
+    select: 'id,generated_text,char_count,model,status,created_at,created_by_email',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    status: 'eq.draft',
+    order: 'created_at.desc',
+    limit: '1',
+  })
+  return mapResult(res, rows => {
+    const r = rows[0]
+    if (!r) return null
+    return {
+      id: r.id,
+      generatedText: r.generated_text,
+      charCount: r.char_count ?? null,
+      model: r.model ?? null,
+      status: r.status,
+      createdAt: r.created_at,
+      createdByEmail: r.created_by_email ?? null,
+    }
+  })
 }
 
 // ─── Session 4: rates browser, intel feed, directory ────────────────────────

@@ -22,6 +22,7 @@ import {
   getDealDocuments,
   getDealFlags,
   getDealIncomeCalcs,
+  getDealLenderNotes,
   getDealRatioCalcs,
   getDealShadowHistory,
   getDealStatementDocs,
@@ -33,6 +34,7 @@ import {
 import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
 import CommitmentUploader from '@/components/admin/CommitmentUploader'
 import DocumentUploader from '@/components/admin/DocumentUploader'
+import LenderNotesCard from '@/components/admin/LenderNotesCard'
 import RoomSectionNav from '@/components/admin/RoomSectionNav'
 import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
@@ -151,7 +153,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     )
   }
 
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, lenderNotesR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -166,6 +168,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       getDealIncomeCalcs(agentId, deal.id),
       getDealRatioCalcs(agentId, deal.id),
       getDealDocuments(agentId, deal.id),
+      getDealLenderNotes(agentId, deal.id),
     ])
   const conds = val(condsR) ?? []
   const pendingCommit = val(pendingCommitR) ?? []
@@ -177,6 +180,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const income = sectionState(incomeR)
   const ratios = sectionState(ratiosR)
   const documents = sectionState(documentsR)
+  const lenderNoteDraft = val(lenderNotesR) ?? null
   const borrowerList = borrowers.kind === 'ok' ? borrowers.data.map(b => ({ id: b.id, fullName: b.fullName })) : []
   const borrowerNameById = new Map(borrowerList.map(b => [b.id, b.fullName]))
 
@@ -194,6 +198,10 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const canRecompute = can(user, 'conditions.recompute') && !isDemoMode()
   const canUploadCommitment = can(user, 'commitment.upload') && !isDemoMode()
   const canUploadDocument = can(user, 'document.upload') && !isDemoMode()
+  // Notes generation is NOT gated on demo: in demo the button produces a canned
+  // note client-side (zero real reads/writes; the proxy + gate client are
+  // demo-blocked as defense in depth). Outside demo it calls the workbench.
+  const canGenerateNotes = can(user, 'notes.generate')
 
   // "A commitment is present" is a REAL-provenance fact: a retired
   // synthetic/rejected commitment never counts (guardrail 20), so it can never
@@ -803,13 +811,26 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
           )}
         </Section>
 
-        {/* Notes: no notes table exists in the workbench yet (report artifacts only) */}
+        {/* Submission notes: the deal-room "Generate Lender Notes" card. The
+            workbench feeds the deal's own data through the lender-notes skill
+            and lands a DRAFT (lender_notes, granted 2026-07-15); the button is
+            the human action, nothing is sent. */}
         <Section id="notes" title="Submission notes">
-          <Muted>
-            The workbench generates submission notes as report artifacts, not stored rows, so
-            there is nothing the read-only role can render here yet. When a notes table lands
-            and is granted, the draft appears read-only with a copy button.
-          </Muted>
+          <LenderNotesCard
+            dealId={deal.id}
+            initialDraft={
+              lenderNoteDraft
+                ? {
+                    generatedText: lenderNoteDraft.generatedText,
+                    charCount: lenderNoteDraft.charCount,
+                    createdAt: lenderNoteDraft.createdAt,
+                    createdByEmail: lenderNoteDraft.createdByEmail,
+                  }
+                : null
+            }
+            canGenerate={canGenerateNotes}
+            demo={isDemoMode()}
+          />
         </Section>
 
         {/* Deal-scoped audit */}

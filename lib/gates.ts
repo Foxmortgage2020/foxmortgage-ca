@@ -97,6 +97,7 @@ async function gateCall<T>(
   path: string,
   body: Record<string, unknown>,
   token: string | null,
+  opts?: { surfaceError?: boolean },
 ): Promise<GateResult<T>> {
   const base = gatesBase()
   if (!base) {
@@ -130,7 +131,18 @@ async function gateCall<T>(
     // Non-JSON body: mapping falls back to fixed copy.
   }
   const err = mapGateResponse(res.status, parsed)
-  if (err) return { ok: false, ...err }
+  if (err) {
+    // surfaceError: some endpoints carry an operator-facing message on the
+    // generation-diagnostic statuses (lender-notes: 503 "ANTHROPIC_API_KEY is
+    // not configured", 502 "the note failed validation: contains an em dash").
+    // Pass THOSE through verbatim (no borrower data). Restricted to 502/503 so a
+    // raw 500/internal message never reaches the browser; mapGateResponse
+    // already surfaces the 422 body.
+    if (opts?.surfaceError && (res.status === 502 || res.status === 503) && parsed && typeof (parsed as { error?: unknown }).error === 'string') {
+      return { ok: false, kind: err.kind, message: (parsed as { error: string }).error }
+    }
+    return { ok: false, ...err }
+  }
   return { ok: true, data: parsed as T }
 }
 
@@ -367,6 +379,37 @@ export function uploadDealDocument(
     { file_name: body.file_name, doc_kind: body.doc_kind, borrower_id: body.borrower_id ?? null, content_base64: body.content_base64 },
     token,
   )
+}
+
+// ─── Lender notes (lender-notes wiring session, 2026-07-15) ─────────────────
+// Generate a submission-note DRAFT for a deal. The workbench feeds the deal's
+// own data through the lender-notes skill, validates the output mechanically,
+// and lands a draft; nothing is sent anywhere. The only input is Michael's
+// optional advisor context. Demo-blocked (a draft is a real read + write).
+// surfaceError is on so the button shows the workbench's exact diagnostic
+// ("ANTHROPIC_API_KEY is not configured", "the note failed validation: ...").
+export interface LenderNotesGenerateResponse {
+  noteId: string
+  dealId: string
+  fileRef?: string
+  status: string
+  chars: number
+  attempts: number
+  generatedText: string
+  sources: string[]
+  supersededCount?: number
+}
+
+export function generateLenderNotes(
+  dealId: string,
+  advisorContext: string | null | undefined,
+  token: string | null,
+): Promise<GateResult<LenderNotesGenerateResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('generateLenderNotes'))
+  const body: Record<string, unknown> = {}
+  const ctx = advisorContext?.trim()
+  if (ctx) body.advisor_context = ctx.slice(0, 4000)
+  return gateCall(`/api/deals/${dealId}/lender-notes`, body, token, { surfaceError: true })
 }
 
 // The LIST gate: approve makes the extracted set the checklist (and supersedes

@@ -86,6 +86,11 @@ export const PERMISSIONS = {
   // 2026-07-14). CONTRACT key with the workbench gates API. A machine PULLS
   // from Finmo as 'system'; an upload is Michael's, so admin only.
   'document.upload': ['admin'],
+  // Generate a lender submission-note DRAFT for a deal (lender-notes wiring
+  // session, 2026-07-15). CONTRACT key with the workbench gates API. The
+  // button feeds the deal's own data through the lender-notes skill and lands
+  // a draft; nothing is sent. Admin only on both sides.
+  'notes.generate': ['admin'],
   // Phase B2: recomputing document presence on room open is read-only to
   // Finmo and idempotent — every internal role that can see a deal room may
   // trigger it (it never approves or decides anything). CONTRACT key with the
@@ -159,6 +164,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'approvals.knowledge.decide': 'Decide lender knowledge claims (approve / reject)',
   'commitment.upload': 'Upload a commitment or amendment (conditions stay pending until the list is approved)',
   'document.upload': 'Upload a borrower document to a deal room (indexed and matched against conditions)',
+  'notes.generate': 'Generate a lender submission-note draft for a deal (draft only, nothing sent)',
   'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',

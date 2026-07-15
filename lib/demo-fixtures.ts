@@ -43,6 +43,7 @@ import type {
   KnowledgeDocumentRow,
   KnowledgePageHit,
   PendingCommitmentCondition,
+  LenderNotesRow,
 } from '@/lib/underwriting'
 import type { ConditionCount } from '@/lib/conditions-status'
 import type { SlimDeal, OpenTask, SlimLead } from '@/lib/zoho-admin'
@@ -418,6 +419,12 @@ export function demoDealRatioCalcs(dealId: string): RatioCalcRow[] {
     ]
   }
   return []
+}
+
+// No stored draft in demo: the card shows the Generate button, and clicking it
+// produces the canned demo note client-side (zero real reads, zero writes).
+export function demoDealLenderNotes(_dealId: string): LenderNotesRow | null {
+  return null
 }
 
 export function demoDealDocuments(dealId: string): DocumentRow[] {
