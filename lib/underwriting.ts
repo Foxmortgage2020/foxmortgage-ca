@@ -1621,12 +1621,15 @@ export interface DocumentRow {
   // must never be mistaken for a lender document (workbench guardrail 20); the
   // room renders it with a loud banner and it can never be approved.
   provenance: string
+  // The borrower a document is attributed to (null = General). Set on upload;
+  // drives the per-borrower presence match.
+  borrowerId: string | null
 }
 
 export async function getDealDocuments(agentId: string, dealId: string): Promise<UwResult<DocumentRow[]>> {
   if (isDemoMode()) return demoResult(demoDealDocuments(dealId))
   const res = await uwSelect<any>('documents', {
-    select: 'id,doc_type,source,received_at,review_status,created_at,provenance',
+    select: 'id,doc_type,source,received_at,review_status,created_at,provenance,borrower_id',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
     order: 'created_at.desc',
@@ -1641,6 +1644,7 @@ export async function getDealDocuments(agentId: string, dealId: string): Promise
       reviewStatus: r.review_status,
       createdAt: r.created_at,
       provenance: r.provenance ?? 'real',
+      borrowerId: r.borrower_id ?? null,
     })),
   )
 }

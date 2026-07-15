@@ -421,8 +421,8 @@ export function demoDealRatioCalcs(dealId: string): RatioCalcRow[] {
 export function demoDealDocuments(dealId: string): DocumentRow[] {
   if (dealId === 'demo-deal-1') {
     return [
-      { id: 'demo-d-1', docType: 'paystub', source: 'borrower_upload', receivedAt: '2026-07-04T09:00:00Z', reviewStatus: 'reviewed', createdAt: '2026-07-04T09:00:00Z', provenance: 'real' },
-      { id: 'demo-d-2', docType: 'void_cheque', source: 'borrower_upload', receivedAt: '2026-07-04T09:05:00Z', reviewStatus: 'pending', createdAt: '2026-07-04T09:05:00Z', provenance: 'real' },
+      { id: 'demo-d-1', docType: 'pay_stub', source: 'upload', receivedAt: '2026-07-04T09:00:00Z', reviewStatus: 'reviewed', createdAt: '2026-07-04T09:00:00Z', provenance: 'real', borrowerId: 'demo-b-1' },
+      { id: 'demo-d-2', docType: 'void_cheque', source: 'finmo', receivedAt: '2026-07-04T09:05:00Z', reviewStatus: 'pending', createdAt: '2026-07-04T09:05:00Z', provenance: 'real', borrowerId: null },
     ]
   }
   return []

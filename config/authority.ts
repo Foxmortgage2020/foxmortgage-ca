@@ -82,6 +82,10 @@ export const PERMISSIONS = {
   // admin only on both sides.
   'commitment.upload': ['admin'],
   'approvals.conditions.decide': ['admin'],
+  // General borrower-document upload to a deal room (document-pull session,
+  // 2026-07-14). CONTRACT key with the workbench gates API. A machine PULLS
+  // from Finmo as 'system'; an upload is Michael's, so admin only.
+  'document.upload': ['admin'],
   // Phase B2: recomputing document presence on room open is read-only to
   // Finmo and idempotent — every internal role that can see a deal room may
   // trigger it (it never approves or decides anything). CONTRACT key with the
@@ -149,6 +153,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'knowledge.upload': 'Upload lender knowledge documents (claims stay pending until approved)',
   'approvals.knowledge.decide': 'Decide lender knowledge claims (approve / reject)',
   'commitment.upload': 'Upload a commitment or amendment (conditions stay pending until the list is approved)',
+  'document.upload': 'Upload a borrower document to a deal room (indexed and matched against conditions)',
   'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'approvals.view': 'See the approval queues',

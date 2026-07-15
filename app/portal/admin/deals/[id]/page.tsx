@@ -32,6 +32,7 @@ import {
 } from '@/lib/underwriting'
 import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
 import CommitmentUploader from '@/components/admin/CommitmentUploader'
+import DocumentUploader from '@/components/admin/DocumentUploader'
 import RoomSectionNav from '@/components/admin/RoomSectionNav'
 import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
@@ -177,6 +178,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const ratios = sectionState(ratiosR)
   const documents = sectionState(documentsR)
   const borrowerList = borrowers.kind === 'ok' ? borrowers.data.map(b => ({ id: b.id, fullName: b.fullName })) : []
+  const borrowerNameById = new Map(borrowerList.map(b => [b.id, b.fullName]))
 
   const today = torontoTodayYMD()
   const openConds = conds.filter(c => c.status !== 'satisfied' && c.status !== 'waived')
@@ -191,6 +193,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const canWaiveConditions = can(user, 'conditions.decide') && !isDemoMode()
   const canRecompute = can(user, 'conditions.recompute') && !isDemoMode()
   const canUploadCommitment = can(user, 'commitment.upload') && !isDemoMode()
+  const canUploadDocument = can(user, 'document.upload') && !isDemoMode()
 
   // "A commitment is present" is a REAL-provenance fact: a retired
   // synthetic/rejected commitment never counts (guardrail 20), so it can never
@@ -551,6 +554,14 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
 
         {/* Documents (granted 2026-07-09; metadata only) */}
         <Section id="documents" title="Documents">
+          {/* General borrower-document upload — always available. Storing a
+              document indexes it and moves the matching condition toward
+              obtained (document-pull session). */}
+          {canUploadDocument && (
+            <div className="mb-4">
+              <DocumentUploader dealId={deal.id} borrowers={borrowerList} />
+            </div>
+          )}
           {/* No real commitment on file -> this section instructs an upload
               (incl. the synthetic-banner "a real commitment upload replaces
               them"), so it carries the control inline. A retired synthetic doc
@@ -582,6 +593,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                   <thead>
                     <tr className="text-left text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
                       <th className="py-2 pr-3 font-medium">Document</th>
+                      <th className="py-2 pr-3 font-medium">Borrower</th>
                       <th className="py-2 pr-3 font-medium">Source</th>
                       <th className="py-2 pr-3 font-medium">Received</th>
                       <th className="py-2 font-medium">Review</th>
@@ -599,6 +611,9 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                               Synthetic — not a lender document
                             </span>
                           )}
+                        </td>
+                        <td className="py-2 pr-3 text-gray-500">
+                          {d.borrowerId ? (borrowerNameById.get(d.borrowerId) ?? 'unknown') : 'General'}
                         </td>
                         <td className="py-2 pr-3 text-gray-500">{d.source}</td>
                         <td className="py-2 pr-3 text-gray-500">

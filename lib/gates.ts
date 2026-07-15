@@ -341,6 +341,34 @@ export function uploadCommitment(
   )
 }
 
+// General borrower-document upload (document-pull session). Stores the file
+// (source='upload'), indexes it, and recomputes presence so the matching
+// condition moves toward obtained in the same request. Demo-blocked.
+export interface DocumentUploadBody {
+  file_name: string
+  doc_kind: string
+  borrower_id?: string | null
+  content_base64: string
+}
+export interface DocumentUploadResponse {
+  documentId: string
+  pages: number
+  dupOf: string | null
+  presence: { conditionsConsidered: number; updated: number; byPresence: Record<string, number> } | null
+}
+export function uploadDealDocument(
+  dealId: string,
+  body: DocumentUploadBody,
+  token: string | null,
+): Promise<GateResult<DocumentUploadResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('uploadDealDocument'))
+  return gateCall(
+    `/api/gates/deals/${dealId}/documents`,
+    { file_name: body.file_name, doc_kind: body.doc_kind, borrower_id: body.borrower_id ?? null, content_base64: body.content_base64 },
+    token,
+  )
+}
+
 // The LIST gate: approve makes the extracted set the checklist (and supersedes
 // a prior document's set); reject discards it. Keyed on the source document.
 export type CommitmentListAction = 'approve' | 'reject'
