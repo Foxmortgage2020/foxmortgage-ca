@@ -399,7 +399,9 @@ export interface LenderNotesGenerateResponse {
   sources: string[]
   supersededCount?: number
   replacedEditCount?: number
-  finmoSnapshot?: 'refreshed' | 'reused' | 'access_denied' | 'absent'
+  finmoSnapshot?: 'refreshed' | 'stale_fallback' | 'reused' | 'access_denied' | 'absent'
+  snapshotPulledAt?: string | null
+  staleSnapshotUsed?: boolean
   callsInWindow?: number
   emailsLinked?: number
 }
@@ -408,11 +410,15 @@ export function generateLenderNotes(
   dealId: string,
   advisorContext: string | null | undefined,
   token: string | null,
+  allowStale?: boolean,
 ): Promise<GateResult<LenderNotesGenerateResponse>> {
   if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('generateLenderNotes'))
   const body: Record<string, unknown> = {}
   const ctx = advisorContext?.trim()
   if (ctx) body.advisor_context = ctx.slice(0, 4000)
+  // Step 1.2: the explicit second click to generate from the existing snapshot
+  // when the fresh Finmo pull failed. Default off (a pull failure fails loud).
+  if (allowStale) body.allow_stale_snapshot = true
   return gateCall(`/api/deals/${dealId}/lender-notes`, body, token, { surfaceError: true })
 }
 

@@ -41,6 +41,7 @@ export async function POST(req: Request, { params }: { params: { dealId: string 
       { status: 422 },
     )
   }
-  const result = await generateLenderNotes(params.dealId, advisorContext, req.headers.get('x-gates-token'))
+  const allowStale = body?.allow_stale_snapshot === true
+  const result = await generateLenderNotes(params.dealId, advisorContext, req.headers.get('x-gates-token'), allowStale)
   return NextResponse.json(result, { status: result.ok ? 200 : STATUS_BY_KIND[result.kind] })
 }

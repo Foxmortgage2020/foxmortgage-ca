@@ -52,7 +52,14 @@ export interface GenerateResult {
   callsInWindow?: number
   emailsLinked?: number
   replacedEditCount?: number
+  /** The fresh Finmo pull failed and an older snapshot is available: the card
+   * offers an explicit second click to generate from it (Step 1.2). */
+  staleFallbackAvailable?: boolean
 }
+
+// The workbench states this marker in a Finmo-pull-failure message; the card
+// uses it to offer the explicit stale-snapshot second click.
+const STALE_FALLBACK_MARKER = 'stale-snapshot fallback'
 
 /**
  * Decide what a Generate click does and run it. In demo mode it returns the
@@ -67,6 +74,8 @@ export async function runLenderNotesGeneration(args: {
   mintToken: () => Promise<string | null>
   gatesTokenHeader: string
   fetchImpl?: typeof fetch
+  /** Step 1.2: the explicit second click after a fresh-pull failure. */
+  allowStale?: boolean
 }): Promise<GenerateResult> {
   if (args.demo) {
     return { ok: true, note: DEMO_LENDER_NOTE, demo: true }
@@ -78,7 +87,7 @@ export async function runLenderNotesGeneration(args: {
     res = await doFetch(`/api/portal/admin/gates/deals/${args.dealId}/lender-notes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { [args.gatesTokenHeader]: token } : {}) },
-      body: JSON.stringify({ advisor_context: args.advisorContext.trim() || undefined }),
+      body: JSON.stringify({ advisor_context: args.advisorContext.trim() || undefined, allow_stale_snapshot: args.allowStale || undefined }),
     })
   } catch {
     return { ok: false, message: 'Could not reach the server. Check your connection and retry.' }
@@ -91,7 +100,10 @@ export async function runLenderNotesGeneration(args: {
       emailsLinked: json.data.emailsLinked, replacedEditCount: json.data.replacedEditCount,
     }
   }
-  return { ok: false, message: json?.message ?? `Generation failed (HTTP ${res.status}).` }
+  const message = json?.message ?? `Generation failed (HTTP ${res.status}).`
+  // A fresh-pull failure fails loud; if an older snapshot exists, offer the
+  // explicit second click rather than silently using stale data.
+  return { ok: false, message, staleFallbackAvailable: typeof message === 'string' && message.includes(STALE_FALLBACK_MARKER) }
 }
 
 // ─── The readiness strip actions (finmo-substrate session) ──────────────────

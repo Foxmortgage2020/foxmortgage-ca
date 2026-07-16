@@ -78,6 +78,7 @@ export default function LenderNotesCard({
   const [copied, setCopied] = useState(false)
   const [savedEdit, setSavedEdit] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [staleOffer, setStaleOffer] = useState(false) // fresh pull failed; offer the snapshot
   // inline editors
   const [editField, setEditField] = useState('') // '' | 'target' | 'insured' | 'rate'
   const [fieldVal, setFieldVal] = useState('')
@@ -85,9 +86,12 @@ export default function LenderNotesCard({
 
   const tokenArgs = { demo, mintToken: mintGatesToken, gatesTokenHeader: GATES_TOKEN_HEADER }
 
-  const generate = useCallback(async () => {
-    setBusy('generate'); setError(''); setNotice(''); setCopied(false)
-    const result = await runLenderNotesGeneration({ dealId, advisorContext: advisor, ...tokenArgs })
+  // Generate ALWAYS pulls fresh from Finmo first (Step 1). On a pull failure it
+  // fails loud and, if an older snapshot exists, offers an explicit second click
+  // to generate from it (allowStale) — never silently stale.
+  const generate = useCallback(async (allowStale = false) => {
+    setBusy('generate'); setError(''); setNotice(''); setCopied(false); setStaleOffer(false)
+    const result = await runLenderNotesGeneration({ dealId, advisorContext: advisor, allowStale, ...tokenArgs })
     if (result.ok && result.note) {
       setDraft(result.note); setComposing(false); setDirty(false)
       if (result.replacedEditCount && result.replacedEditCount > 0) {
@@ -96,6 +100,7 @@ export default function LenderNotesCard({
       if (!demo) router.refresh()
     } else {
       setError(result.message ?? 'Generation failed. Try again.')
+      if (result.staleFallbackAvailable) setStaleOffer(true)
     }
     setBusy('')
   }, [dealId, advisor, demo, mintGatesToken, router])
@@ -248,7 +253,7 @@ export default function LenderNotesCard({
                 className="w-full text-sm font-body border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-navy"
                 placeholder="e.g. Qualifying on the co-borrower only; lead with the reserves." />
               <div className="mt-2 flex items-center gap-2">
-                <button type="button" onClick={generate} disabled={busy !== ''} data-testid="lender-notes-submit"
+                <button type="button" onClick={() => generate()} disabled={busy !== ''} data-testid="lender-notes-submit"
                   className="text-sm font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90 disabled:opacity-50">
                   {busy === 'generate' ? 'Generating…' : 'Generate draft'}
                 </button>
@@ -261,6 +266,17 @@ export default function LenderNotesCard({
       )}
 
       {error && <p className="mb-3 text-sm font-body text-red-700">{error}</p>}
+      {/* Fresh Finmo pull failed; offer the explicit stale-snapshot second click
+          (never silently stale). The readiness strip states the snapshot age. */}
+      {staleOffer && (
+        <div className="mb-3">
+          <button type="button" onClick={() => generate(true)} disabled={busy !== ''} data-testid="lender-notes-stale-fallback"
+            className="text-sm font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90 disabled:opacity-50">
+            {busy === 'generate' ? 'Generating…' : `Generate from the snapshot ${hoursAgo(readiness.snapshotPulledAt)}`}
+          </button>
+          <span className="ml-2 text-[11px] text-gray-400 font-body">Uses the last pull, not the current Finmo data.</span>
+        </div>
+      )}
       {notice && <p className="mb-3 text-sm font-body text-amber-700">{notice}</p>}
 
       {draft ? (

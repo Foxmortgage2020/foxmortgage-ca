@@ -59,6 +59,27 @@ describe('runLenderNotesGeneration', () => {
     expect(JSON.parse(opts.body)).toEqual({ advisor_context: 'lead with reserves' })
   })
 
+  it('a fresh-pull failure surfaces the stale-fallback offer; a second call sends allow_stale_snapshot', async () => {
+    const fetchFail = vi.fn(async () => ({
+      status: 502,
+      json: async () => ({ ok: false, message: 'Finmo was unreachable (HTTP 403). The last snapshot was pulled 15 hours ago. To generate from that snapshot instead, confirm the stale-snapshot fallback.' }),
+    }))
+    const r1 = await runLenderNotesGeneration({ dealId: 'd-1', advisorContext: '', demo: false, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchFail as unknown as typeof fetch })
+    expect(r1.ok).toBe(false)
+    expect(r1.staleFallbackAvailable).toBe(true)
+
+    const fetchOk = vi.fn(async () => ({ status: 200, json: async () => ({ ok: true, data: { generatedText: 'N' } }) }))
+    await runLenderNotesGeneration({ dealId: 'd-1', advisorContext: '', demo: false, allowStale: true, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchOk as unknown as typeof fetch })
+    expect(JSON.parse((fetchOk.mock.calls[0]![1] as any).body)).toEqual({ allow_stale_snapshot: true })
+  })
+
+  it('a non-stale failure does not offer the fallback', async () => {
+    const fetchImpl = vi.fn(async () => ({ status: 502, json: async () => ({ ok: false, message: 'the note failed validation: contains an em dash' }) }))
+    const r = await runLenderNotesGeneration({ dealId: 'd-1', advisorContext: '', demo: false, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(r.ok).toBe(false)
+    expect(r.staleFallbackAvailable).toBe(false)
+  })
+
   it('omits advisor_context when blank', async () => {
     const fetchImpl = vi.fn(async (_url: string, _opts: any) => ({ status: 200, json: async () => ({ ok: true, data: { generatedText: 'N' } }) }))
     await runLenderNotesGeneration({
