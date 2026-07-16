@@ -55,6 +55,10 @@ export interface GenerateResult {
   /** The fresh Finmo pull failed and an older snapshot is available: the card
    * offers an explicit second click to generate from it (Step 1.2). */
   staleFallbackAvailable?: boolean
+  /** The draft is style + figure valid but over the character ceiling; shown
+   * labelled for a manual trim, with its count (2026-07-16). */
+  overCeiling?: boolean
+  chars?: number
 }
 
 // The workbench states this marker in a Finmo-pull-failure message; the card
@@ -98,6 +102,8 @@ export async function runLenderNotesGeneration(args: {
       ok: true, note: String(json.data.generatedText),
       finmoSnapshot: json.data.finmoSnapshot, callsInWindow: json.data.callsInWindow,
       emailsLinked: json.data.emailsLinked, replacedEditCount: json.data.replacedEditCount,
+      // Only carried when over the ceiling — a normal note keeps the existing shape.
+      ...(json.data.overCeiling === true ? { overCeiling: true, chars: json.data.chars } : {}),
     }
   }
   const message = json?.message ?? `Generation failed (HTTP ${res.status}).`

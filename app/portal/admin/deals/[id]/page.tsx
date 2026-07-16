@@ -49,6 +49,7 @@ import { closingHeaderAmber } from '@/lib/conditions-status'
 import { daysUntil } from '@/lib/compliance-logic'
 import { lenderDisplayName } from '@/config/lenders'
 import { fmtDateTime, fmtMoney, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
+import { dealGoalDisplay } from '@/lib/deal-goal'
 
 export const dynamic = 'force-dynamic'
 
@@ -103,14 +104,14 @@ function SectionFallback({ state, notGrantedCopy }: { state: SectionState<unknow
   return <Muted>This section did not load: {state.kind === 'error' ? state.message : 'unknown'}. Reload to retry.</Muted>
 }
 
-function Chip({ tone, children }: { tone: 'green' | 'amber' | 'red' | 'gray'; children: React.ReactNode }) {
+function Chip({ tone, children, title }: { tone: 'green' | 'amber' | 'red' | 'gray'; children: React.ReactNode; title?: string }) {
   const cls = {
     green: 'bg-green-100 text-green-700',
     amber: 'bg-amber-100 text-amber-800',
     red: 'bg-red-100 text-red-700',
     gray: 'bg-gray-100 text-gray-600',
   }[tone]
-  return <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{children}</span>
+  return <span title={title} className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{children}</span>
 }
 
 // Calc provenance line: the version and inputs hash the workbench stores
@@ -307,7 +308,19 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="font-heading text-navy text-2xl font-bold">{deal.fileRef}</h1>
-        <Chip tone="gray">{label(deal.dealType)}</Chip>
+        {(() => {
+          // Header honesty: when the deals row's type conflicts with the Finmo
+          // application goal, show the Finmo goal with a conflict marker rather
+          // than the record type as unqualified fact (corrected at source in Zoho).
+          const gd = dealGoalDisplay(deal.dealType, (finmoSnap?.mapped as { goal?: string } | null)?.goal)
+          return gd.conflict ? (
+            <Chip tone="amber" title={`The deal record type is "${gd.dealTypeLabel}", but the Finmo application goal is "${gd.goalLabel}". Showing the Finmo goal; correct the record in Zoho.`}>
+              {gd.goalLabel} <span className="font-normal opacity-70">· record says {gd.dealTypeLabel}</span>
+            </Chip>
+          ) : (
+            <Chip tone="gray">{label(deal.dealType)}</Chip>
+          )
+        })()}
         {deal.stage && <Chip tone="gray">{label(deal.stage)}</Chip>}
         <Chip tone={deal.status === 'active' ? 'green' : 'gray'}>{deal.status}</Chip>
         {closeDays !== null && (

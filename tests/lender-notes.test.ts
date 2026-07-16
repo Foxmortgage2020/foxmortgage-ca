@@ -68,9 +68,18 @@ describe('runLenderNotesGeneration', () => {
     expect(r1.ok).toBe(false)
     expect(r1.staleFallbackAvailable).toBe(true)
 
-    const fetchOk = vi.fn(async () => ({ status: 200, json: async () => ({ ok: true, data: { generatedText: 'N' } }) }))
+    const fetchOk = vi.fn(async (_url: string, _opts: any) => ({ status: 200, json: async () => ({ ok: true, data: { generatedText: 'N' } }) }))
     await runLenderNotesGeneration({ dealId: 'd-1', advisorContext: '', demo: false, allowStale: true, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchOk as unknown as typeof fetch })
-    expect(JSON.parse((fetchOk.mock.calls[0]![1] as any).body)).toEqual({ allow_stale_snapshot: true })
+    expect(JSON.parse((fetchOk.mock.calls[0]![1] as { body: string }).body)).toEqual({ allow_stale_snapshot: true })
+  })
+
+  it('surfaces the over-ceiling flag + count on an over-length draft; a normal note carries neither', async () => {
+    const over = vi.fn(async () => ({ status: 200, json: async () => ({ ok: true, data: { generatedText: 'LONG NOTE', overCeiling: true, chars: 4094 } }) }))
+    const r = await runLenderNotesGeneration({ dealId: 'd-1', advisorContext: '', demo: false, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: over as unknown as typeof fetch })
+    expect(r).toMatchObject({ ok: true, note: 'LONG NOTE', overCeiling: true, chars: 4094 })
+    const ok = vi.fn(async () => ({ status: 200, json: async () => ({ ok: true, data: { generatedText: 'N' } }) }))
+    const r2 = await runLenderNotesGeneration({ dealId: 'd-1', advisorContext: '', demo: false, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: ok as unknown as typeof fetch })
+    expect(r2.overCeiling).toBeUndefined()
   })
 
   it('a non-stale failure does not offer the fallback', async () => {

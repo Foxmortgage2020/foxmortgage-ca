@@ -94,9 +94,15 @@ export default function LenderNotesCard({
     const result = await runLenderNotesGeneration({ dealId, advisorContext: advisor, allowStale, ...tokenArgs })
     if (result.ok && result.note) {
       setDraft(result.note); setComposing(false); setDirty(false)
-      if (result.replacedEditCount && result.replacedEditCount > 0) {
-        setNotice('This regenerate replaced an edit you had saved. The edited version is kept in history.')
+      const notices: string[] = []
+      if (result.overCeiling) {
+        const over = (result.chars ?? result.note.length) - LENDER_NOTES_CEILING
+        notices.push(`This draft is over the ${LENDER_NOTES_CEILING.toLocaleString('en-CA')} character ceiling and was not auto-trimmed. The figures are validated; only the length is not. Trim about ${Math.max(1, over).toLocaleString('en-CA')} characters by hand before sending.`)
       }
+      if (result.replacedEditCount && result.replacedEditCount > 0) {
+        notices.push('This regenerate replaced an edit you had saved. The edited version is kept in history.')
+      }
+      if (notices.length) setNotice(notices.join(' '))
       if (!demo) router.refresh()
     } else {
       setError(result.message ?? 'Generation failed. Try again.')

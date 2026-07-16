@@ -402,6 +402,9 @@ export interface LenderNotesGenerateResponse {
   finmoSnapshot?: 'refreshed' | 'stale_fallback' | 'reused' | 'access_denied' | 'absent'
   snapshotPulledAt?: string | null
   staleSnapshotUsed?: boolean
+  /** Style + pinned-figure gates passed but the draft is over the character
+   * ceiling — shown labelled for a manual trim (2026-07-16). */
+  overCeiling?: boolean
   callsInWindow?: number
   emailsLinked?: number
 }
