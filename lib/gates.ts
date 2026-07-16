@@ -1003,3 +1003,76 @@ export async function getGatesHealth(): Promise<GatesHealth> {
     return { ...none, configured: true, reachable: false, error: 'unreachable' }
   }
 }
+
+// ─── Renewal drip (2026-07-16) ───────────────────────────────────────────────
+// The approval desk's write actions. CONTRACT with the workbench gates API
+// (renewal.decide, admin): approve SENDS (mode-gated on the workbench — ships
+// off), edit saves a superseding human_edited draft, skip cancels one touch,
+// exclude exits the sequence, autosend flips one tier (ships off). Every one
+// demo-blocked.
+
+export interface RenewalApproveResponse {
+  touchId: string
+  sentTo?: string
+  messageId?: string
+  mode?: 'test' | 'live'
+}
+export interface RenewalEditResponse {
+  touchId: string
+  draftId: string
+}
+export interface RenewalSkipResponse {
+  touchId: string
+}
+export interface RenewalExcludeResponse {
+  sequenceId: string
+}
+export interface RenewalAutosendResponse {
+  skeletonId: string
+  enabled: boolean
+}
+
+export function approveRenewalTouch(
+  touchId: string,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<RenewalApproveResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('approveRenewalTouch'))
+  return gateCall(`/api/gates/renewal/touches/${touchId}/approve`, withNote({}, note), token)
+}
+
+export function editRenewalTouchDraft(
+  touchId: string,
+  body: { subject?: string; body: string; note?: string },
+  token: string | null,
+): Promise<GateResult<RenewalEditResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('editRenewalTouchDraft'))
+  return gateCall(`/api/gates/renewal/touches/${touchId}/edit`, body, token)
+}
+
+export function skipRenewalTouch(
+  touchId: string,
+  reason: string,
+  token: string | null,
+): Promise<GateResult<RenewalSkipResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('skipRenewalTouch'))
+  return gateCall(`/api/gates/renewal/touches/${touchId}/skip`, { reason }, token)
+}
+
+export function excludeRenewalSequence(
+  sequenceId: string,
+  reason: string,
+  token: string | null,
+): Promise<GateResult<RenewalExcludeResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('excludeRenewalSequence'))
+  return gateCall(`/api/gates/renewal/sequences/${sequenceId}/exclude`, { reason }, token)
+}
+
+export function setRenewalAutosend(
+  tier: string,
+  enabled: boolean,
+  token: string | null,
+): Promise<GateResult<RenewalAutosendResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('setRenewalAutosend'))
+  return gateCall('/api/gates/renewal/autosend', { tier, enabled }, token)
+}

@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { can, requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getRenewalDeals } from '@/lib/zoho-admin'
-import { getAgentIdByEmail, getDealsSummary, getRateQuotesFull } from '@/lib/underwriting'
+import { getAgentIdByEmail, getDealsSummary, getRateQuotesFull, getRenewalSequenceStates, type RenewalSequenceState } from '@/lib/underwriting'
 import {
   RENEWAL_ACTIONS,
   appearsRenewedPending,
@@ -53,6 +53,23 @@ export default async function RenewalsPage() {
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
 
+  // Drip sequence state per Zoho deal (renewal-drip session, 2026-07-16):
+  // a chip on each card + the queue link in the header.
+  const dripRes = agentId ? await getRenewalSequenceStates(agentId) : isDemoMode() ? await getRenewalSequenceStates('demo') : null
+  const dripStates: RenewalSequenceState[] = dripRes && dripRes.configured && dripRes.ok ? dripRes.data : []
+  const dripByZoho = new Map(dripStates.map((s) => [s.zohoDealId, s]))
+  const dripLabel = (zohoId: string): string | null => {
+    const st = dripByZoho.get(zohoId)
+    if (!st) return null
+    if (st.status === 'active') {
+      return st.nextTouch
+        ? `drip active · next ${st.nextTouch.skeletonId.replace('touch-', '')}d (${st.nextTouch.status.replace(/_/g, ' ')})`
+        : 'drip active'
+    }
+    return `drip ${st.status}${st.exitReason ? ` (${st.exitReason.replace(/_/g, ' ')})` : ''}`
+  }
+  const dripPending = dripStates.filter((s) => s.nextTouch?.status === 'pending_approval' || s.nextTouch?.status === 'held').length
+
   let renewals
   try {
     renewals = await getRenewalDeals()
@@ -68,7 +85,7 @@ export default async function RenewalsPage() {
   if (!renewals) {
     return (
       <div className="max-w-3xl">
-        <Header />
+        <Header dripPending={dripPending} />
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-sm text-gray-500 font-body">
             The Zoho read failed, so the radar cannot compute right now. Reload in a moment; nothing
@@ -197,11 +214,12 @@ export default async function RenewalsPage() {
     zohoHref: zohoDealUrl(d.id),
     canDecide,
     actions: ALL_ACTIONS,
+    dripState: dripLabel(d.id),
   })
 
   return (
     <div className="max-w-4xl space-y-6">
-      <Header />
+      <Header dripPending={dripPending} />
 
       {/* ── Missing maturity: the block that must reach empty ── */}
       {renewals.missingMaturity.length > 0 ? (
@@ -390,10 +408,18 @@ export default async function RenewalsPage() {
   )
 }
 
-function Header() {
+function Header({ dripPending }: { dripPending: number }) {
   return (
     <div className="mb-1">
-      <h1 className="font-heading text-navy text-2xl font-bold">Renewals</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="font-heading text-navy text-2xl font-bold">Renewals</h1>
+        <Link
+          href="/portal/admin/renewals/drip"
+          className="text-xs font-semibold text-navy underline decoration-gray-300 hover:decoration-navy"
+        >
+          Renewal Drip{dripPending > 0 ? ` · ${dripPending} waiting` : ''}
+        </Link>
+      </div>
       <p className="text-gray-500 font-body text-sm mt-1">
         Every funded deal by maturity window. The payment shock is why a client answers the phone;
         the buckets are why none of them slips again.

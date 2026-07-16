@@ -209,3 +209,41 @@ describe('demo mode on the Desk count layer', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+describe('demo mode on the renewal drip (2026-07-16): canned queue, zero reads, writes blocked', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '',
+      headers: new Headers(),
+    } as unknown as Response)
+  })
+
+  it('the drip queue and sequence states resolve from fixtures with ZERO real reads', async () => {
+    const { getRenewalDripQueue, getRenewalSequenceStates } = await import('@/lib/underwriting')
+    const q = await getRenewalDripQueue('demo-agent')
+    const s = await getRenewalSequenceStates('demo-agent')
+    expect(q.configured && q.ok && q.data.length).toBeGreaterThan(0)
+    expect(s.configured && s.ok && s.data.length).toBeGreaterThan(0)
+    if (q.configured && q.ok) {
+      // The canned queue is synthetic clients only, with provenance rendered.
+      expect(q.data[0]!.clientName).toBe('Dana Whitfield')
+      expect(q.data[0]!.sentences[0]!.source).toBe('zoho:deal')
+      expect(q.data.some((i) => i.status === 'held')).toBe(true)
+    }
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('every drip write path rejects with DemoWriteBlocked and never calls fetch', async () => {
+    const { approveRenewalTouch, editRenewalTouchDraft, skipRenewalTouch, excludeRenewalSequence, setRenewalAutosend } = await import('@/lib/gates')
+    await expect(approveRenewalTouch('t1', 'tok')).rejects.toThrow(/Demo mode/)
+    await expect(editRenewalTouchDraft('t1', { body: 'x'.repeat(30) }, 'tok')).rejects.toThrow(/Demo mode/)
+    await expect(skipRenewalTouch('t1', 'why', 'tok')).rejects.toThrow(/Demo mode/)
+    await expect(excludeRenewalSequence('s1', 'why', 'tok')).rejects.toThrow(/Demo mode/)
+    await expect(setRenewalAutosend('touch-150', true, 'tok')).rejects.toThrow(/Demo mode/)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})

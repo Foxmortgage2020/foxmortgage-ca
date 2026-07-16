@@ -104,6 +104,7 @@ export default function RenewalCard({
   zohoHref,
   canDecide,
   actions,
+  dripState,
 }: {
   deal: RenewalDeal
   shock: PaymentShock
@@ -114,6 +115,9 @@ export default function RenewalCard({
   zohoHref: string
   canDecide: boolean
   actions: RenewalActionDef[]
+  /** The drip sequence state line for this deal ("drip active · next 90d Sep 14"),
+   * null when the client is not enrolled (renewal-drip session, 2026-07-16). */
+  dripState?: string | null
 }) {
   const router = useRouter()
   const [armed, setArmed] = useState<string | null>(null)
@@ -177,6 +181,9 @@ export default function RenewalCard({
             >
               {daysRemaining < 0 ? `${Math.abs(daysRemaining)}d overdue` : `${daysRemaining}d out`}
             </p>
+          )}
+          {dripState && (
+            <p className="mt-0.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{dripState}</p>
           )}
         </div>
       </div>

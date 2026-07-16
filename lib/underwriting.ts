@@ -75,6 +75,8 @@ import {
   demoKnowledgeClaims,
   demoKnowledgeDocuments,
   demoKnowledgePageHits,
+  demoRenewalDripQueue,
+  demoRenewalSequenceStates,
 } from '@/lib/demo-fixtures'
 
 export type UwResult<T> =
@@ -2479,4 +2481,163 @@ export async function getRateQuoteStats(agentId: string): Promise<UwResult<RateQ
     }
     return { approvedCurrent, superseded, extracted, newestApprovedAsOf }
   })
+}
+
+// ─── Renewal drip (2026-07-16) ───────────────────────────────────────────────
+// The approval desk's READ side: pending/held touches with their current
+// draft + per-sentence provenance (sources_snapshot), and a per-Zoho-deal
+// sequence-state map for the Radar cards and the deal room. All through
+// portal_readonly (migration 0047 grants); demo mode returns canned fixtures
+// (zero reads).
+
+export interface RenewalDripSentence {
+  text: string
+  source: string
+}
+
+export interface RenewalDripQueueItem {
+  touchId: string
+  sequenceId: string
+  skeletonId: string
+  status: 'pending_approval' | 'held'
+  heldReason: string | null
+  scheduledFor: string | null
+  clientName: string | null
+  firstName: string | null
+  clientEmail: string | null
+  zohoDealId: string
+  maturityDate: string
+  subject: string
+  body: string
+  sentences: RenewalDripSentence[]
+  dropped: { text: string; reason: string }[]
+  pins: Record<string, { value: string; source: string } | null>
+  skeletonHash: string | null
+  draftSource: 'generated' | 'human_edited'
+}
+
+export interface RenewalSequenceState {
+  sequenceId: string
+  zohoDealId: string
+  status: string
+  exitReason: string | null
+  maturityDate: string
+  clientName: string | null
+  nextTouch: { skeletonId: string; scheduledFor: string | null; status: string } | null
+  sentCount: number
+}
+
+export async function getRenewalDripQueue(agentId: string): Promise<UwResult<RenewalDripQueueItem[]>> {
+  if (isDemoMode()) return demoResult(demoRenewalDripQueue)
+  if (!workbenchConfigured()) return { configured: false }
+  const touches = await uwSelectAll<{
+    id: string; sequence_id: string; skeleton_id: string; status: string
+    held_reason: string | null; scheduled_for: string | null
+  }>('renewal_touches', {
+    select: 'id,sequence_id,skeleton_id,status,held_reason,scheduled_for',
+    agent_id: `eq.${agentId}`,
+    status: 'in.(pending_approval,held)',
+    order: 'scheduled_for.asc',
+  })
+  if (!touches.configured || !touches.ok) return touches
+  if (!touches.data.length) return { configured: true, ok: true, data: [] }
+
+  const seqIds = Array.from(new Set(touches.data.map((t) => t.sequence_id)))
+  const seqs = await uwSelectAll<{
+    id: string; zoho_deal_id: string; client_name: string | null; first_name: string | null
+    client_email: string | null; maturity_date: string
+  }>('renewal_sequences', {
+    select: 'id,zoho_deal_id,client_name,first_name,client_email,maturity_date',
+    agent_id: `eq.${agentId}`,
+    id: `in.(${seqIds.join(',')})`,
+  })
+  if (!seqs.configured || !seqs.ok) return seqs
+  const seqById = new Map(seqs.data.map((s) => [s.id, s]))
+
+  const touchIds = touches.data.map((t) => t.id)
+  const drafts = await uwSelectAll<{
+    touch_id: string; subject: string; body: string; source: string
+    sources_snapshot: Record<string, unknown> | null
+  }>('renewal_touch_drafts', {
+    select: 'touch_id,subject,body,source,sources_snapshot',
+    agent_id: `eq.${agentId}`,
+    touch_id: `in.(${touchIds.join(',')})`,
+    status: 'eq.draft',
+  })
+  if (!drafts.configured || !drafts.ok) return drafts
+  const draftByTouch = new Map(drafts.data.map((d) => [d.touch_id, d]))
+
+  const items: RenewalDripQueueItem[] = []
+  for (const t of touches.data) {
+    const seq = seqById.get(t.sequence_id)
+    const draft = draftByTouch.get(t.id)
+    if (!seq || !draft) continue
+    const snap = (draft.sources_snapshot ?? {}) as {
+      skeleton_hash?: string
+      pins?: Record<string, { value: string; source: string } | null>
+      personalization?: { sentences?: RenewalDripSentence[]; dropped?: { text: string; reason: string }[] }
+    }
+    items.push({
+      touchId: t.id,
+      sequenceId: t.sequence_id,
+      skeletonId: t.skeleton_id,
+      status: t.status as 'pending_approval' | 'held',
+      heldReason: t.held_reason,
+      scheduledFor: t.scheduled_for,
+      clientName: seq.client_name,
+      firstName: seq.first_name,
+      clientEmail: seq.client_email,
+      zohoDealId: seq.zoho_deal_id,
+      maturityDate: seq.maturity_date,
+      subject: draft.subject,
+      body: draft.body,
+      sentences: snap.personalization?.sentences ?? [],
+      dropped: snap.personalization?.dropped ?? [],
+      pins: snap.pins ?? {},
+      skeletonHash: snap.skeleton_hash ?? null,
+      draftSource: draft.source === 'human_edited' ? 'human_edited' : 'generated',
+    })
+  }
+  return { configured: true, ok: true, data: items }
+}
+
+export async function getRenewalSequenceStates(agentId: string): Promise<UwResult<RenewalSequenceState[]>> {
+  if (isDemoMode()) return demoResult(demoRenewalSequenceStates)
+  if (!workbenchConfigured()) return { configured: false }
+  const seqs = await uwSelectAll<{
+    id: string; zoho_deal_id: string; status: string; exit_reason: string | null
+    maturity_date: string; client_name: string | null
+  }>('renewal_sequences', {
+    select: 'id,zoho_deal_id,status,exit_reason,maturity_date,client_name',
+    agent_id: `eq.${agentId}`,
+  })
+  if (!seqs.configured || !seqs.ok) return seqs
+  if (!seqs.data.length) return { configured: true, ok: true, data: [] }
+  const touches = await uwSelectAll<{
+    sequence_id: string; skeleton_id: string; scheduled_for: string | null; status: string
+  }>('renewal_touches', {
+    select: 'sequence_id,skeleton_id,scheduled_for,status',
+    agent_id: `eq.${agentId}`,
+    order: 'scheduled_for.asc',
+  })
+  if (!touches.configured || !touches.ok) return touches
+  const byBySeq = new Map<string, { skeleton_id: string; scheduled_for: string | null; status: string }[]>()
+  for (const t of touches.data) {
+    byBySeq.set(t.sequence_id, [...(byBySeq.get(t.sequence_id) ?? []), t])
+  }
+  const states: RenewalSequenceState[] = seqs.data.map((s) => {
+    const ts = byBySeq.get(s.id) ?? []
+    const next = ts.find((t) => ['scheduled', 'drafted', 'pending_approval', 'held', 'approved'].includes(t.status)) ?? null
+    return {
+      sequenceId: s.id,
+      zohoDealId: s.zoho_deal_id,
+      status: s.status,
+      exitReason: s.exit_reason,
+      maturityDate: s.maturity_date,
+      clientName: s.client_name,
+      nextTouch: next ? { skeletonId: next.skeleton_id, scheduledFor: next.scheduled_for, status: next.status } : null,
+      sentCount: ts.filter((t) => t.status === 'sent').length,
+    }
+  })
+  return { configured: true, ok: true, data: states }
 }

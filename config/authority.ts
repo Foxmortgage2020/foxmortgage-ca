@@ -109,6 +109,10 @@ export const PERMISSIONS = {
   // CONTRACT key with the workbench gates API; tenancy-scoped there. A read,
   // granted to every internal role that can see a deal room.
   'document.view': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
+  // Renewal drip (2026-07-16, CONTRACT key with the workbench gates API):
+  // approve/edit/skip a drip touch, exclude a client, change the auto-send
+  // toggle — client-facing outbound decisions, admin-only.
+  'renewal.decide': ['admin'],
   // ── Additive view keys (Session 1) ─────────────────────────────────────
   // Nav and page gating for sections the original matrix carries no key
   // for. All seeded admin-only except where a broader default is safe.
@@ -179,6 +183,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',
+  'renewal.decide': 'Approve, edit, or skip renewal drip messages and manage drip enrollment',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',
   'intel.view': 'See the lender intel feed',

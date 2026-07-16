@@ -32,6 +32,7 @@ import {
   getRateQuotesFull,
   isPermissionRefusal,
   type UwResult,
+  getRenewalSequenceStates,
 } from '@/lib/underwriting'
 import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
 import CommitmentUploader from '@/components/admin/CommitmentUploader'
@@ -247,6 +248,21 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // names. Fetch the active constraints and compute the cost from the eligible
   // fixed book (province + program filtered), then hand the top one to the
   // compliance card, which counts it toward documented posture.
+  // Renewal drip state for this room (renewal-drip session, 2026-07-16):
+  // matched by the deal's Zoho id; absent when the client is not enrolled.
+  let dripLine: string | null = null
+  if (deal.zohoPotentialId) {
+    const dripRes = await getRenewalSequenceStates(agentId)
+    if (dripRes.configured && dripRes.ok) {
+      const st = dripRes.data.find((x) => x.zohoDealId === deal.zohoPotentialId)
+      if (st) {
+        dripLine = st.status === 'active'
+          ? `Renewal drip active${st.nextTouch ? ` · next touch ${st.nextTouch.skeletonId.replace('touch-', '')}d (${st.nextTouch.status.replace(/_/g, ' ')})` : ''} · ${st.sentCount} sent`
+          : `Renewal drip ${st.status}${st.exitReason ? ` (${st.exitReason.replace(/_/g, ' ')})` : ''}`
+      }
+    }
+  }
+
   const clientKey = deal.zohoPotentialId ?? deal.fileRef
   const constraintsRes = await constraintsFor(clientKey)
   const activeList = activeConstraints(
@@ -383,6 +399,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
           </p>
         </div>
       </div>
+      {dripLine && (
+        <p className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+          {dripLine} · <a className="underline ml-1" href="/portal/admin/renewals/drip">queue</a>
+        </p>
+      )}
       <div className="mt-2 flex flex-wrap gap-4 text-xs font-body">
         {deal.zohoPotentialId ? (
           <a

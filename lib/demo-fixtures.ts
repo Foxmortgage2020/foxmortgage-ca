@@ -46,6 +46,8 @@ import type {
   LenderNotesRow,
   FinmoSnapshotRow,
   DealContextCounts,
+  RenewalDripQueueItem,
+  RenewalSequenceState,
 } from '@/lib/underwriting'
 import type { ConditionCount } from '@/lib/conditions-status'
 import type { SlimDeal, OpenTask, SlimLead } from '@/lib/zoho-admin'
@@ -660,4 +662,55 @@ export const demoKnowledgeClaims: KnowledgeClaimRow[] = [
 
 export const demoKnowledgePageHits: KnowledgePageHit[] = [
   { documentId: 'demo-kd-1', pageNo: 4, snippet: 'Demo guide text — synthetic passage matching the search term, kept short.' },
+]
+
+// ─── Renewal drip (2026-07-16): the canned approval queue ────────────────────
+// Synthetic clients only. Demo mode performs zero workbench reads and every
+// drip write is DemoWriteBlocked; this is the whole surface a demo sees.
+export const demoRenewalDripQueue: RenewalDripQueueItem[] = [
+  {
+    touchId: 'demo-rt-1', sequenceId: 'demo-rs-1', skeletonId: 'touch-150',
+    status: 'pending_approval', heldReason: null, scheduledFor: '2026-07-14',
+    clientName: 'Dana Whitfield', firstName: 'Dana', clientEmail: 'dana@example.com',
+    zohoDealId: 'demo-zoho-1', maturityDate: '2026-12-11',
+    subject: 'quick heads up about your mortgage',
+    body: "Hi Dana,\n\nI wanted to give you a quick heads up.\n\nYour mortgage is set to renew on December 11, 2026 for your place on Maple Crescent. It's still a few months away, but this is the window where you actually have choices. Waiting too long tends to narrow them.\n\nIt's hard to believe it's been almost five years since we set this one up.\n\nThere's no urgency right now.\n\nMichael",
+    sentences: [{ text: "It's hard to believe it's been almost five years since we set this one up.", source: 'zoho:deal' }],
+    dropped: [],
+    pins: {
+      first_name: { value: 'Dana', source: 'zoho:Contacts.First_Name (demo)' },
+      maturity_date: { value: 'December 11, 2026', source: 'zoho:Potentials.Maturity_Date (demo)' },
+      property_reference: { value: 'your place on Maple Crescent', source: 'zoho:Potentials.Street (demo)' },
+    },
+    skeletonHash: 'demo-hash', draftSource: 'generated',
+  },
+  {
+    touchId: 'demo-rt-2', sequenceId: 'demo-rs-2', skeletonId: 'touch-60',
+    status: 'held', heldReason: 'calendar link not configured', scheduledFor: '2026-07-15',
+    clientName: 'Priya Raman', firstName: 'Priya', clientEmail: 'priya@example.com',
+    zohoDealId: 'demo-zoho-2', maturityDate: '2026-09-13',
+    subject: "60 days left, here's what to do",
+    body: "Hi Priya,\n\nYou're now about 60 days away from your mortgage renewal on September 13, 2026.\n\nThis is the point where we want to start making decisions.\n\nMichael",
+    sentences: [], dropped: [],
+    pins: {
+      first_name: { value: 'Priya', source: 'zoho:Contacts.First_Name (demo)' },
+      maturity_date: { value: 'September 13, 2026', source: 'zoho:Potentials.Maturity_Date (demo)' },
+    },
+    skeletonHash: 'demo-hash', draftSource: 'generated',
+  },
+]
+
+export const demoRenewalSequenceStates: RenewalSequenceState[] = [
+  {
+    sequenceId: 'demo-rs-1', zohoDealId: 'demo-zoho-1', status: 'active', exitReason: null,
+    maturityDate: '2026-12-11', clientName: 'Dana Whitfield',
+    nextTouch: { skeletonId: 'touch-150', scheduledFor: '2026-07-14', status: 'pending_approval' },
+    sentCount: 0,
+  },
+  {
+    sequenceId: 'demo-rs-2', zohoDealId: 'demo-zoho-2', status: 'active', exitReason: null,
+    maturityDate: '2026-09-13', clientName: 'Priya Raman',
+    nextTouch: { skeletonId: 'touch-60', scheduledFor: '2026-07-15', status: 'held' },
+    sentCount: 1,
+  },
 ]
