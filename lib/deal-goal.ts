@@ -1,9 +1,12 @@
 // Deal-type vs Finmo-goal honesty (2026-07-16). The deals row's `deal_type` can
-// disagree with the Finmo application's `goal` (BRXM-F053107: the record says
+// disagree with the Finmo application's `goal` (BRXM-F053107: the record said
 // purchase, Finmo says refinance). The deal header must NOT present the record's
 // type as unqualified fact when the two conflict; it shows the Finmo goal with a
-// conflict marker. Display only — the deals row is corrected at source in Zoho by
-// Michael; this file writes nothing.
+// conflict marker. Display only — this file writes nothing. The deals row is
+// corrected at the layer that WROTE it: a bridge-provisioned room's type is
+// Zoho's transactionType (fix in Zoho), an ingest-written row via the
+// workbench's `npm run deal:type-from-goal` (F053107 corrected 2026-07-16 —
+// the chip cleared on its own once deal_type read 'refi').
 //
 // The shape mapping mirrors the workbench's dealShapeOf (fox-underwriting
 // src/skills/notes/lenderNotesSnapshot.ts) so the portal and the note agree on

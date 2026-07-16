@@ -552,6 +552,11 @@ export interface ConditionVerifyResponse {
   presence?: string
   verifiedAt?: string
   auditId?: string
+  /** Additive (workbench cleanup, 2026-07-16): when the verified condition
+   * carried an analysed value, the id of the provenanced evidence row the
+   * verify promoted it to; null when nothing was promoted (the audit detail
+   * carries the skip reason). */
+  evidenceId?: string | null
 }
 
 export function verifyCondition(

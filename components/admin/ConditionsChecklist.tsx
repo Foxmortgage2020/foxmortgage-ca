@@ -959,6 +959,7 @@ interface AnalysisData {
   rule_note?: string | null
   recency?: { days?: number | null; doc_age_days?: number | null; ok?: boolean | null } | null
   value_citation?: { page?: number | null; snippet?: string | null } | null
+  requirement_citation?: { page?: number | null; snippet?: string | null } | null
   document_id?: string | null
   as_of?: string | null
   confidence?: number | null
@@ -1041,6 +1042,18 @@ function AnalysisBlock({
 
       {/* The rule note (2-year average, appraisal addressee, stale) in words. */}
       {analysis.rule_note && <p className="mt-0.5">{analysis.rule_note}</p>}
+
+      {/* Requirement provenance: where the TARGET side came from — the matched
+          text for a parsed target (workbench cleanup, 2026-07-16), or the
+          human-set marker. Cited on both sides, not only the value. */}
+      {analysis.requirement_source === 'manual' ? (
+        <p className="mt-0.5 opacity-90">Requirement target set by hand</p>
+      ) : analysis.requirement_citation?.snippet ? (
+        <p className="mt-0.5 opacity-90">
+          Requirement from{analysis.requirement_citation.page != null ? ` p${analysis.requirement_citation.page}` : ''}:{' '}
+          <span className="italic">&ldquo;{analysis.requirement_citation.snippet}&rdquo;</span>
+        </p>
+      ) : null}
 
       {/* The reasoning fallback when there are no figures to line up. */}
       {!hasFigures && analysis.reasoning && <p className="mt-1">{analysis.reasoning}</p>}
