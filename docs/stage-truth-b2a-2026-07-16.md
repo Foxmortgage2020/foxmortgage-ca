@@ -75,7 +75,7 @@ required.
 ## Census: before → after (every move justified, zero unexplained)
 
 All seven live rooms link to Zoho deals present in the fetch; **zero cards use the fallback**.
-Five moves, two stays, each cited by the live Zoho display stage:
+Six moves, one stay (BRXM-F053724 alone), each cited by the live Zoho display stage:
 
 | File | Room stage | Old column | Live Zoho display stage | New column |
 |---|---|---|---|---|
@@ -94,7 +94,7 @@ practice's live work is concentrated at conditions and beyond, not in intake.
 **Today page:** the same 8 active files with the same amounts and the same per-stage counts;
 the one label change is the point — the `Ready To Close` row now reads `Broker Complete`
 (1 file), and the unmapped-stage list is **empty** (was: Ready To Close, 1 file, $527,773).
-Weighted pipeline consequently rises by 0.9 × $527,773 = **+$475,095.70** with no weights
+Weighted pipeline consequently rises by 0.9 × $527,773 = **+$474,995.70** with no weights
 edit — that is the amber clearing, exactly as intended.
 
 ## Demo mode
