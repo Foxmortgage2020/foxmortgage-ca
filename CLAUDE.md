@@ -793,6 +793,27 @@ rate-product-<id>, pin-<id>) so tests can scope to TEST rows; the Rates v2
 view keeps every level and pin state URL-addressable so screenshots and
 checks navigate instead of clicking.
 
+**RENDER PROOFS: the blessed pattern (STANDING RULE, B5 2026-07-17 — this
+REPLACES the temp-public-route pattern used through B1–B4).** Render proofs
+run against the local dev server on the DEV Clerk instance, signed in as an
+ephemeral TEST admin created at the start of the session and DELETED before
+it ends, navigating READ-ONLY (no decision control is ever touched). The
+temp-route pattern — adding a throwaway public /preview-* route plus a
+middleware entry, screenshotting, then reverting — is RETIRED: it edited
+middleware to prove a page, which is exactly the file least safe to churn,
+and it left a public unauthenticated route in the tree for the length of a
+session. The dev-instance pattern proves the REAL page through the REAL
+shell and gates, which the temp route never did.
+Mechanics that make it cheap (learned B4): the dev Clerk instance enforces
+email_code as a second factor and the custom sign-in form only handles first
+factors, so drive sign-in through Clerk JS in the browser console with the
+fixed dev code 424242; the Clerk backend API refuses python-urllib's default
+agent with Cloudflare 1010, so send a browser User-Agent. Screenshots are
+referenced in the report, never committed.
+For a CLIENT-FACING surface (B5 onward) the same rule holds with one
+addition: proofs use the SYNTHETIC fixture only. A real client's page is
+never opened to take a screenshot.
+
 ### Approvals desk, Deals, Audit viewer (Session 3)
 - /portal/admin/approvals: four queues (statements, rate sheets, flags, shadow) in
   `components/admin/ApprovalsDesk.tsx` (client) over `lib/approvals-data.ts` (shared

@@ -57,7 +57,8 @@ export default function Home() {
               'FSRA #13463',
               'Fergus · Guelph · Wellington County',
               '200+ Clients Monitored',
-              '⭐ 5.0 Google Rating',
+              // A star rating returns when there are real reviews to average.
+              // /smm has always omitted one for exactly this reason.
             ].map((item) => (
               <span key={item} className="font-body text-sm text-white/70 font-medium whitespace-nowrap">
                 {item}
@@ -264,47 +265,17 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── SOCIAL PROOF ── */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <p className="font-body text-sm text-gray-500 mb-2">⭐⭐⭐⭐⭐ Based on Google Reviews</p>
-            <h2 className="font-heading font-bold text-3xl text-navy">What clients say</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                name: 'Sarah M.',
-                location: 'Fergus, ON',
-                text: "Michael caught a rate drop 6 months before my renewal and saved me thousands. The monitoring program is exactly what I needed — I didn't even know this kind of service existed.",
-              },
-              {
-                name: 'James & Lisa T.',
-                location: 'Guelph, ON',
-                text: "First-time buyers and we were completely overwhelmed. Michael walked us through everything and found us a rate we didn't think we'd qualify for. Highly recommend.",
-              },
-              {
-                name: 'David K.',
-                location: 'Wellington County, ON',
-                text: "Switched from my bank after Michael showed me what I was leaving on the table. The whole process was seamless. Three years later, still getting proactive check-ins.",
-              },
-            ].map((review) => (
-              <div key={review.name} className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-                <div className="flex mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-lime text-lg">★</span>
-                  ))}
-                </div>
-                <p className="font-body text-gray-600 text-sm leading-relaxed mb-6 italic">"{review.text}"</p>
-                <div>
-                  <p className="font-heading font-bold text-navy text-sm">{review.name}</p>
-                  <p className="font-body text-xs text-gray-400">{review.location}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ── SOCIAL PROOF ──
+          Removed 2026-07-17 (B5 Task 0). The three testimonials here were
+          placeholders presented under a "Based on Google Reviews" banner:
+          invented reviews attributed to a real review platform, on a licensed
+          agent's site. Michael confirmed they were never real.
+
+          This section returns when there are consented reviews to show, with
+          the client's approval on record — the same bar /smm has always held
+          (its two testimonials are approved and dated; it shows no star rating
+          because there are no reviews to average yet). Collecting them is a
+          comms-phase item on the roadmap. */}
 
       {/* ── PRIMARY CTA ── */}
       <section className="py-20 bg-navy">
