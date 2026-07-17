@@ -10,7 +10,7 @@ describe('viewAsWriteRejection', () => {
     const rejection = viewAsWriteRejection({
       role: 'fp',
       partnerId: '7112178000003669036',
-      partnerName: 'Ben Zavitz',
+      partnerName: 'Dana Okafor',
     })
     expect(rejection).not.toBeNull()
     expect(rejection!.status).toBe(403)

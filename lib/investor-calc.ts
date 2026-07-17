@@ -130,7 +130,7 @@ export function isIncomeActive(input: InvestmentInput, asOf: Date = new Date()):
  * one additional payment per ~30.4-day period elapsed. Anchored on
  * firstPaymentDate; returns 0 if that date isn't set.
  *
- * Worked example (Nick Hishon, BRXM-F025315):
+ * Worked example (BRXM-F025315):
  *   firstPaymentDate = 2025-02-15, payoutDate = 2025-02-26 (11 days)
  *   floor(11 / 30.4375) + 1 = 0 + 1 = 1 full monthly payment
  *   Plus a partial Feb 15-26 period → finalPeriodInterest = $506.30
@@ -168,7 +168,7 @@ export function monthsActive(input: InvestmentInput, asOf: Date = new Date()): n
  * positions without a payoutDate (legacy data), or when the payout date
  * lands exactly on a payment anniversary (no partial period).
  *
- * Worked example (Nick):
+ * Worked example (BRXM-F025315):
  *   firstPaymentDate = 2025-02-15, payoutDate = 2025-02-26
  *   last anniversary <= payout: Feb 15 (next would be Mar 15)
  *   days = 11 → per diem 11 × ($120,000 × 0.14 / 365) = $506.30
@@ -223,7 +223,7 @@ export function firstPeriodAdjustment(input: InvestmentInput): number {
  *   final      = per diem for partial final period (paid-out only)
  *   firstAdj   = correction for partial first period (usually 0)
  *
- * Nick: 1 × $1,400 + $506.30 + 0 = $1,906.30
+ * BRXM-F025315: 1 × $1,400 + $506.30 + 0 = $1,906.30
  */
 export function interestEarned(input: InvestmentInput, asOf: Date = new Date()): number {
   const base = monthsActive(input, asOf) * input.paymentAmount
@@ -295,11 +295,11 @@ export function termDisplay(input: InvestmentInput, asOf: Date = new Date()): Te
  *   - firstPaymentDate is on or before the last day of the month, AND
  *   - the position had not yet been paid out by the first day of the
  *     month — i.e. investorPayoutDate (if any) falls in this month or
- *     later. The payout MONTH still counts as active (Nick's Feb 26
+ *     later. The payout MONTH still counts as active (the file's Feb 26
  *     2025 payout still earns a Feb payment plus per diem), but
  *     every month after the payout is not.
  *
- * Verification using Nick (BRXM-F025315):
+ * Verification using BRXM-F025315:
  *   firstPaymentDate 2025-02-15, payoutDate 2025-02-26
  *   isActiveInMonth(2025, 0)  → false (Jan 2025 — no payment received)
  *   isActiveInMonth(2025, 1)  → true  (Feb 2025 — full payment + per diem)
@@ -338,7 +338,7 @@ export function isActiveInMonth(
  *   - Payout month → input.paymentAmount + per diem for the days
  *     between the last regular payment anniversary and the payout date
  *
- * Verification using Nick (firstPaymentDate Feb 15 2025, payout Feb 26 2025):
+ * Verification using BRXM-F025315 (firstPaymentDate Feb 15 2025, payout Feb 26 2025):
  *   interestForMonth(2025, 0) → 0       (Jan — no payment received)
  *   interestForMonth(2025, 1) → 1906.30 (Feb — full $1,400 + 11-day per diem)
  *   interestForMonth(2025, 2) → 0       (Mar — after payout)
@@ -437,7 +437,7 @@ export type CashFlow = {
  *
  * Returns [] if closingDate is missing.
  *
- * Worked example (Nick, BRXM-F025315):
+ * Worked example (BRXM-F025315, cont.):
  *   closing 2025-01-15, firstPayment 2025-02-15, payout 2025-02-26
  *   investorAmount 120000, paymentAmount 1400, lenderFee 2800
  *   →

@@ -69,8 +69,9 @@ async function buildDealsGroup(q: string): Promise<GroupInput> {
 async function buildContactsGroup(q: string): Promise<GroupInput> {
   try {
     let contacts = await withTimeout(searchZohoContacts(q, 'word'), TIMEOUT_MS)
-    // Zoho word search matches whole tokens, so "Nick Aitken" misses a
-    // contact stored as "Nicholas Aitken". Retry on the longest token.
+    // Zoho word search matches whole tokens, so a short-form first name
+    // ("Jo Wells") misses a contact stored under the full form ("Jordan
+    // Wells"). Retry on the longest token.
     if (contacts.length === 0) {
       const tokens = q.split(/\s+/).filter(t => t.length >= 3)
       const longest = tokens.sort((a, b) => b.length - a.length)[0]

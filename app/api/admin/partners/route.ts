@@ -95,8 +95,8 @@ export async function GET(req: Request) {
       const md = (u.publicMetadata ?? {}) as Record<string, unknown>
       // Clerk metadata in this org has three inconsistent shapes that all
       // need to resolve to the same string[]:
-      //   1. `roles: ['financial-planner']` (plural array)        — Ben Zavitz
-      //   2. `roles: 'investor'`            (plural key, string)  — Dominic Tersigni
+      //   1. `roles: ['financial-planner']` (plural array)        — the first FP partner account
+      //   2. `roles: 'investor'`            (plural key, string)  — the live investor partner account
       //   3. `role:  'admin'`               (singular key, string) — Mike Fox
       const userRoles: string[] = Array.isArray(md.roles)
         ? (md.roles as string[])

@@ -12,7 +12,7 @@ const nav: NavItemLike[] = [
 
 describe('normalizeQuery', () => {
   it('trims, collapses whitespace, and lowercases', () => {
-    expect(normalizeQuery('  Nick   Aitken ')).toBe('nick aitken')
+    expect(normalizeQuery('  Jo   Wells ')).toBe('jo wells')
   })
 })
 
@@ -71,15 +71,15 @@ describe('rankDeals', () => {
 
   it('joins a workbench deal to its Zoho row and emits it once (dedup)', () => {
     const workbench = [wb({ id: 'wb-9', fileRef: 'BRXM-F053724', zohoPotentialId: 'zoho-9' })]
-    const zoho = [zd({ id: 'zoho-9', dealName: 'Gianna Reinders Refi' })]
-    const res = rankDeals(workbench, zoho, 'reinders')
+    const zoho = [zd({ id: 'zoho-9', dealName: 'Ava Lindqvist Refi' })]
+    const res = rankDeals(workbench, zoho, 'lindqvist')
     expect(res).toHaveLength(1)
     expect(res[0].id).toBe('wb-9')
-    expect(res[0].title).toBe('Gianna Reinders Refi')
+    expect(res[0].title).toBe('Ava Lindqvist Refi')
     expect(res[0].href).toBe('/portal/admin/deals/wb-9')
     // The Zoho row was consumed by the join and does not appear again even
     // though its name also matches.
-    expect(res.filter(r => r.title === 'Gianna Reinders Refi')).toHaveLength(1)
+    expect(res.filter(r => r.title === 'Ava Lindqvist Refi')).toHaveLength(1)
   })
 
   it('matches on the file ref and falls back to the file ref as the title when no Zoho name joins', () => {
@@ -92,7 +92,7 @@ describe('rankDeals', () => {
   })
 
   it('includes a Zoho-only match with a list href when no workbench row exists', () => {
-    const res = rankDeals([], [zd({ id: 'z-42', dealName: 'Tersigni Investment' })], 'tersigni')
+    const res = rankDeals([], [zd({ id: 'z-42', dealName: 'Fraser Investment' })], 'fraser')
     expect(res).toHaveLength(1)
     expect(res[0].id).toBe('z-42')
     expect(res[0].href).toContain('/portal/admin/deals?q=')

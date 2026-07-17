@@ -1,7 +1,7 @@
 // SMM matching, backfill, and lapsed-reconciliation tests. Synthetic data
 // only. Proves the confidence-ordered match, the empty-field-only backfill
-// with conflicts listed (Aitken fill, Reinders maturity conflict), the lapsed
-// reconciliation classes (Scanlon still-with-lender, Jackett lender-changed,
+// with conflicts listed (the empty-fill case, the maturity-conflict case), the lapsed
+// reconciliation classes (still-with-lender, lender-changed,
 // Pellerin stale-rate conflict), and the approved comparable.
 
 import { describe, expect, it } from 'vitest'
@@ -225,7 +225,7 @@ describe('ACCEPTANCE: two mortgages, one email — zero automatic proposals, one
 
 describe('backfill proposals (empty fields only, conflicts listed)', () => {
   const writable = new Set(['Maturity_Date', 'Lender_Name', 'Mortgage_Rate'])
-  it('fills an empty maturity from the export (the Aitken case)', () => {
+  it('fills an empty maturity from the export (the empty-maturity case)', () => {
     const p = proposeBackfill(
       { Maturity_Date: null, Lender_Name: 'RFA', Mortgage_Rate: 1.99 },
       { maturityDate: '2026-10-01', lenderName: 'RFA Prime', rate: 1.99 },
@@ -236,7 +236,7 @@ describe('backfill proposals (empty fields only, conflicts listed)', () => {
     expect(p.fills.find(f => f.field === 'Lender_Name')).toBeUndefined()
     expect(p.conflicts).toHaveLength(0)
   })
-  it('never proposes overwriting a populated field; lists the conflict (the Reinders maturity case)', () => {
+  it('never proposes overwriting a populated field; lists the conflict (the populated-maturity case)', () => {
     const p = proposeBackfill(
       { Maturity_Date: '2026-11-18', Lender_Name: 'First National', Mortgage_Rate: 4.05 },
       { maturityDate: '2031-06-18', lenderName: 'First National - Prime', rate: 4.05 },
@@ -270,7 +270,7 @@ function mortgage(over: Record<string, string>): SmmMortgage {
 }
 
 describe('lapsed reconciliation', () => {
-  it('still-with-original-lender is recoverable (the Scanlon case)', () => {
+  it('still-with-original-lender is recoverable (the still-with-lender case)', () => {
     const r = reconcileLapsed(
       { lender: 'RMG Mortgages', rate: 1.84, maturity: '2026-04-22' },
       mortgage({ 'Mortgage lender': 'RMG Mortgages', 'Mortgage rate': '1.84%', 'Mortgage maturity date': '2026-04-22' }),
@@ -279,7 +279,7 @@ describe('lapsed reconciliation', () => {
     expect(r.recoverable).toBe(true)
     expect(r.conflicts).toHaveLength(0)
   })
-  it('lender-changed is not recoverable and cannot say won or lost (the Jackett case)', () => {
+  it('lender-changed is not recoverable and cannot say won or lost (the lender-changed case)', () => {
     const r = reconcileLapsed(
       { lender: 'RMG Mortgages', rate: 4.12, maturity: '2030-04-03' },
       mortgage({ 'Mortgage lender': 'TD Canada Trust', 'Mortgage rate': '4.12%', 'Mortgage maturity date': '2030-04-03' }),
@@ -316,14 +316,14 @@ describe('name index for lapsed reconciliation', () => {
   }
 
   it('indexes by borrower name, case-insensitively', () => {
-    const idx = indexMortgagesByName([withBorrowers('Ian', 'Scanlon'), withBorrowers('Joseph', 'Jackett')])
-    expect(findExportByName('ian scanlon', idx)).not.toBeNull()
-    expect(findExportByName('IAN SCANLON', idx)?.primary.firstName).toBe('Ian')
-    expect(findExportByName('Joseph Jackett', idx)?.primary.lastName).toBe('Jackett')
+    const idx = indexMortgagesByName([withBorrowers('Marcus', 'Tran'), withBorrowers('Ava', 'Lindqvist')])
+    expect(findExportByName('marcus tran', idx)).not.toBeNull()
+    expect(findExportByName('MARCUS TRAN', idx)?.primary.firstName).toBe('Marcus')
+    expect(findExportByName('Ava Lindqvist', idx)?.primary.lastName).toBe('Lindqvist')
   })
 
   it('returns null for an unknown name or a null name', () => {
-    const idx = indexMortgagesByName([withBorrowers('Ian', 'Scanlon')])
+    const idx = indexMortgagesByName([withBorrowers('Marcus', 'Tran')])
     expect(findExportByName('Nobody Here', idx)).toBeNull()
     expect(findExportByName(null, idx)).toBeNull()
   })
@@ -340,8 +340,8 @@ describe('name index for lapsed reconciliation', () => {
   })
 
   it('feeds reconcileLapsed end to end: a matched name is not unmonitored', () => {
-    const idx = indexMortgagesByName([withBorrowers('Ian', 'Scanlon')])
-    const exp = findExportByName('Ian Scanlon', idx)
+    const idx = indexMortgagesByName([withBorrowers('Marcus', 'Tran')])
+    const exp = findExportByName('Marcus Tran', idx)
     const r = reconcileLapsed({ lender: 'First Ontario Credit Union', rate: 5.49, maturity: '2031-02-07' }, exp)
     expect(r.reconClass).not.toBe('unmonitored')
   })

@@ -58,8 +58,8 @@ describe('caps', () => {
 // not the file).
 const DIALPAD_CSV = [
   'Name,Time,Type,Content',
-  'Michael Fox,00:00:04,transcript,"Hey Nick, thanks for picking up."',
-  'Nick Aitken,00:00:09,transcript,"No problem, Michael."',
+  'Michael Fox,00:00:04,transcript,"Hey Jordan, thanks for picking up."',
+  'Jordan Wells,00:00:09,transcript,"No problem, Michael."',
   ',00:00:15,event,Call recording started',
   'Michael Fox,00:00:21,transcript,"Your mortgage matures this fall, so I wanted to walk the options."',
 ].join('\n')
@@ -80,9 +80,9 @@ describe('transcript parsing', () => {
     expect(parsed.lines[0]).toEqual({
       speaker: 'Michael Fox',
       time: '00:00:04',
-      text: 'Hey Nick, thanks for picking up.',
+      text: 'Hey Jordan, thanks for picking up.',
     })
-    expect(parsed.normalized).toContain('Nick Aitken: No problem, Michael. [00:00:09]')
+    expect(parsed.normalized).toContain('Jordan Wells: No problem, Michael. [00:00:09]')
     expect(parsed.normalized).not.toContain('recording started')
   })
 
@@ -126,7 +126,7 @@ describe('tool surface', () => {
 
 describe('not captured, never a guess', () => {
   it('a stripped Zoho fixture keeps its nulls; nothing fills a missing value', () => {
-    // The live Aitken shape on 2026-07-10: maturity, payment, LTV, and
+    // The live renewal-file shape on 2026-07-10: maturity, payment, LTV, and
     // term all uncaptured.
     const stripped = normalizeAgentDeal({
       id: '7112178000001410334',
@@ -138,7 +138,7 @@ describe('not captured, never a guess', () => {
       Payment_Amount: null,
       LTV: null,
       Term_Type: null,
-      Contact_Name: { name: 'Nicholas Aitken', id: '7112178000001403205' },
+      Contact_Name: { name: 'Jordan Wells', id: '7112178000001403205' },
     })
     expect(stripped.fields.Maturity_Date).toBeNull()
     expect(stripped.fields.Payment_Amount).toBeNull()
@@ -252,7 +252,7 @@ describe('agent loop (Anthropic API mocked)', () => {
     const executed: string[] = []
     const result = await runAgentTurn({
       history: [],
-      userMessage: 'frame my renewal conversation with Nick Aitken',
+      userMessage: 'frame my renewal conversation with Jo Wells',
       todayYMD: '2026-07-10',
       ctx: testCtx(),
       emit: e => events.push(e),
@@ -263,7 +263,7 @@ describe('agent loop (Anthropic API mocked)', () => {
             textDeltas: ['Pulling the record. '],
             content: [
               { type: 'text', text: 'Pulling the record. ' },
-              { type: 'tool_use', id: 'tu_1', name: 'find_client', input: { query: 'Nick Aitken' } },
+              { type: 'tool_use', id: 'tu_1', name: 'find_client', input: { query: 'Jo Wells' } },
             ],
           },
           {
@@ -322,7 +322,7 @@ describe('agent loop (Anthropic API mocked)', () => {
     const executed: string[] = []
     const result = await runAgentTurn({
       history: [],
-      userMessage: 'prep a call for Nick Aitken and set up the follow-ups',
+      userMessage: 'prep a call for Jo Wells and set up the follow-ups',
       todayYMD: '2026-07-10',
       ctx,
       emit: () => {},
@@ -342,7 +342,7 @@ describe('agent loop (Anthropic API mocked)', () => {
           {
             stop_reason: 'end_turn',
             textDeltas: [
-              'No new card needed: your existing task covers this, due Jul 11 (Confirm maturity date with Nick).',
+              'No new card needed: your existing task covers this, due Jul 11 (Confirm maturity date with Jordan).',
             ],
             content: [{ type: 'text', text: 'covered' }],
           },
@@ -353,7 +353,7 @@ describe('agent loop (Anthropic API mocked)', () => {
           ok: true,
           result: {
             open_tasks: [
-              { subject: 'Confirm maturity date with Nick', due_date: '2026-07-11', priority: 'High', status: 'Not Started' },
+              { subject: 'Confirm maturity date with Jordan', due_date: '2026-07-11', priority: 'High', status: 'Not Started' },
             ],
             note: 'Where one of these covers an action you were about to propose, reference it with its due date instead of minting a duplicate card.',
           },

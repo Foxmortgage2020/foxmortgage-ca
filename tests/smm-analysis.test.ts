@@ -127,7 +127,7 @@ describe('analyzeMortgage (Part 1c transaction → product class)', () => {
 
 // The stated current payment reconstructs the ORIGINAL schedule, never the
 // current balance re-amortized over the original period. The two methods agree
-// EXACTLY on an unseasoned mortgage (which is why the Reinders anchor alone
+// EXACTLY on an unseasoned mortgage (which is why the BRXM-F053724 anchor alone
 // could never catch the bug) and diverge once a mortgage is seasoned — so the
 // golden set carries one of each, plus the reconciliation gate both ways.
 // Analysis date for the golden sets; the seasoned file is 24 months in.
@@ -186,7 +186,7 @@ describe('the stated current payment (seasoned golden set + reconciliation gate)
     expect(analysis.blockReason).toMatch(/% drift/)
   })
 
-  it('an unseasoned Reinders-shaped file still returns the commitment anchor $3,357.46', () => {
+  it('an unseasoned BRXM-F053724-shaped file still returns the commitment anchor $3,357.46', () => {
     // BRXM-F053724 shape: $635,000 at prime-0.40 = 4.05% adjustable, 25-year
     // amortization, closed 2026-06-18 — zero months elapsed as of the analysis
     // date, so balance still equals the original amount and both methods agree.

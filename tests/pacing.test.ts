@@ -74,7 +74,7 @@ describe('stage vocabulary contract (display space; live picklist 2026-07-14)', 
   it('every sync-written open stage resolves in the vocabulary (reads return DISPLAY values)', () => {
     // The Finmo sync writes ACTUAL picklist values; Zoho reads hand the
     // portal these DISPLAY values. Each must sit in the funnel order with a
-    // weight, or Aitken-class deals fall into a zero-weight bucket.
+    // weight, or Submitted-stage deals fall into a zero-weight bucket.
     const syncVisibleOpen = [
       'Application Started', // actual: Application Pending
       'Submitted',

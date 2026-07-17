@@ -419,7 +419,7 @@ export default function AgentChat({
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <p className="text-sm font-body text-gray-600">
               Ask about a client, a rate, or a lender, and every number comes back with its source.
-              Try &quot;frame my renewal conversation with Nick Aitken&quot;, tap Prep a call, or
+              Try &quot;frame my renewal conversation with Jordan Wells&quot;, tap Prep a call, or
               paste a transcript into Review a call.
             </p>
             <p className="text-xs font-body text-gray-400 mt-2">

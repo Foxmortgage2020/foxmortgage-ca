@@ -93,7 +93,7 @@ Both CLAUDE.md claims are half-right; they describe the SAME module.
   lawyer, mortgage-agent, and the admin dashboard pull. Zoho's REST v2 records API
   treats `Potentials` as a legacy alias of `Deals`.
 - Same records on both paths: the deal names returned by a Deals-stage COQL query
-  (BRXM-F053724 Gianna Reinders, etc.) are the same files the FP portal reads through
+  (BRXM-F053724, etc.) are the same files the FP portal reads through
   Potentials.
 - Note: the production refresh token does NOT hold `ZohoCRM.coql.READ`, so app code
   must keep using the records API regardless of name (documented in lib/zoho.ts at the

@@ -258,7 +258,7 @@ describe('renewal pool membership (Task 0c)', () => {
 
   it('excludes every non-funded stage, children of a lost deal included', () => {
     expect(isRenewalPoolDeal('Additional Properties', '23 Grey Oak drive - BRXM-F020737')).toBe(false)
-    expect(isRenewalPoolDeal('Options', 'Joseph Jackett - Additional Property')).toBe(false)
+    expect(isRenewalPoolDeal('Options', 'Ava Lindqvist - Additional Property')).toBe(false)
     expect(isRenewalPoolDeal('Mortgage Lost', 'BRXM-F021892')).toBe(false)
     expect(isRenewalPoolDeal('Closed', 'IFMS-F028652')).toBe(false)
   })
@@ -266,14 +266,14 @@ describe('renewal pool membership (Task 0c)', () => {
   it('excludes an Additional Properties child even when it sits in a funded stage', () => {
     // The acceptance fixture: a property row carrying an amount and a past
     // maturity, mis-staged funded, never enters the pool.
-    expect(isRenewalPoolDeal('Mortgage Funded', 'Shawn Hutten - Additional Property')).toBe(false)
+    expect(isRenewalPoolDeal('Mortgage Funded', 'Dana Okafor - Additional Property')).toBe(false)
     expect(isRenewalPoolDeal('Funded', '1814 5 Street South - BRXM-F021892 - second Mortgage')).toBe(false)
     expect(isRenewalPoolDeal('Mortgage Funded', '1021 Concession 6 road W - BRXM-F020729')).toBe(false)
   })
 
   it('recognizes every live child-name convention and no bare file reference', () => {
     // Children (live vocabulary 2026-07-13):
-    expect(isAdditionalPropertyRecord('Joseph Jackett - Additional Property')).toBe(true)
+    expect(isAdditionalPropertyRecord('Ava Lindqvist - Additional Property')).toBe(true)
     expect(isAdditionalPropertyRecord('340 Cannon street E - BRXM-F021892 - second Mortgage')).toBe(true)
     expect(isAdditionalPropertyRecord('220 Geddes street - BRXM-F021821 - first Mortgage')).toBe(true)
     expect(isAdditionalPropertyRecord('806-1307 Atkinson street - BRXM-F020724')).toBe(true)

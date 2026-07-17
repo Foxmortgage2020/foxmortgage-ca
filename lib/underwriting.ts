@@ -1761,7 +1761,7 @@ const CALL_WINDOW_DAYS = 60
  *
  * The bridge (workbench migration 0045): items are reached via the deal's
  * borrowers' STABLE Zoho contact ids UNIONED with the deal id — so a churned
- * deal id (Aitken's re-created Zoho record) still finds the correspondence via
+ * deal id (the re-created BRXM-F059751 Zoho record) still finds the correspondence via
  * contact. Calls windowed to 60 days; emails to since deal creation, floored to
  * 180 days so a re-created deal does not drop older correspondence.
  */

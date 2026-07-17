@@ -8,7 +8,7 @@
 // structured eligibility only.
 //
 // Payment anchors are independent figures, not engine output re-asserted:
-// $650,000 at 3.75% over 30 years is the Zinger file's cross-validated
+// $650,000 at 3.75% over 30 years is a live file's cross-validated
 // $2,999.58 (Finmo, the workbench calc engine, and Zoho all print it), and
 // $500,000 at 5.00% over 25 years is the standard Canadian semi-annual
 // reference figure $2,908.02.
@@ -432,7 +432,7 @@ describe('sorting and ranking (acceptance 2)', () => {
 })
 
 describe('payments reuse the validated calculator core', () => {
-  it('matches the Zinger cross-validated figure to the cent', () => {
+  it('matches the externally cross-validated figure to the cent', () => {
     const s = scenario({ amount: 650_000, amortizationYears: 30 })
     expect(scenarioMonthlyPayment(s, 3.75)).toBe(2999.58)
   })

@@ -67,7 +67,7 @@ describe('the synthetic fixture parses to the expected structure', () => {
     // The collapsed record retains both borrowers.
     const dual = mortgages.find(m => m.borrowers.length > 1)!
     expect(dual.borrowers.length).toBe(2)
-    expect(dual.borrowers.map(b => b.email).sort()).toContain('corey.langsford@example.com')
+    expect(dual.borrowers.map(b => b.email).sort()).toContain('dana.langsford@example.com')
   })
   it('does not merge two different households that share address, balance, and maturity', () => {
     // The key leads with Household ID, so co-borrowers (same household) still

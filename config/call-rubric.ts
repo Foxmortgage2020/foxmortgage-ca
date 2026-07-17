@@ -4,7 +4,7 @@
 // never silent prompt drift. Item ids are stable; retire an item by
 // removing it and bumping the version, never by reusing an id.
 //
-// Seeded from the Jul 10 reference review of the Aitken renewal call.
+// Seeded from the Jul 10 reference review of a renewal call (the IFMS-F001515 file).
 
 export const CALL_RUBRIC_VERSION = 1
 

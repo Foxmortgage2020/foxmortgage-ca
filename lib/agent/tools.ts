@@ -305,8 +305,9 @@ async function runFindClient(input: any): Promise<ToolExecution> {
       contacts.push(...(await searchZohoContacts(query, 'phone')))
     } else {
       contacts.push(...(await searchZohoContacts(query, 'word')))
-      // Zoho word search matches whole tokens, so "Nick Aitken" misses a
-      // contact stored as "Nicholas Aitken". Retry on the longest token
+      // Zoho word search matches whole tokens, so a short-form first name
+      // ("Jo Wells") misses a contact stored under the full form ("Jordan
+      // Wells"). Retry on the longest token
       // (usually the surname) before giving up.
       if (contacts.length === 0) {
         const tokens = query.split(/\s+/).filter(t => t.length >= 3)

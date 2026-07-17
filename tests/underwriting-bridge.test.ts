@@ -47,8 +47,8 @@ describe('the stage boundary (display space)', () => {
 
 describe('fileRefFromDealName', () => {
   it('handles the em dash convention, the hyphen stray, and bare refs', () => {
-    expect(fileRefFromDealName('BRXM-F059751 — Nicholas Aitken')).toBe('BRXM-F059751')
-    expect(fileRefFromDealName('BRXM-F057400 - Caitlin Crnkovic')).toBe('BRXM-F057400')
+    expect(fileRefFromDealName('BRXM-F059751 — Jordan Wells')).toBe('BRXM-F059751')
+    expect(fileRefFromDealName('BRXM-F057400 - Priya Anand')).toBe('BRXM-F057400')
     expect(fileRefFromDealName('IFMS-F011671')).toBe('IFMS-F011671')
     // A property row prefixed by an address is NOT a file ref.
     expect(fileRefFromDealName('22 Birch Ave - BRXM-F020729')).toBeNull()
@@ -56,17 +56,17 @@ describe('fileRefFromDealName', () => {
 })
 
 describe('computeBridgePlan', () => {
-  const aitken = zoho({ id: 'z1', dealName: 'BRXM-F059751 — Nicholas Aitken', stage: 'Submitted' })
-  const kerr = zoho({ id: 'z2', dealName: 'BRXM-F056361 — Steven Kerr', stage: 'Conditionally Approved' })
-  const mehmi = zoho({ id: 'z3', dealName: 'BRXM-F053107 — David Mehmi', stage: 'Underwriting In Progress' })
-  const spek = zoho({ id: 'z4', dealName: 'BRXM-F057623 — Erick Spek', stage: 'Application Started' })
-  const mehmiRoom = room({ id: 'r1', fileRef: 'BRXM-F053107', zohoPotentialId: 'z3', stage: 'in_progress' })
+  const wells = zoho({ id: 'z1', dealName: 'BRXM-F059751 — Jordan Wells', stage: 'Submitted' })
+  const haddad = zoho({ id: 'z2', dealName: 'BRXM-F056361 — Noor Haddad', stage: 'Conditionally Approved' })
+  const lindqvist = zoho({ id: 'z3', dealName: 'BRXM-F053107 — Ava Lindqvist', stage: 'Underwriting In Progress' })
+  const tran = zoho({ id: 'z4', dealName: 'BRXM-F057623 — Marcus Tran', stage: 'Application Started' })
+  const lindqvistRoom = room({ id: 'r1', fileRef: 'BRXM-F053107', zohoPotentialId: 'z3', stage: 'in_progress' })
 
   it('provisions Submitted-or-beyond actives with no room; leaves roomed and below-Submitted files', () => {
     const plan = computeBridgePlan({
-      activeDeals: [aitken, kerr, mehmi, spek],
-      allDeals: [aitken, kerr, mehmi, spek],
-      rooms: [mehmiRoom],
+      activeDeals: [wells, haddad, lindqvist, tran],
+      allDeals: [wells, haddad, lindqvist, tran],
+      rooms: [lindqvistRoom],
     })
     expect(plan.provision.map(p => p.fileRef).sort()).toEqual(['BRXM-F056361', 'BRXM-F059751'])
     expect(plan.provision.every(p => p.disposition === 'open')).toBe(true)
@@ -80,13 +80,13 @@ describe('computeBridgePlan', () => {
 
   it('is idempotent: once every file has a room, the plan is empty', () => {
     const rooms = [
-      mehmiRoom,
+      lindqvistRoom,
       room({ id: 'r2', fileRef: 'BRXM-F059751', zohoPotentialId: 'z1' }),
       room({ id: 'r3', fileRef: 'BRXM-F056361', zohoPotentialId: 'z2' }),
     ]
     const plan = computeBridgePlan({
-      activeDeals: [aitken, kerr, mehmi],
-      allDeals: [aitken, kerr, mehmi],
+      activeDeals: [wells, haddad, lindqvist],
+      allDeals: [wells, haddad, lindqvist],
       rooms,
     })
     expect(plan.provision).toEqual([])
@@ -95,23 +95,23 @@ describe('computeBridgePlan', () => {
 
   it('matches by file_ref when the room predates its Zoho linkage', () => {
     const unlinked = room({ id: 'r9', fileRef: 'BRXM-F059751', zohoPotentialId: null })
-    const plan = computeBridgePlan({ activeDeals: [aitken], allDeals: [aitken], rooms: [unlinked] })
+    const plan = computeBridgePlan({ activeDeals: [wells], allDeals: [wells], rooms: [unlinked] })
     expect(plan.provision).toEqual([])
   })
 
   it('a Zoho regression to Cancelled marks the room for dormant; funded moves to funded; nothing deletes', () => {
-    const cancelled = zoho({ id: 'z3', dealName: 'BRXM-F053107 — David Mehmi', stage: 'Cancelled' })
-    const plan = computeBridgePlan({ activeDeals: [], allDeals: [cancelled], rooms: [mehmiRoom] })
+    const cancelled = zoho({ id: 'z3', dealName: 'BRXM-F053107 — Ava Lindqvist', stage: 'Cancelled' })
+    const plan = computeBridgePlan({ activeDeals: [], allDeals: [cancelled], rooms: [lindqvistRoom] })
     expect(plan.transitions.length).toBe(1)
     expect(plan.transitions[0].disposition).toBe('closed')
 
-    const funded = zoho({ id: 'z3', dealName: 'BRXM-F053107 — David Mehmi', stage: 'Mortgage Funded' })
-    const plan2 = computeBridgePlan({ activeDeals: [], allDeals: [funded], rooms: [mehmiRoom] })
+    const funded = zoho({ id: 'z3', dealName: 'BRXM-F053107 — Ava Lindqvist', stage: 'Mortgage Funded' })
+    const plan2 = computeBridgePlan({ activeDeals: [], allDeals: [funded], rooms: [lindqvistRoom] })
     expect(plan2.transitions.length).toBe(1)
     expect(plan2.transitions[0].disposition).toBe('funded')
 
     // Already moved: no-op.
-    const fundedRoom = { ...mehmiRoom, stage: 'funded' }
+    const fundedRoom = { ...lindqvistRoom, stage: 'funded' }
     const plan3 = computeBridgePlan({ activeDeals: [], allDeals: [funded], rooms: [fundedRoom] })
     expect(plan3.transitions).toEqual([])
   })

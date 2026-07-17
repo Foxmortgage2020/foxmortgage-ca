@@ -1,5 +1,5 @@
 # Finmo → Zoho CRM Field Mapping Gap Analysis
-**Integration:** Finmo Ben Zavitz Handoff → Zoho CRM  
+**Integration:** Finmo FP-partner handoff → Zoho CRM  
 **n8n Workflow:** `fSKYw10qStQrbEw7` (active)  
 **Webhook:** `POST https://foxmortgage.app.n8n.cloud/webhook/finmo-ben-handoff`  
 **Event type:** `application_update_event`  
@@ -38,7 +38,7 @@ What the workflow extracts today and where it lands in Zoho Deals:
 | `prop.address.postCode` / `postalCode` | `_postalCode` | `Postal_Code` | |
 | _(hardcoded)_ | — | `Deal_Name` | Auto-assigned BRX-M-NNN |
 | _(hardcoded)_ | — | `Stage` | Always set to "Lead" on create |
-| _(hardcoded)_ | — | `Co_Broker_External` | Always "Ben Zavitz" |
+| _(hardcoded)_ | — | `Co_Broker_External` | Always the FP partner's full name (hardcoded) |
 | _(hardcoded)_ | — | `Sync_Source` | Always "RestHook" |
 | _(payload hash)_ | `_payloadHash` | `Finmo_Payload_Hash` | SHA-256 for idempotency |
 | _(runtime)_ | — | `Finmo_Last_Synced_At` | ISO timestamp of sync |
@@ -57,7 +57,7 @@ What the workflow extracts today and where it lands in Zoho Deals:
 | `mainBorrower.phone` / `phoneNumber` | `Phone` | |
 | `mainBorrower.id` | `Finmo_Borrower_ID` | Finmo UUID |
 | _(hardcoded)_ | `Finmo_Is_Primary_Applicant` | Always true for main borrower |
-| _(hardcoded)_ | `Lead_Source` | Always "Ben Zavitz Referral" |
+| _(hardcoded)_ | `Lead_Source` | Always "<FP partner name> Referral" (hardcoded) |
 
 ---
 
@@ -75,7 +75,7 @@ These fields exist in the Finmo `application_update_event` payload but are not e
 | `app.occupancyType` | enum | `Occupancy_Type` (new field needed) | Medium | owner_occupied / rental / vacation_home |
 | `app.propertyType` | enum | `Property_Type` | Medium | detached / semi / condo / townhouse |
 | `app.mortgageInfoCompoundPeriod` | enum | `Compound_Period` (new field needed) | Low | semi_annually / monthly |
-| `app.referralSource` | string | `Lead_Source` (Contacts) | Low | May conflict with hardcoded "Ben Zavitz Referral" |
+| `app.referralSource` | string | `Lead_Source` (Contacts) | Low | May conflict with the hardcoded "<FP partner name> Referral" value |
 | `app.heatingCosts` | decimal | _no current field_ | Low | Useful for file review, not CRM-critical |
 | `app.condoFees` | decimal | _no current field_ | Low | Same |
 | `app.propertyTax` | decimal | _no current field_ | Low | Same |
@@ -123,7 +123,7 @@ These fields exist on Deals and may already be set by Mike or other integrations
 | `Stage` | Finmo sets "Lead" on create only; updates don't change Stage | Low — update path skips Stage ✅ |
 | `Contact_Name` | Set in Link Contact step after create/update | OK — this is intentional ✅ |
 | `Lender_Notes` | Set manually by Mike | **Not overwritten** — Finmo doesn't write this |
-| `Referral_Partner` | Should be Ben Zavitz's Zoho Partner ID | **Gap — not set anywhere in workflow** |
+| `Referral_Partner` | Should be the FP partner's Zoho Partner ID | **Gap — not set anywhere in workflow** |
 | `FP_Email` | FP portal uses this, but confirmed non-existent on Deals (use Referral_Partner) | N/A |
 | `Investor_Name`, `Investor_Amount`, `Investor_Rate` | Investor portal — unrelated to Finmo | Low |
 
@@ -166,14 +166,14 @@ These field API names are written by the workflow. Confirm they exist before FOX
 | B2 | Update Deal / Create Deal nodes | `Amortization_Years` same issue — stores months not years | Medium |
 | B3 | Verify Finmo Signature node | Uses RSA-PSS padding (`RSA_PKCS1_PSS_PADDING`) but comment says "Finmo uses RSA-PSS" — verify this is correct for current Finmo prod. Code comment above it says PKCS#1 v1.5 was tried and fixed. This is the current working state. | Low — working, just confusing comment |
 | B4 | Workflow-wide | Co-borrower extracted but silently dropped — no Contact created for co-borrower | High |
-| B5 | Create Deal / Update Deal | `Referral_Partner` never set — Ben Zavitz's Zoho Partner ID (`7112178000003669036`) not linked | High — FP portal queries by Referral_Partner; Ben won't see his own deals |
+| B5 | Create Deal / Update Deal | `Referral_Partner` never set — the FP partner's Zoho Partner ID (`7112178000003669036`) not linked | High — FP portal queries by Referral_Partner; the partner won't see their own deals |
 
 ---
 
 ## 7. Recommended Additions for FOX-473
 
 **High priority (blocking usability):**
-1. Set `Referral_Partner: { id: "7112178000003669036" }` on every Deal (both create and update paths) — this is Ben's Zoho Partner record ID
+1. Set `Referral_Partner: { id: "7112178000003669036" }` on every Deal (both create and update paths) — this is the FP partner's Zoho Partner record ID
 2. Create co-borrower Contact + link to Deal (same pattern as main borrower)
 3. Add `LTV` from `app.ltv` — field already exists on Deals
 4. Add `Maturity_Date` from `app.mortgageInfoMaturityDate` — field already exists
@@ -194,7 +194,7 @@ Before FOX-473 implementation can begin:
 
 | # | Question | Needed for |
 |---|---|---|
-| Q1 | Confirm `Referral_Partner` is the correct Zoho field to link Ben Zavitz (Partner ID `7112178000003669036`) | B5 fix |
+| Q1 | Confirm `Referral_Partner` is the correct Zoho field to link the FP partner (Partner ID `7112178000003669036`) | B5 fix |
 | Q2 | Should `Term_Years` / `Amortization_Years` be renamed to `_Months` in Zoho, or should the workflow divide by 12? | B1/B2 fix |
 | Q3 | Should a new Zoho field `CMHC_Insured` (checkbox) be created? | Item 6 above |
 | Q4 | Should co-borrower Contact be created in all cases, or only when co-borrower email is present? | B4 fix |

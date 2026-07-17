@@ -44,3 +44,13 @@ next-env.d.ts
 Russell Brunson/
 .playwright-mcp/
 SMM/
+
+# local data that must never commit (B4 Task 1: the QBO history was
+# documented as gitignored but never actually was)
+.qbo-history/
+*Transaction Detail by Account.csv
+Terminal Saved Output.txt
+.claude/worktrees/
+supabase/.temp/
+Lender Logos/
+knowledge/
