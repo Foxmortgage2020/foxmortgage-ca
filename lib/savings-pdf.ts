@@ -27,6 +27,7 @@
 // Download only; no send path exists near this code.
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib'
+import { CONTACT } from '@/lib/contact'
 import { pdfSafe, redactComp, wrap } from '@/lib/rates-pdf'
 import { comparableTermLabel, type FoxAnalysis } from '@/lib/smm'
 import { PRIME_MIRROR } from '@/config/prime'
@@ -280,7 +281,7 @@ function drawFooters(ctx: Ctx) {
       font: ctx.font,
       color: GRAY,
     })
-    p.drawText('226-770-8880  |  mfox@foxmortgage.ca  |  foxmortgage.ca', { x: M, y: 33, size: 7, font: ctx.font, color: GRAY })
+    p.drawText(`${CONTACT.phone.display}  |  ${CONTACT.email.address}  |  foxmortgage.ca`, { x: M, y: 33, size: 7, font: ctx.font, color: GRAY })
   })
 }
 
@@ -818,8 +819,8 @@ export async function generateSavingsPdf(raw: SavingsPdfInput): Promise<Uint8Arr
   ctx.y -= 6
   // CTA band.
   ctx.page.drawRectangle({ x: M, y: ctx.y - 58, width: WIDTH, height: 58, color: NAVY })
-  text(ctx, '226-770-8880', { x: M + 16, y: ctx.y - 30, size: 20, font: ctx.bold, color: LIME })
-  text(ctx, 'mfox@foxmortgage.ca  |  foxmortgage.ca', { x: M + 16, y: ctx.y - 47, size: 9, font: ctx.font, color: WHITE })
+  text(ctx, CONTACT.phone.display, { x: M + 16, y: ctx.y - 30, size: 20, font: ctx.bold, color: LIME })
+  text(ctx, `${CONTACT.email.address}  |  foxmortgage.ca`, { x: M + 16, y: ctx.y - 47, size: 9, font: ctx.font, color: WHITE })
   ctx.y -= 74
 
   // Fine print, short bold-led paragraphs.

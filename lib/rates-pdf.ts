@@ -16,6 +16,7 @@
 // conditions verbatim. Download only; no send path exists near this code.
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib'
+import { CONTACT } from '@/lib/contact'
 import {
   RATE_TYPE_LABEL,
   conventionText,
@@ -448,7 +449,7 @@ export async function generateRatesPdf(input: RatesPdfInput): Promise<Uint8Array
       font: bold,
       color: NAVY,
     })
-    p.drawText('226-770-8880  |  mfox@foxmortgage.ca  |  foxmortgage.ca', {
+    p.drawText(`${CONTACT.phone.display}  |  ${CONTACT.email.address}  |  foxmortgage.ca`, {
       x: M,
       y: 35,
       size: 8.5,

@@ -1,18 +1,19 @@
 // ─── Demo FP support ───────────────────────────────────────────────────────────
-// Mirrors app/portal/fp/support/page.tsx. Contact details are inlined (the demo
-// stays self-contained; it does not import @/lib/contact). The "Book a Call" CTA
-// uses a clearly-marked placeholder until Michael provides the real booking link.
+// Mirrors app/portal/fp/support/page.tsx. The "Book a Call" CTA uses a
+// clearly-marked placeholder until Michael provides the real booking link.
+//
+// Contact details read from lib/contact.ts (the single source of truth for the
+// phone number). It used to inline its own copy to "stay self-contained", but
+// that copy silently went stale — CONTACT is a plain constant, not live app
+// data, so importing it keeps the demo isolated from Zoho/Clerk while the phone
+// number can never drift out of sync again.
 
 import Link from 'next/link'
 import { Phone, Mail, Calendar, MessageSquare } from 'lucide-react'
+import { CONTACT } from '@/lib/contact'
 import { DEMO_BOOKING_URL } from '../_data/demo-data'
 
-// Inlined contact details (matches lib/contact.ts values; kept local so the demo
-// imports nothing from the live app).
-const DEMO_CONTACT = {
-  phone: { display: '519-226-8880', href: 'tel:+15192268880' },
-  email: { address: 'mfox@foxmortgage.ca', href: 'mailto:mfox@foxmortgage.ca' },
-}
+const DEMO_CONTACT = CONTACT
 
 export default function DemoFPSupportPage() {
   return (

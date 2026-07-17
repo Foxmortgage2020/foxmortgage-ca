@@ -16,7 +16,11 @@ export interface ContactInfo {
 }
 
 export const CONTACT: ContactInfo = {
-  phone: { display: '519-226-8880', href: 'tel:+15192268880' },
+  // The one place the Fox Mortgage phone number lives. Set 2026-07-17 to
+  // 226-770-8880 per Michael's confirmation (was 519-226-8880). A guard test
+  // (tests/contact-number.test.ts) forbids this number as a literal anywhere
+  // else, so it can never drift out of sync again.
+  phone: { display: '226-770-8880', href: 'tel:+12267708880' },
   email: { address: 'mfox@foxmortgage.ca', href: 'mailto:mfox@foxmortgage.ca' },
   bookingUrl: '',
 }

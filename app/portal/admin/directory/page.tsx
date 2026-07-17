@@ -21,8 +21,10 @@ function val<T>(r: UwResult<T> | null): T | null {
   return r && r.configured && r.ok ? r.data : null
 }
 
-// Last-ten digits rendered readably: 226 770 8880. Display formatting
-// only; the stored value is the source of truth.
+// Last-ten digits rendered readably (e.g. 555 019 0000 becomes "555 019
+// 0000"). Display formatting only; the stored value is the source of truth.
+// These are learned contact numbers, not the Fox line — that lives in
+// lib/contact.ts.
 function fmtLast10(digits: string): string {
   if (digits.length === 10) return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`
   return digits
