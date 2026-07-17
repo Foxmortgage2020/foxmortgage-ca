@@ -110,7 +110,7 @@ export default function ComplianceCard({
         </span>
         <Link
           href="/portal/admin/compliance"
-          className="ml-auto text-xs font-semibold text-navy underline hover:text-lime"
+          className="ml-auto text-xs font-semibold text-navy underline hover:text-ink"
         >
           Compliance module
         </Link>

@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-17',
+    title: 'Deals becomes the control room: a list-first surface with one lime and a phase-led room',
+    detail:
+      'Underwriting is renamed Deals (the word Underwriting now means only the lifecycle phase) and the page leads with a list instead of the board: four phase tiles count the book before you read a row, then every live file in closing-date order with its client, phase, lifecycle step in plain words, close date (amber inside 10 days), amount, and a next action that goes somewhere real. Exactly ONE button on the list is lime, on the top-most actionable row, so the eye lands on the single next thing; every other action is a quiet outline, and work the platform cannot do yet carries a small manual chip with the by-hand path spelled out. The board is still there behind a per-user toggle, now four phase columns with navy headers and the two coming-capability cards (application chase, pre-approved and shopping) drawn as dashed placeholders. The deal room goes phase-led: a navy header band with the client name and the Amount and Closes stats, the journey stepper as connected nodes, the current phase open first with its steps and working surfaces, and every other phase collapsed to one honest line. Complete and paid gains its real steps (Broker complete, Compliance package, Paid): the compliance card reads the Zoho compliance status read-only, a rejected package loops back visibly, and Paid shows the recorded commission or says plainly that none is recorded yet. The whole shell now wears the website type pair (Poppins headings, Montserrat body), and the app quietly offers a Refresh when a new version deploys instead of serving stale code. Nothing moved: every file sits exactly where stage truth put it.',
+  },
+  {
     date: '2026-07-16',
     title: 'Stage truth: the board now positions every card from Zoho',
     detail:

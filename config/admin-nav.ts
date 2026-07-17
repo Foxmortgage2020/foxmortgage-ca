@@ -42,16 +42,18 @@ export const ADMIN_NAV: AdminNavItem[] = [
   },
   // ── Pipeline ──────────────────────────────────────────────────────────
   {
-    // Phase B1 rename (nav-IA note in CLAUDE.md): Deals -> Underwriting.
-    // Deal ROOMS keep their /portal/admin/deals/[id] URLs; the old list
-    // route redirects permanently (next.config.js).
-    label: 'Underwriting',
+    // B2b rename (nav-IA note in CLAUDE.md): Underwriting -> Deals. After
+    // this, the word Underwriting means only the lifecycle phase. The route
+    // path does NOT change (/portal/admin/underwriting); deal ROOMS keep
+    // their /portal/admin/deals/[id] URLs and the old list route still
+    // redirects permanently (next.config.js).
+    label: 'Deals',
     href: '/portal/admin/underwriting',
     iconKey: 'FolderOpen',
     permission: 'deals.view',
     group: 'pipeline',
     description:
-      'The underwriting work queue: every bridged file by state, from intake to with-lender, with tomorrow’s files visible before they arrive.',
+      'Every live file by lifecycle phase, with the next action on each row, as a list or a board.',
   },
   {
     label: 'Approvals',

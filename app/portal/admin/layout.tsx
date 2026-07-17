@@ -7,9 +7,10 @@
 // scoping never widens access; server-side authorization on each route is
 // unchanged and remains the enforcement.
 
-// Shell type faces (OFL, vendored via fontsource): Archivo for the UI,
-// Fraunces for the single serif moment (the Home greeting).
-import '@fontsource-variable/archivo'
+// Shell type faces: the website's own pair (Poppins headings, Montserrat
+// body — loaded by the root layout via next/font) since B2b; Fraunces stays
+// vendored (OFL via fontsource) for the single serif moment (the Home
+// greeting).
 import '@fontsource-variable/fraunces'
 
 import {

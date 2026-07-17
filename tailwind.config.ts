@@ -45,6 +45,22 @@ const config: Config = {
           bg: '#FBF3E6',
         },
         danger: '#B0413E', // destructive and failures only
+        // ─── Deals-surface neutral scale (B2b, 2026-07-17) ───────────────
+        // The Direction 2 cool grays — the ONLY gray family on the Deals
+        // list, board, and room surfaces. Chrome and emphasis stay brand
+        // navy #032133; surfaces white; lime under the lime law only.
+        cool: {
+          800: '#3E5563',
+          700: '#5C6C77',
+          600: '#7E8E97',
+          500: '#93A1AA',
+          400: '#B7C2C8',
+          300: '#C9D3D8',
+          250: '#D7DFE3',
+          200: '#E4E9EC',
+          100: '#F0F3F5',
+          50: '#F6F8F9',
+        },
       },
       boxShadow: {
         card: '0 1px 2px rgba(10,27,46,.06), 0 4px 16px rgba(10,27,46,.05)',
@@ -52,10 +68,13 @@ const config: Config = {
       fontFamily: {
         heading: ['var(--font-poppins)', 'sans-serif'],
         body: ['var(--font-montserrat)', 'sans-serif'],
-        // Shell UI face (Archivo variable) and the single serif moment
-        // (Fraunces, the Home greeting only — the same face clients see on
-        // Fox Mortgage documents).
-        ui: ['Archivo Variable', 'Archivo', 'sans-serif'],
+        // B2b (2026-07-17): the shell face is the website's own pair —
+        // font-ui resolves to Montserrat (body, tables, cards, controls);
+        // headings, page titles, phase/column headers, and nav labels take
+        // font-heading (Poppins). Archivo is retired. Fraunces stays the
+        // single serif moment (the Home greeting only — the same face
+        // clients see on Fox Mortgage documents).
+        ui: ['var(--font-montserrat)', 'sans-serif'],
         greeting: ['Fraunces Variable', 'Fraunces', 'Georgia', 'serif'],
       },
       animation: {

@@ -31,7 +31,7 @@ import { classifyOpenDeals, type StaleReason } from '@/lib/pipeline-hygiene'
 // Demo mode (Session 9): reads return fictional fixtures and writes throw
 // before any getZohoToken()/fetch() call, so demo mode never touches Zoho.
 import { isDemoMode, blockInDemo } from '@/lib/demo'
-import { demoSlimDeals, demoRevenueDeals, demoOpenTasks, demoLeads, demoRenewalDeals } from '@/lib/demo-fixtures'
+import { demoSlimDeals, demoRevenueDeals, demoOpenTasks, demoLeads, demoRenewalDeals, demoDealCloseout } from '@/lib/demo-fixtures'
 
 const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 
@@ -596,6 +596,61 @@ export async function getZohoDealById(dealId: string): Promise<AgentZohoDeal | n
   const data = await res.json()
   const d = data?.data?.[0]
   return d ? normalizeAgentDeal(d) : null
+}
+
+// ─── Deal closeout read (B2b, 2026-07-17) ───────────────────────────────────
+// The deal room's Complete-and-paid section: READ ONLY, never written.
+// Compliance_Status is the ONE new field this session adds (live picklist:
+// Pending Review / In Review / Approved / Rejected / Re-Review Needed).
+// Deal_Name feeds the room header band; Total_Commission is the commission
+// truth the Revenue surface already uses (a formula field always returns a
+// number, so 0 means "not recorded", never a free deal — only > 0 counts).
+
+export interface DealCloseout {
+  dealName: string | null
+  // The raw picklist value; null when unset or '-None-'.
+  complianceStatus: string | null
+  // False when the field could not be read (kept resilient: if Zoho ever
+  // refuses the field, the rest of the closeout read still lands).
+  complianceRead: boolean
+  // Total_Commission when recorded (> 0), else null.
+  totalCommission: number | null
+}
+
+const CLOSEOUT_FIELDS = 'Deal_Name,Compliance_Status,Total_Commission'
+const CLOSEOUT_FIELDS_FALLBACK = 'Deal_Name,Total_Commission'
+
+export async function getDealCloseout(zohoDealId: string): Promise<DealCloseout | null> {
+  if (isDemoMode()) return demoDealCloseout(zohoDealId)
+  const token = await getZohoToken()
+  const read = async (fields: string) =>
+    fetch(`${ZOHO_API}/Potentials/${zohoDealId}?fields=${fields}`, {
+      headers: { Authorization: `Zoho-oauthtoken ${token}` },
+      cache: 'no-store',
+    })
+  let complianceRead = true
+  let res = await read(CLOSEOUT_FIELDS)
+  if (res.status === 400) {
+    // The one field this session adds, kept non-fatal: read the rest.
+    complianceRead = false
+    res = await read(CLOSEOUT_FIELDS_FALLBACK)
+  }
+  if (res.status === 204 || res.status === 404) return null
+  if (!res.ok) {
+    console.error(`[zoho-admin] Potentials closeout read HTTP ${res.status}`)
+    return null
+  }
+  const data = await res.json()
+  const d = data?.data?.[0]
+  if (!d) return null
+  const rawStatus = typeof d.Compliance_Status === 'string' ? d.Compliance_Status.trim() : null
+  const commission = typeof d.Total_Commission === 'number' ? d.Total_Commission : null
+  return {
+    dealName: typeof d.Deal_Name === 'string' ? d.Deal_Name : null,
+    complianceStatus: rawStatus && rawStatus !== '-None-' ? rawStatus : null,
+    complianceRead,
+    totalCommission: commission !== null && commission > 0 ? commission : null,
+  }
 }
 
 // ─── The Renewal Radar: funded deals with maturity ──────────────────────────

@@ -50,7 +50,7 @@ import type {
   RenewalSequenceState,
 } from '@/lib/underwriting'
 import type { ConditionCount } from '@/lib/conditions-status'
-import type { SlimDeal, OpenTask, SlimLead } from '@/lib/zoho-admin'
+import type { SlimDeal, OpenTask, SlimLead, DealCloseout } from '@/lib/zoho-admin'
 import type { RevenueDeal } from '@/lib/revenue'
 import type { RenewalDeal } from '@/lib/renewals'
 import type { PartnerListItem, PartnerDocument } from '@/lib/zoho'
@@ -113,6 +113,36 @@ export const demoSlimDeals: SlimDeal[] = [
   { id: 'demo-z-11', dealName: 'Mockwell Chen — Purchase', stage: 'Funded', amount: 472000, closingDate: '2026-05-27', createdTime: '2026-02-19' },
   { id: 'demo-z-12', dealName: 'Fixture Fields — Refinance', stage: 'Mortgage Funded', amount: 331000, closingDate: '2026-04-14', createdTime: '2026-01-08' },
 ]
+
+// ─── Zoho: deal closeout (B2b — the room's Complete-and-paid section) ───────
+// Two card states on the demo rooms: an in-review package (demo-z-2) and an
+// approved one with the commission recorded (demo-z-10). Everything else
+// reads not started. Zero real reads in demo (tests/demo.test.ts asserts).
+
+const DEMO_CLOSEOUTS: Record<string, DealCloseout> = {
+  'demo-z-1': {
+    dealName: 'Marty McFixture — Purchase',
+    complianceStatus: null,
+    complianceRead: true,
+    totalCommission: null,
+  },
+  'demo-z-2': {
+    dealName: 'Ada Testwell — Refinance',
+    complianceStatus: 'In Review',
+    complianceRead: true,
+    totalCommission: null,
+  },
+  'demo-z-10': {
+    dealName: 'Prototype Partners — Purchase',
+    complianceStatus: 'Approved',
+    complianceRead: true,
+    totalCommission: 7140,
+  },
+}
+
+export function demoDealCloseout(zohoDealId: string): DealCloseout | null {
+  return DEMO_CLOSEOUTS[zohoDealId] ?? null
+}
 
 // ─── Zoho: revenue deals (Revenue, Partners, funnel) ────────────────────────
 // A believable mix: some carry a real Total_Commission (basis 'actual'),

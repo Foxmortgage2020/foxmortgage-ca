@@ -312,12 +312,19 @@ const FULFILMENT_STEPS: LifecycleStep[] = [
   }),
 ]
 
+// B2b (Task 6): the Complete & paid steps are Broker complete → Compliance
+// package → Paid. The compliance step's live state comes from the Zoho
+// Compliance_Status field (read-only) on the room's Complete-and-paid
+// section; the stage matchers below only place a file INTO the phase.
 const COMPLETE_STEPS: LifecycleStep[] = [
-  step('instruct', 'Instruct the lawyer', 'manual', {
-    note: 'Michael sends the lawyer instructions by hand today.',
+  step('broker_complete', 'Broker complete', 'manual', {
+    note: 'Michael confirms broker complete, instructs the lawyer, and moves the stage in Zoho by hand.',
     stages: ['broker complete', 'broker_complete', 'ready to close', 'ready'],
   }),
-  step('fund', 'Close and fund', 'live'),
+  step('compliance_package', 'Compliance package', 'manual', {
+    note: 'Assemble the package per the BRX Ontario checklist and submit it with the compliance submission skill.',
+  }),
+  step('paid', 'Paid', 'live'),
 ]
 
 const BEYOND_STEPS: LifecycleStep[] = [
@@ -468,4 +475,126 @@ export function journeyForStage(input: {
     steps,
     caption: matchIdx >= 0 ? stepDefs[matchIdx].label : LIFECYCLE_PHASES[currentIdx].description,
   }
+}
+
+// ─── The next action (B2b, Task 3): ONE mapping from lifecycle step to what
+// Michael does next. Never per-page copy. An action with a roomSection is a
+// real destination inside the deal room (a button); an action without one is
+// by-hand work today (rendered as the `manual` chip with quiet text, no
+// button — the note names the by-hand path). `manual: true` marks actions
+// the platform cannot perform yet, whether or not a destination exists.
+
+export type RoomSectionAnchor = 'documents' | 'notes' | 'conditions' | 'closeout' | 'room'
+
+export interface NextAction {
+  key: string
+  label: string
+  // True = the platform cannot perform this yet; the row carries the
+  // `manual` chip and the note names the by-hand path.
+  manual: boolean
+  note?: string
+  // Where the action lands inside the deal room. Absent = no route exists
+  // yet (the action renders as quiet text, never a decorative button).
+  roomSection?: RoomSectionAnchor
+}
+
+const A_CHASE_DOCUMENTS: NextAction = {
+  key: 'chase_documents',
+  label: 'Chase documents',
+  manual: false,
+  roomSection: 'documents',
+}
+const A_GENERATE_NOTES: NextAction = {
+  key: 'generate_lender_notes',
+  label: 'Generate lender notes',
+  manual: false,
+  roomSection: 'notes',
+}
+const A_WORK_CONDITIONS: NextAction = {
+  key: 'work_conditions',
+  label: 'Work conditions',
+  manual: false,
+  roomSection: 'conditions',
+}
+const A_CONFIRM_BROKER_COMPLETE: NextAction = {
+  key: 'confirm_broker_complete',
+  label: 'Confirm broker complete',
+  manual: true,
+  note: 'The stage change to Broker Complete is made by hand in Zoho.',
+  roomSection: 'room',
+}
+const A_ASSEMBLE_COMPLIANCE: NextAction = {
+  key: 'assemble_compliance',
+  label: 'Assemble compliance package',
+  manual: true,
+  note: 'Assemble the package per the BRX Ontario checklist and submit it with the compliance submission skill.',
+  roomSection: 'closeout',
+}
+const A_NUDGE_APPLICATION: NextAction = {
+  key: 'nudge_application',
+  label: 'Nudge the application',
+  manual: true,
+  note: 'No automated chase exists yet. Michael nudges the application by hand, with a call or a text.',
+}
+const A_REACH_OUT: NextAction = {
+  key: 'reach_out',
+  label: 'Reach out and qualify',
+  manual: true,
+  note: 'Michael reaches out and qualifies new leads by hand today.',
+}
+const A_PRESENT_OPTIONS: NextAction = {
+  key: 'present_options',
+  label: 'Present the options',
+  manual: true,
+  note: 'Michael builds the plan and presents the options himself.',
+}
+const A_NUDGE_LENDER: NextAction = {
+  key: 'nudge_lender',
+  label: 'Nudge the lender',
+  manual: true,
+  note: 'Michael watches for the lender decision and nudges when it drags.',
+}
+
+// Step key → action. Planned steps never match a stage, so they never reach
+// this map at render time; the phase fallback below keeps the mapping total
+// for stages no step claims (the legacy Qualification shape).
+const ACTION_BY_STEP: Record<string, NextAction> = {
+  qualify: A_REACH_OUT,
+  application: A_NUDGE_APPLICATION,
+  first_review: A_CHASE_DOCUMENTS,
+  documents: A_CHASE_DOCUMENTS,
+  underwrite: A_GENERATE_NOTES,
+  plan: A_PRESENT_OPTIONS,
+  preapproval_letter: A_PRESENT_OPTIONS,
+  package_submit: A_GENERATE_NOTES,
+  with_lender: A_NUDGE_LENDER,
+  commitment: A_WORK_CONDITIONS,
+  conditions: A_WORK_CONDITIONS,
+  final_approval: A_CONFIRM_BROKER_COMPLETE,
+  broker_complete: A_ASSEMBLE_COMPLIANCE,
+  compliance_package: A_ASSEMBLE_COMPLIANCE,
+}
+
+const ACTION_BY_PHASE: Record<PhaseKey, NextAction | null> = {
+  intake: A_NUDGE_APPLICATION,
+  underwriting: A_CHASE_DOCUMENTS,
+  fulfilment: A_WORK_CONDITIONS,
+  complete_paid: A_ASSEMBLE_COMPLIANCE,
+  // Funded files carry no next action here: the list renders the muted
+  // "Moves to renewals" link instead (the Renewal Radar owns them).
+  beyond_funding: null,
+}
+
+/**
+ * The next action for a file, from its journey. Null for unmapped stages
+ * (the row is already loud amber) and for Beyond funding (renewals own it).
+ */
+export function nextActionForJourney(journey: Journey): NextAction | null {
+  if (!journey.mapped || !journey.currentPhase) return null
+  const current = journey.steps.find(s => s.state === 'current')
+  if (current) {
+    const byStep = ACTION_BY_STEP[current.key]
+    if (byStep) return byStep
+  }
+  return ACTION_BY_PHASE[journey.currentPhase]
 }

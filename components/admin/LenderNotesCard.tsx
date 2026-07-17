@@ -9,8 +9,9 @@
 // acceptable and a blocked agent is not. The draft is editable in place; saving
 // an edit writes an append-only human_edited row. Nothing is sent anywhere.
 //
-// Lime is the human action (Generate / Regenerate); every other control is calm
-// navy or gray. Card chrome follows the client copy rules (no dashes); the
+// B2b (Task 7): Generate and Regenerate wear the outline ink style — lime
+// inside a room belongs only to queued decisions (the pending conditions
+// approval banner keeps it). Every control here is calm navy or gray. Card chrome follows the client copy rules (no dashes); the
 // DRAFT itself follows the skill's rules and is model output.
 
 import { useRouter } from 'next/navigation'
@@ -243,7 +244,7 @@ export default function LenderNotesCard({
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => setComposing(true)} disabled={busy !== '' || !hasTarget}
                 data-testid="lender-notes-generate"
-                className="text-sm font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90 disabled:opacity-50">
+                className="text-sm font-semibold bg-white border border-cool-300 text-navy rounded-lg px-3 py-1.5 hover:border-navy disabled:opacity-50">
                 {draft ? 'Regenerate lender notes' : 'Generate lender notes'}
               </button>
               {!hasTarget && <span className="text-[11px] text-amber-700 font-body">Set the target lender first (the note opens with the lender by name).</span>}
@@ -260,7 +261,7 @@ export default function LenderNotesCard({
                 placeholder="e.g. Qualifying on the co-borrower only; lead with the reserves." />
               <div className="mt-2 flex items-center gap-2">
                 <button type="button" onClick={() => generate()} disabled={busy !== ''} data-testid="lender-notes-submit"
-                  className="text-sm font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90 disabled:opacity-50">
+                  className="text-sm font-semibold bg-white border border-cool-300 text-navy rounded-lg px-3 py-1.5 hover:border-navy disabled:opacity-50">
                   {busy === 'generate' ? 'Generating…' : 'Generate draft'}
                 </button>
                 <button type="button" onClick={() => setComposing(false)} disabled={busy !== ''}
@@ -277,7 +278,7 @@ export default function LenderNotesCard({
       {staleOffer && (
         <div className="mb-3">
           <button type="button" onClick={() => generate(true)} disabled={busy !== ''} data-testid="lender-notes-stale-fallback"
-            className="text-sm font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90 disabled:opacity-50">
+            className="text-sm font-semibold bg-white border border-cool-300 text-navy rounded-lg px-3 py-1.5 hover:border-navy disabled:opacity-50">
             {busy === 'generate' ? 'Generating…' : `Generate from the snapshot ${hoursAgo(readiness.snapshotPulledAt)}`}
           </button>
           <span className="ml-2 text-[11px] text-gray-400 font-body">Uses the last pull, not the current Finmo data.</span>

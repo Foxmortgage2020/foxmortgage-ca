@@ -29,7 +29,7 @@ vi.mock('@/lib/demo', () => {
   }
 })
 
-import { getAllDealsSlim, createZohoTask, searchZohoContacts } from '@/lib/zoho-admin'
+import { getAllDealsSlim, createZohoTask, searchZohoContacts, getDealCloseout } from '@/lib/zoho-admin'
 import {
   getDealsSummary,
   getAgentIdByEmail,
@@ -71,6 +71,17 @@ describe('demo mode guards', () => {
   it('getDealsSummary (workbench) returns the demo UwResult and never calls fetch', async () => {
     const res = await getDealsSummary('anything')
     expect(res).toEqual({ configured: true, ok: true, data: demoDeals })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('getDealCloseout (B2b closeout read) resolves from fixtures with zero real reads', async () => {
+    const inReview = await getDealCloseout('demo-z-2')
+    expect(inReview?.complianceStatus).toBe('In Review')
+    expect(inReview?.totalCommission).toBeNull()
+    const approved = await getDealCloseout('demo-z-10')
+    expect(approved?.complianceStatus).toBe('Approved')
+    expect(approved?.totalCommission).toBe(7140)
+    expect(await getDealCloseout('demo-z-none')).toBeNull()
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

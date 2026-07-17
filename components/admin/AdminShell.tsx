@@ -191,7 +191,7 @@ export default function AdminShell({
         onClick={onNavigate}
         title={rail ? item.label : undefined}
         aria-label={item.label}
-        className={`relative flex items-center rounded-[7px] text-sm font-ui font-medium motion-safe:transition-colors ${focusDark} ${
+        className={`relative flex items-center rounded-[7px] text-sm font-heading font-medium motion-safe:transition-colors ${focusDark} ${
           rail ? 'justify-center px-0 py-2.5' : 'gap-3 py-2 px-3'
         } ${active ? 'bg-ink-navy3 text-white font-semibold' : 'text-white/70 hover:bg-ink-navy2 hover:text-white'}`}
       >
@@ -223,7 +223,7 @@ export default function AdminShell({
             (rail ? (
               <div className="my-2 mx-2 border-t border-white/10" aria-hidden="true" />
             ) : (
-              <p className="flex items-center gap-1.5 px-3 pt-4 pb-1.5 text-[10px] font-ui font-bold uppercase tracking-[1.6px] text-white/40">
+              <p className="flex items-center gap-1.5 px-3 pt-4 pb-1.5 text-[10px] font-heading font-bold uppercase tracking-[1.6px] text-white/40">
                 {g.label}
                 {groupHasDecision(g) && (
                   <span
@@ -239,7 +239,7 @@ export default function AdminShell({
 
       {portalLinks.length > 0 && !rail && (
         <div className="border-t border-white/10 pt-3 mt-3">
-          <p className="px-3 pb-1.5 text-[10px] font-ui font-bold uppercase tracking-[1.6px] text-white/40">
+          <p className="px-3 pb-1.5 text-[10px] font-heading font-bold uppercase tracking-[1.6px] text-white/40">
             Portals
           </p>
           {portalLinks.map(link => (
@@ -264,7 +264,7 @@ export default function AdminShell({
         <Link
           href={askFoxHref}
           title={rail ? 'Ask Fox' : undefined}
-          className={`flex items-center rounded-[7px] bg-white/10 text-white font-ui font-semibold text-sm hover:bg-white/15 motion-safe:transition-colors ${focusDark} ${
+          className={`flex items-center rounded-[7px] bg-white/10 text-white font-heading font-semibold text-sm hover:bg-white/15 motion-safe:transition-colors ${focusDark} ${
             rail ? 'justify-center py-2.5 mb-2' : 'gap-2.5 px-3 py-2.5 mb-3'
           }`}
         >
@@ -305,13 +305,13 @@ export default function AdminShell({
         className={`flex items-center gap-2.5 ${focusDark} rounded`}
         aria-label="Fox Mortgage, Today"
       >
-        <span className="w-7 h-7 rounded-md bg-white text-ink-navy flex items-center justify-center font-ui font-extrabold text-sm shrink-0">
+        <span className="w-7 h-7 rounded-md bg-white text-ink-navy flex items-center justify-center font-heading font-extrabold text-sm shrink-0">
           F
         </span>
         {!rail && (
           <span className="leading-tight">
-            <span className="block font-ui font-bold text-[15px] text-white">Fox Mortgage</span>
-            <span className="block text-[10px] font-ui uppercase tracking-[1.4px] text-white/40">
+            <span className="block font-heading font-bold text-[15px] text-white">Fox Mortgage</span>
+            <span className="block text-[10px] font-heading uppercase tracking-[1.4px] text-white/40">
               Command centre
             </span>
           </span>
@@ -386,7 +386,7 @@ export default function AdminShell({
             </button>
             <Link
               href="/portal/admin"
-              className={`lg:hidden font-ui font-bold text-ink-navy ${focusLight} rounded`}
+              className={`lg:hidden font-heading font-bold text-ink-navy ${focusLight} rounded`}
             >
               Fox Mortgage
             </Link>

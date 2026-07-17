@@ -6,14 +6,16 @@ import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400', '600', '700'],
+  // 500 joined for the B2b shell (nav labels render font-medium).
+  weight: ['400', '500', '600', '700'],
   variable: '--font-poppins',
   display: 'swap',
 })
 
 const montserrat = Montserrat({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  // 700 joined for the B2b Deals surface (bold table actions and money).
+  weight: ['400', '500', '600', '700'],
   variable: '--font-montserrat',
   display: 'swap',
 })
