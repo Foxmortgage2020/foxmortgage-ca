@@ -65,7 +65,7 @@ export default async function OpportunitiesTab() {
       <div>
         <Header />
         <div className="bg-white border border-cool-200 rounded-[9px] p-5">
-          <p className="text-sm text-cool-600 font-body">
+          <p className="text-sm text-cool-600 font-ui">
             The upload store is not connected. Set FOXCA_SUPABASE_URL and FOXCA_SUPABASE_KEY to enable
             the monitoring pipeline.
           </p>
@@ -85,7 +85,7 @@ export default async function OpportunitiesTab() {
         <Header />
         {canManage && <SmmUpload />}
         <div className="bg-white border border-cool-200 rounded-[9px] p-5">
-          <p className="text-sm text-cool-600 font-body">
+          <p className="text-sm text-cool-600 font-ui">
             No monitoring export uploaded yet. Upload the monthly CSV to build the board.
           </p>
         </div>
@@ -299,20 +299,20 @@ export default async function OpportunitiesTab() {
             </Link>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm font-body">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm font-ui">
           <Stat label="Mortgages" value={String(mortgages.length)} sub={`${current.rawRowCount} raw rows, ${current.collapsedCount ?? 0} collapsed`} />
           <Stat label="Act now" value={String(bucketed.act_now.length)} sub="calls to make" tone="good" />
           <Stat label="Insufficient data" value={String(bucketed.insufficient.length)} sub={`${placeholders} placeholder, ${parseFailures} parse fail`} tone={placeholders + parseFailures > 0 ? 'warn' : undefined} />
           <Stat label="Unmapped lenders" value={String(unmapped.length)} sub={unmapped.length ? unmapped.slice(0, 2).join(', ') : 'all resolved'} tone={unmapped.length ? 'warn' : undefined} />
         </div>
         {delta && (
-          <p className="text-xs font-body text-cool-600 mt-3 border-t border-cool-100 pt-2">
+          <p className="text-xs font-ui text-cool-600 mt-3 border-t border-cool-100 pt-2">
             Since the prior upload: {delta.newOpportunities.length} new, {delta.improved.length} improved,{' '}
             {delta.resolved.length} resolved, {delta.departed.length} left the export.
           </p>
         )}
         {!agentId && (
-          <p className="text-xs font-body text-amber-700 mt-2">
+          <p className="text-xs font-ui text-amber-700 mt-2">
             The approved rate book is not connected, so Fox&apos;s comparison cannot compute; the service figure still shows.
           </p>
         )}
@@ -325,9 +325,9 @@ export default async function OpportunitiesTab() {
           <div className="flex items-center gap-2 flex-wrap mb-2">
             <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
             <h2 className="font-heading font-bold text-navy text-lg">Appears renewed</h2>
-            <span className="text-sm font-body text-cool-600">{bucketed.appears_renewed.length} files, held out of Act now</span>
+            <span className="text-sm font-ui text-cool-600">{bucketed.appears_renewed.length} files, held out of Act now</span>
           </div>
-          <p className="text-xs font-body text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+          <p className="text-xs font-ui text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
             The monitoring feed says these clients renewed since their Zoho deal closed, so a switch call
             now is the wrong call. Confirm or clear each one on the{' '}
             <Link href="/portal/admin/beyond?tab=renewals" className="underline font-semibold">Renewals page</Link>; they return
@@ -357,9 +357,9 @@ function Header() {
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'good' | 'warn' }) {
   return (
     <div className="border border-cool-100 rounded-lg px-3 py-2 bg-cool-50">
-      <p className="text-[11px] font-body text-cool-500 uppercase tracking-wide">{label}</p>
+      <p className="text-[11px] font-ui text-cool-500 uppercase tracking-wide">{label}</p>
       <p className={`font-heading font-bold text-lg ${tone === 'good' ? 'text-green-700' : tone === 'warn' ? 'text-amber-700' : 'text-navy'}`}>{value}</p>
-      {sub && <p className="text-[11px] font-body text-cool-600 mt-0.5">{sub}</p>}
+      {sub && <p className="text-[11px] font-ui text-cool-600 mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -386,11 +386,11 @@ function Bucket({
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <span className={`w-2.5 h-2.5 rounded-full ${tone === 'good' ? 'bg-green-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-cool-300'}`} />
         <h2 className="font-heading font-bold text-navy text-lg">{title}</h2>
-        <span className="text-sm font-body text-cool-600">{views.length} files</span>
+        <span className="text-sm font-ui text-cool-600">{views.length} files</span>
       </div>
-      <p className="text-xs font-body text-cool-500 mb-3">{hint}</p>
+      <p className="text-xs font-ui text-cool-500 mb-3">{hint}</p>
       {views.length === 0 ? (
-        <p className="text-sm text-cool-500 font-body">Nothing here right now.</p>
+        <p className="text-sm text-cool-500 font-ui">Nothing here right now.</p>
       ) : (
         <div className="space-y-2">
           {views.map(v => (

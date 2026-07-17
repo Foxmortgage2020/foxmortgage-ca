@@ -10,6 +10,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2, ShieldOff } from 'lucide-react'
+import StatusChip from '@/components/admin/ds/StatusChip'
 
 export interface PersonRowView {
   clerkUserId: string
@@ -96,20 +97,20 @@ export default function PeopleList({
   return (
     <div>
       {error && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm font-body text-red-700">
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm font-ui text-red-700">
           {error}
         </div>
       )}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
-        <table className="w-full text-sm font-body min-w-[720px]">
+      <div className="bg-white border border-cool-200 rounded-[9px] overflow-x-auto">
+        <table className="w-full text-sm font-ui min-w-[720px]">
           <thead>
-            <tr className="text-left text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
-              <th className="py-2.5 px-4 font-medium">Person</th>
-              <th className="py-2.5 px-4 font-medium">Roles</th>
-              <th className="py-2.5 px-4 font-medium">Last sign-in</th>
-              <th className="py-2.5 px-4 font-medium">Provisioned by</th>
-              <th className="py-2.5 px-4 font-medium">Status</th>
-              <th className="py-2.5 px-4 font-medium text-right">Offboard</th>
+            <tr className="text-left font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600">
+              <th className="py-2.5 px-4 font-semibold">Person</th>
+              <th className="py-2.5 px-4 font-semibold">Roles</th>
+              <th className="py-2.5 px-4 font-semibold">Last sign-in</th>
+              <th className="py-2.5 px-4 font-semibold">Provisioned by</th>
+              <th className="py-2.5 px-4 font-semibold">Status</th>
+              <th className="py-2.5 px-4 font-semibold text-right">Offboard</th>
             </tr>
           </thead>
           <tbody>
@@ -120,12 +121,12 @@ export default function PeopleList({
               return (
                 <tr
                   key={row.clerkUserId}
-                  className="border-b border-gray-50 last:border-0"
+                  className="border-t border-cool-100"
                   data-testid={`person-${row.clerkUserId}`}
                 >
                   <td className="py-2.5 px-4">
                     <p className="text-navy">{row.name || '—'}</p>
-                    <p className="text-xs text-gray-400">{row.email}</p>
+                    <p className="text-xs text-cool-500">{row.email}</p>
                   </td>
                   <td className="py-2.5 px-4">
                     {row.roles.length > 0 ? (
@@ -133,38 +134,34 @@ export default function PeopleList({
                         {row.roles.map(r => (
                           <span
                             key={r}
-                            className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
+                            className="text-xs bg-cool-100 text-cool-600 px-1.5 py-0.5 rounded"
                           >
                             {r}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-400">no roles</span>
+                      <span className="text-xs text-cool-400">no roles</span>
                     )}
                   </td>
-                  <td className="py-2.5 px-4 text-gray-500 whitespace-nowrap">
+                  <td className="py-2.5 px-4 text-cool-500 whitespace-nowrap tabular-nums">
                     {fmtLastSignIn(row.lastSignInAt)}
                   </td>
-                  <td className="py-2.5 px-4 text-gray-500">
+                  <td className="py-2.5 px-4 text-cool-500">
                     {row.provisionedBy ?? (
-                      <span className="text-xs text-gray-400">pre-wizard (manual)</span>
+                      <span className="text-xs text-cool-400">pre-wizard (manual)</span>
                     )}
                   </td>
                   <td className="py-2.5 px-4">
                     {row.banned ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-700">
-                        disabled
-                      </span>
+                      <StatusChip tone="red">disabled</StatusChip>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-lime/20 text-navy">
-                        active
-                      </span>
+                      <StatusChip tone="gray">active</StatusChip>
                     )}
                     {row.offboardId && (
                       <Link
                         href={`/portal/admin/settings/people/offboard/${row.offboardId}`}
-                        className="ml-2 text-xs text-navy underline hover:text-lime"
+                        className="ml-2 text-xs text-navy underline hover:text-ink"
                       >
                         checklist
                       </Link>
@@ -172,9 +169,9 @@ export default function PeopleList({
                   </td>
                   <td className="py-2.5 px-4 text-right">
                     {isSelf ? (
-                      <span className="text-xs text-gray-400">you</span>
+                      <span className="text-xs text-cool-400">you</span>
                     ) : row.banned ? (
-                      <span className="text-xs text-gray-400">done</span>
+                      <span className="text-xs text-cool-400">done</span>
                     ) : (
                       <button
                         onClick={() => handleDisable(row)}
@@ -183,7 +180,7 @@ export default function PeopleList({
                         className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
                           armed
                             ? 'bg-red-600 text-white border-red-600'
-                            : 'border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600'
+                            : 'border-cool-200 text-cool-500 hover:border-red-300 hover:text-red-600'
                         }`}
                       >
                         {busy ? (
@@ -201,7 +198,7 @@ export default function PeopleList({
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs text-gray-400 font-body">
+      <p className="mt-3 text-xs text-cool-500 font-ui">
         Disable bans the Clerk user and revokes every live session in one action, then opens
         the offboarding checklist. Nothing deletes — audit history, provisioning records, and
         view-as logs remain.

@@ -108,34 +108,34 @@ export default function OpportunityCard({
   const disagree = !blocked && serviceSavings != null && foxPositive !== servicePositive
 
   return (
-    <div className="border border-gray-200 rounded-xl bg-white px-4 py-3">
+    <div className="border border-cool-200 rounded-xl bg-white px-4 py-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <p className="font-heading font-bold text-navy text-sm">
             {name}
-            {extraBorrowers > 0 && <span className="text-gray-400 font-normal"> +{extraBorrowers} borrower{extraBorrowers === 1 ? '' : 's'}</span>}
+            {extraBorrowers > 0 && <span className="text-cool-400 font-normal"> +{extraBorrowers} borrower{extraBorrowers === 1 ? '' : 's'}</span>}
           </p>
-          <p className="text-xs font-body text-gray-500">
+          <p className="text-xs font-ui text-cool-500">
             {rate != null ? `${rate}% ${rateType ?? ''}` : 'rate not on file'} · {lender} · {money(balance)}
             {maturity ? ` · matures ${shortDate(maturity)}` : ''}
           </p>
         </div>
         {status && (
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-lime/20 text-navy shrink-0">{status.replace(/_/g, ' ')}</span>
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-cool-100 text-cool-700 shrink-0">{status.replace(/_/g, ' ')}</span>
         )}
       </div>
 
       {/* Side by side: Fox's analysis | the service's figure */}
       <div className="mt-2 grid sm:grid-cols-2 gap-2">
-        <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2">
-          <p className="text-[11px] font-body text-gray-400 uppercase tracking-wide mb-1">
+        <div className="rounded-lg border border-cool-200 bg-cool-50/60 px-3 py-2">
+          <p className="text-[11px] font-ui text-cool-400 uppercase tracking-wide mb-1">
             Fox&apos;s analysis
             {a.transaction && (
               <span className="ml-1 normal-case text-navy font-semibold">· {a.transaction === 'refinance' ? 'Refinance (break)' : 'Switch'}</span>
             )}
           </p>
           {a.override && (
-            <p className="mb-1 text-[10px] font-body text-navy bg-amber-50 border border-amber-300 rounded px-2 py-1">
+            <p className="mb-1 text-[10px] font-ui text-navy bg-amber-50 border border-amber-300 rounded px-2 py-1">
               <span className="font-semibold uppercase tracking-wide">Override active ({a.override.type === 'desk_rate' ? "Michael's desk rate" : "Michael's pick"})</span>{' '}
               {a.override.rate}% ({comparableTermLabel(a.override.termMonths)}) {a.override.lender}
               {a.override.sourceNote ? ` · ${a.override.sourceNote}` : ''} · reason: {a.override.reason}
@@ -143,49 +143,49 @@ export default function OpportunityCard({
           )}
           {blocked || a.comparable == null ? (
             <div className="space-y-1">
-              <p className="text-xs font-body text-amber-700">{a.blockReason ?? 'Not analyzable (missing rate, no same-tier comparable, or the approved book is unavailable).'}</p>
+              <p className="text-xs font-ui text-amber-700">{a.blockReason ?? 'Not analyzable (missing rate, no same-tier comparable, or the approved book is unavailable).'}</p>
               {a.graduation && (
-                <p className="text-[10px] font-body text-navy bg-lime/10 border border-lime/40 rounded px-2 py-1">
+                <p className="text-[10px] font-ui text-navy bg-green-100 border border-green-200 rounded px-2 py-1">
                   <span className="font-semibold uppercase tracking-wide">Graduation flag ({a.graduation.toTier.toUpperCase()} tier)</span>{' '}
                   {a.graduation.comparable.rate}% ({comparableTermLabel(a.graduation.comparable.termMonths)}) {a.graduation.comparable.lender}, as of {shortDate(a.graduation.comparable.asOf)}. {a.graduation.note}
                 </p>
               )}
             </div>
           ) : (
-            <div className="text-xs font-body space-y-0.5">
+            <div className="text-xs font-ui space-y-0.5">
               <p>
                 Best eligible {a.comparable.kind === 'floating' ? `${a.comparable.rateType ?? 'floating'} ` : ''}
                 <span className="text-navy font-semibold">{a.comparable.rate}%</span>{' '}
                 {a.comparable.kind === 'floating' && a.comparable.primeUsed != null && (
-                  <span className="text-gray-400">(prime {a.comparable.primeUsed}% {a.comparable.variance != null ? (a.comparable.variance < 0 ? a.comparable.variance : `+${a.comparable.variance}`) : ''}) </span>
+                  <span className="text-cool-400">(prime {a.comparable.primeUsed}% {a.comparable.variance != null ? (a.comparable.variance < 0 ? a.comparable.variance : `+${a.comparable.variance}`) : ''}) </span>
                 )}
-                <span className="text-gray-400">({comparableTermLabel(a.comparable.termMonths)}) {a.comparable.lender}, {a.productClass}, as of {shortDate(a.comparable.asOf)}</span>
+                <span className="text-cool-400">({comparableTermLabel(a.comparable.termMonths)}) {a.comparable.lender}, {a.productClass}, as of {shortDate(a.comparable.asOf)}</span>
               </p>
-              <p className="text-gray-600">
+              <p className="text-cool-600">
                 Payment {money2(a.currentPayment)} → {money2(a.newPayment)}
                 {a.monthlySaving && a.monthlySaving > 0 ? <span className="text-green-700 font-semibold"> ({money2(a.monthlySaving)}/mo saved)</span> : ''}
               </p>
-              <p className={`font-heading font-bold ${(a.netBenefit ?? 0) > 0 ? 'text-green-700' : 'text-gray-600'}`}>
+              <p className={`font-heading font-bold ${(a.netBenefit ?? 0) > 0 ? 'text-green-700' : 'text-cool-600'}`}>
                 Net benefit {money(a.netBenefit)}{a.horizonMonths != null ? ` over ${a.horizonMonths} mo` : ''}
               </p>
               {a.penalty && (
-                <p className="text-gray-500">
+                <p className="text-cool-500">
                   Penalty ~{money(a.penalty.threeMonthsInterest)} (3mo interest){a.breakEvenMonths != null ? `, break-even ${Math.ceil(a.breakEvenMonths)} mo` : ''}
                 </p>
               )}
-              {a.transaction === 'switch' && <p className="text-[10px] text-gray-500">Switch at maturity: no penalty applies.</p>}
+              {a.transaction === 'switch' && <p className="text-[10px] text-cool-500">Switch at maturity: no penalty applies.</p>}
               {a.requalification && <p className="text-[10px] text-amber-700">Refinance: requires requalifying at the stress test; this assumes qualification.</p>}
               {a.penalty && !a.penalty.methodologyKnown && (
                 <p className="text-[10px] text-amber-700">Fixed IRD methodology not documented for this lender; no single penalty asserted.</p>
               )}
               {a.graduation && !a.graduationRecommended && (
-                <p className="mt-1 text-[10px] font-body text-navy bg-lime/10 border border-lime/40 rounded px-2 py-1">
+                <p className="mt-1 text-[10px] font-ui text-navy bg-green-100 border border-green-200 rounded px-2 py-1">
                   <span className="font-semibold uppercase tracking-wide">Graduation flag ({a.graduation.toTier.toUpperCase()} tier)</span>{' '}
                   {a.graduation.comparable.rate}% ({comparableTermLabel(a.graduation.comparable.termMonths)}) {a.graduation.comparable.lender}, as of {shortDate(a.graduation.comparable.asOf)}. {a.graduation.note}
                 </p>
               )}
               {a.shortTermStrategy && (
-                <p className="mt-1 text-[10px] font-body text-navy bg-sky-50 border border-sky-300 rounded px-2 py-1">
+                <p className="mt-1 text-[10px] font-ui text-navy bg-sky-50 border border-sky-300 rounded px-2 py-1">
                   <span className="font-semibold uppercase tracking-wide">
                     {a.shortTermStrategy.applied
                       ? a.shortTermRecommended
@@ -198,21 +198,21 @@ export default function OpportunityCard({
                 </p>
               )}
               {a.alternative && (
-                <div className="mt-1 border-t border-gray-100 pt-1 space-y-0.5">
+                <div className="mt-1 border-t border-cool-100 pt-1 space-y-0.5">
                   <p className="text-[10px] uppercase tracking-wide text-amber-700 font-semibold">
                     {a.alternative.crossFamily ? 'Alternative, different rate type' : 'Steady option, same rate type'}
                   </p>
-                  <p className="text-gray-600">
+                  <p className="text-cool-600">
                     {a.alternative.comparable.rateType ?? a.alternative.comparable.kind}{' '}
                     <span className="text-navy font-semibold">{a.alternative.comparable.rate}%</span>{' '}
                     {a.alternative.comparable.primeUsed != null && (
-                      <span className="text-gray-400">
+                      <span className="text-cool-400">
                         (prime {a.alternative.comparable.primeUsed}%{' '}
                         {a.alternative.comparable.variance != null ? (a.alternative.comparable.variance < 0 ? a.alternative.comparable.variance : `+${a.alternative.comparable.variance}`) : ''}
                         ){' '}
                       </span>
                     )}
-                    <span className="text-gray-400">({comparableTermLabel(a.alternative.comparable.termMonths)}) {a.alternative.comparable.lender}, as of {shortDate(a.alternative.comparable.asOf)}</span>
+                    <span className="text-cool-400">({comparableTermLabel(a.alternative.comparable.termMonths)}) {a.alternative.comparable.lender}, as of {shortDate(a.alternative.comparable.asOf)}</span>
                     {' '}payment {money2(a.alternative.newPayment)}
                     {a.alternative.monthlySaving > 0 ? ` (${money2(a.alternative.monthlySaving)}/mo less)` : ''}
                   </p>
@@ -222,24 +222,24 @@ export default function OpportunityCard({
             </div>
           )}
         </div>
-        <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2">
-          <p className="text-[11px] font-body text-gray-400 uppercase tracking-wide mb-1">Strategic Mortgage Monitoring</p>
-          <div className="text-xs font-body space-y-0.5">
+        <div className="rounded-lg border border-cool-200 bg-cool-50/60 px-3 py-2">
+          <p className="text-[11px] font-ui text-cool-400 uppercase tracking-wide mb-1">Strategic Mortgage Monitoring</p>
+          <div className="text-xs font-ui space-y-0.5">
             <p>
               Savings potential{' '}
-              {serviceSavings == null ? <span className="text-gray-400">not computed</span> : <span className={serviceSavings > 0 ? 'text-green-700 font-semibold' : 'text-gray-600 font-semibold'}>{money2(serviceSavings)}</span>}
+              {serviceSavings == null ? <span className="text-cool-400">not computed</span> : <span className={serviceSavings > 0 ? 'text-green-700 font-semibold' : 'text-cool-600 font-semibold'}>{money2(serviceSavings)}</span>}
             </p>
-            <p className="text-gray-500">Payment relief {serviceRelief == null ? 'not computed' : `${money2(serviceRelief)}/mo`}</p>
-            <p className="text-[10px] text-gray-400">The monitoring service&apos;s own figure, estimated.</p>
+            <p className="text-cool-500">Payment relief {serviceRelief == null ? 'not computed' : `${money2(serviceRelief)}/mo`}</p>
+            <p className="text-[10px] text-cool-400">The monitoring service&apos;s own figure, estimated.</p>
           </div>
         </div>
       </div>
       {disagree && (
-        <p className="mt-1.5 text-[11px] font-body text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+        <p className="mt-1.5 text-[11px] font-ui text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
           Fox&apos;s analysis and the service&apos;s figure disagree on direction. Disagreement is information; check both before the call.
         </p>
       )}
-      <p className="mt-1 text-[10px] font-body text-gray-400">
+      <p className="mt-1 text-[10px] font-ui text-cool-400">
         Estimates from monitored data; every rate carries its sheet date. Underwriting begins at application.
       </p>
 
@@ -326,7 +326,7 @@ export default function OpportunityCard({
             <input type="hidden" name="grad" value="approve" />
             <button
               type="submit"
-              className={`text-xs font-semibold rounded-lg px-3 py-1.5 border ${gradArmed ? 'bg-navy text-white border-navy' : 'text-navy border-lime/60 hover:border-lime'}`}
+              className={`text-xs font-semibold rounded-lg px-3 py-1.5 border ${gradArmed ? 'bg-navy text-white border-navy' : 'text-navy border-cool-300 hover:border-navy'}`}
             >
               {gradArmed
                 ? `Confirm: price the ${a.graduation.toTier.toUpperCase()}-tier option?`
@@ -341,7 +341,7 @@ export default function OpportunityCard({
       )}
 
       {canManage && (
-        <div className="mt-2.5 border-t border-gray-100 pt-2.5">
+        <div className="mt-2.5 border-t border-cool-100 pt-2.5">
           <div className="flex items-center gap-1.5 flex-wrap">
             {STATUS_ACTIONS.map(s => (
               <button
@@ -354,7 +354,7 @@ export default function OpportunityCard({
               </button>
             ))}
           </div>
-          {msg && <p className="mt-1.5 text-[11px] font-body text-gray-500">{msg}</p>}
+          {msg && <p className="mt-1.5 text-[11px] font-ui text-cool-500">{msg}</p>}
         </div>
       )}
     </div>

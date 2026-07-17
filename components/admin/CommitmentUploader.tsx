@@ -123,19 +123,19 @@ export default function CommitmentUploader({
           const f = e.dataTransfer.files?.[0]
           if (f) void upload(f)
         }}
-        className={`w-full cursor-pointer rounded-lg border border-dashed text-center font-body transition-colors ${
+        className={`w-full cursor-pointer rounded-lg border border-dashed text-center font-ui transition-colors ${
           compact ? 'px-3 py-3' : 'px-4 py-6'
         } ${
           dragging
             ? 'border-navy bg-navy/5'
-            : 'border-gray-300 bg-gray-50 hover:border-navy hover:bg-navy/5'
+            : 'border-cool-300 bg-cool-50 hover:border-navy hover:bg-navy/5'
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
         <p className={`font-heading font-semibold text-navy ${compact ? 'text-sm' : 'text-base'}`}>
           {busy ? 'Uploading…' : title}
         </p>
-        <p className="mt-1 text-xs text-gray-500">{hint}</p>
-        {!compact && <p className="mt-1 text-[11px] text-gray-400">Drag a file here, or click to browse — PDF, DOCX, DOC, TXT (3 MB).</p>}
+        <p className="mt-1 text-xs text-cool-500">{hint}</p>
+        {!compact && <p className="mt-1 text-[11px] text-cool-500">Drag a file here, or click to browse — PDF, DOCX, DOC, TXT (3 MB).</p>}
         <input
           ref={inputRef}
           type="file"
@@ -148,8 +148,8 @@ export default function CommitmentUploader({
           }}
         />
       </div>
-      {error && <p className="mt-2 text-xs font-body text-red-700">{error}</p>}
-      {ok && <p className="mt-2 text-xs font-body text-green-700">{ok}</p>}
+      {error && <p className="mt-2 text-xs font-ui text-red-700">{error}</p>}
+      {ok && <p className="mt-2 text-xs font-ui text-green-700">{ok}</p>}
     </div>
   )
 }

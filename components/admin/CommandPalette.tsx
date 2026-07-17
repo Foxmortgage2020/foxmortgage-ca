@@ -440,8 +440,8 @@ function PaletteModal({
       />
       <div className="relative z-10 flex h-full w-full flex-col bg-white shadow-2xl sm:mt-[10vh] sm:h-auto sm:max-h-[70vh] sm:w-full sm:max-w-xl sm:rounded-2xl motion-safe:animate-[foxPaletteIn_140ms_ease-out]">
         {/* Input row */}
-        <div className="flex items-center gap-2 border-b border-gray-100 px-4">
-          <Search className="h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />
+        <div className="flex items-center gap-2 border-b border-cool-100 px-4">
+          <Search className="h-5 w-5 shrink-0 text-cool-400" aria-hidden="true" />
           <input
             ref={inputRef}
             value={query}
@@ -451,18 +451,18 @@ function PaletteModal({
             }}
             onKeyDown={onInputKeyDown}
             placeholder="Search deals, contacts, partners, knowledge…"
-            className="h-14 flex-1 bg-transparent font-body text-base text-navy outline-none placeholder:text-gray-400"
+            className="h-14 flex-1 bg-transparent font-ui text-base text-navy outline-none placeholder:text-cool-400"
             autoComplete="off"
             spellCheck={false}
           />
           {serverLoading && (
-            <span className="hidden font-body text-xs text-gray-400 sm:inline">Searching…</span>
+            <span className="hidden font-ui text-xs text-cool-400 sm:inline">Searching…</span>
           )}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close search"
-            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md p-1.5 text-cool-400 hover:bg-cool-100 hover:text-cool-600"
           >
             <X className="h-5 w-5" />
           </button>
@@ -471,11 +471,11 @@ function PaletteModal({
         {/* Results */}
         <div className="flex-1 overflow-y-auto py-2">
           {sections.length === 0 && (
-            <p className="px-4 py-6 text-center font-body text-sm text-gray-400">Start typing to search.</p>
+            <p className="px-4 py-6 text-center font-ui text-sm text-cool-400">Start typing to search.</p>
           )}
           {sections.map(section => (
             <div key={section.key} className="px-2 py-1">
-              <p className="px-2 py-1 font-heading text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="px-2 py-1 font-heading text-[11px] font-semibold uppercase tracking-wide text-cool-400">
                 {section.label}
               </p>
               {section.results.map(result => {
@@ -501,28 +501,28 @@ function PaletteModal({
                       <Icon className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-body text-sm font-medium text-navy">
+                      <span className="block truncate font-ui text-sm font-medium text-navy">
                         {result.title}
                       </span>
                       {result.subtitle && (
-                        <span className="block truncate font-body text-xs text-gray-400">
+                        <span className="block truncate font-ui text-xs text-cool-400">
                           {result.subtitle}
                         </span>
                       )}
                     </span>
                     {result.badge && (
-                      <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 font-body text-[11px] text-gray-500">
+                      <span className="shrink-0 rounded-full bg-cool-100 px-2 py-0.5 font-ui text-[11px] text-cool-500">
                         {result.badge}
                       </span>
                     )}
                     {active && (
-                      <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                      <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-cool-400" aria-hidden="true" />
                     )}
                   </button>
                 )
               })}
               {section.message && section.results.length === 0 && (
-                <p className="px-2 py-2 font-body text-xs text-gray-400">{section.message}</p>
+                <p className="px-2 py-2 font-ui text-xs text-cool-400">{section.message}</p>
               )}
             </div>
           ))}

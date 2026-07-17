@@ -15,11 +15,11 @@ export default function PromoCountdowns({ lenderSlug }: { lenderSlug?: string })
     '/api/portal/admin/knowledge/offers',
   )
 
-  if (loading) return <p className="text-sm text-gray-400 font-body py-2">Loading offers…</p>
+  if (loading) return <p className="text-sm text-cool-400 font-ui py-2">Loading offers…</p>
   if (error) {
     return (
       <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-        <p className="text-xs text-amber-800 font-body">Offers unavailable: {error}</p>
+        <p className="text-xs text-amber-800 font-ui">Offers unavailable: {error}</p>
         <button onClick={retry} className="shrink-0 text-xs font-semibold text-amber-800 underline py-1.5">
           Retry
         </button>
@@ -29,7 +29,7 @@ export default function PromoCountdowns({ lenderSlug }: { lenderSlug?: string })
   const offers = (data?.offers ?? []).filter(o => (lenderSlug ? o.lender === lenderSlug : true))
   if (offers.length === 0) {
     return (
-      <p className="text-sm text-gray-400 font-body py-2">
+      <p className="text-sm text-cool-400 font-ui py-2">
         No active offers{lenderSlug ? ' for this lender' : ''} right now. Expired offers are never
         shown.
       </p>
@@ -44,11 +44,11 @@ export default function PromoCountdowns({ lenderSlug }: { lenderSlug?: string })
           ? 'border-red-300 bg-red-50'
           : amber
             ? 'border-amber-300 bg-amber-50'
-            : 'border-gray-200 bg-white'
+            : 'border-cool-200 bg-white'
         return (
           <div key={`${o.lender}-${o.offer?.id ?? i}`} className={`border rounded-lg p-3 ${border}`}>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-body font-semibold text-navy">{o.lender_name}</span>
+              <span className="text-sm font-ui font-semibold text-navy">{o.lender_name}</span>
               <OfferWindowBadge
                 variant="chip"
                 started={null}
@@ -56,7 +56,7 @@ export default function PromoCountdowns({ lenderSlug }: { lenderSlug?: string })
                 daysLeft={typeof o.days_left === 'number' ? o.days_left : null}
               />
             </div>
-            <p className="text-xs font-body text-gray-600 mt-1">{o.offer?.description ?? 'Offer'}</p>
+            <p className="text-xs font-ui text-cool-600 mt-1">{o.offer?.description ?? 'Offer'}</p>
           </div>
         )
       })}

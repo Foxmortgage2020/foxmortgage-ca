@@ -171,22 +171,22 @@ export default function ProvisionWizard({
   if (result) {
     return (
       <div className="space-y-4" data-testid="provision-result">
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-5">
           <div className="flex items-center gap-2 text-navy">
-            <Check className="w-5 h-5" style={{ color: '#7ab800' }} />
+            <Check className="w-5 h-5 text-green-600" />
             <h2 className="font-heading font-bold text-base">Provisioned</h2>
           </div>
-          <dl className="mt-3 text-sm font-body space-y-1.5">
+          <dl className="mt-3 text-sm font-ui space-y-1.5">
             <div className="flex gap-2">
-              <dt className="text-gray-400 w-32 shrink-0">Clerk user</dt>
+              <dt className="text-cool-500 w-32 shrink-0">Clerk user</dt>
               <dd className="text-navy break-all">{result.clerkUserId}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="text-gray-400 w-32 shrink-0">Roles</dt>
+              <dt className="text-cool-500 w-32 shrink-0">Roles</dt>
               <dd className="text-navy">{result.roles.join(', ')}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="text-gray-400 w-32 shrink-0">Invitation</dt>
+              <dt className="text-cool-500 w-32 shrink-0">Invitation</dt>
               <dd className="text-navy">
                 {result.inviteSent
                   ? 'Sent — they set a password through “Forgot password” on first sign-in.'
@@ -195,7 +195,7 @@ export default function ProvisionWizard({
             </div>
             {result.workbenchAgentId && (
               <div className="flex gap-2">
-                <dt className="text-gray-400 w-32 shrink-0">Workbench agent</dt>
+                <dt className="text-cool-500 w-32 shrink-0">Workbench agent</dt>
                 <dd className="text-navy break-all">{result.workbenchAgentId}</dd>
               </div>
             )}
@@ -203,7 +203,7 @@ export default function ProvisionWizard({
         </div>
 
         {result.workbenchError && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm font-body text-amber-800">
+          <div className="bg-amber-50 border border-amber-200 rounded-[9px] p-4 text-sm font-ui text-amber-800">
             <p className="font-semibold flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4" /> Workbench half incomplete
             </p>
@@ -212,24 +212,24 @@ export default function ProvisionWizard({
         )}
 
         {result.setupRemaining && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="bg-white border border-cool-200 rounded-[9px] p-5">
             <h3 className="font-heading text-navy font-bold text-sm">
               Setup remaining (from the workbench)
             </h3>
-            <p className="text-xs text-gray-400 font-body mt-0.5">
+            <p className="text-xs text-cool-500 font-ui mt-0.5">
               What a working agent still needs that provisioning alone does not give. Nothing
               below happens automatically.
             </p>
             {result.setupRemaining.length === 0 ? (
-              <p className="mt-3 text-sm font-body text-gray-500">Nothing remaining.</p>
+              <p className="mt-3 text-sm font-ui text-cool-500">Nothing remaining.</p>
             ) : (
               <ul className="mt-3 space-y-2">
                 {result.setupRemaining.map(item => (
-                  <li key={item.item} className="text-sm font-body">
+                  <li key={item.item} className="text-sm font-ui">
                     <span className="text-navy font-semibold">
                       {item.item.replace(/_/g, ' ')}
                     </span>
-                    <span className="text-gray-500"> — {item.note}</span>
+                    <span className="text-cool-500"> — {item.note}</span>
                   </li>
                 ))}
               </ul>
@@ -238,7 +238,7 @@ export default function ProvisionWizard({
         )}
 
         {result.recordWarning && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm font-body text-amber-800">
+          <div className="bg-amber-50 border border-amber-200 rounded-[9px] p-4 text-sm font-ui text-amber-800">
             {result.recordWarning}
           </div>
         )}
@@ -257,7 +257,7 @@ export default function ProvisionWizard({
   return (
     <div className="space-y-5">
       {/* Step 1: person type */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-white border border-cool-200 rounded-[9px] p-5">
         <h2 className="font-heading text-navy font-bold text-sm mb-3">1. Who is joining?</h2>
         <div className="grid sm:grid-cols-3 gap-3">
           {(
@@ -289,11 +289,11 @@ export default function ProvisionWizard({
               className={`text-left border rounded-lg p-3 transition-colors ${
                 personType === opt.type
                   ? 'border-navy bg-navy/5'
-                  : 'border-gray-200 hover:border-gray-300'
+                  : 'border-cool-200 hover:border-cool-300'
               }`}
             >
               <p className="font-heading font-bold text-sm text-navy">{opt.title}</p>
-              <p className="text-xs text-gray-500 font-body mt-1">{opt.blurb}</p>
+              <p className="text-xs text-cool-500 font-ui mt-1">{opt.blurb}</p>
             </button>
           ))}
         </div>
@@ -301,12 +301,12 @@ export default function ProvisionWizard({
 
       {/* Step 2: details */}
       {personType && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-5">
           <h2 className="font-heading text-navy font-bold text-sm mb-3">2. Details</h2>
 
           {personType === 'partner' && (
             <div className="mb-4">
-              <p className="text-xs text-gray-400 font-body mb-2">Partner type</p>
+              <p className="text-xs text-cool-500 font-ui mb-2">Partner type</p>
               <div className="flex flex-wrap gap-2">
                 {PARTNER_KIND_META.map(k => (
                   <button
@@ -318,7 +318,7 @@ export default function ProvisionWizard({
                     className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
                       partnerKind === k.kind
                         ? 'bg-navy text-white border-navy'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        : 'border-cool-200 text-cool-500 hover:border-cool-300'
                     }`}
                   >
                     {k.label}
@@ -326,7 +326,7 @@ export default function ProvisionWizard({
                 ))}
               </div>
 
-              <p className="text-xs text-gray-400 font-body mt-4 mb-1">
+              <p className="text-xs text-cool-500 font-ui mt-4 mb-1">
                 Pick the Zoho partner record (the id is selected, never typed)
               </p>
               <input
@@ -334,11 +334,11 @@ export default function ProvisionWizard({
                 value={partnerSearch}
                 onChange={e => setPartnerSearch(e.target.value)}
                 placeholder="Search by name or email…"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-body"
+                className="w-full border border-cool-200 rounded-lg px-3 py-2 text-sm font-ui"
               />
-              <ul className="mt-2 border border-gray-100 rounded-lg divide-y divide-gray-50 max-h-56 overflow-y-auto">
+              <ul className="mt-2 border border-cool-100 rounded-lg divide-y divide-cool-50 max-h-56 overflow-y-auto">
                 {filteredPartners.length === 0 && (
-                  <li className="p-3 text-xs text-gray-400 font-body">
+                  <li className="p-3 text-xs text-cool-500 font-ui">
                     No {kindMeta.label} records match. The person needs a Zoho Partners record
                     (type {kindMeta.zohoType}) before portal access.
                   </li>
@@ -347,23 +347,23 @@ export default function ProvisionWizard({
                   <li key={p.id}>
                     <button
                       onClick={() => pickPartner(p)}
-                      className={`w-full text-left p-2.5 text-sm font-body flex items-center justify-between gap-3 ${
-                        zohoPartnerId === p.id ? 'bg-lime/10' : 'hover:bg-gray-50'
+                      className={`w-full text-left p-2.5 text-sm font-ui flex items-center justify-between gap-3 ${
+                        zohoPartnerId === p.id ? 'bg-cool-100' : 'hover:bg-cool-50'
                       }`}
                     >
                       <span>
                         <span className="text-navy">{p.name}</span>
-                        <span className="text-xs text-gray-400 ml-2">{p.email ?? 'no email'}</span>
+                        <span className="text-xs text-cool-400 ml-2">{p.email ?? 'no email'}</span>
                       </span>
                       {zohoPartnerId === p.id && (
-                        <Check className="w-4 h-4 shrink-0" style={{ color: '#7ab800' }} />
+                        <Check className="w-4 h-4 shrink-0 text-green-600" />
                       )}
                     </button>
                   </li>
                 ))}
               </ul>
               {selectedPartner && (
-                <p className="mt-2 text-xs text-gray-500 font-body">
+                <p className="mt-2 text-xs text-cool-500 font-ui">
                   Selected: {selectedPartner.name} · Zoho id{' '}
                   <code className="text-navy">{selectedPartner.id}</code>
                 </p>
@@ -373,28 +373,28 @@ export default function ProvisionWizard({
 
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-xs text-gray-400 font-body">Full name</span>
+              <span className="text-xs text-cool-500 font-ui">Full name</span>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-body"
+                className="mt-1 w-full border border-cool-200 rounded-lg px-3 py-2 text-sm font-ui"
               />
             </label>
             <label className="block">
-              <span className="text-xs text-gray-400 font-body">Email</span>
+              <span className="text-xs text-cool-500 font-ui">Email</span>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-body"
+                className="mt-1 w-full border border-cool-200 rounded-lg px-3 py-2 text-sm font-ui"
               />
             </label>
           </div>
 
           {personType === 'staff' && (
             <div className="mt-4">
-              <p className="text-xs text-gray-400 font-body mb-2">Role</p>
+              <p className="text-xs text-cool-500 font-ui mb-2">Role</p>
               <div className="flex flex-wrap gap-2">
                 {(['ops', 'underwriting-reviewer'] as const).map(r => (
                   <button
@@ -404,7 +404,7 @@ export default function ProvisionWizard({
                     className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
                       staffRole === r
                         ? 'bg-navy text-white border-navy'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        : 'border-cool-200 text-cool-500 hover:border-cool-300'
                     }`}
                   >
                     {r}
@@ -417,26 +417,26 @@ export default function ProvisionWizard({
           {personType === 'agent' && (
             <div className="mt-4 grid sm:grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-xs text-gray-400 font-body">FSRA licence</span>
+                <span className="text-xs text-cool-500 font-ui">FSRA licence</span>
                 <input
                   type="text"
                   value={fsraLicence}
                   onChange={e => setFsraLicence(e.target.value)}
                   placeholder="M2…"
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-body"
+                  className="mt-1 w-full border border-cool-200 rounded-lg px-3 py-2 text-sm font-ui"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-gray-400 font-body">Office phone (optional)</span>
+                <span className="text-xs text-cool-500 font-ui">Office phone (optional)</span>
                 <input
                   type="text"
                   value={officePhone}
                   onChange={e => setOfficePhone(e.target.value)}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-body"
+                  className="mt-1 w-full border border-cool-200 rounded-lg px-3 py-2 text-sm font-ui"
                 />
               </label>
               {!gatesReady && (
-                <p className="sm:col-span-2 text-xs font-body text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                <p className="sm:col-span-2 text-xs font-ui text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
                   The Gates API is not connected, so only the Clerk half can be created today.
                   The workbench half (agents row, tenancy, setup checklist) runs the moment the
                   connection is back.
@@ -449,42 +449,42 @@ export default function ProvisionWizard({
 
       {/* Step 3: review + confirm */}
       {personType && detailsComplete && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-5">
           <h2 className="font-heading text-navy font-bold text-sm mb-3">3. Review and confirm</h2>
 
-          <div className="text-sm font-body space-y-2">
+          <div className="text-sm font-ui space-y-2">
             <p>
-              <span className="text-gray-400">Creating:</span>{' '}
+              <span className="text-cool-500">Creating:</span>{' '}
               <span className="text-navy">
                 {name.trim()} ({email.trim()})
               </span>
             </p>
             {internalRole ? (
               <div>
-                <p className="text-gray-400">
+                <p className="text-cool-500">
                   Role <code className="text-navy">{internalRole}</code> carries exactly these
                   grants (from the authority matrix):
                 </p>
                 <ul className="mt-1.5 space-y-1">
                   {grants.map(g => (
                     <li key={g.key} className="flex items-start gap-1.5">
-                      <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: '#7ab800' }} />
+                      <Check className="w-3.5 h-3.5 mt-0.5 shrink-0 text-green-600" />
                       <span>
                         <code className="text-xs text-navy">{g.key}</code>{' '}
-                        <span className="text-gray-500">— {g.label}</span>
+                        <span className="text-cool-500">— {g.label}</span>
                       </span>
                     </li>
                   ))}
                 </ul>
                 {personType === 'agent' && (
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-cool-500">
                     Plus their own workbench tenancy through the Gates API — the setup checklist
                     it returns renders here, honestly, when it runs.
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-gray-500">
+              <p className="text-cool-500">
                 Role <code className="text-navy">{PARTNER_KIND_META.find(k => k.kind === partnerKind)?.label}</code>{' '}
                 grants their own partner portal only — no admin-area access. The Zoho id{' '}
                 <code className="text-navy">{zohoPartnerId}</code> is stamped in their Clerk
@@ -493,18 +493,18 @@ export default function ProvisionWizard({
             )}
           </div>
 
-          <label className="mt-4 flex items-center gap-2 text-sm font-body text-gray-600">
+          <label className="mt-4 flex items-center gap-2 text-sm font-ui text-cool-600">
             <input
               type="checkbox"
               checked={sendInvite}
               onChange={e => setSendInvite(e.target.checked)}
-              className="rounded border-gray-300"
+              className="rounded border-cool-300"
             />
             Send the invitation email now (from noreply@app.foxmortgage.ca)
           </label>
 
           {error && (
-            <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm font-body text-red-700">
+            <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm font-ui text-red-700">
               {error}
             </div>
           )}
@@ -514,7 +514,7 @@ export default function ProvisionWizard({
             disabled={busy}
             data-testid="provision-confirm"
             className={`mt-4 inline-flex items-center gap-2 font-heading font-bold text-sm px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50 ${
-              armed ? 'bg-red-600 text-white' : 'bg-lime text-navy hover:bg-lime-dark'
+              armed ? 'bg-red-600 text-white' : 'bg-navy text-white hover:bg-navy-light'
             }`}
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}

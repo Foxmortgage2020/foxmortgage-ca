@@ -38,7 +38,7 @@ export default async function OffboardRecordPage({ params }: { params: { id: str
     return (
       <div className="max-w-3xl">
         <h1 className="font-heading text-navy text-2xl font-bold">Offboarding record</h1>
-        <p className="text-gray-500 font-body text-sm mt-2">
+        <p className="text-cool-500 font-ui text-sm mt-2">
           {!res.configured
             ? 'The FOXCA store is not connected, so offboarding records cannot be read.'
             : 'No offboarding record with that id.'}{' '}
@@ -58,11 +58,11 @@ export default async function OffboardRecordPage({ params }: { params: { id: str
         <h1 className="font-heading text-navy text-2xl font-bold">
           Offboarding: {record.name || record.email}
         </h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1">
           Disabled by {record.offboarded_by} on {fmtToronto(record.created_at)} · roles at the
           time: {record.roles.length > 0 ? record.roles.join(', ') : 'none'} · {done}/
           {record.checklist.length} items done.{' '}
-          <Link href="/portal/admin/settings/people" className="text-navy underline hover:text-lime">
+          <Link href="/portal/admin/settings/people" className="text-navy underline hover:text-ink">
             Back to People
           </Link>
         </p>
@@ -70,7 +70,7 @@ export default async function OffboardRecordPage({ params }: { params: { id: str
 
       <OffboardChecklist recordId={record.id} items={record.checklist} />
 
-      <p className="mt-4 text-xs text-gray-400 font-body">
+      <p className="mt-4 text-xs text-cool-500 font-ui">
         This record is permanent. The person&apos;s audit history, provisioning record, and
         view-as logs remain readable — that is the point of having them.
         {record.updated_by ? ` Last updated by ${record.updated_by}.` : ''}

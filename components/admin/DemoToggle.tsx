@@ -66,7 +66,7 @@ export default function DemoToggle({
 
   if (active) {
     return (
-      <div className="rounded-lg border border-lime/40 bg-lime/10 p-4">
+      <div className="rounded-lg border border-caution/40 bg-caution-bg p-4">
         <div className="flex items-center gap-2 font-heading font-bold text-navy">
           <MonitorPlay className="h-4 w-4" aria-hidden="true" />
           Demo mode is on
@@ -78,7 +78,7 @@ export default function DemoToggle({
           type="button"
           onClick={() => post('exit')}
           disabled={busy}
-          className="mt-3 rounded-md bg-navy px-3 py-1.5 text-sm font-heading font-bold text-lime transition-colors hover:bg-navy/90 disabled:opacity-60"
+          className="mt-3 rounded-md bg-navy px-3 py-1.5 text-sm font-heading font-bold text-white transition-colors hover:bg-navy/90 disabled:opacity-60"
         >
           {busy ? 'Exiting…' : 'Exit demo'}
         </button>
@@ -108,7 +108,7 @@ export default function DemoToggle({
         disabled={busy}
         className={
           armed
-            ? 'mt-3 rounded-md bg-lime px-3 py-1.5 text-sm font-heading font-bold text-navy transition-colors hover:bg-lime-dark disabled:opacity-60'
+            ? 'mt-3 rounded-md bg-navy px-3 py-1.5 text-sm font-heading font-bold text-white transition-colors hover:bg-navy-light disabled:opacity-60'
             : 'mt-3 rounded-md border border-navy/25 bg-white px-3 py-1.5 text-sm font-heading font-bold text-navy transition-colors hover:bg-navy/5 disabled:opacity-60'
         }
       >

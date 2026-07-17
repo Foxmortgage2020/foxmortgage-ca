@@ -48,7 +48,7 @@ export default function OffboardChecklist({
   return (
     <div>
       {error && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm font-body text-red-700">
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm font-ui text-red-700">
           {error}
         </div>
       )}
@@ -56,7 +56,7 @@ export default function OffboardChecklist({
         {local.map(item => (
           <li
             key={item.key}
-            className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3"
+            className="bg-white border border-cool-200 rounded-xl p-4 flex items-start gap-3"
             data-testid={`offboard-item-${item.key}`}
           >
             <button
@@ -68,20 +68,20 @@ export default function OffboardChecklist({
               {busyKey === item.key ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : item.done ? (
-                <Check className="w-5 h-5" style={{ color: '#7ab800' }} />
+                <Check className="w-5 h-5 text-green-600" />
               ) : (
-                <Square className="w-5 h-5 text-gray-300" />
+                <Square className="w-5 h-5 text-cool-300" />
               )}
             </button>
             <div>
               <p
-                className={`font-body text-sm font-semibold ${
-                  item.done ? 'text-gray-400 line-through' : 'text-navy'
+                className={`font-ui text-sm font-semibold ${
+                  item.done ? 'text-cool-400 line-through' : 'text-navy'
                 }`}
               >
                 {item.label}
               </p>
-              <p className="font-body text-xs text-gray-500 mt-0.5">{item.detail}</p>
+              <p className="font-ui text-xs text-cool-500 mt-0.5">{item.detail}</p>
             </div>
           </li>
         ))}

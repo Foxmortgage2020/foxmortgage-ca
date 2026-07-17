@@ -19,22 +19,22 @@ export default function StubPage({
     <div className="max-w-3xl">
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="font-heading text-navy text-2xl font-bold">{title}</h1>
-        <span className="bg-lime/15 text-navy border border-lime/50 text-xs font-semibold px-3 py-1 rounded-full">
+        <span className="bg-cool-100 text-cool-700 border border-cool-200 text-xs font-semibold px-3 py-1 rounded-full">
           Arrives in Session {session}
         </span>
       </div>
-      <p className="text-gray-600 font-body mt-3">{description}</p>
+      <p className="text-cool-600 font-ui mt-3">{description}</p>
 
       {children}
 
-      <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6">
-        <p className="text-sm text-gray-500 font-body">
+      <div className="mt-8 bg-white border border-cool-200 rounded-xl p-6">
+        <p className="text-sm text-cool-500 font-ui">
           This section is scaffolded and permission-gated today; live wiring lands in Session{' '}
           {session}.
         </p>
         <Link
           href="/portal/admin"
-          className="inline-block mt-3 text-sm font-semibold text-navy hover:text-lime"
+          className="inline-block mt-3 text-sm font-semibold text-navy hover:text-ink"
         >
           Back to Home &rarr;
         </Link>

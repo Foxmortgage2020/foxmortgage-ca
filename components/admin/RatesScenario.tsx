@@ -284,7 +284,7 @@ export default function RatesScenario({
 
   const pct = ltvPct(scenario)
   const selectCls =
-    'w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm font-body bg-white focus:outline-none focus:border-navy/50'
+    'w-full border border-cool-200 rounded-lg px-2.5 py-2 text-sm font-ui bg-white focus:outline-none focus:border-navy/50'
   const chip = 'text-[11px] font-semibold px-2 py-0.5 rounded-full'
 
   const level: 'results' | 'lender' | 'product' = productParam ? 'product' : lenderParam ? 'lender' : 'results'
@@ -293,7 +293,7 @@ export default function RatesScenario({
   return (
     <div>
       {fromFile && (
-        <div className="mb-4 bg-navy text-white rounded-xl px-4 py-3 text-sm font-body" data-testid="prefill-banner">
+        <div className="mb-4 bg-navy text-white rounded-xl px-4 py-3 text-sm font-ui" data-testid="prefill-banner">
           Scenario prefilled from <span className="font-bold">{fromFile}</span>. Prefill only reads
           the file; check every value before relying on results.
         </div>
@@ -309,7 +309,7 @@ export default function RatesScenario({
       {/* Prime status: the label every computed effective rate leans on. */}
       <div className="mb-4" data-testid="prime-status">
         {reference?.prime ? (
-          <p className="text-xs text-gray-500 font-body">
+          <p className="text-xs text-cool-500 font-ui">
             Prime {reference.prime.value.toFixed(2)}% as of {reference.prime.as_of}
             {reference.lender_overrides && Object.keys(reference.lender_overrides).length > 0
               ? `, with ${Object.keys(reference.lender_overrides).length} lender override${
@@ -320,7 +320,7 @@ export default function RatesScenario({
           </p>
         ) : referenceUnavailable ? (
           <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            <p className="text-xs text-amber-800 font-body">
+            <p className="text-xs text-amber-800 font-ui">
               Prime reference unavailable right now. Floating quotes show their discount alone, and no
               effective rate or floating payment renders until it loads.
             </p>
@@ -329,7 +329,7 @@ export default function RatesScenario({
             </button>
           </div>
         ) : (
-          <p className="text-xs text-gray-400 font-body">Loading prime reference…</p>
+          <p className="text-xs text-cool-400 font-ui">Loading prime reference…</p>
         )}
       </div>
 
@@ -339,7 +339,7 @@ export default function RatesScenario({
 
           {/* Results column */}
           <div className="mt-5 lg:mt-0 min-w-0">
-            <p className="text-sm font-body font-semibold text-navy bg-lime/20 border border-lime/50 rounded-lg px-3 py-2" data-testid="scenario-summary">
+            <p className="text-sm font-ui font-semibold text-navy bg-cool-100 border border-cool-200 rounded-lg px-3 py-2" data-testid="scenario-summary">
               {summaryLine(scenario)}
             </p>
 
@@ -348,11 +348,11 @@ export default function RatesScenario({
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="lender-results">
                 {winningOffer && (
                   <div
-                    className="sm:col-span-2 bg-lime/15 border-2 border-lime rounded-xl p-4"
+                    className="sm:col-span-2 bg-white border-2 border-navy rounded-xl p-4"
                     data-testid="winning-offer"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-lime text-navy uppercase tracking-wide">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-navy text-white uppercase tracking-wide">
                         Best offer &middot; beats every sheet quote
                       </span>
                       <OfferWindowBadge
@@ -367,7 +367,7 @@ export default function RatesScenario({
                         <LenderMark slug={winningOffer.quoteSlug} name={winningOffer.name} size={28} />
                         <span className="min-w-0">
                           <span className="font-heading font-bold text-navy block truncate">{winningOffer.name}</span>
-                          <span className="text-xs text-gray-600 font-body">{winningOffer.res.description}</span>
+                          <span className="text-xs text-cool-600 font-ui">{winningOffer.res.description}</span>
                         </span>
                       </span>
                       <p className="font-heading text-3xl font-bold text-navy shrink-0">
@@ -375,20 +375,20 @@ export default function RatesScenario({
                       </p>
                     </div>
                     {winningOffer.res.permissive && winningOffer.res.caveat && (
-                      <p className="mt-2 text-[11px] font-body text-amber-900">
+                      <p className="mt-2 text-[11px] font-ui text-amber-900">
                         Matches permissively: {winningOffer.res.caveat}
                       </p>
                     )}
                     <button
                       onClick={() => navigate({ lender: winningOffer.quoteSlug }, true)}
-                      className="mt-3 text-xs font-body font-semibold text-navy underline hover:text-lime cursor-pointer"
+                      className="mt-3 text-xs font-ui font-semibold text-navy underline hover:text-ink cursor-pointer"
                     >
                       Open {winningOffer.name} &rsaquo;
                     </button>
                   </div>
                 )}
                 {results.length === 0 && !winningOffer && (
-                  <p className="text-sm text-gray-500 font-body col-span-full bg-white border border-gray-200 rounded-xl p-5">
+                  <p className="text-sm text-cool-500 font-ui col-span-full bg-white border border-cool-200 rounded-xl p-5">
                     No approved quotes match this scenario. Widen the term, rate type, or product
                     class; the All quotes tab shows the full approved set.
                   </p>
@@ -408,7 +408,7 @@ export default function RatesScenario({
                     <button
                       key={r.lenderSlug}
                       onClick={() => navigate({ lender: r.lenderSlug }, true)}
-                      className={`group text-left bg-white border border-gray-200 rounded-xl p-4 cursor-pointer transition hover:border-navy hover:shadow-md focus:outline-none focus:ring-2 focus:ring-navy/30 ${
+                      className={`group text-left bg-white border border-cool-200 rounded-xl p-4 cursor-pointer transition hover:border-navy hover:shadow-md focus:outline-none focus:ring-2 focus:ring-navy/30 ${
                         isRestricted ? 'border-l-4 border-l-amber-400' : ''
                       }`}
                       data-testid={`rate-lender-${r.lenderSlug}`}
@@ -420,7 +420,7 @@ export default function RatesScenario({
                             {k?.name ?? lenderDisplayName(r.lenderSlug)}
                           </span>
                         </span>
-                        {i === 0 && <span className={`${chip} bg-lime text-navy shrink-0`}>best rate</span>}
+                        {i === 0 && <span className={`${chip} bg-navy text-white shrink-0`}>best rate</span>}
                       </div>
                       {r.headline ? (
                         <div className="mt-2 flex items-end justify-between gap-2">
@@ -429,7 +429,7 @@ export default function RatesScenario({
                               {rateHeadlineText(r.headline)}
                             </p>
                             {rateSubline(r.headline) && (
-                              <p className="text-[11px] text-gray-500 font-body mt-0.5">
+                              <p className="text-[11px] text-cool-500 font-ui mt-0.5">
                                 {rateSubline(r.headline)}
                               </p>
                             )}
@@ -445,11 +445,11 @@ export default function RatesScenario({
                           )}
                         </div>
                       ) : (
-                        <p className="font-body text-sm text-gray-600 mt-2">
+                        <p className="font-ui text-sm text-cool-600 mt-2">
                           cash back tiers only; open the lender for the rows
                         </p>
                       )}
-                      <p className="text-xs text-gray-500 font-body mt-1">
+                      <p className="text-xs text-cool-500 font-ui mt-1">
                         {r.count} matching product{r.count === 1 ? '' : 's'}
                         {r.cashbackCount > 0
                           ? `, ${r.cashbackCount} cash back tier${r.cashbackCount === 1 ? '' : 's'}`
@@ -461,7 +461,7 @@ export default function RatesScenario({
                         )}
                         {provUnknown && (
                           <span
-                            className={`${chip} bg-gray-100 text-gray-600 cursor-help`}
+                            className={`${chip} bg-cool-100 text-cool-600 cursor-help`}
                             title="This lender's licensing in the subject province is not confirmed in the knowledge base. It is still ranked and flagged, but confirm availability before quoting; it is held back from client documents until confirmed."
                             data-testid={`availability-unconfirmed-${r.lenderSlug}`}
                           >
@@ -486,7 +486,7 @@ export default function RatesScenario({
                         })}
                         {r.anyAssumed && (
                           <span
-                            className={`${chip} bg-gray-100 text-gray-600`}
+                            className={`${chip} bg-cool-100 text-cool-600`}
                             title="Some matches ride sheets that do not state every scenario dimension. Open the lender to see each note."
                           >
                             includes match-all sheets
@@ -495,13 +495,13 @@ export default function RatesScenario({
                       </div>
                       {isRestricted && verdict && verdict.requirementSentences.length > 0 && (
                         <p
-                          className="mt-2 text-[11px] font-body text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1"
+                          className="mt-2 text-[11px] font-ui text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1"
                           data-testid={`restricted-requirement-${r.lenderSlug}`}
                         >
                           {verdict.requirementSentences[0]}
                         </p>
                       )}
-                      <div className="mt-3 flex items-center gap-1 text-xs font-body font-semibold text-navy/70 group-hover:text-navy">
+                      <div className="mt-3 flex items-center gap-1 text-xs font-ui font-semibold text-navy/70 group-hover:text-navy">
                         View products
                         <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
                           &rsaquo;
@@ -666,7 +666,7 @@ function SavedScenariosBar({
   return (
     <div className="mb-4" data-testid="saved-scenarios">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-body font-semibold text-gray-500">Saved scenarios</span>
+        <span className="text-xs font-ui font-semibold text-cool-500">Saved scenarios</span>
         {rows.map(r => (
           <span
             key={r.id}
@@ -674,7 +674,7 @@ function SavedScenariosBar({
           >
             <button
               onClick={() => onRecall(r.params, r.fromFile)}
-              className="text-xs font-body font-semibold text-navy hover:text-lime cursor-pointer"
+              className="text-xs font-ui font-semibold text-navy hover:text-ink cursor-pointer"
               title={r.fromFile ? `Recall (from file ${r.fromFile})` : 'Recall this scenario'}
               data-testid={`saved-recall-${r.id}`}
             >
@@ -684,14 +684,14 @@ function SavedScenariosBar({
               onClick={() => retire(r.id)}
               disabled={busy}
               aria-label={`Remove ${r.name}`}
-              className="text-gray-300 hover:text-red-500 text-sm leading-none px-1 cursor-pointer disabled:opacity-50"
+              className="text-cool-300 hover:text-red-500 text-sm leading-none px-1 cursor-pointer disabled:opacity-50"
             >
               &times;
             </button>
           </span>
         ))}
         {rows.length === 0 && !naming && (
-          <span className="text-xs text-gray-400 font-body">none yet</span>
+          <span className="text-xs text-cool-400 font-ui">none yet</span>
         )}
         {naming ? (
           <span className="inline-flex items-center gap-1.5">
@@ -708,7 +708,7 @@ function SavedScenariosBar({
               }}
               placeholder="Name this scenario"
               maxLength={80}
-              className="border border-gray-300 rounded-lg px-2 py-1 text-xs font-body w-44 focus:outline-none focus:border-navy"
+              className="border border-cool-300 rounded-lg px-2 py-1 text-xs font-ui w-44 focus:outline-none focus:border-navy"
               data-testid="saved-name-input"
             />
             <button
@@ -724,7 +724,7 @@ function SavedScenariosBar({
                 setNaming(false)
                 setName('')
               }}
-              className="text-xs text-gray-500 underline cursor-pointer"
+              className="text-xs text-cool-500 underline cursor-pointer"
             >
               Cancel
             </button>
@@ -739,7 +739,7 @@ function SavedScenariosBar({
           </button>
         )}
       </div>
-      {error && <p className="text-[11px] text-red-600 font-body mt-1">{error}</p>}
+      {error && <p className="text-[11px] text-red-600 font-ui mt-1">{error}</p>}
     </div>
   )
 }
@@ -760,14 +760,14 @@ function ScenarioRail({
   const [open, setOpen] = useState(true)
   const terms = [12, 24, 36, 48, 60, 84, 120]
   return (
-    <div className="bg-white border border-gray-200 rounded-xl lg:self-start" data-testid="scenario-panel">
+    <div className="bg-white border border-cool-200 rounded-xl lg:self-start" data-testid="scenario-panel">
       <button
         className="w-full flex items-center justify-between px-4 py-3 lg:cursor-default"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
       >
         <span className="font-heading font-bold text-navy">Describe the deal</span>
-        <span className="text-gray-400 text-sm lg:hidden">{open ? 'hide' : 'show'}</span>
+        <span className="text-cool-400 text-sm lg:hidden">{open ? 'hide' : 'show'}</span>
       </button>
       <div className={`${open ? 'block' : 'hidden'} lg:block px-4 pb-4 space-y-3`}>
         <Field label="Purpose" tip="Rate sheets do not carry a transaction type; purpose drives promo eligibility and the summary line, never the quote filter.">
@@ -894,16 +894,16 @@ function ScenarioRail({
           />
         </Field>
         <div>
-          <p className="text-xs font-body font-semibold text-gray-500 mb-1">LTV (computed, locked)</p>
+          <p className="text-xs font-ui font-semibold text-cool-500 mb-1">LTV (computed, locked)</p>
           <div
-            className="border border-gray-100 bg-gray-50 rounded-lg px-2.5 py-2 text-sm font-body text-navy font-semibold flex items-center justify-between"
+            className="border border-cool-100 bg-cool-50 rounded-lg px-2.5 py-2 text-sm font-ui text-navy font-semibold flex items-center justify-between"
             data-testid="scenario-ltv"
           >
             <span>{pct === null ? 'enter amount and value' : `${pct}%`}</span>
-            <span aria-hidden className="text-gray-400">&#128274;</span>
+            <span aria-hidden className="text-cool-400">&#128274;</span>
           </div>
           {pct !== null && pct > 80 && scenario.productClass !== 'insured' && (
-            <p className="text-[11px] text-amber-700 font-body mt-1">
+            <p className="text-[11px] text-amber-700 font-ui mt-1">
               LTV above 80 typically means default insured.
             </p>
           )}
@@ -928,13 +928,13 @@ function ScenarioRail({
             commitment the client actually fits unlocks the lender programs
             restricted to it; show-restricted reveals those rows without a
             commitment so Michael finds how far off a program a client is. */}
-        <div className="pt-3 border-t border-gray-100">
-          <p className="text-xs font-body font-semibold text-gray-500 mb-1 flex items-center gap-1">
+        <div className="pt-3 border-t border-cool-100">
+          <p className="text-xs font-ui font-semibold text-cool-500 mb-1 flex items-center gap-1">
             Borrower profile
             <span
               title="Turn on a profile the client genuinely fits to unlock lender programs restricted to it. Off by default, so the ranking shows only what any client can have."
               aria-label="Borrower profile help"
-              className="text-gray-300 cursor-help select-none"
+              className="text-cool-300 cursor-help select-none"
             >
               &#9432;
             </span>
@@ -954,13 +954,13 @@ function ScenarioRail({
           </div>
         </div>
 
-        <div className="pt-3 border-t border-gray-100">
-          <p className="text-xs font-body font-semibold text-gray-500 mb-1 flex items-center gap-1">
+        <div className="pt-3 border-t border-cool-100">
+          <p className="text-xs font-ui font-semibold text-cool-500 mb-1 flex items-center gap-1">
             Client commitments
             <span
               title="A commitment the client will make unlocks the rates that require it. Each window is its own unlock, so check every one the client can commit to."
               aria-label="Client commitments help"
-              className="text-gray-300 cursor-help select-none"
+              className="text-cool-300 cursor-help select-none"
             >
               &#9432;
             </span>
@@ -980,14 +980,14 @@ function ScenarioRail({
           </div>
         </div>
 
-        <div className="pt-3 border-t border-gray-100">
+        <div className="pt-3 border-t border-cool-100">
           <CheckRow
             label="Show restricted programs"
             checked={scenario.showRestricted}
             onChange={() => setScenario({ ...scenario, showRestricted: !scenario.showRestricted })}
             testid="show-restricted-toggle"
           />
-          <p className="text-[11px] text-gray-400 font-body mt-0.5 pl-6">
+          <p className="text-[11px] text-cool-400 font-ui mt-0.5 pl-6">
             Reveals rates a client would have to qualify for, marked in amber with their requirement.
           </p>
         </div>
@@ -1008,12 +1008,12 @@ function CheckRow({
   testid?: string
 }) {
   return (
-    <label className="flex items-center gap-2 text-xs font-body text-navy cursor-pointer py-0.5">
+    <label className="flex items-center gap-2 text-xs font-ui text-navy cursor-pointer py-0.5">
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="rounded border-gray-300 text-navy focus:ring-navy/40"
+        className="rounded border-cool-300 text-navy focus:ring-navy/40"
         data-testid={testid}
       />
       <span>{label}</span>
@@ -1024,10 +1024,10 @@ function CheckRow({
 function Field({ label, tip, children }: { label: string; tip?: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-body font-semibold text-gray-500 mb-1 flex items-center gap-1">
+      <p className="text-xs font-ui font-semibold text-cool-500 mb-1 flex items-center gap-1">
         {label}
         {tip && (
-          <span title={tip} aria-label={tip} className="text-gray-300 cursor-help select-none">
+          <span title={tip} aria-label={tip} className="text-cool-300 cursor-help select-none">
             &#9432;
           </span>
         )}
@@ -1063,13 +1063,13 @@ function ExclusionNotes({
     provinceIneligible.length + channelUnavailable.length + transactionMismatch.length + programRestricted.length
   if (excludedCount === 0 && provinceUnknown.length === 0) return null
 
-  const summaryCls = 'cursor-pointer select-none py-1 font-semibold text-gray-600 hover:text-navy'
-  const listCls = 'mt-1 mb-1 space-y-0.5 list-disc pl-5 text-gray-500'
+  const summaryCls = 'cursor-pointer select-none py-1 font-semibold text-cool-600 hover:text-navy'
+  const listCls = 'mt-1 mb-1 space-y-0.5 list-disc pl-5 text-cool-500'
   const plural = (n: number) => (n === 1 ? '' : 's')
 
   return (
-    <div className="mt-5 border-t border-gray-100 pt-3 space-y-1.5 text-xs font-body" data-testid="exclusion-notes">
-      <p className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">Who is not in these results</p>
+    <div className="mt-5 border-t border-cool-100 pt-3 space-y-1.5 text-xs font-ui" data-testid="exclusion-notes">
+      <p className="text-[11px] uppercase tracking-wide text-cool-400 font-semibold">Who is not in these results</p>
 
       {provinceIneligible.length > 0 && (
         <details data-testid="exclusion-province-ineligible">
@@ -1080,8 +1080,8 @@ function ExclusionNotes({
           <ul className={listCls}>
             {provinceIneligible.map(e => (
               <li key={e.slug}>
-                <span className="text-gray-600">{nameFor(e.slug)}</span>{' '}
-                <span className="text-gray-400">(licensed in {e.provinces})</span>
+                <span className="text-cool-600">{nameFor(e.slug)}</span>{' '}
+                <span className="text-cool-400">(licensed in {e.provinces})</span>
               </li>
             ))}
           </ul>
@@ -1097,9 +1097,9 @@ function ExclusionNotes({
           <ul className={listCls}>
             {programRestricted.map(e => (
               <li key={e.slug}>
-                <span className="font-semibold text-gray-600">{nameFor(e.slug)}</span>
+                <span className="font-semibold text-cool-600">{nameFor(e.slug)}</span>
                 {e.requirementSentences.map((s, i) => (
-                  <span key={i} className="block text-gray-500">
+                  <span key={i} className="block text-cool-500">
                     {s}
                   </span>
                 ))}
@@ -1109,7 +1109,7 @@ function ExclusionNotes({
           {!showRestricted && (
             <button
               onClick={onToggleRestricted}
-              className="text-xs font-semibold text-navy underline hover:text-lime cursor-pointer"
+              className="text-xs font-semibold text-navy underline hover:text-ink cursor-pointer"
               data-testid="reveal-restricted"
             >
               Show restricted programs
@@ -1146,7 +1146,7 @@ function ExclusionNotes({
         </details>
       )}
 
-      <p className="text-gray-500" data-testid="tier-unconfirmed-count">
+      <p className="text-cool-500" data-testid="tier-unconfirmed-count">
         {unconfirmedTierCount(HAND_WRITTEN_LENDER_SLUGS)} of {HAND_WRITTEN_LENDER_SLUGS.length} book lenders: paper
         grade (tier) not yet confirmed. Michael confirms tiers in the same pass as provinces; monitored mortgages on
         unknown-tier paper route to review, never priced.
@@ -1157,7 +1157,7 @@ function ExclusionNotes({
           <summary className={summaryCls}>
             {provinceUnknown.length} lender{plural(provinceUnknown.length)}: provincial availability not confirmed
           </summary>
-          <div className="mt-1 mb-1 pl-5 text-gray-500 space-y-1">
+          <div className="mt-1 mb-1 pl-5 text-cool-500 space-y-1">
             <p>
               These lenders are still ranked and flagged, not excluded. Their licensing in {provinceName(province)} is
               not confirmed in the knowledge base yet, so confirm availability with the lender before quoting. They are
@@ -1214,13 +1214,13 @@ function PromoOfferCard({
           daysLeft={typeof offer.days_left === 'number' ? offer.days_left : null}
         />
         {res.started && (
-          <span className="text-[11px] text-amber-800 font-body">effective {res.started}</span>
+          <span className="text-[11px] text-amber-800 font-ui">effective {res.started}</span>
         )}
       </div>
       <div className="mt-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-body font-semibold text-navy">{res.description}</p>
-          <p className="text-xs text-gray-600 font-body mt-1">
+          <p className="text-sm font-ui font-semibold text-navy">{res.description}</p>
+          <p className="text-xs text-cool-600 font-ui mt-1">
             Tier for this scenario: <span className="font-semibold">{res.tierLabel}</span>
             {res.compBps !== null ? `, comp ${res.compBps} bps` : ''}
             {res.buydownRatePct !== null
@@ -1233,20 +1233,20 @@ function PromoOfferCard({
         <div className="text-right shrink-0">
           <p className="font-heading text-3xl font-bold text-navy">{res.ratePct.toFixed(2)}%</p>
           {payment !== null && (
-            <p className="text-[11px] text-gray-600 font-body">{fmtMoneyFull(payment)}/mo at the scenario amount</p>
+            <p className="text-[11px] text-cool-600 font-ui">{fmtMoneyFull(payment)}/mo at the scenario amount</p>
           )}
         </div>
       </div>
       {/* Permissive match: eligibility was not extracted, so this offer is
           shown but not confirmed to fit (the sparse-dimension convention). */}
       {res.permissive && res.caveat && (
-        <p className="mt-2 text-[11px] font-body text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-1">
+        <p className="mt-2 text-[11px] font-ui text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-1">
           Matches permissively: {res.caveat}
         </p>
       )}
       {/* Conditions summary: the structured gates a scenario cannot check
           plus the announcement's own predicates, verbatim. */}
-      <div className="mt-2 text-xs font-body text-amber-900 space-y-0.5">
+      <div className="mt-2 text-xs font-ui text-amber-900 space-y-0.5">
         {res.requiredProduct && <p>Requires {res.requiredProduct}.</p>}
         {res.closingWithinDays !== null && (
           <p>Closing must land within {res.closingWithinDays} days of application.</p>
@@ -1260,14 +1260,14 @@ function PromoOfferCard({
           <summary className="text-xs font-semibold text-amber-900 cursor-pointer select-none py-1">
             Full conditions ({res.predicates.length})
           </summary>
-          <ul className="mt-1 space-y-1 text-xs text-gray-700 font-body list-disc pl-4">
+          <ul className="mt-1 space-y-1 text-xs text-cool-700 font-ui list-disc pl-4">
             {res.predicates.map((p, i) => (
               <li key={i}>{p}</li>
             ))}
           </ul>
         </details>
       )}
-      <p className="text-[11px] text-gray-500 font-body mt-2">
+      <p className="text-[11px] text-cool-500 font-ui mt-2">
         From the lender announcement{typeof provenance === 'string' ? ` (${provenance})` : ''}, knowledge
         base{offersAsOf ? ` as of ${offersAsOf}` : ''}. This is an offer, not a rate sheet row; it has
         no sheet approval provenance.
@@ -1280,8 +1280,8 @@ function PromoOfferCard({
             pinned
               ? 'bg-navy text-white border-navy'
               : pins.length >= MAX_PINS
-                ? 'text-gray-300 border-gray-200 cursor-not-allowed'
-                : 'text-navy border-gray-300 hover:border-navy'
+                ? 'text-cool-300 border-cool-200 cursor-not-allowed'
+                : 'text-navy border-cool-300 hover:border-navy'
           }`}
           data-testid={`pin-offer-${offerId}`}
         >
@@ -1323,18 +1323,18 @@ function LenderLevel({
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between gap-3">
-        <button onClick={onBack} className="text-sm font-body font-semibold text-navy underline hover:text-lime">
+        <button onClick={onBack} className="text-sm font-ui font-semibold text-navy underline hover:text-ink">
           &larr; All lenders
         </button>
         {knowledge ? (
           <Link
             href={`/portal/admin/knowledge/${knowledge.slug}`}
-            className="text-xs font-body font-semibold text-navy underline hover:text-lime"
+            className="text-xs font-ui font-semibold text-navy underline hover:text-ink"
           >
             Knowledge page
           </Link>
         ) : (
-          <span className="text-xs text-gray-400 font-body" title="No knowledge page matches this quote slug yet. The knowledge index publishes quote slug aliases; the portal never invents the mapping.">
+          <span className="text-xs text-cool-400 font-ui" title="No knowledge page matches this quote slug yet. The knowledge index publishes quote slug aliases; the portal never invents the mapping.">
             no knowledge page for this slug yet
           </span>
         )}
@@ -1359,7 +1359,7 @@ function LenderLevel({
           />
         ))}
         {(!r || r.matches.length === 0) && (
-          <p className="text-sm text-gray-500 font-body bg-white border border-gray-200 rounded-xl p-5 sm:col-span-2">
+          <p className="text-sm text-cool-500 font-ui bg-white border border-cool-200 rounded-xl p-5 sm:col-span-2">
             No matching sheet products for the current scenario.
           </p>
         )}
@@ -1374,23 +1374,23 @@ function LenderLevel({
           return (
             <div
               key={q.id}
-              className={`bg-white border border-gray-200 rounded-xl p-4 ${
+              className={`bg-white border border-cool-200 rounded-xl p-4 ${
                 restrictedRow ? 'border-l-4 border-l-amber-400' : ''
               }`}
               data-testid={`rate-product-${q.id}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-body font-semibold text-navy capitalize">
+                  <p className="font-ui font-semibold text-navy capitalize">
                     {productClassLabel(q.productClass)} &middot; {variantLabel(q.variant)}
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                    <span className="text-xs text-gray-500 font-body">{termLabel(q.termMonths)}</span>
+                    <span className="text-xs text-cool-500 font-ui">{termLabel(q.termMonths)}</span>
                     <TypeBadge rateType={q.rateType} reference={reference} lenderSlug={q.lenderSlug} />
                     <CashbackChip pct={q.cashbackPct} />
                     {provUnknownRow && (
                       <span
-                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 cursor-help"
+                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cool-100 text-cool-600 cursor-help"
                         title="Provincial availability not confirmed for this lender; confirm before quoting."
                       >
                         availability not confirmed
@@ -1400,13 +1400,13 @@ function LenderLevel({
                 </div>
                 <RateHeadline display={display} size="md" />
               </div>
-              <p className="text-xs text-gray-500 font-body mt-2">
+              <p className="text-xs text-cool-500 font-ui mt-2">
                 sheet {q.asOfDate ? fmtShortDate(q.asOfDate) : 'undated'}
                 {q.compBps !== null ? ` · comp ${q.compBps} bps` : ''}
               </p>
               {restrictedRow && m.verdict.requirementSentences.length > 0 && (
                 <p
-                  className="mt-2 text-[11px] font-body text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1"
+                  className="mt-2 text-[11px] font-ui text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1"
                   data-testid={`restricted-requirement-${q.id}`}
                 >
                   {m.verdict.requirementSentences[0]}
@@ -1417,7 +1417,7 @@ function LenderLevel({
                   <summary className="text-xs font-semibold text-navy cursor-pointer select-none py-1">
                     Program conditions, verbatim
                   </summary>
-                  <p className="mt-1 text-xs text-gray-600 font-body whitespace-pre-wrap break-words bg-gray-50 rounded-lg p-2">
+                  <p className="mt-1 text-xs text-cool-600 font-ui whitespace-pre-wrap break-words bg-cool-50 rounded-lg p-2">
                     {q.programNotes}
                   </p>
                 </details>
@@ -1425,7 +1425,7 @@ function LenderLevel({
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {m.assumed.length > 0 && (
                   <span
-                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 cursor-help"
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cool-100 text-cool-600 cursor-help"
                     title={m.assumed.join(' ')}
                   >
                     matches all: {m.assumed.length} note{m.assumed.length === 1 ? '' : 's'}
@@ -1433,12 +1433,12 @@ function LenderLevel({
                 )}
               </div>
               {m.assumed.length > 0 && (
-                <p className="text-[11px] text-gray-400 font-body mt-1.5">{m.assumed[0]}</p>
+                <p className="text-[11px] text-cool-400 font-ui mt-1.5">{m.assumed[0]}</p>
               )}
               <div className="flex items-center gap-2 mt-3">
                 <button
                   onClick={() => onDetail(q.id)}
-                  className="text-xs font-semibold text-navy underline hover:text-lime py-1.5"
+                  className="text-xs font-semibold text-navy underline hover:text-ink py-1.5"
                   data-testid={`detail-${q.id}`}
                 >
                   Details
@@ -1450,8 +1450,8 @@ function LenderLevel({
                     pinned
                       ? 'bg-navy text-white border-navy'
                       : pins.length >= MAX_PINS
-                        ? 'text-gray-300 border-gray-200 cursor-not-allowed'
-                        : 'text-navy border-gray-300 hover:border-navy'
+                        ? 'text-cool-300 border-cool-200 cursor-not-allowed'
+                        : 'text-navy border-cool-300 hover:border-navy'
                   }`}
                   data-testid={`pin-${q.id}`}
                 >
@@ -1462,7 +1462,7 @@ function LenderLevel({
           )
         })}
       </div>
-      <p className="text-[11px] text-gray-400 font-body mt-3">
+      <p className="text-[11px] text-cool-400 font-ui mt-3">
         Scenario: {summaryLine(scenario)}
       </p>
     </div>
@@ -1492,11 +1492,11 @@ function ProductLevel({
 }) {
   if (!quote) {
     return (
-      <div className="mt-4 bg-white border border-gray-200 rounded-xl p-5">
-        <button onClick={onBack} className="text-sm font-body font-semibold text-navy underline">
+      <div className="mt-4 bg-white border border-cool-200 rounded-xl p-5">
+        <button onClick={onBack} className="text-sm font-ui font-semibold text-navy underline">
           &larr; Back
         </button>
-        <p className="text-sm text-gray-500 font-body mt-3">This product id is not in the current quote set.</p>
+        <p className="text-sm text-cool-500 font-ui mt-3">This product id is not in the current quote set.</p>
       </div>
     )
   }
@@ -1528,10 +1528,10 @@ function ProductLevel({
   ]
   return (
     <div className="mt-4" data-testid={`product-detail-${quote.id}`}>
-      <button onClick={onBack} className="text-sm font-body font-semibold text-navy underline hover:text-lime">
+      <button onClick={onBack} className="text-sm font-ui font-semibold text-navy underline hover:text-ink">
         &larr; Back to {knowledge?.name ?? lenderDisplayName(quote.lenderSlug)}
       </button>
-      <div className="mt-3 bg-white border border-gray-200 rounded-xl p-5">
+      <div className="mt-3 bg-white border border-cool-200 rounded-xl p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -1548,7 +1548,7 @@ function ProductLevel({
               <TypeBadge rateType={quote.rateType} reference={reference} lenderSlug={quote.lenderSlug} size="md" />
               <CashbackChip pct={quote.cashbackPct} />
             </div>
-            <p className="text-xs text-gray-500 font-body mt-1">
+            <p className="text-xs text-cool-500 font-ui mt-1">
               from the {quote.asOfDate ? fmtShortDate(quote.asOfDate) : 'undated'} rate sheet
             </p>
           </div>
@@ -1556,7 +1556,7 @@ function ProductLevel({
             onClick={() => togglePin(quote.id)}
             disabled={!pinned && pins.length >= MAX_PINS}
             className={`shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${
-              pinned ? 'bg-navy text-white border-navy' : 'text-navy border-gray-300 hover:border-navy'
+              pinned ? 'bg-navy text-white border-navy' : 'text-navy border-cool-300 hover:border-navy'
             }`}
           >
             {pinned ? 'Pinned' : 'Pin to compare'}
@@ -1572,17 +1572,17 @@ function ProductLevel({
             sheet label. Pending caveat renders where the note is not yet
             lender-confirmed (Scotia Flex today). */}
         {quote.rateType !== 'fixed' && (
-          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5" data-testid="mechanism-note">
-            <p className="text-xs font-semibold text-navy font-body">
+          <div className="mt-4 bg-cool-50 border border-cool-200 rounded-lg px-3 py-2.5" data-testid="mechanism-note">
+            <p className="text-xs font-semibold text-navy font-ui">
               How this {RATE_TYPE_LABEL[quote.rateType].toLowerCase()} rate behaves
             </p>
-            <p className="text-xs text-gray-600 font-body mt-1">
+            <p className="text-xs text-cool-600 font-ui mt-1">
               {mechanism?.note ??
                 conventionText(reference, quote.rateType) ??
                 'The mechanism note has not loaded; retry the prime reference above.'}
             </p>
             {mechanism && (
-              <p className="text-[11px] text-gray-400 font-body mt-1">
+              <p className="text-[11px] text-cool-400 font-ui mt-1">
                 Note as of {mechanism.as_of}
                 {mechanismPending(mechanism)
                   ? '. Pending lender confirmation; treat the payment behaviour as unconfirmed until the desk confirms it.'
@@ -1593,16 +1593,16 @@ function ProductLevel({
         )}
 
         {quote.programNotes && (
-          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-            <p className="text-xs font-semibold text-navy font-body">Program conditions, verbatim from the sheet</p>
-            <p className="text-xs text-gray-600 font-body mt-1 whitespace-pre-wrap break-words">
+          <div className="mt-4 bg-cool-50 border border-cool-200 rounded-lg px-3 py-2.5">
+            <p className="text-xs font-semibold text-navy font-ui">Program conditions, verbatim from the sheet</p>
+            <p className="text-xs text-cool-600 font-ui mt-1 whitespace-pre-wrap break-words">
               {quote.programNotes}
             </p>
           </div>
         )}
 
         {payment !== null && effective !== null ? (
-          <p className="text-sm font-body text-navy mt-4 bg-lime/15 border border-lime/40 rounded-lg px-3 py-2">
+          <p className="text-sm font-ui text-navy mt-4 bg-cool-50 border border-cool-200 rounded-lg px-3 py-2">
             {fmtMoneyFull(payment)}/mo at the scenario&apos;s {fmtMoneyFull(scenario.amount!)} over{' '}
             {scenario.amortizationYears} years
             {display.kind === 'floating-computed'
@@ -1613,27 +1613,27 @@ function ProductLevel({
             (semi-annual compounding, the same validated math as the public calculators)
           </p>
         ) : display.kind === 'floating-no-prime' && scenario.amount ? (
-          <p className="text-sm font-body text-amber-800 mt-4 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <p className="text-sm font-ui text-amber-800 mt-4 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             No payment renders for this floating rate while the prime reference is unavailable; the
             discount alone cannot price a payment.
           </p>
         ) : null}
 
         {/* Provenance: the trust edge. */}
-        <div className="mt-4 border-t border-gray-100 pt-4">
+        <div className="mt-4 border-t border-cool-100 pt-4">
           <h3 className="font-heading text-navy font-bold text-sm">Approval provenance</h3>
           {provenance ? (
-            <div className="text-sm font-body text-gray-600 mt-2 space-y-1">
+            <div className="text-sm font-ui text-cool-600 mt-2 space-y-1">
               <p>
                 From a rate sheet Michael {provenance.decision === 'approve' ? 'approved' : provenance.decision}{' '}
                 through the audited gate on {fmtShortDate(provenance.decidedAt)}
                 {provenance.quotesTotal !== null ? ` (${provenance.quotesTotal} quotes on the sheet)` : ''}.
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-cool-500">
                 Review {provenance.reviewId.slice(0, 8)} &middot; audit entry{' '}
                 {provenance.auditEntryId ? (
                   <Link
-                    className="underline text-navy hover:text-lime"
+                    className="underline text-navy hover:text-ink"
                     href={`/portal/admin/audit?action=rates.sheet_approved${decidedDay ? `&from=${decidedDay}&to=${decidedDay}` : ''}`}
                   >
                     {provenance.auditEntryId.slice(0, 8)}
@@ -1644,19 +1644,19 @@ function ProductLevel({
               </p>
             </div>
           ) : (
-            <p className="text-sm text-gray-500 font-body mt-2">
+            <p className="text-sm text-cool-500 font-ui mt-2">
               {quote.approvedVia
                 ? 'The approval review row was not readable just now; the audit log remains the record.'
                 : 'This quote predates sheet-level reviews; its approval rides the audit log.'}
             </p>
           )}
-          <p className="text-xs font-body mt-2">
+          <p className="text-xs font-ui mt-2">
             {knowledge ? (
-              <Link href={`/portal/admin/knowledge/${knowledge.slug}`} className="underline text-navy hover:text-lime">
+              <Link href={`/portal/admin/knowledge/${knowledge.slug}`} className="underline text-navy hover:text-ink">
                 Lender knowledge page{knowledge.as_of ? ` (as of ${knowledge.as_of})` : ''}
               </Link>
             ) : (
-              <span className="text-gray-400">
+              <span className="text-cool-400">
                 No knowledge page matches quote slug &quot;{quote.lenderSlug}&quot; yet; the knowledge
                 index publishes quote slug aliases.
               </span>
@@ -1675,8 +1675,8 @@ function Detail({ rows, title }: { rows: [string, string][]; title: string }) {
       <dl className="space-y-1.5">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-baseline justify-between gap-3">
-            <dt className="text-xs text-gray-400 font-body shrink-0">{k}</dt>
-            <dd className="text-sm text-navy font-body text-right break-words min-w-0">{v}</dd>
+            <dt className="text-xs text-cool-400 font-ui shrink-0">{k}</dt>
+            <dd className="text-sm text-navy font-ui text-right break-words min-w-0">{v}</dd>
           </div>
         ))}
       </dl>
@@ -1790,29 +1790,29 @@ function CompareTray({
     <div className="fixed bottom-0 inset-x-0 z-40 px-3 pb-3 pointer-events-none">
       <div className="max-w-5xl mx-auto bg-navy text-white rounded-2xl shadow-2xl pointer-events-auto" data-testid="compare-tray">
         <div className="flex items-center justify-between px-4 py-2.5">
-          <button onClick={() => setExpanded(e => !e)} className="text-sm font-body font-semibold">
+          <button onClick={() => setExpanded(e => !e)} className="text-sm font-ui font-semibold">
             Compare ({pinned.length + pinnedOffers.length}/{MAX_PINS}) {expanded ? '▼' : '▲'}
           </button>
           <div className="flex items-center gap-3">
             <button
               onClick={downloadPdf}
               disabled={downloading}
-              className="text-sm font-bold bg-lime text-navy rounded-lg px-3 py-1.5 disabled:opacity-60"
+              className="text-sm font-bold bg-navy text-white rounded-lg px-3 py-1.5 disabled:opacity-60"
               data-testid="download-pdf"
             >
               {downloading ? 'Building PDF…' : 'Client PDF'}
             </button>
-            <button onClick={onClear} className="text-xs font-body text-white/70 underline py-1.5">
+            <button onClick={onClear} className="text-xs font-ui text-white/70 underline py-1.5">
               Clear
             </button>
           </div>
         </div>
-        {pdfError && <p className="px-4 pb-2 text-xs text-amber-300 font-body">{pdfError}</p>}
+        {pdfError && <p className="px-4 pb-2 text-xs text-amber-300 font-ui">{pdfError}</p>}
         {expanded && (
           <div className="px-4 pb-4 overflow-x-auto">
             {pinned.length > 0 && (
               <>
-            <table className="w-full text-sm font-body min-w-[560px]">
+            <table className="w-full text-sm font-ui min-w-[560px]">
               <thead>
                 <tr>
                   <th className="text-left text-[11px] uppercase tracking-wide text-white/50 font-medium py-1.5 w-32"></th>
@@ -1862,7 +1862,7 @@ function CompareTray({
                 </tr>
               </tbody>
             </table>
-            <p className="text-[11px] text-white/50 font-body mt-2">
+            <p className="text-[11px] text-white/50 font-ui mt-2">
               Payments use the scenario amount over {scenario.amortizationYears} years, semi-annual
               compounding. Fixed payments use the printed rate; floating payments use the effective
               rate labeled above, computed against the served prime. Rates are from Michael-approved
@@ -1903,7 +1903,7 @@ function CompareTray({
                     )
                   })}
                 </div>
-                <p className="text-[11px] text-white/50 font-body mt-2">
+                <p className="text-[11px] text-white/50 font-ui mt-2">
                   Pinned offers carry their conditions and expiry on the client PDF. Compensation is
                   never shown to a client.
                 </p>

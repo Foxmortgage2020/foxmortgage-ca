@@ -63,10 +63,12 @@ function fmtShort(ymd: string): string {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric' })
 }
 
+// Tones mirror the ds StatusChip (green/amber/gray byte-identical); the pill
+// keeps its own map because of the fourth tone below.
 const PILL_CLASS: Record<PillTone, string> = {
   green: 'bg-green-100 text-green-700',
   amber: 'bg-amber-100 text-amber-800',
-  gray: 'bg-gray-100 text-gray-600',
+  gray: 'bg-cool-100 text-cool-700',
   // Attention currency (the new lime): a human action is queued on this row.
   lime: 'bg-decision text-decision-ink',
 }
@@ -236,7 +238,7 @@ export default function ConditionsChecklist({
     <div>
       {toast && (
         <div
-          className={`mb-3 rounded-lg px-3 py-2 text-sm font-body border ${
+          className={`mb-3 rounded-lg px-3 py-2 text-sm font-ui border ${
             toast.tone === 'green'
               ? 'bg-green-50 border-green-200 text-green-800'
               : 'bg-amber-50 border-amber-200 text-amber-800'
@@ -284,7 +286,7 @@ export default function ConditionsChecklist({
           synthetic/rejected doc never counts as a commitment (guardrail 20). */}
       {canUpload && (
         hasRealCommitment ? (
-          <div className="mt-5 border-t border-gray-100 pt-4">
+          <div className="mt-5 border-t border-cool-100 pt-4">
             <CommitmentUploader
               dealId={dealId}
               kind="amendment"
@@ -356,7 +358,7 @@ function PendingBanner({
         const listBusy = Boolean(busy[`list:${docId}`])
         return (
           <div key={docId} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p className="text-sm font-body font-semibold text-amber-900">
+            <p className="text-sm font-ui font-semibold text-amber-900">
               {rows.length} {rows.length === 1 ? 'condition' : 'conditions'} extracted from the commitment — review
               before they become the checklist
             </p>
@@ -375,7 +377,7 @@ function PendingBanner({
                       ),
                     )
                   }
-                  className={`min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+                  className={`min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-ui transition-colors disabled:opacity-50 ${
                     armed?.key === `approve:${docId}` ? 'bg-navy text-white' : 'bg-navy text-white hover:opacity-90'
                   }`}
                 >
@@ -394,10 +396,10 @@ function PendingBanner({
                       ),
                     )
                   }
-                  className={`min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+                  className={`min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-ui transition-colors disabled:opacity-50 ${
                     armed?.key === `reject:${docId}`
                       ? 'bg-navy text-white'
-                      : 'bg-white border border-gray-300 text-navy hover:bg-gray-50'
+                      : 'bg-white border border-cool-300 text-navy hover:bg-cool-50'
                   }`}
                 >
                   {listBusy ? 'Working…' : armed?.key === `reject:${docId}` ? 'Tap again to reject the list' : 'Reject list'}
@@ -405,7 +407,7 @@ function PendingBanner({
               </div>
             )}
             {errors[`list:${docId}`] && (
-              <p className="mt-2 text-xs text-red-700 font-body">{errors[`list:${docId}`]}</p>
+              <p className="mt-2 text-xs text-red-700 font-ui">{errors[`list:${docId}`]}</p>
             )}
             <ul className="mt-2 divide-y divide-amber-200/70">
               {rows.map(p => (
@@ -476,57 +478,57 @@ function PendingRow({
 
   return (
     <li className="py-2">
-      <p className="text-sm font-body text-gray-700">
+      <p className="text-sm font-ui text-cool-700">
         {cond.condNumber ? `${cond.condNumber}. ` : ''}
         {cond.text}
       </p>
-      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-body text-gray-500">
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-ui text-cool-500">
         <span className="capitalize">{cond.owner}</span>
-        {cond.docKind && <span className="rounded-full bg-white/70 px-2 py-0.5 text-gray-600">{label(cond.docKind)}</span>}
+        {cond.docKind && <span className="rounded-full bg-white/70 px-2 py-0.5 text-cool-600">{label(cond.docKind)}</span>}
         {cond.loadBearing && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">load-bearing</span>}
-        {cond.sourcePage !== null && <span className="text-gray-400">p{cond.sourcePage}</span>}
+        {cond.sourcePage !== null && <span className="text-cool-500">p{cond.sourcePage}</span>}
         {canDecide && (
           <button
             onClick={() => setEditing(v => !v)}
-            className="text-navy font-semibold underline decoration-gray-300 hover:decoration-navy"
+            className="text-navy font-semibold underline decoration-cool-300 hover:decoration-navy"
           >
             {editing ? 'Cancel edit' : 'Edit & approve'}
           </button>
         )}
       </div>
       {cond.sourceSnippet && (
-        <p className="mt-0.5 text-[11px] text-gray-400 font-body break-words">
+        <p className="mt-0.5 text-[11px] text-cool-500 font-ui break-words">
           &ldquo;{cond.sourceSnippet}&rdquo;
         </p>
       )}
       {canDecide && editing && (
-        <div className="mt-2 space-y-2 rounded-lg border border-gray-200 bg-white p-2.5">
+        <div className="mt-2 space-y-2 rounded-lg border border-cool-200 bg-white p-2.5">
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
             rows={2}
             maxLength={1000}
-            className="w-full text-sm font-body border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
+            className="w-full text-sm font-ui border border-cool-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
           />
           <div className="flex flex-wrap gap-2">
-            <label className="text-[11px] font-body text-gray-500">
+            <label className="text-[11px] font-ui text-cool-500">
               Owner
               <select
                 value={owner}
                 onChange={e => setOwner(e.target.value)}
-                className="ml-1 text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+                className="ml-1 text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
               >
                 {OWNER_OPTIONS.map(o => (
                   <option key={o} value={o}>{o}</option>
                 ))}
               </select>
             </label>
-            <label className="text-[11px] font-body text-gray-500">
+            <label className="text-[11px] font-ui text-cool-500">
               Document
               <select
                 value={docKind}
                 onChange={e => setDocKind(e.target.value)}
-                className="ml-1 text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+                className="ml-1 text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
               >
                 <option value="">none</option>
                 {DOC_KIND_OPTIONS.map(k => (
@@ -534,12 +536,12 @@ function PendingRow({
                 ))}
               </select>
             </label>
-            <label className="text-[11px] font-body text-gray-500">
+            <label className="text-[11px] font-ui text-cool-500">
               Borrower
               <select
                 value={borrowerId}
                 onChange={e => setBorrowerId(e.target.value)}
-                className="ml-1 text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+                className="ml-1 text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
               >
                 <option value="">General</option>
                 {borrowers.map(b => (
@@ -548,7 +550,7 @@ function PendingRow({
               </select>
             </label>
             {REQUIREMENT_DOC_KINDS.has(docKind) && (
-              <label className="text-[11px] font-body text-gray-500">
+              <label className="text-[11px] font-ui text-cool-500">
                 Requirement target ($)
                 <input
                   type="number"
@@ -557,7 +559,7 @@ function PendingRow({
                   value={reqAmount}
                   onChange={e => setReqAmount(e.target.value)}
                   placeholder="e.g. 150000"
-                  className="ml-1 w-24 text-xs font-body border border-gray-200 rounded px-1.5 py-1 tabular-nums"
+                  className="ml-1 w-24 text-xs font-ui border border-cool-200 rounded px-1.5 py-1 tabular-nums"
                 />
               </label>
             )}
@@ -567,7 +569,7 @@ function PendingRow({
             onClick={() =>
               armed?.key === armKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? submit() : arm(armKey)
             }
-            className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+            className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui transition-colors disabled:opacity-50 ${
               armed?.key === armKey ? 'bg-navy text-white' : 'bg-navy text-white hover:opacity-90'
             }`}
           >
@@ -575,7 +577,7 @@ function PendingRow({
           </button>
         </div>
       )}
-      {errors[`cond:${cond.id}`] && <p className="mt-1 text-xs text-red-700 font-body">{errors[`cond:${cond.id}`]}</p>}
+      {errors[`cond:${cond.id}`] && <p className="mt-1 text-xs text-red-700 font-ui">{errors[`cond:${cond.id}`]}</p>}
     </li>
   )
 }
@@ -705,24 +707,24 @@ function ApprovedChecklist({
       )}
 
       {approved.length === 0 ? (
-        <p className="text-sm text-gray-400 font-body">
+        <p className="text-sm text-cool-500 font-ui">
           No conditions on this file yet. Upload the commitment to draft the checklist, or add one by hand above.
         </p>
       ) : (
         <>
-          <p className="text-xs font-body text-gray-500 mb-3 tabular-nums">
+          <p className="text-xs font-ui text-cool-500 mb-3 tabular-nums">
             <span className="font-semibold text-navy">{brokerCollected}</span> of{' '}
             <span className="font-semibold text-navy">{brokerRows.length}</span> broker{' '}
             {brokerRows.length === 1 ? 'condition' : 'conditions'} collected
           </p>
 
           {brokerRows.length === 0 ? (
-            <p className="text-sm text-gray-400 font-body">No broker conditions on this file.</p>
+            <p className="text-sm text-cool-500 font-ui">No broker conditions on this file.</p>
           ) : (
             <div className="space-y-4">
               {brokerGroups.map(g => (
                 <div key={g.key}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">{g.label}</p>
+                  <p className="font-heading text-[11px] font-semibold uppercase tracking-[0.05em] text-cool-600 mb-1.5">{g.label}</p>
                   <div className="space-y-2">
                     {g.rows.map(c => <ChecklistRow key={c.id} cond={c} {...rowProps} />)}
                   </div>
@@ -734,12 +736,12 @@ function ApprovedChecklist({
           {/* Non-broker conditions: present but collapsed, so Michael knows they
               exist when tracking whether the file closes. Nothing is deleted. */}
           {nonBrokerRows.length > 0 && (
-            <div className="mt-5 border-t border-gray-100 pt-4">
+            <div className="mt-5 border-t border-cool-100 pt-4">
               <div className="flex items-center justify-between mb-2 gap-2">
-                <p className="text-[11px] font-body text-gray-400">
+                <p className="text-[11px] font-ui text-cool-500">
                   {nonBrokerRows.length} non-broker {nonBrokerRows.length === 1 ? 'condition' : 'conditions'} on this file
                 </p>
-                <label className="flex items-center gap-1.5 text-[11px] font-body text-gray-500 cursor-pointer select-none">
+                <label className="flex items-center gap-1.5 text-[11px] font-ui text-cool-500 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={hideNonBroker}
@@ -771,13 +773,13 @@ function ApprovedChecklist({
 function Disclosure({ label: labelText, children }: { label: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="rounded-lg border border-gray-100">
+    <div className="rounded-lg border border-cool-100">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 rounded-lg"
+        className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-cool-50 rounded-lg"
       >
-        <span className="text-xs font-body font-semibold text-gray-600">{labelText}</span>
-        <span className="text-gray-400 text-[11px] font-body">{open ? 'hide' : 'show'}</span>
+        <span className="text-xs font-ui font-semibold text-cool-600">{labelText}</span>
+        <span className="text-cool-500 text-[11px] font-ui">{open ? 'hide' : 'show'}</span>
       </button>
       {open && <div className="px-3 pb-3">{children}</div>}
     </div>
@@ -839,7 +841,7 @@ function AddConditionBar({
       <div className="mb-4">
         <button
           onClick={() => setOpen(true)}
-          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50"
+          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50"
         >
           + Add condition
         </button>
@@ -848,15 +850,15 @@ function AddConditionBar({
   }
 
   return (
-    <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3 space-y-2">
-      <p className="text-xs font-semibold font-body text-navy">Add a condition by hand</p>
+    <div className="mb-4 rounded-lg border border-cool-200 bg-white p-3 space-y-2">
+      <p className="font-heading text-xs font-semibold text-navy">Add a condition by hand</p>
       <textarea
         value={text}
         onChange={e => setText(e.target.value)}
         rows={2}
         maxLength={1000}
         placeholder="Condition text"
-        className="w-full text-sm font-body border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
+        className="w-full text-sm font-ui border border-cool-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
       />
       <div className="flex flex-wrap gap-2 items-end">
         <SelectField label="Owner" value={owner} onChange={v => setOwner(v as (typeof OWNER_OPTIONS)[number])}>
@@ -870,21 +872,21 @@ function AddConditionBar({
           <option value="">General</option>
           {borrowers.map(b => <option key={b.id} value={b.id}>{b.fullName}</option>)}
         </SelectField>
-        <label className="text-[11px] font-body text-gray-500">
+        <label className="text-[11px] font-ui text-cool-500">
           Due date
           <input
             type="date"
             value={dueDate}
             onChange={e => setDueDate(e.target.value)}
-            className="ml-1 block text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+            className="ml-1 block text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
           />
         </label>
-        <label className="text-[11px] font-body text-gray-500 flex items-center gap-1.5 pb-1">
+        <label className="text-[11px] font-ui text-cool-500 flex items-center gap-1.5 pb-1">
           <input type="checkbox" checked={loadBearing} onChange={e => setLoadBearing(e.target.checked)} className="accent-navy" />
           load-bearing
         </label>
         {reqApplies && (
-          <label className="text-[11px] font-body text-gray-500">
+          <label className="text-[11px] font-ui text-cool-500">
             Requirement target ($)
             <input
               type="number"
@@ -893,7 +895,7 @@ function AddConditionBar({
               value={reqAmount}
               onChange={e => setReqAmount(e.target.value)}
               placeholder="e.g. 150000"
-              className="ml-1 block w-28 text-xs font-body border border-gray-200 rounded px-1.5 py-1 tabular-nums"
+              className="ml-1 block w-28 text-xs font-ui border border-cool-200 rounded px-1.5 py-1 tabular-nums"
             />
           </label>
         )}
@@ -902,18 +904,18 @@ function AddConditionBar({
         <button
           disabled={addBusy || text.trim().length < 4}
           onClick={() => void submit()}
-          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-navy text-white hover:opacity-90 disabled:opacity-50"
+          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui bg-navy text-white hover:opacity-90 disabled:opacity-50"
         >
           {addBusy ? 'Working…' : 'Add condition'}
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50"
+          className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50"
         >
           Cancel
         </button>
       </div>
-      {errors['add-condition'] && <p className="text-xs text-red-700 font-body">{errors['add-condition']}</p>}
+      {errors['add-condition'] && <p className="text-xs text-red-700 font-ui">{errors['add-condition']}</p>}
     </div>
   )
 }
@@ -930,12 +932,12 @@ function SelectField({
   children: React.ReactNode
 }) {
   return (
-    <label className="text-[11px] font-body text-gray-500">
+    <label className="text-[11px] font-ui text-cool-500">
       {labelText}
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="ml-1 block text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+        className="ml-1 block text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
       >
         {children}
       </select>
@@ -1002,7 +1004,7 @@ function AnalysisBlock({
   const page = analysis.value_citation?.page ?? null
 
   return (
-    <div className={`mt-1.5 text-xs font-body rounded-md px-2.5 py-1.5 border ${tone.box}`}>
+    <div className={`mt-1.5 text-xs font-ui rounded-md px-2.5 py-1.5 border ${tone.box}`}>
       <div className="flex items-center gap-2 flex-wrap">
         <span className="font-semibold">Analysis (draft)</span>
         <span className="opacity-90">· {tone.label}</span>
@@ -1028,7 +1030,7 @@ function AnalysisBlock({
       {/* The 60-day (or stated) recency check — shown whether it passes or not,
           so the check is visible, not just its failure. */}
       {rec && typeof rec.days === 'number' && (
-        <p className="mt-0.5 opacity-90">
+        <p className="mt-0.5 opacity-90 tabular-nums">
           {analysis.as_of ? `Dated ${analysis.as_of}` : 'Date not read'}
           {typeof rec.doc_age_days === 'number' ? ` · ${rec.doc_age_days} days old` : ''}
           {' · '}
@@ -1179,19 +1181,19 @@ function ChecklistRow({
   }
 
   return (
-    <div className={`border rounded-lg p-3 ${overdue ? 'border-red-200 bg-red-50' : 'border-gray-100'}`}>
+    <div className={`border rounded-lg p-3 ${overdue ? 'border-red-200 bg-red-50' : 'border-cool-100'}`}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p className="text-sm font-body text-gray-700 min-w-0 flex-1">
+        <p className="text-sm font-ui text-cool-700 min-w-0 flex-1">
           {cond.condNumber ? `${cond.condNumber}. ` : ''}
           {cond.text}
         </p>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-body text-gray-500">
+      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-ui text-cool-500">
         <Pill tone={pill.tone}>{pill.label}</Pill>
-        {cond.docKind && <span className="rounded-full bg-gray-50 px-2 py-0.5 text-gray-600">{label(cond.docKind)}</span>}
+        {cond.docKind && <span className="rounded-full bg-cool-50 px-2 py-0.5 text-cool-600">{label(cond.docKind)}</span>}
         {typeof cond.requirement?.target === 'number' && (
           <span
-            className="rounded-full bg-gray-50 px-2 py-0.5 text-gray-600 tabular-nums"
+            className="rounded-full bg-cool-50 px-2 py-0.5 text-cool-600 tabular-nums"
             title={cond.requirement.source === 'manual' ? 'requirement target set by hand' : 'requirement target parsed from the condition'}
           >
             target {fmtMoney(cond.requirement.target)}
@@ -1201,10 +1203,10 @@ function ChecklistRow({
         {isManual && <span className="rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">added by hand</span>}
         {!isManual && isEdited && <span className="rounded-full bg-purple-50 px-2 py-0.5 font-semibold text-purple-700">edited</span>}
         <span className="capitalize">{cond.owner}</span>
-        <span className={overdue ? 'text-red-700 font-semibold' : ''}>
+        <span className={`tabular-nums ${overdue ? 'text-red-700 font-semibold' : ''}`}>
           {cond.dueDate ? `due ${fmtShort(cond.dueDate)}${overdue ? ' (overdue)' : ''}` : 'no due date'}
         </span>
-        {matchedName && <span className="text-gray-400">matched: {matchedName}</span>}
+        {matchedName && <span className="text-cool-500">matched: {matchedName}</span>}
       </div>
 
       {analysis && <AnalysisBlock analysis={analysis} openDocument={openDocument} />}
@@ -1215,7 +1217,7 @@ function ChecklistRow({
             <button
               disabled={rowBusy}
               onClick={() => (armed?.key === verifyKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? verify() : arm(verifyKey))}
-              className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+              className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui transition-colors disabled:opacity-50 ${
                 armed?.key === verifyKey ? 'bg-navy text-white' : 'bg-decision text-decision-ink hover:bg-decision/80'
               }`}
             >
@@ -1226,7 +1228,7 @@ function ChecklistRow({
             <button
               disabled={rowBusy}
               onClick={() => setWaiveOpen(true)}
-              className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50 disabled:opacity-50"
+              className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50 disabled:opacity-50"
             >
               Waive…
             </button>
@@ -1238,13 +1240,13 @@ function ChecklistRow({
                 rows={1}
                 maxLength={2000}
                 placeholder="Reason (required, 5+ characters)"
-                className="w-full text-sm font-body border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
+                className="w-full text-sm font-ui border border-cool-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
               />
               <div className="mt-1.5 flex gap-2">
                 <button
                   disabled={rowBusy}
                   onClick={() => (armed?.key === waiveKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? waive() : arm(waiveKey))}
-                  className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+                  className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui transition-colors disabled:opacity-50 ${
                     armed?.key === waiveKey ? 'bg-navy text-white' : 'bg-navy text-white hover:opacity-90'
                   }`}
                 >
@@ -1253,7 +1255,7 @@ function ChecklistRow({
                 <button
                   disabled={rowBusy}
                   onClick={() => { setWaiveOpen(false); setNote('') }}
-                  className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50 disabled:opacity-50"
+                  className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50 disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1266,17 +1268,17 @@ function ChecklistRow({
       {/* Manual control — available regardless of decision state, so Michael can
           fix the list by hand the instant the machine is wrong. */}
       {canDecide && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-body text-gray-500">
-          <button onClick={() => setEditOpen(v => !v)} className="text-navy font-semibold underline decoration-gray-300 hover:decoration-navy">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-ui text-cool-500">
+          <button onClick={() => setEditOpen(v => !v)} className="text-navy font-semibold underline decoration-cool-300 hover:decoration-navy">
             {editOpen ? 'Cancel edit' : 'Edit'}
           </button>
-          <label className="text-gray-500">
+          <label className="text-cool-500">
             Owner
             <select
               value=""
               disabled={rowBusy}
               onChange={e => { const o = e.target.value; if (o) reassign(o); e.currentTarget.selectedIndex = 0 }}
-              className="ml-1 text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+              className="ml-1 text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
             >
               <option value="">move…</option>
               {OWNER_OPTIONS.filter(o => o !== cond.owner).map(o => <option key={o} value={o}>{label(o)}</option>)}
@@ -1289,13 +1291,13 @@ function ChecklistRow({
       )}
 
       {canDecide && editOpen && (
-        <div className="mt-2 space-y-2 rounded-lg border border-gray-200 bg-white p-2.5">
+        <div className="mt-2 space-y-2 rounded-lg border border-cool-200 bg-white p-2.5">
           <textarea
             value={eText}
             onChange={e => setEText(e.target.value)}
             rows={2}
             maxLength={1000}
-            className="w-full text-sm font-body border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
+            className="w-full text-sm font-ui border border-cool-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-navy/50 resize-y"
           />
           <div className="flex flex-wrap gap-2 items-end">
             <SelectField label="Owner" value={eOwner} onChange={setEOwner}>
@@ -1309,16 +1311,16 @@ function ChecklistRow({
               <option value="">General</option>
               {borrowers.map(b => <option key={b.id} value={b.id}>{b.fullName}</option>)}
             </SelectField>
-            <label className="text-[11px] font-body text-gray-500">
+            <label className="text-[11px] font-ui text-cool-500">
               Due date
-              <input type="date" value={eDue} onChange={e => setEDue(e.target.value)} className="ml-1 block text-xs font-body border border-gray-200 rounded px-1.5 py-1" />
+              <input type="date" value={eDue} onChange={e => setEDue(e.target.value)} className="ml-1 block text-xs font-ui border border-cool-200 rounded px-1.5 py-1" />
             </label>
-            <label className="text-[11px] font-body text-gray-500 flex items-center gap-1.5 pb-1">
+            <label className="text-[11px] font-ui text-cool-500 flex items-center gap-1.5 pb-1">
               <input type="checkbox" checked={eLoad} onChange={e => setELoad(e.target.checked)} className="accent-navy" />
               load-bearing
             </label>
             {REQUIREMENT_DOC_KINDS.has(eDoc) && (
-              <label className="text-[11px] font-body text-gray-500">
+              <label className="text-[11px] font-ui text-cool-500">
                 Requirement target ($)
                 <input
                   type="number"
@@ -1327,7 +1329,7 @@ function ChecklistRow({
                   value={eReq}
                   onChange={e => setEReq(e.target.value)}
                   placeholder="e.g. 150000"
-                  className="ml-1 block w-28 text-xs font-body border border-gray-200 rounded px-1.5 py-1 tabular-nums"
+                  className="ml-1 block w-28 text-xs font-ui border border-cool-200 rounded px-1.5 py-1 tabular-nums"
                 />
               </label>
             )}
@@ -1335,7 +1337,7 @@ function ChecklistRow({
           <button
             disabled={rowBusy}
             onClick={() => void submitEdit()}
-            className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-navy text-white hover:opacity-90 disabled:opacity-50"
+            className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui bg-navy text-white hover:opacity-90 disabled:opacity-50"
           >
             {rowBusy ? 'Working…' : 'Save changes'}
           </button>
@@ -1350,13 +1352,13 @@ function ChecklistRow({
             rows={1}
             maxLength={2000}
             placeholder="Why remove it? (required, 5+ characters — it is superseded, never deleted)"
-            className="w-full text-sm font-body border border-red-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-red-400 resize-y"
+            className="w-full text-sm font-ui border border-red-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-red-400 resize-y"
           />
           <div className="mt-1.5 flex gap-2">
             <button
               disabled={rowBusy}
               onClick={() => (armed?.key === removeKey && armed && Date.now() - armed.at <= ARM_WINDOW_MS ? remove() : arm(removeKey))}
-              className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+              className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui transition-colors disabled:opacity-50 ${
                 armed?.key === removeKey ? 'bg-red-700 text-white' : 'bg-red-600 text-white hover:opacity-90'
               }`}
             >
@@ -1364,7 +1366,7 @@ function ChecklistRow({
             </button>
             <button
               onClick={() => { setRemoveOpen(false); setRemoveReason('') }}
-              className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50"
+              className="min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50"
             >
               Cancel
             </button>
@@ -1372,7 +1374,7 @@ function ChecklistRow({
         </div>
       )}
 
-      {errors[busyKey] && <p className="mt-2 text-xs text-red-700 font-body">{errors[busyKey]}</p>}
+      {errors[busyKey] && <p className="mt-2 text-xs text-red-700 font-ui">{errors[busyKey]}</p>}
     </div>
   )
 }

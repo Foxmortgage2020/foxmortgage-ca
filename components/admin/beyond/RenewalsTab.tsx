@@ -87,7 +87,7 @@ export default async function RenewalsTab() {
       <div>
         <Header dripPending={dripPending} />
         <div className="bg-white border border-cool-200 rounded-[9px] p-5">
-          <p className="text-sm text-cool-600 font-body">
+          <p className="text-sm text-cool-600 font-ui">
             The Zoho read failed, so the radar cannot compute right now. Reload in a moment; nothing
             here caches a stale figure.
           </p>
@@ -229,13 +229,13 @@ export default async function RenewalsTab() {
             {renewals.missingMaturity.length === 1 ? '' : 's'} have no maturity date and cannot be
             tracked for renewal
           </h2>
-          <p className="text-xs font-body text-red-700 mt-1 mb-3">
+          <p className="text-xs font-ui text-red-700 mt-1 mb-3">
             Invisible to every part of this system until a maturity date is backfilled from the
             commitment. This block persists until it is empty.
           </p>
           <div className="space-y-1">
             {renewals.missingMaturity.map(d => (
-              <div key={d.id} className="flex items-center justify-between gap-3 text-xs font-body border-t border-red-200 py-1.5">
+              <div key={d.id} className="flex items-center justify-between gap-3 text-xs font-ui border-t border-red-200 py-1.5">
                 <span className="text-navy truncate">{d.contactName ?? d.dealName}</span>
                 <span className="flex items-center gap-3 shrink-0">
                   <span className="text-cool-700">{fmtMoney(d.amount)}</span>
@@ -249,7 +249,7 @@ export default async function RenewalsTab() {
         </div>
       ) : (
         <div className="border border-green-200 bg-green-50 rounded-xl px-4 py-3">
-          <p className="text-sm text-green-800 font-body">
+          <p className="text-sm text-green-800 font-ui">
             Every funded deal has a maturity date. The renewal system can see them all.
           </p>
         </div>
@@ -270,11 +270,11 @@ export default async function RenewalsTab() {
         <div className="flex items-center gap-2 flex-wrap mb-2">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
           <h2 className="font-heading font-bold text-red-700 text-lg">Lapsed</h2>
-          <span className="text-sm font-body text-red-700 font-semibold">
+          <span className="text-sm font-ui text-red-700 font-semibold">
             {buckets.lapsed.count} files · {fmtMoney(buckets.lapsed.volume)}
           </span>
         </div>
-        <p className="text-xs font-body text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+        <p className="text-xs font-ui text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
           Matured with no recorded outcome. This is a system failure, not a status.{' '}
           {lapsedNoOutcome.length > 0 && (
             <>
@@ -284,7 +284,7 @@ export default async function RenewalsTab() {
           )}
         </p>
         {buckets.lapsed.count === 0 ? (
-          <p className="text-sm text-cool-500 font-body">No lapsed renewals. Every matured file has an outcome.</p>
+          <p className="text-sm text-cool-500 font-ui">No lapsed renewals. Every matured file has an outcome.</p>
         ) : (
           <div className="space-y-2">
             {buckets.lapsed.deals.map(d => (
@@ -306,11 +306,11 @@ export default async function RenewalsTab() {
           <div className="flex items-center gap-2 flex-wrap mb-2">
             <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
             <h2 className="font-heading font-bold text-navy text-lg">Appears renewed</h2>
-            <span className="text-sm font-body text-cool-600">
+            <span className="text-sm font-ui text-cool-600">
               {appearsRenewed.length} files · {fmtMoney(suppressedVolume)}
             </span>
           </div>
-          <p className="text-xs font-body text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 mb-3">
+          <p className="text-xs font-ui text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2 mb-3">
             The monitoring export contradicts what Zoho recorded for these files (a newer start date, a
             different lender, or a different rate): the client looks renewed already. They are held out
             of Action now and Lapsed pending confirmation. Before this pass, Action now read{' '}
@@ -346,17 +346,17 @@ export default async function RenewalsTab() {
         <div className="flex items-center gap-2 flex-wrap mb-2">
           <span className="w-2.5 h-2.5 rounded-full bg-cool-300" />
           <h2 className="font-heading font-bold text-navy text-lg">Watching</h2>
-          <span className="text-sm font-body text-cool-600">
+          <span className="text-sm font-ui text-cool-600">
             {buckets.watching.count} files · {fmtMoney(buckets.watching.volume)}
           </span>
         </div>
-        <p className="text-xs font-body text-cool-500 mb-2">150+ days out. Visibility only, no action.</p>
+        <p className="text-xs font-ui text-cool-500 mb-2">150+ days out. Visibility only, no action.</p>
         {buckets.watching.count === 0 ? (
-          <p className="text-sm text-cool-500 font-body">Nothing further out on the book.</p>
+          <p className="text-sm text-cool-500 font-ui">Nothing further out on the book.</p>
         ) : (
           <div className="bg-white border border-cool-200 rounded-[9px] divide-y divide-cool-100 overflow-x-auto">
             {buckets.watching.deals.map(d => (
-              <div key={d.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs font-body min-w-[440px]">
+              <div key={d.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs font-ui min-w-[440px]">
                 <span className="text-navy truncate flex-1">{d.contactName ?? d.dealName}</span>
                 <span className="text-cool-600 w-20 text-right">{fmtMoneyCompact(d.amount)}</span>
                 <span className="text-cool-600 w-24 text-right">{fmtShortDate(d.maturityDate)}</span>
@@ -377,19 +377,19 @@ export default async function RenewalsTab() {
         <div className="flex items-center gap-2 flex-wrap mb-2">
           <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
           <h2 className="font-heading font-bold text-navy text-lg">Resolved</h2>
-          <span className="text-sm font-body text-cool-600">
+          <span className="text-sm font-ui text-cool-600">
             {buckets.resolved.count} files · {fmtMoney(buckets.resolved.volume)}
           </span>
         </div>
         {buckets.resolved.count === 0 ? (
-          <p className="text-sm text-cool-500 font-body">
+          <p className="text-sm text-cool-500 font-ui">
             No renewals resolved yet. An outcome lands here once a renewal is marked renewed elsewhere,
             no longer needed, or opted out.
           </p>
         ) : (
           <div className="bg-white border border-cool-200 rounded-[9px] divide-y divide-cool-100">
             {buckets.resolved.deals.map(d => (
-              <div key={d.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs font-body">
+              <div key={d.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs font-ui">
                 <span className="text-navy truncate">{d.contactName ?? d.dealName}</span>
                 <span className="flex items-center gap-3 shrink-0">
                   <span className="text-cool-600">{fmtMoneyCompact(d.amount)}</span>
@@ -399,7 +399,7 @@ export default async function RenewalsTab() {
             ))}
           </div>
         )}
-        <p className="text-[11px] font-body text-cool-500 mt-2">
+        <p className="text-[11px] font-ui text-cool-500 mt-2">
           A won renewal records as Renewed With Us (the picklist value arrived 2026-07-13); it, renewed
           elsewhere, no longer needs, and opted out all resolve a file here.
         </p>
@@ -440,7 +440,7 @@ function LapsedReconciliation({
     return (
       <section className="bg-white border border-cool-200 rounded-[9px] p-5">
         <h2 className="font-heading font-bold text-navy text-base mb-1">Lapsed reconciliation</h2>
-        <p className="text-sm font-body text-cool-600">
+        <p className="text-sm font-ui text-cool-600">
           Upload a Strategic Mortgage Monitoring export on the{' '}
           <Link href="/portal/admin/beyond?tab=opportunities" className="text-navy underline hover:text-ink">Opportunities</Link>{' '}
           page to reconcile these lapsed files against what the monitoring service still sees.
@@ -460,7 +460,7 @@ function LapsedReconciliation({
     <section className="bg-white border border-cool-200 rounded-[9px] p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
         <h2 className="font-heading font-bold text-navy text-base">Lapsed reconciliation</h2>
-        <span className="text-xs font-body text-cool-600">
+        <span className="text-xs font-ui text-cool-600">
           reconciled against the latest monitoring export by borrower name
         </span>
       </div>
@@ -470,14 +470,14 @@ function LapsedReconciliation({
         <BookStat label="Unmonitored" value={String(retention.unmonitored)} sub="not in the export" />
         <BookStat label="Retention signal" value={retentionPct == null ? 'n/a' : `${retentionPct}%`} sub="still with lender / matched" />
       </div>
-      <p className="text-xs font-body text-cool-600 mb-3">
+      <p className="text-xs font-ui text-cool-600 mb-3">
         Still-with-lender past maturity is almost certainly an automatic lender renewal &mdash; recoverable, and the
         highest-value calls on the board. Lender-changed means the client moved; the data cannot say whether the deal was
         written or lost. Conflicts below are flagged, never overwritten.
       </p>
       <div className="border border-cool-100 rounded-lg divide-y divide-cool-100 overflow-x-auto">
         {recons.map(({ deal, recon }) => (
-          <div key={deal.id} className="flex items-start justify-between gap-3 px-3 py-2 text-xs font-body min-w-[520px]">
+          <div key={deal.id} className="flex items-start justify-between gap-3 px-3 py-2 text-xs font-ui min-w-[520px]">
             <div className="flex-1 min-w-0">
               <span className="text-navy font-semibold">{deal.contactName ?? deal.dealName}</span>
               <span className="text-cool-500"> · {fmtMoneyCompact(deal.amount)}</span>
@@ -501,7 +501,7 @@ function LapsedReconciliation({
           </div>
         ))}
       </div>
-      <p className="text-[11px] font-body text-cool-500 mt-2">
+      <p className="text-[11px] font-ui text-cool-500 mt-2">
         Matching is by borrower name; a name the export does not carry reconciles as unmonitored. A conflict never
         triggers a write &mdash; resolve it in Zoho, or from the Opportunities backfill where the CRM field is empty.
       </p>
@@ -512,9 +512,9 @@ function LapsedReconciliation({
 function BookStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: 'bad' }) {
   return (
     <div className="border border-cool-100 rounded-lg px-3 py-2 bg-cool-50">
-      <p className="text-[11px] font-body text-cool-500 uppercase tracking-wide">{label}</p>
+      <p className="text-[11px] font-ui text-cool-500 uppercase tracking-wide">{label}</p>
       <p className={`font-heading font-bold text-lg ${tone === 'bad' ? 'text-red-600' : 'text-navy'}`}>{value}</p>
-      <p className="text-[11px] font-body text-cool-600 mt-0.5">{sub}</p>
+      <p className="text-[11px] font-ui text-cool-600 mt-0.5">{sub}</p>
     </div>
   )
 }
@@ -539,13 +539,13 @@ function BucketSection({
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <span className={`w-2.5 h-2.5 rounded-full ${tone === 'amber' ? 'bg-amber-500' : 'bg-cool-300'}`} />
         <h2 className="font-heading font-bold text-navy text-lg">{title}</h2>
-        <span className="text-sm font-body text-cool-600">
+        <span className="text-sm font-ui text-cool-600">
           {bucket.count} files · {fmtMoney(bucket.volume)}
         </span>
       </div>
-      <p className="text-xs font-body text-cool-500 mb-3">{hint}</p>
+      <p className="text-xs font-ui text-cool-500 mb-3">{hint}</p>
       {bucket.count === 0 ? (
-        <p className="text-sm text-cool-500 font-body">Nothing in this window right now.</p>
+        <p className="text-sm text-cool-500 font-ui">Nothing in this window right now.</p>
       ) : (
         <div className="space-y-2">
           {bucket.deals.map(d => (

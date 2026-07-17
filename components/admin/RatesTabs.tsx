@@ -95,7 +95,7 @@ export default function RatesTabs({
 
   return (
     <div>
-      <div className="mt-5 border-b border-gray-200" role="tablist" aria-label="Rates views">
+      <div className="mt-5 border-b border-cool-200" role="tablist" aria-label="Rates views">
         <div className="flex gap-1 overflow-x-auto">
           {TABS.map(t => {
             const on = t.value === active
@@ -107,10 +107,10 @@ export default function RatesTabs({
                 onClick={() => goTab(t.value)}
                 title={t.hint}
                 data-testid={`rates-tab-${t.value}`}
-                className={`shrink-0 px-4 py-2.5 text-sm font-body font-semibold border-b-2 -mb-px transition ${
+                className={`shrink-0 px-4 py-2.5 text-sm font-ui font-semibold border-b-2 -mb-px transition ${
                   on
-                    ? 'border-lime text-navy'
-                    : 'border-transparent text-gray-500 hover:text-navy hover:border-gray-300'
+                    ? 'border-navy text-navy'
+                    : 'border-transparent text-cool-500 hover:text-navy hover:border-cool-300'
                 }`}
               >
                 {t.label}
@@ -145,7 +145,7 @@ function AllQuotesTab({
   const referenceRes = useKnowledgeFetch<RatesReference>('/api/portal/admin/knowledge/rates-reference')
   return (
     <div>
-      <p className="text-sm text-gray-500 font-body mb-4">
+      <p className="text-sm text-cool-500 font-ui mb-4">
         Every approved quote, with superseded history behind its toggle. Effective rates for floating
         rows compute against the served prime.
       </p>

@@ -89,21 +89,21 @@ export default function AppearsRenewedCard({
     <div className="border border-violet-200 bg-white rounded-xl px-4 py-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="font-heading font-bold text-navy text-sm">
-          {dealName} <span className="text-gray-400 font-normal">· {money(amount)} · was in {from === 'action' ? 'Action now' : 'Lapsed'}</span>
+          {dealName} <span className="text-cool-400 font-normal">· {money(amount)} · was in {from === 'action' ? 'Action now' : 'Lapsed'}</span>
         </p>
-        <a href={zohoHref} target="_blank" rel="noreferrer" className="text-xs font-semibold text-navy hover:text-lime">Zoho</a>
+        <a href={zohoHref} target="_blank" rel="noreferrer" className="text-xs font-semibold text-navy hover:text-ink">Zoho</a>
       </div>
-      <p className="mt-1 text-[11px] font-body text-violet-800">
+      <p className="mt-1 text-[11px] font-ui text-violet-800">
         Why: {evidence.signals.map(s => SIGNAL_LABEL[s] ?? s).join('; ')}.
       </p>
-      <div className="mt-2 grid sm:grid-cols-2 gap-2 text-xs font-body">
-        <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">Zoho recorded</p>
-          <p className="text-gray-600">closed {evidence.zoho.closingDate ?? 'n/a'} · {evidence.zoho.lender ?? 'lender n/a'} · {evidence.zoho.rate != null ? `${evidence.zoho.rate}%` : 'rate n/a'} · matures {evidence.zoho.maturity ?? 'n/a'}</p>
+      <div className="mt-2 grid sm:grid-cols-2 gap-2 text-xs font-ui">
+        <div className="rounded-lg border border-cool-200 bg-cool-50/60 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-cool-400 font-semibold mb-0.5">Zoho recorded</p>
+          <p className="text-cool-600">closed {evidence.zoho.closingDate ?? 'n/a'} · {evidence.zoho.lender ?? 'lender n/a'} · {evidence.zoho.rate != null ? `${evidence.zoho.rate}%` : 'rate n/a'} · matures {evidence.zoho.maturity ?? 'n/a'}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-0.5">The monitoring feed sees</p>
-          <p className="text-gray-600">started {evidence.feed.startDate ?? 'n/a'} · {evidence.feed.lender} · {evidence.feed.rate != null ? `${evidence.feed.rate}%` : 'rate n/a'} · {money(evidence.feed.amount)} · matures {evidence.feed.maturity ?? 'n/a'}</p>
+        <div className="rounded-lg border border-cool-200 bg-cool-50/60 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-cool-400 font-semibold mb-0.5">The monitoring feed sees</p>
+          <p className="text-cool-600">started {evidence.feed.startDate ?? 'n/a'} · {evidence.feed.lender} · {evidence.feed.rate != null ? `${evidence.feed.rate}%` : 'rate n/a'} · {money(evidence.feed.amount)} · matures {evidence.feed.maturity ?? 'n/a'}</p>
         </div>
       </div>
       {canDecide ? (
@@ -127,13 +127,13 @@ export default function AppearsRenewedCard({
               value={reason}
               onChange={e => setReason(e.target.value)}
               placeholder="why the flag is wrong (required)"
-              className="text-[11px] font-body border border-gray-300 rounded-lg px-2 py-1 flex-1 min-w-[180px]"
+              className="text-[11px] font-ui border border-cool-300 rounded-lg px-2 py-1 flex-1 min-w-[180px]"
             />
           )}
-          {msg && <span className="text-[11px] font-body text-gray-500">{msg}</span>}
+          {msg && <span className="text-[11px] font-ui text-cool-500">{msg}</span>}
         </div>
       ) : (
-        <p className="mt-2 text-[11px] font-body text-gray-400">Review only; the decide permission is needed to confirm or clear.</p>
+        <p className="mt-2 text-[11px] font-ui text-cool-400">Review only; the decide permission is needed to confirm or clear.</p>
       )}
     </div>
   )

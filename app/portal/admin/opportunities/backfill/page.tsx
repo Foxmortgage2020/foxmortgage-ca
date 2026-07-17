@@ -22,8 +22,8 @@ export default async function BackfillPage() {
     return (
       <div className="max-w-3xl space-y-4">
         <Header />
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-sm text-gray-500 font-body">The upload store is not connected.</p>
+        <div className="bg-white border border-cool-200 rounded-xl p-5">
+          <p className="text-sm text-cool-500 font-ui">The upload store is not connected.</p>
         </div>
       </div>
     )
@@ -36,8 +36,8 @@ export default async function BackfillPage() {
     return (
       <div className="max-w-3xl space-y-4">
         <Header />
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-sm text-gray-500 font-body">No monitoring export uploaded yet.</p>
+        <div className="bg-white border border-cool-200 rounded-xl p-5">
+          <p className="text-sm text-cool-500 font-ui">No monitoring export uploaded yet.</p>
         </div>
       </div>
     )
@@ -62,20 +62,20 @@ export default async function BackfillPage() {
   return (
     <div className="max-w-4xl space-y-4">
       <Header />
-      <div className="bg-white border border-gray-200 rounded-xl p-4 text-sm font-body text-gray-600">
+      <div className="bg-white border border-cool-200 rounded-xl p-4 text-sm font-ui text-cool-600">
         <p>
           {candidates.length} of {mortgages.length} monitored files carry a maturity date or rate that could fill an
           empty Zoho field. Scanning matches each to a Zoho contact by email, then phone, then name, and proposes fills
           only where the CRM field is <span className="font-semibold text-navy">empty</span>. Where both hold a value and
           they differ, the conflict is shown for you to resolve in Zoho &mdash; never written automatically.
         </p>
-        <p className="mt-2 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-cool-400">
           Lender name is a Zoho lookup (it needs a lender record, not a text value), so it is reported as a gap rather
           than proposed. Only Maturity date and Mortgage rate are written.
         </p>
       </div>
       {!canManage && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm font-body text-amber-800">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm font-ui text-amber-800">
           You can scan and review proposals, but writing backfills to Zoho needs the manage permission.
         </div>
       )}
@@ -87,13 +87,13 @@ export default async function BackfillPage() {
 function Header() {
   return (
     <div>
-      <div className="flex items-center gap-2 text-sm font-body text-gray-400 mb-1">
+      <div className="flex items-center gap-2 text-sm font-ui text-cool-400 mb-1">
         <Link href="/portal/admin/opportunities" className="hover:text-navy">Opportunities</Link>
         <span>/</span>
-        <span className="text-gray-500">Backfill</span>
+        <span className="text-cool-500">Backfill</span>
       </div>
       <h1 className="font-heading text-navy text-2xl font-bold">Backfill Zoho from monitoring</h1>
-      <p className="text-gray-500 font-body text-sm mt-1">
+      <p className="text-cool-500 font-ui text-sm mt-1">
         Fill the empty maturity dates and rates the monitoring export knows and the CRM does not &mdash; each one a
         confirmation you approve, every write recorded.
       </p>

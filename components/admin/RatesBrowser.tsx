@@ -41,7 +41,7 @@ function rateCell(q: RateQuoteBrowserRow, reference: RatesReference | null): Rea
       return (
         <>
           {d.discount !== null ? `${fmtDiscount(d.discount)} ` : ''}
-          <span className="text-gray-500 font-normal">({d.rate.toFixed(2)}% printed)</span>
+          <span className="text-cool-500 font-normal">({d.rate.toFixed(2)}% printed)</span>
         </>
       )
     case 'floating-computed':
@@ -49,7 +49,7 @@ function rateCell(q: RateQuoteBrowserRow, reference: RatesReference | null): Rea
         <>
           {fmtDiscount(d.discount)}{' '}
           <span
-            className="text-gray-500 font-normal"
+            className="text-cool-500 font-normal"
             title={`Effective ${d.effective.toFixed(2)}% at prime ${d.primeValue.toFixed(2)}% as of ${d.primeAsOf}${d.overridden ? ' (lender prime)' : ''}`}
           >
             (eff {d.effective.toFixed(2)}%)
@@ -60,11 +60,11 @@ function rateCell(q: RateQuoteBrowserRow, reference: RatesReference | null): Rea
       return (
         <>
           {fmtDiscount(d.discount)}{' '}
-          <span className="text-gray-400 font-normal">(prime unavailable)</span>
+          <span className="text-cool-400 font-normal">(prime unavailable)</span>
         </>
       )
     case 'unpriced':
-      return <span className="text-gray-400">not priced</span>
+      return <span className="text-cool-400">not priced</span>
   }
 }
 
@@ -117,7 +117,7 @@ export default function RatesBrowser({
   const supersededShown = rows.length - approvedShown
 
   const selectCls =
-    'border border-gray-200 rounded-lg px-2.5 py-2 text-sm font-body bg-white focus:outline-none focus:border-navy/50'
+    'border border-cool-200 rounded-lg px-2.5 py-2 text-sm font-ui bg-white focus:outline-none focus:border-navy/50'
 
   return (
     <div>
@@ -161,18 +161,18 @@ export default function RatesBrowser({
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-2 text-sm font-body text-gray-600 min-h-[40px] px-2 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm font-ui text-cool-600 min-h-[40px] px-2 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={showSuperseded}
             onChange={e => setShowSuperseded(e.target.checked)}
-            className="accent-[#032133]"
+            className="accent-navy"
           />
           Include superseded history
         </label>
       </div>
 
-      <p className="text-xs text-gray-400 font-body mt-2">
+      <p className="text-xs text-cool-400 font-ui mt-2">
         {approvedShown} approved quote{approvedShown === 1 ? '' : 's'}
         {showSuperseded ? ` and ${supersededShown} superseded` : ''} shown.
         {reference?.prime
@@ -181,14 +181,14 @@ export default function RatesBrowser({
       </p>
 
       {/* Table */}
-      <div className="mt-3 bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="mt-3 bg-white border border-cool-200 rounded-xl overflow-hidden">
         {rows.length === 0 ? (
-          <p className="text-sm text-gray-500 font-body px-5 py-6">No quotes match this view.</p>
+          <p className="text-sm text-cool-500 font-ui px-5 py-6">No quotes match this view.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm font-body min-w-[720px]">
+            <table className="w-full text-sm font-ui min-w-[720px]">
               <thead>
-                <tr className="text-left text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                <tr className="text-left text-xs text-cool-400 uppercase tracking-wide border-b border-cool-100">
                   <th className="py-2.5 px-4 font-medium">Lender</th>
                   <th className="py-2.5 px-2 font-medium">Product</th>
                   <th className="py-2.5 px-2 font-medium">Variant</th>
@@ -204,7 +204,7 @@ export default function RatesBrowser({
                 {rows.map(q => (
                   <tr
                     key={q.id}
-                    className={`border-b border-gray-50 ${q.status === 'superseded' ? 'text-gray-400' : ''}`}
+                    className={`border-b border-cool-50 ${q.status === 'superseded' ? 'text-cool-400' : ''}`}
                   >
                     <td className="py-2 px-4 font-semibold text-navy">
                       <span className="flex items-center gap-1.5">
@@ -228,7 +228,7 @@ export default function RatesBrowser({
                     </td>
                     <td className="py-2 px-2">
                       {q.rateType === 'fixed' ? (
-                        <span className="text-gray-500">Fixed</span>
+                        <span className="text-cool-500">Fixed</span>
                       ) : (
                         <span
                           className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
@@ -253,7 +253,7 @@ export default function RatesBrowser({
                     <td className="py-2 px-4">
                       <span
                         className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                          q.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          q.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-cool-100 text-cool-500'
                         }`}
                       >
                         {q.status}

@@ -109,7 +109,7 @@ export default async function IntelTab({
                 {item.lenderSlugGuess ? (
                   <span className="flex items-center gap-1.5">
                     <LenderMark slug={item.lenderSlugGuess} size={22} />
-                    <span className="text-sm font-body font-semibold text-navy">
+                    <span className="text-sm font-ui font-semibold text-navy">
                       {lenderDisplayName(item.lenderSlugGuess)}
                     </span>
                   </span>
@@ -140,7 +140,7 @@ export default async function IntelTab({
                 <p className="text-xs font-ui text-cool-600 mt-1 break-words">{item.messageText}</p>
               )}
               {item.review && (
-                <p className="text-xs font-body mt-2">
+                <p className="text-xs font-ui mt-2">
                   <span
                     className={`font-semibold ${item.review.decision === 'approved' ? 'text-green-700' : 'text-red-600'}`}
                   >

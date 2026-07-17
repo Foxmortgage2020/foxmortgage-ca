@@ -70,7 +70,7 @@ function ActionCell({ row }: { row: DealRow }) {
         title={a.note}
         className={
           row.lime
-            ? 'rounded-md border border-lime bg-lime px-3 py-1.5 font-ui text-[13px] font-bold text-navy hover:opacity-90 whitespace-nowrap'
+            ? 'rounded-md border border-decision bg-decision px-3 py-1.5 font-ui text-[13px] font-bold text-decision-ink hover:opacity-90 whitespace-nowrap'
             : 'rounded-md border border-cool-300 bg-white px-3 py-1.5 font-ui text-[13px] font-semibold text-navy hover:border-navy whitespace-nowrap'
         }
       >
@@ -234,7 +234,7 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
                     href={href}
                     className={`flex min-h-[44px] flex-1 items-center justify-center rounded-lg px-3 py-2 text-center font-ui text-[14px] leading-tight ${
                       r.lime
-                        ? 'border border-lime bg-lime font-bold text-navy'
+                        ? 'border border-decision bg-decision font-bold text-decision-ink'
                         : 'border border-cool-300 bg-white font-semibold text-navy'
                     }`}
                   >

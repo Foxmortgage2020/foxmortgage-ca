@@ -23,18 +23,21 @@ import {
 import { CONSTRAINT_LABEL, type ConstraintType } from '@/lib/constraints'
 import type { DealConditionRow, DealFlagRow } from '@/lib/underwriting'
 import { fmtDateTime, fmtShortDate } from '@/lib/dates'
+import StatusChip, { type ChipTone } from '@/components/admin/ds/StatusChip'
 
 const label = (s: string) => s.replace(/_/g, ' ')
 
-function Chip({ tone, children }: { tone: 'green' | 'amber' | 'red' | 'gray' | 'navy'; children: React.ReactNode }) {
-  const cls = {
-    green: 'bg-green-100 text-green-700',
-    amber: 'bg-amber-100 text-amber-800',
-    red: 'bg-red-100 text-red-700',
-    gray: 'bg-gray-100 text-gray-600',
-    navy: 'bg-navy/10 text-navy',
-  }[tone]
-  return <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{children}</span>
+// The four semantic tones are the design system's StatusChip; navy is this
+// card's one extension (a system-precheck note is information, not status).
+function Chip({ tone, children }: { tone: ChipTone | 'navy'; children: React.ReactNode }) {
+  if (tone === 'navy') {
+    return (
+      <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-navy/10 text-navy">
+        {children}
+      </span>
+    )
+  }
+  return <StatusChip tone={tone}>{children}</StatusChip>
 }
 
 export default function ComplianceCard({
@@ -90,7 +93,7 @@ export default function ComplianceCard({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5" data-testid="compliance-card">
+    <div className="bg-white border border-cool-200 rounded-[9px] p-5" data-testid="compliance-card">
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <h2 className="font-heading text-navy font-bold text-base">Compliance</h2>
         <span
@@ -98,10 +101,10 @@ export default function ComplianceCard({
           aria-label={POSTURE_RULE}
           className={`cursor-help inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
             posture === 'attention'
-              ? 'bg-amber-100 text-amber-900'
+              ? 'bg-amber-100 text-amber-800'
               : posture === 'clear'
                 ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-600'
+                : 'bg-cool-100 text-cool-700'
           }`}
           data-testid="compliance-posture"
         >
@@ -116,7 +119,7 @@ export default function ComplianceCard({
         </Link>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-xs font-body">
+      <div className="flex flex-wrap gap-2 text-xs font-ui">
         {stage && <Chip tone="gray">stage: {label(stage)}</Chip>}
         <Chip tone={status === 'active' ? 'green' : 'gray'}>{status}</Chip>
         {prechecked.length > 0 ? (
@@ -133,22 +136,22 @@ export default function ComplianceCard({
 
       {/* Compliance-class flags with disposition history */}
       <div className="mt-3">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Compliance flags</h3>
+        <h3 className="font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600">Compliance flags</h3>
         {complianceFlags.length === 0 ? (
-          <p className="text-sm text-gray-400 font-body mt-1">No compliance_gap flags raised on this file.</p>
+          <p className="text-sm text-cool-400 font-ui mt-1">No compliance_gap flags raised on this file.</p>
         ) : (
           <div className="mt-1.5 space-y-1.5">
             {complianceFlags.map(f => (
-              <div key={f.id} className="text-sm font-body">
+              <div key={f.id} className="text-sm font-ui">
                 <div className="flex flex-wrap items-center gap-2">
                   <Chip tone={f.severity === 'high' ? 'red' : f.severity === 'warning' ? 'amber' : 'gray'}>
                     {f.severity}
                   </Chip>
                   <Chip tone={f.status === 'open' ? 'amber' : 'green'}>{f.status}</Chip>
-                  <span className="text-[11px] text-gray-400">raised {fmtDateTime(f.createdAt)}</span>
+                  <span className="text-[11px] text-cool-400">raised {fmtDateTime(f.createdAt)}</span>
                 </div>
                 {f.status !== 'open' && f.resolution && (
-                  <p className="text-xs text-gray-600 mt-0.5">
+                  <p className="text-xs text-cool-600 mt-0.5">
                     dispositioned {f.resolution}
                     {f.resolvedAt ? ` ${fmtDateTime(f.resolvedAt)}` : ''}
                     {f.reason ? `: ${f.reason}` : ''}
@@ -162,23 +165,23 @@ export default function ComplianceCard({
 
       {/* Compliance-bearing conditions, grouped by the stored category */}
       <div className="mt-3">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+        <h3 className="font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600">
           Compliance-bearing conditions (solicitor, borrower execution)
         </h3>
         {complianceConds.length === 0 ? (
-          <p className="text-sm text-gray-400 font-body mt-1">
+          <p className="text-sm text-cool-400 font-ui mt-1">
             No conditions in the compliance-bearing categories on this file.
           </p>
         ) : (
           <div className="mt-1.5 space-y-2">
             {Array.from(byCategory.entries()).map(([cat, rows]) => (
               <div key={cat}>
-                <p className="text-xs font-semibold text-navy font-body capitalize">{label(cat)}</p>
+                <p className="text-xs font-semibold text-navy font-ui capitalize">{label(cat)}</p>
                 <div className="mt-0.5 space-y-1">
                   {rows.map(c => {
                     const overdue = isOpenCond(c) && c.dueDate !== null && c.dueDate < todayYMD
                     return (
-                      <div key={c.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm font-body">
+                      <div key={c.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm font-ui">
                         <Chip
                           tone={
                             c.status === 'satisfied' || c.status === 'waived'
@@ -191,8 +194,8 @@ export default function ComplianceCard({
                           {label(c.status)}
                           {overdue ? ', overdue' : ''}
                         </Chip>
-                        <span className="text-gray-700 min-w-0">{c.text}</span>
-                        {c.dueDate && <span className="text-[11px] text-gray-400">due {fmtShortDate(c.dueDate)}</span>}
+                        <span className="text-cool-700 min-w-0">{c.text}</span>
+                        {c.dueDate && <span className="text-[11px] text-cool-400 tabular-nums">due {fmtShortDate(c.dueDate)}</span>}
                       </div>
                     )
                   })}
@@ -201,7 +204,7 @@ export default function ComplianceCard({
             ))}
           </div>
         )}
-        <p className="text-[11px] text-gray-400 font-body mt-1.5">
+        <p className="text-[11px] text-cool-400 font-ui mt-1.5">
           The full condition list with decision controls is in the Conditions section below.
         </p>
       </div>
@@ -215,22 +218,22 @@ export default function ComplianceCard({
         >
           <div className="flex flex-wrap items-center gap-2">
             <Chip tone="green">Documented suitability</Chip>
-            <span className="text-xs font-semibold text-navy font-body">
+            <span className="text-xs font-semibold text-navy font-ui">
               {CONSTRAINT_LABEL[constraint.type]}: {constraint.lenderLabel}
             </span>
           </div>
-          <p className="text-sm text-gray-700 font-body mt-1.5">{constraint.reason}</p>
-          <p className="text-xs text-gray-600 font-body mt-1">{constraint.costSentence}</p>
-          <p className="text-[11px] text-gray-400 font-body mt-1">
+          <p className="text-sm text-cool-700 font-ui mt-1.5">{constraint.reason}</p>
+          <p className="text-xs text-cool-600 font-ui mt-1">{constraint.costSentence}</p>
+          <p className="text-[11px] text-cool-400 font-ui mt-1">
             Recorded by {constraint.actingEmail} {fmtDateTime(constraint.createdAt)}
           </p>
         </div>
       )}
 
       {/* Honest gaps: never fabricated from adjacent data */}
-      <div className="mt-3 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5">
-        <p className="text-xs font-semibold text-gray-500 font-body">Not yet captured by the workbench</p>
-        <p className="text-xs text-gray-500 font-body mt-1">
+      <div className="mt-3 bg-cool-50 border border-cool-100 rounded-lg px-3 py-2.5">
+        <p className="text-xs font-semibold text-cool-500 font-ui">Not yet captured by the workbench</p>
+        <p className="text-xs text-cool-500 font-ui mt-1">
           {workbenchGapFields(documentedSuitability).join('; ')}. These render as gaps rather than guesses
           and never count toward a clear posture.
         </p>

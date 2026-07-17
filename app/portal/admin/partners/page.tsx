@@ -87,14 +87,14 @@ export default async function AdminPartnersPage() {
     <div>
       <div className="mb-4">
         <h1 className="font-heading text-2xl font-bold text-navy">Partners</h1>
-        <p className="font-body text-gray-500 text-sm mt-0.5">
+        <p className="font-ui text-cool-500 text-sm mt-0.5">
           Ranked for Monday attention: health first, attributed volume second. Tap a partner for
           their files, cadence, documents, and invites.
         </p>
       </div>
 
       {/* The attribution caveat, stated once. */}
-      <p className="text-[11px] text-gray-500 font-body bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-4">
+      <p className="text-[11px] text-cool-500 font-ui bg-cool-50 border border-cool-200 rounded-lg px-3 py-2 mb-4">
         Pre-conversion attribution is structurally incomplete: the Zoho Leads module has no
         partner fields (the known gap from the Jul 9 form-intake hotfix, schema fix pending), so
         every number here counts from conversion onward, when Referral_Partner is linked on the
@@ -102,13 +102,13 @@ export default async function AdminPartnersPage() {
       </p>
 
       {!dealsOk && (
-        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-body mb-4">
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-ui mb-4">
           The Zoho deals read failed, so referral stats show empty this load. The partner list and
           documents still render; reload for the full picture.
         </p>
       )}
       {!engagement.ok && (
-        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-body mb-4">
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-ui mb-4">
           The Clerk read failed, so portal sign-in shows not read this load rather than guessing
           who has an account.
         </p>

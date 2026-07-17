@@ -47,7 +47,7 @@ export default async function ViewAsPickerPage() {
     <div className="max-w-4xl">
       <div className="mb-6">
         <h1 className="font-heading text-navy text-2xl font-bold">View as a partner</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1">
           Opens that partner&apos;s portal read-only: every action control is removed and the
           server refuses writes for the whole session. A banner names who is being viewed, and
           each session is logged (who, whom, when) under{' '}
@@ -59,7 +59,7 @@ export default async function ViewAsPickerPage() {
       </div>
 
       {!zohoOk && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm font-body text-amber-800">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm font-ui text-amber-800">
           Could not load the partner list from Zoho right now. Try again in a moment.
         </div>
       )}
@@ -71,19 +71,19 @@ export default async function ViewAsPickerPage() {
           )
           if (rows.length === 0) return null
           return (
-            <div key={group.zohoType} className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+            <div key={group.zohoType} className="bg-white border border-cool-200 rounded-xl p-5 mb-4">
               <h2 className="font-heading text-navy font-bold text-base mb-3">
                 {group.heading}
-                <span className="ml-2 text-xs font-body font-normal text-gray-400">
+                <span className="ml-2 text-xs font-ui font-normal text-cool-400">
                   {rows.length}
                 </span>
               </h2>
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-cool-100">
                 {rows.map(p => (
                   <li key={p.id} className="py-2.5 flex items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="font-body text-sm text-navy truncate">{p.name ?? p.id}</p>
-                      <p className="font-body text-xs text-gray-400 truncate">
+                      <p className="font-ui text-sm text-navy truncate">{p.name ?? p.id}</p>
+                      <p className="font-ui text-xs text-cool-400 truncate">
                         {p.email ?? 'no email on file'}
                         {p.partnerStatus ? ` · ${p.partnerStatus}` : ''}
                       </p>
@@ -97,7 +97,7 @@ export default async function ViewAsPickerPage() {
         })}
 
       {zohoOk && partners.length === 0 && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm font-body text-gray-500">
+        <div className="bg-cool-50 border border-cool-200 rounded-lg p-4 text-sm font-ui text-cool-500">
           No partner records in Zoho yet.
         </div>
       )}

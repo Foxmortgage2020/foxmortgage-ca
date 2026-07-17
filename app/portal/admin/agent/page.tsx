@@ -59,14 +59,14 @@ export default async function AgentPage({
     <div className="max-w-3xl">
       <div>
         <h1 className="font-heading text-navy text-2xl font-bold">Ask Fox</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1">
           Call prep and call review over the practice&apos;s own records: every number sourced,
           every gap named, every CRM change a card you confirm. Decisions stay on the Approvals
           desk.
         </p>
       </div>
       <div className="mt-4">
-        <Suspense fallback={<p className="text-sm text-gray-400 font-body">Loading…</p>}>
+        <Suspense fallback={<p className="text-sm text-cool-500 font-ui">Loading…</p>}>
           <AgentChat initial={initial} canExecute={canExecute} />
         </Suspense>
       </div>

@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import type { PartnerTier } from '@/config/partner-tiers'
+import StatusChip, { type ChipTone } from '@/components/admin/ds/StatusChip'
 
 export interface PartnerHealthRowView {
   id: string
@@ -34,10 +35,10 @@ export interface PartnerHealthRowView {
 
 type FilterKey = 'all' | 'referral' | 'investor'
 
-const TIER_CHIP: Record<PartnerTier, { label: string; cls: string }> = {
-  active: { label: 'Active', cls: 'bg-lime/20 text-navy border border-lime/50' },
-  cooling: { label: 'Cooling', cls: 'bg-amber-100 text-amber-800 border border-amber-200' },
-  dormant: { label: 'Dormant', cls: 'bg-gray-100 text-gray-500 border border-gray-200' },
+const TIER_CHIP: Record<PartnerTier, { label: string; tone: ChipTone }> = {
+  active: { label: 'Active', tone: 'green' },
+  cooling: { label: 'Cooling', tone: 'amber' },
+  dormant: { label: 'Dormant', tone: 'gray' },
 }
 
 function fmtCompact(n: number): string {
@@ -91,7 +92,7 @@ export default function PartnersHealthTable({ rows }: { rows: PartnerHealthRowVi
 
   return (
     <div>
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+      <div className="bg-cool-50 border border-cool-200 rounded-[9px] p-4 mb-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="flex gap-2 flex-wrap">
           {(
             [
@@ -103,7 +104,7 @@ export default function PartnersHealthTable({ rows }: { rows: PartnerHealthRowVi
             <button
               key={pill.key}
               onClick={() => setFilter(pill.key)}
-              className={`px-3 py-1.5 rounded-full text-sm font-body font-semibold transition-colors border ${
+              className={`px-3 py-1.5 rounded-full text-sm font-ui font-semibold transition-colors border ${
                 filter === pill.key
                   ? 'bg-navy text-white border-navy'
                   : 'bg-white text-navy border-navy/30 hover:border-navy'
@@ -118,77 +119,75 @@ export default function PartnersHealthTable({ rows }: { rows: PartnerHealthRowVi
           placeholder="Search by name or email"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full sm:w-72 border border-gray-200 rounded-lg px-3 py-2 font-body text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-lime/40"
+          className="w-full sm:w-72 border border-cool-200 rounded-lg px-3 py-2 font-ui text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-navy/30"
         />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-[9px] border border-cool-200 overflow-hidden">
         {filtered.length === 0 ? (
-          <p className="font-body text-gray-500 text-sm py-12 text-center">No partners match this filter.</p>
+          <p className="font-ui text-cool-500 text-sm py-12 text-center">No partners match this filter.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider text-left">
-                  <th className="px-4 py-3 font-medium">Partner</th>
-                  <th className="px-4 py-3 font-medium">Health</th>
-                  <th className="px-4 py-3 font-medium">Last referral</th>
-                  <th className="px-4 py-3 font-medium">Referrals 12mo</th>
-                  <th className="px-4 py-3 font-medium">Funded</th>
-                  <th className="px-4 py-3 font-medium">Volume</th>
-                  <th className="px-4 py-3 font-medium">Revenue attributed</th>
-                  <th className="px-4 py-3 font-medium">Portal sign-in</th>
+                <tr className="font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600 text-left">
+                  <th className="px-4 py-3">Partner</th>
+                  <th className="px-4 py-3">Health</th>
+                  <th className="px-4 py-3">Last referral</th>
+                  <th className="px-4 py-3">Referrals 12mo</th>
+                  <th className="px-4 py-3">Funded</th>
+                  <th className="px-4 py-3">Volume</th>
+                  <th className="px-4 py-3">Revenue attributed</th>
+                  <th className="px-4 py-3">Portal sign-in</th>
                   <th className="px-4 py-3 w-16" />
                 </tr>
               </thead>
-              <tbody className="font-body">
+              <tbody className="font-ui">
                 {filtered.map(r => (
                   <tr
                     key={r.id}
                     onClick={() => router.push(`/portal/admin/partners/${r.id}`)}
-                    className="border-b border-gray-50 last:border-0 cursor-pointer hover:bg-lime/5 transition-colors"
+                    className="border-t border-cool-100 cursor-pointer hover:bg-cool-50 transition-colors"
                     data-testid={`partner-row-${r.id}`}
                   >
                     <td className="px-4 py-3">
                       <p className="text-navy font-semibold">{r.name ?? '(unnamed)'}</p>
-                      <p className="text-gray-400 text-xs">{r.partnerType ?? 'type not set'}</p>
+                      <p className="text-cool-400 text-xs">{r.partnerType ?? 'type not set'}</p>
                     </td>
                     <td className="px-4 py-3">
                       {r.tier ? (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TIER_CHIP[r.tier].cls}`}>
-                          {TIER_CHIP[r.tier].label}
-                        </span>
+                        <StatusChip tone={TIER_CHIP[r.tier].tone}>{TIER_CHIP[r.tier].label}</StatusChip>
                       ) : (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-navy text-lime">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-navy text-white">
                           Funding
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{r.tier ? fmtShort(r.lastReferral) : 'n/a'}</td>
-                    <td className="px-4 py-3 text-gray-600">{r.tier ? r.referralsT12 : 'n/a'}</td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-cool-600 tabular-nums">{r.tier ? fmtShort(r.lastReferral) : 'n/a'}</td>
+                    <td className="px-4 py-3 text-cool-600 tabular-nums">{r.tier ? r.referralsT12 : 'n/a'}</td>
+                    <td className="px-4 py-3 text-cool-600 tabular-nums">
                       {r.referralsTotal > 0 ? (
                         <span>
                           {r.fundedCount} of {r.referralsTotal}
                           {r.conversionPct !== null && (
-                            <span className="text-gray-400"> ({Math.round(r.conversionPct)}%)</span>
+                            <span className="text-cool-400"> ({Math.round(r.conversionPct)}%)</span>
                           )}
                         </span>
                       ) : (
-                        <span className="text-gray-400">none attributed</span>
+                        <span className="text-cool-400">none attributed</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-navy font-semibold">
+                    <td className="px-4 py-3 text-navy font-semibold tabular-nums">
                       {r.fundedVolume > 0 ? fmtCompact(r.fundedVolume) : ''}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 tabular-nums">
                       {r.revenueActual > 0 && (
                         <span className="text-navy font-semibold">{fmtCompact(r.revenueActual)}</span>
                       )}
-                      {r.revenueActual > 0 && r.revenueModeled > 0 && <span className="text-gray-400"> + </span>}
+                      {r.revenueActual > 0 && r.revenueModeled > 0 && <span className="text-cool-400"> + </span>}
                       {r.revenueModeled > 0 && (
                         <span>
-                          <span className="text-gray-600">{fmtCompact(r.revenueModeled)}</span>{' '}
+                          <span className="text-cool-600">{fmtCompact(r.revenueModeled)}</span>{' '}
                           <span
                             data-estimate
                             title="Estimated through the comp model (config/comp.ts); the recorded Total_Commission is used wherever it exists."
@@ -200,9 +199,9 @@ export default function PartnersHealthTable({ rows }: { rows: PartnerHealthRowVi
                       )}
                       {r.revenueActual === 0 && r.revenueModeled === 0 && ''}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{fmtSignIn(r)}</td>
+                    <td className="px-4 py-3 text-cool-500 text-xs tabular-nums">{fmtSignIn(r)}</td>
                     <td className="px-4 py-3 text-right">
-                      <ChevronRight className="w-4 h-4 text-gray-300 inline" />
+                      <ChevronRight className="w-4 h-4 text-cool-300 inline" />
                     </td>
                   </tr>
                 ))}

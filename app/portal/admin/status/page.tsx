@@ -14,6 +14,7 @@ import {
   getN8nStatus,
 } from '@/lib/status'
 import FormIntakeAck from '@/components/admin/FormIntakeAck'
+import StatusChip, { type ChipTone } from '@/components/admin/ds/StatusChip'
 import { can, getSessionUser } from '@/lib/authz'
 import {
   getAgentIdByEmail,
@@ -33,7 +34,7 @@ function Dot({ light }: { light: Light }) {
     ok: 'bg-green-500',
     warn: 'bg-amber-500',
     fail: 'bg-red-500',
-    off: 'bg-gray-300',
+    off: 'bg-cool-300',
   }[light]
   return <span className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${cls}`} />
 }
@@ -43,6 +44,15 @@ const LIGHT_LABEL: Record<Light, string> = {
   warn: 'Needs a look',
   fail: 'Failing',
   off: 'Not configured',
+}
+
+// Health semantics map straight onto the chip tones: green stays green,
+// amber stays amber, red stays red; not-configured is neutral gray.
+const LIGHT_TONE: Record<Light, ChipTone> = {
+  ok: 'green',
+  warn: 'amber',
+  fail: 'red',
+  off: 'gray',
 }
 
 function Panel({
@@ -55,25 +65,13 @@ function Panel({
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-white border border-cool-200 rounded-[9px] p-5">
       <div className="flex items-center gap-2.5 mb-3">
         <Dot light={light} />
         <h2 className="font-heading text-navy font-bold text-base flex-1">{title}</h2>
-        <span
-          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-            light === 'ok'
-              ? 'bg-green-100 text-green-700'
-              : light === 'warn'
-                ? 'bg-amber-100 text-amber-800'
-                : light === 'fail'
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-gray-100 text-gray-500'
-          }`}
-        >
-          {LIGHT_LABEL[light]}
-        </span>
+        <StatusChip tone={LIGHT_TONE[light]}>{LIGHT_LABEL[light]}</StatusChip>
       </div>
-      <div className="text-sm font-body text-gray-600 space-y-1.5">{children}</div>
+      <div className="text-sm font-ui text-cool-600 space-y-1.5">{children}</div>
     </div>
   )
 }
@@ -81,8 +79,8 @@ function Panel({
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <span className="text-gray-500">{label}</span>
-      <span className="text-navy font-medium text-right">{value}</span>
+      <span className="text-cool-500">{label}</span>
+      <span className="text-navy font-medium text-right tabular-nums">{value}</span>
     </div>
   )
 }
@@ -161,7 +159,7 @@ export default async function StatusPage() {
     <div className="max-w-4xl">
       <div className="mb-6">
         <h1 className="font-heading text-navy text-2xl font-bold">Status</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1 tabular-nums">
           Checked {checkedAt} &middot; reload the page to re-check; there is no auto refresh
         </p>
       </div>
@@ -265,40 +263,40 @@ export default async function StatusPage() {
             </p>
           ) : (
             <div className="overflow-x-auto -mx-1">
-              <table className="w-full text-xs font-body min-w-[520px]">
+              <table className="w-full text-xs font-ui min-w-[520px]">
                 <thead>
-                  <tr className="text-left text-gray-400 uppercase tracking-wide">
-                    <th className="py-1.5 px-1 font-medium">Workflow</th>
-                    <th className="py-1.5 px-1 font-medium">Area</th>
-                    <th className="py-1.5 px-1 font-medium">Active</th>
-                    <th className="py-1.5 px-1 font-medium">Last run</th>
+                  <tr className="text-left font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600">
+                    <th className="py-1.5 px-1 font-semibold">Workflow</th>
+                    <th className="py-1.5 px-1 font-semibold">Area</th>
+                    <th className="py-1.5 px-1 font-semibold">Active</th>
+                    <th className="py-1.5 px-1 font-semibold">Last run</th>
                   </tr>
                 </thead>
                 <tbody>
                   {n8n.rows.map(r => (
-                    <tr key={r.id} className="border-t border-gray-100">
+                    <tr key={r.id} className="border-t border-cool-100">
                       <td className="py-1.5 px-1 text-navy">{r.name}</td>
-                      <td className="py-1.5 px-1 text-gray-500">{r.area}</td>
+                      <td className="py-1.5 px-1 text-cool-500">{r.area}</td>
                       <td className="py-1.5 px-1">
                         {r.error ? (
                           <span className="text-red-600">{r.error}</span>
                         ) : r.active ? (
                           <span className="text-green-700 font-semibold">yes</span>
                         ) : (
-                          <span className="text-gray-400">no</span>
+                          <span className="text-cool-400">no</span>
                         )}
                       </td>
-                      <td className="py-1.5 px-1">
+                      <td className="py-1.5 px-1 tabular-nums">
                         {r.lastExecStatus ? (
                           <span
                             className={
-                              r.lastExecStatus === 'error' ? 'text-red-600 font-semibold' : 'text-gray-600'
+                              r.lastExecStatus === 'error' ? 'text-red-600 font-semibold' : 'text-cool-600'
                             }
                           >
                             {r.lastExecStatus} {r.lastExecAt ? `at ${fmtDateTime(r.lastExecAt)}` : ''}
                           </span>
                         ) : (
-                          <span className="text-gray-400">none recorded</span>
+                          <span className="text-cool-400">none recorded</span>
                         )}
                       </td>
                     </tr>
@@ -356,15 +354,15 @@ export default async function StatusPage() {
             />
           )}
           {bookkeeping.error && <p className="text-amber-700">{bookkeeping.error}</p>}
-          <div className="pt-2 border-t border-gray-100 mt-2">
-            <p className="text-gray-500 mb-1">
+          <div className="pt-2 border-t border-cool-100 mt-2">
+            <p className="text-cool-500 mb-1">
               Recent dry-run log entries (in-memory; resets on deploy or idle):
             </p>
             {bookkeeping.dryRunEntries.length === 0 ? (
-              <p className="text-gray-400">none on this server instance</p>
+              <p className="text-cool-400">none on this server instance</p>
             ) : (
               bookkeeping.dryRunEntries.map((e, i) => (
-                <p key={i} className="text-xs text-gray-600">
+                <p key={i} className="text-xs text-cool-600 tabular-nums">
                   {fmtDateTime(e.timestamp)}: {e.vendor_name || e.transaction_id} ({e.match_method},
                   confidence {e.confidence})
                 </p>
@@ -437,7 +435,7 @@ export default async function StatusPage() {
         </Panel>
       </div>
 
-      <p className="text-xs text-gray-400 font-body mt-6">
+      <p className="text-xs text-cool-500 font-ui mt-6">
         Missing a panel you expected? The <Link href="/portal/admin/roadmap" className="underline hover:text-navy">Roadmap</Link>{' '}
         lists what arrives in each session.
       </p>

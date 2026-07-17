@@ -49,11 +49,11 @@ export default function SmmUpload() {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-white border border-cool-200 rounded-xl p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-heading font-bold text-navy text-base">Upload the monitoring export</h2>
-          <p className="text-xs font-body text-gray-500 mt-0.5">
+          <p className="text-xs font-ui text-cool-500 mt-0.5">
             The monthly CSV. Every raw row is captured before parsing; a new upload supersedes the
             prior month&apos;s analysis and nothing is deleted.
           </p>
@@ -76,10 +76,10 @@ export default function SmmUpload() {
         </label>
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600 font-body">{error}</p>}
+      {error && <p className="mt-3 text-sm text-red-600 font-ui">{error}</p>}
 
       {summary && (
-        <div className="mt-3 border-t border-gray-100 pt-3 text-xs font-body text-gray-600 space-y-1.5">
+        <div className="mt-3 border-t border-cool-100 pt-3 text-xs font-ui text-cool-600 space-y-1.5">
           <p className="text-navy font-semibold">
             Captured {summary.rawRows} raw rows → {summary.mortgages} mortgages ({summary.collapsed} co-borrower
             rows collapsed), {summary.placeholders} placeholder.

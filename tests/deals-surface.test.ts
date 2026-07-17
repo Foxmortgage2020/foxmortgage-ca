@@ -321,19 +321,22 @@ describe('the B2b lime audit', () => {
     }
   })
 
-  it('DealsList renders lime ONLY on the single-lime branch', () => {
+  it('DealsList renders the decision token ONLY on the single-lime branch (B4: legacy lime retired)', () => {
     const src = readFileSync('components/admin/deals/DealsList.tsx', 'utf8')
     const lines = src.split('\n')
-    const limeLines = lines
+    // B4: the single lime speaks the decision token now; legacy lime is gone.
+    expect(lines.some(l => LIME_RENDER.test(l))).toBe(false)
+    const DECISION_RENDER = /(?:bg|border|text)-decision/
+    const decisionLines = lines
       .map((line, i) => ({ line, i }))
-      .filter(({ line }) => LIME_RENDER.test(line))
+      .filter(({ line }) => DECISION_RENDER.test(line))
     // Two render branches (desktop table + phone cards), nothing else.
-    expect(limeLines.length).toBe(2)
-    for (const { i } of limeLines) {
+    expect(decisionLines.length).toBe(2)
+    for (const { i } of decisionLines) {
       const context = lines.slice(Math.max(0, i - 3), i + 1).join('\n')
       expect(
         /(?:row|r)\.lime/.test(context),
-        `DealsList.tsx:${i + 1} lime is not gated by the single-lime flag`,
+        `DealsList.tsx:${i + 1} decision token is not gated by the single-lime flag`,
       ).toBe(true)
     }
   })

@@ -37,7 +37,7 @@ export interface PracticeHistoryChartProps {
 }
 
 const NAVY = '#032133'
-const LIME = '#95D600'
+const PROJECTION_GRAY = '#7E8E97'
 const GRID = '#e5e7eb'
 const INK = '#334155'
 const MUTE = '#94a3b8'
@@ -114,7 +114,7 @@ export default function PracticeHistoryChart({
       style={{ fontFamily: 'var(--font-montserrat), sans-serif', maxWidth: nested ? undefined : '100%', height: nested ? undefined : 'auto' }}
     >
       <defs>
-        {/* Diagonal lime hatch — the projection texture. Never a solid fill,
+        {/* Diagonal gray hatch — the projection texture. Never a solid fill,
             so a forecast can never be mistaken for a funded actual. */}
         <pattern
           id="ph-hatch"
@@ -123,8 +123,8 @@ export default function PracticeHistoryChart({
           height="9"
           patternTransform="rotate(45)"
         >
-          <rect width="9" height="9" fill={LIME} opacity="0.14" />
-          <line x1="0" y1="0" x2="0" y2="9" stroke={LIME} strokeWidth="3" />
+          <rect width="9" height="9" fill={PROJECTION_GRAY} opacity="0.14" />
+          <line x1="0" y1="0" x2="0" y2="9" stroke={PROJECTION_GRAY} strokeWidth="3" />
         </pattern>
       </defs>
 
@@ -175,7 +175,7 @@ export default function PracticeHistoryChart({
                   width={barW}
                   height={fundedTop - projTop}
                   fill="url(#ph-hatch)"
-                  stroke={LIME}
+                  stroke={PROJECTION_GRAY}
                   strokeWidth="1"
                   rx="2"
                 />
@@ -239,7 +239,7 @@ export default function PracticeHistoryChart({
       <g transform={`translate(${plotLeft}, ${plotTop - 44})`} fontSize="15" fill={INK}>
         <rect x="0" y="-12" width="16" height="16" fill={NAVY} rx="2" />
         <text x="22" y="1">Funded (actual)</text>
-        <rect x="185" y="-12" width="16" height="16" fill="url(#ph-hatch)" stroke={LIME} strokeWidth="1" rx="2" />
+        <rect x="185" y="-12" width="16" height="16" fill="url(#ph-hatch)" stroke={PROJECTION_GRAY} strokeWidth="1" rx="2" />
         <text x="207" y="1">Weighted pipeline (projection, estimated)</text>
       </g>
 
@@ -261,7 +261,7 @@ export default function PracticeHistoryChart({
           </text>
           {milestones.map((m, i) => (
             <g key={`${m.month}-${m.label}`} transform={`translate(0, ${26 + i * 44})`}>
-              <circle cx="6" cy="-4" r="5" fill={LIME} />
+              <circle cx="6" cy="-4" r="5" fill={PROJECTION_GRAY} />
               <text x="20" y="0" fontSize="14.5" fontWeight="600" fill={NAVY}>
                 {monthLabel(m.month)}
               </text>

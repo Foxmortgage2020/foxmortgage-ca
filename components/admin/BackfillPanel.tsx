@@ -153,7 +153,7 @@ export default function BackfillPanel({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
+      <div className="bg-white border border-cool-200 rounded-xl p-4">
         <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={scan}
@@ -163,17 +163,17 @@ export default function BackfillPanel({
             {scanning ? `Scanning ${progress}/${candidates.length}…` : scanned ? 'Re-scan' : `Scan ${candidates.length} files`}
           </button>
           {scanned && !scanning && (
-            <p className="text-sm font-body text-gray-500">
+            <p className="text-sm font-ui text-cool-500">
               {withFills.length} with fillable gaps · {withConflicts.length} with conflicts ·{' '}
               {needsManual.length} need a manual match · {ambiguous.length} ambiguous ·{' '}
               {unmatched.length} unmatched{errored.length ? ` · ${errored.length} errored` : ''}
             </p>
           )}
         </div>
-        {err && <p className="mt-2 text-sm font-body text-red-600">{err}</p>}
+        {err && <p className="mt-2 text-sm font-ui text-red-600">{err}</p>}
         {scanning && (
-          <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-lime transition-all" style={{ width: `${(progress / Math.max(candidates.length, 1)) * 100}%` }} />
+          <div className="mt-3 h-1.5 bg-cool-100 rounded-full overflow-hidden">
+            <div className="h-full bg-navy transition-all" style={{ width: `${(progress / Math.max(candidates.length, 1)) * 100}%` }} />
           </div>
         )}
       </div>
@@ -192,7 +192,7 @@ export default function BackfillPanel({
       {needsManual.length > 0 && (
         <section>
           <h2 className="font-heading font-bold text-navy text-lg mb-2">Needs a manual match</h2>
-          <p className="text-xs font-body text-gray-400 mb-2">
+          <p className="text-xs font-ui text-cool-400 mb-2">
             Two or more mortgages in the export share this identity (same email, phone, or name), and the Zoho
             deal could not be attributed by property address or amount. Nothing is proposed automatically; pick
             which mortgage each deal belongs to.
@@ -208,7 +208,7 @@ export default function BackfillPanel({
       {withConflicts.length > 0 && (
         <section>
           <h2 className="font-heading font-bold text-navy text-lg mb-2">Conflicts to review</h2>
-          <p className="text-xs font-body text-gray-400 mb-2">
+          <p className="text-xs font-ui text-cool-400 mb-2">
             Both Zoho and the export hold a value and they differ. Nothing is proposed; resolve these in Zoho.
           </p>
           <div className="space-y-2">
@@ -217,7 +217,7 @@ export default function BackfillPanel({
                 <p className="font-heading font-bold text-navy text-sm">{r.name}</p>
                 {r.deals.flatMap(d =>
                   d.conflicts.map(c => (
-                    <p key={`${d.dealId}-${c.field}`} className="text-xs font-body text-amber-800 mt-1">
+                    <p key={`${d.dealId}-${c.field}`} className="text-xs font-ui text-amber-800 mt-1">
                       {d.dealName}: {FIELD_LABEL[c.field] ?? c.field} — Zoho{' '}
                       <span className="font-semibold">{c.zohoValue}</span> vs export{' '}
                       <span className="font-semibold">{c.exportValue}</span>
@@ -233,7 +233,7 @@ export default function BackfillPanel({
       {(ambiguous.length > 0 || unmatched.length > 0 || errored.length > 0 || placeholders.length > 0) && scanned && (
         <section>
           <h2 className="font-heading font-bold text-navy text-lg mb-2">Not matched</h2>
-          <div className="bg-white border border-gray-200 rounded-xl p-4 text-sm font-body text-gray-600 space-y-2">
+          <div className="bg-white border border-cool-200 rounded-xl p-4 text-sm font-ui text-cool-600 space-y-2">
             {ambiguous.length > 0 && (
               <p>
                 <span className="font-semibold text-navy">{ambiguous.length} ambiguous</span> — more than one Zoho contact
@@ -264,7 +264,7 @@ export default function BackfillPanel({
       )}
 
       {scanned && withFills.length === 0 && withConflicts.length === 0 && needsManual.length === 0 && !scanning && (
-        <p className="text-sm font-body text-gray-400">No empty fields to fill from this export. Everything matched is already complete.</p>
+        <p className="text-sm font-ui text-cool-400">No empty fields to fill from this export. Everything matched is already complete.</p>
       )}
     </div>
   )
@@ -280,13 +280,13 @@ function MatchedCard({
   canManage: boolean
 }) {
   return (
-    <div className="border border-gray-200 rounded-xl bg-white px-4 py-3">
+    <div className="border border-cool-200 rounded-xl bg-white px-4 py-3">
       <p className="font-heading font-bold text-navy text-sm">
         {result.name}
-        {result.matchedBy && <span className="text-gray-400 font-normal"> · matched by {result.matchedBy}</span>}
+        {result.matchedBy && <span className="text-cool-400 font-normal"> · matched by {result.matchedBy}</span>}
       </p>
       {result.sharedIdentity && (
-        <p className="mt-0.5 text-[11px] font-body text-amber-700">
+        <p className="mt-0.5 text-[11px] font-ui text-amber-700">
           Shared identity: another mortgage in the export carries the same contact details. Only the deals
           attributed to this mortgage by property address or amount are shown
           {result.withheldContested ? `; ${result.withheldContested} contested deal${result.withheldContested === 1 ? '' : 's'} withheld to the manual-match card` : ''}.
@@ -322,14 +322,14 @@ function ManualMatchCard({
     <div className="border border-amber-200 bg-amber-50/40 rounded-xl px-4 py-3">
       <p className="font-heading font-bold text-navy text-sm">
         {result.claimants.map(c => c.name).filter((n, i, a) => a.indexOf(n) === i).join(' / ')}
-        <span className="text-gray-400 font-normal"> · {result.claimants.length} mortgages share this identity</span>
+        <span className="text-cool-400 font-normal"> · {result.claimants.length} mortgages share this identity</span>
       </p>
       <div className="mt-2 grid sm:grid-cols-2 gap-2">
         {result.claimants.map(c => (
-          <div key={c.householdId} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-body">
+          <div key={c.householdId} className="rounded-lg border border-cool-200 bg-white px-3 py-2 text-xs font-ui">
             <p className="font-semibold text-navy">{c.name}</p>
-            <p className="text-gray-500">{c.address ?? 'address not in export'}</p>
-            <p className="text-gray-500">
+            <p className="text-cool-500">{c.address ?? 'address not in export'}</p>
+            <p className="text-cool-500">
               {money(c.amount)} · {c.rate != null ? `${c.rate}%` : 'rate n/a'} · matures {c.maturityDate ?? 'n/a'}
             </p>
           </div>
@@ -340,7 +340,7 @@ function ManualMatchCard({
           <ManualDealPick key={d.dealId} deal={d} claimants={result.claimants} uploadId={uploadId} canManage={canManage} />
         ))}
         {result.candidateDeals.length === 0 && (
-          <p className="text-xs font-body text-gray-500">No contested deals to place; the contact&apos;s records are already attributed.</p>
+          <p className="text-xs font-ui text-cool-500">No contested deals to place; the contact&apos;s records are already attributed.</p>
         )}
       </div>
     </div>
@@ -419,28 +419,28 @@ function ManualDealPick({
   if (done) {
     return (
       <div className="rounded-lg border border-green-200 bg-green-50/60 px-3 py-2">
-        <p className="text-xs font-body text-green-800">
+        <p className="text-xs font-ui text-green-800">
           <span className="font-semibold">{deal.dealName}</span> · {done}
         </p>
-        {msg && <p className="text-[11px] font-body text-amber-700 mt-0.5">{msg}</p>}
+        {msg && <p className="text-[11px] font-ui text-amber-700 mt-0.5">{msg}</p>}
       </div>
     )
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-      <p className="text-xs font-body text-gray-500">
+    <div className="rounded-lg border border-cool-200 bg-white px-3 py-2">
+      <p className="text-xs font-ui text-cool-500">
         <span className="font-semibold text-navy">{deal.dealName}</span>
-        {deal.stage ? <span className="text-gray-400"> · {deal.stage}</span> : null}
+        {deal.stage ? <span className="text-cool-400"> · {deal.stage}</span> : null}
       </p>
-      <p className="text-[11px] font-body text-gray-400">
+      <p className="text-[11px] font-ui text-cool-400">
         {[deal.street, deal.city].filter(Boolean).join(', ') || 'no address on the deal'} · {money(deal.amount)} · maturity{' '}
         {deal.current.Maturity_Date ?? 'empty'} · rate {deal.current.Mortgage_Rate != null ? `${deal.current.Mortgage_Rate}%` : 'empty'}
       </p>
       <div className="mt-1.5 flex items-center gap-3 flex-wrap">
-        <span className="text-[11px] font-body text-gray-500">This deal belongs to:</span>
+        <span className="text-[11px] font-ui text-cool-500">This deal belongs to:</span>
         {claimants.map(c => (
-          <label key={c.householdId} className="flex items-center gap-1.5 text-xs font-body text-navy cursor-pointer">
+          <label key={c.householdId} className="flex items-center gap-1.5 text-xs font-ui text-navy cursor-pointer">
             <input
               type="radio"
               name={`pick-${deal.dealId}`}
@@ -450,18 +450,18 @@ function ManualDealPick({
               className="accent-navy"
             />
             <span>
-              {c.name} <span className="text-gray-400">({money(c.amount)}, matures {c.maturityDate ?? 'n/a'})</span>
+              {c.name} <span className="text-cool-400">({money(c.amount)}, matures {c.maturityDate ?? 'n/a'})</span>
             </span>
           </label>
         ))}
       </div>
       {claimant && fillable.length === 0 && (
-        <p className="mt-1 text-[11px] font-body text-gray-400">Nothing to fill for that pick; the deal&apos;s fields are already set.</p>
+        <p className="mt-1 text-[11px] font-ui text-cool-400">Nothing to fill for that pick; the deal&apos;s fields are already set.</p>
       )}
       {claimant && fillable.length > 0 && (
         <div className="mt-1.5 space-y-1">
           {fillable.map(f => (
-            <label key={f.field} className="flex items-center gap-2 text-xs font-body text-navy cursor-pointer">
+            <label key={f.field} className="flex items-center gap-2 text-xs font-ui text-navy cursor-pointer">
               <input
                 type="checkbox"
                 checked={selected.has(f.field)}
@@ -479,7 +479,7 @@ function ManualDealPick({
               <span>
                 Set <span className="font-semibold">{FIELD_LABEL[f.field] ?? f.field}</span> to{' '}
                 <span className="font-semibold text-green-700">{f.value}</span>{' '}
-                <span className="text-gray-400">(currently empty)</span>
+                <span className="text-cool-400">(currently empty)</span>
               </span>
             </label>
           ))}
@@ -494,10 +494,10 @@ function ManualDealPick({
           >
             {busy ? 'Writing…' : armed ? 'Confirm this manual match?' : 'Match and backfill'}
           </button>
-          {msg && <span className="text-[11px] font-body text-red-600">{msg}</span>}
+          {msg && <span className="text-[11px] font-ui text-red-600">{msg}</span>}
         </div>
       ) : (
-        <p className="mt-1.5 text-[11px] font-body text-gray-400">Review only; manage permission needed to pick and write.</p>
+        <p className="mt-1.5 text-[11px] font-ui text-cool-400">Review only; manage permission needed to pick and write.</p>
       )}
     </div>
   )
@@ -562,28 +562,28 @@ function DealFill({
   if (done) {
     return (
       <div className="rounded-lg border border-green-200 bg-green-50/60 px-3 py-2">
-        <p className="text-xs font-body text-green-800">
+        <p className="text-xs font-ui text-green-800">
           <span className="font-semibold">{deal.dealName}</span> — {done}
         </p>
-        {msg && <p className="text-[11px] font-body text-amber-700 mt-0.5">{msg}</p>}
+        {msg && <p className="text-[11px] font-ui text-amber-700 mt-0.5">{msg}</p>}
       </div>
     )
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2">
-      <p className="text-xs font-body text-gray-500 mb-1.5">
+    <div className="rounded-lg border border-cool-200 bg-cool-50/60 px-3 py-2">
+      <p className="text-xs font-ui text-cool-500 mb-1.5">
         {deal.dealName}
-        {deal.stage ? <span className="text-gray-400"> · {deal.stage}</span> : null}
+        {deal.stage ? <span className="text-cool-400"> · {deal.stage}</span> : null}
       </p>
       <div className="space-y-1">
         {deal.fills.map(f => (
-          <label key={f.field} className="flex items-center gap-2 text-xs font-body text-navy cursor-pointer">
+          <label key={f.field} className="flex items-center gap-2 text-xs font-ui text-navy cursor-pointer">
             <input type="checkbox" checked={selected.has(f.field)} onChange={() => toggle(f.field)} disabled={!canManage || busy} className="accent-navy" />
             <span>
               Set <span className="font-semibold">{FIELD_LABEL[f.field] ?? f.field}</span> to{' '}
               <span className="font-semibold text-green-700">{fmtFill(f)}</span>{' '}
-              <span className="text-gray-400">(currently empty)</span>
+              <span className="text-cool-400">(currently empty)</span>
             </span>
           </label>
         ))}
@@ -597,10 +597,10 @@ function DealFill({
           >
             {busy ? 'Writing…' : armed ? `Confirm: write ${selected.size} field${selected.size === 1 ? '' : 's'}?` : `Backfill ${selected.size} field${selected.size === 1 ? '' : 's'}`}
           </button>
-          {msg && <span className="text-[11px] font-body text-red-600">{msg}</span>}
+          {msg && <span className="text-[11px] font-ui text-red-600">{msg}</span>}
         </div>
       ) : (
-        <p className="mt-1.5 text-[11px] font-body text-gray-400">Review only — manage permission needed to write.</p>
+        <p className="mt-1.5 text-[11px] font-ui text-cool-400">Review only — manage permission needed to write.</p>
       )}
     </div>
   )

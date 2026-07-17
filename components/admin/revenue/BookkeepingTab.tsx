@@ -114,7 +114,7 @@ export default function BookkeepingTab() {
                 )}
               </div>
               <p className="font-heading text-navy font-bold mt-3">{action.label}</p>
-              <p className="text-cool-600 text-sm font-body mt-1">{action.desc}</p>
+              <p className="text-cool-600 text-sm font-ui mt-1">{action.desc}</p>
               <p className="text-navy text-sm font-semibold mt-3 underline decoration-cool-300">Open &rarr;</p>
             </Link>
           )
@@ -181,7 +181,7 @@ export default function BookkeepingTab() {
                   <div className="flex items-center gap-3">
                     {statusIcon}
                     <div>
-                      <p className="text-sm font-body text-navy font-semibold">
+                      <p className="text-sm font-ui text-navy font-semibold">
                         {rec.Vendor_Name || '—'}
                       </p>
                       <p className="text-xs text-cool-500">
@@ -211,7 +211,7 @@ export default function BookkeepingTab() {
       {/* QBO realm reference */}
       <div className="mt-6 bg-cool-50 rounded-lg border border-cool-200 p-4 flex items-start gap-3">
         <FileText className="w-4 h-4 text-cool-500 mt-0.5 flex-shrink-0" />
-        <div className="text-xs text-cool-600 font-body space-y-0.5">
+        <div className="text-xs text-cool-600 font-ui space-y-0.5">
           <p><span className="font-semibold text-cool-800">Production QBO Realm:</span> 9341456900727321 — DO NOT write until Intuit App Assessment approved</p>
           <p><span className="font-semibold text-cool-800">Sandbox QBO Realm:</span> 9341456901231490 — all dev/test runs here</p>
           <p><span className="font-semibold text-cool-800">n8n Workflow:</span> Rupc79GeJ8s6bbJa · Weekly summary: Mondays 9 AM ET</p>

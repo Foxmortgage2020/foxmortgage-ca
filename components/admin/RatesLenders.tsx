@@ -150,16 +150,16 @@ function BrowseGrid({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <p className="text-sm text-gray-500 font-body">
+        <p className="text-sm text-cool-500 font-ui">
           Every lender with approved quotes, plus the sheets still waiting and the formats not parsed
           yet. Rates as of {fmtShortDate(todayYMD)}.
         </p>
-        <label className="text-xs font-body text-gray-500 flex items-center gap-1.5">
+        <label className="text-xs font-ui text-cool-500 flex items-center gap-1.5">
           Sort
           <select
             value={sort}
             onChange={e => setSort(e.target.value as LenderSort)}
-            className="border border-gray-200 rounded-lg px-2 py-1 text-xs font-body bg-white focus:outline-none focus:border-navy"
+            className="border border-cool-200 rounded-lg px-2 py-1 text-xs font-ui bg-white focus:outline-none focus:border-navy"
             data-testid="lenders-sort"
           >
             {LENDER_SORTS.map(s => (
@@ -193,7 +193,7 @@ function BrowseGrid({
       {coverage.awaiting.length > 0 && (
         <>
           <SectionHeading title="Awaiting your approval" count={coverage.awaiting.length} tone="awaiting" />
-          <p className="text-xs text-gray-500 font-body mb-3">
+          <p className="text-xs text-cool-500 font-ui mb-3">
             These lenders have sheets extracted and sitting in the approvals queue. They light up as
             live cards the moment you approve them.
           </p>
@@ -209,13 +209,13 @@ function BrowseGrid({
                     {knowledgeFor(a.slug)?.name ?? lenderDisplayName(a.slug)}
                   </span>
                 </div>
-                <p className="text-xs text-amber-900 font-body">
+                <p className="text-xs text-amber-900 font-ui">
                   {a.pendingCount} quote{a.pendingCount === 1 ? '' : 's'} extracted, awaiting your
                   approval.
                 </p>
                 <Link
                   href="/portal/admin/approvals?tab=sheets"
-                  className="text-xs font-semibold text-navy underline hover:text-lime"
+                  className="text-xs font-semibold text-navy underline hover:text-ink"
                   data-testid={`awaiting-link-${a.slug}`}
                 >
                   Review sheets &rarr;
@@ -235,7 +235,7 @@ function BrowseGrid({
             count={coverage.coveragePending.length}
             tone="pending"
           />
-          <p className="text-xs text-gray-500 font-body mb-3">
+          <p className="text-xs text-cool-500 font-ui mb-3">
             These lenders&apos; newest rates sheet could not be read (no working parser for the
             current format), and guessing a rate is not an option. Each chip names the failing
             sheet; each one is a candidate for the next parser.
@@ -244,14 +244,14 @@ function BrowseGrid({
             {coverage.coveragePending.map(c => (
               <span
                 key={c.slug}
-                className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-2 pr-3 py-1.5 opacity-90"
+                className="inline-flex items-center gap-2 bg-cool-50 border border-cool-200 rounded-full pl-2 pr-3 py-1.5 opacity-90"
                 title={`${c.status.replace(/_/g, ' ')}${c.fileName ? `: ${c.fileName}` : ''}${c.receivedAt ? ` (received ${c.receivedAt.slice(0, 10)})` : ''}`}
               >
                 <LenderMark slug={c.slug} name={knowledgeFor(c.slug)?.name} size={22} />
-                <span className="text-xs font-body font-semibold text-gray-600">
+                <span className="text-xs font-ui font-semibold text-cool-600">
                   {knowledgeFor(c.slug)?.name ?? lenderDisplayName(c.slug)}
                 </span>
-                <span className="text-[10px] font-body text-amber-700">
+                <span className="text-[10px] font-ui text-amber-700">
                   {c.status === 'no_pipeline' ? 'no parser' : 'failed to read'}
                   {c.fileName ? ` · ${c.fileName}` : ''}
                 </span>
@@ -265,11 +265,11 @@ function BrowseGrid({
           lender for. Visible here so they are never silently unbucketed. */}
       {unattributed.length > 0 && (
         <div className="mt-5 border border-amber-200 bg-amber-50 rounded-xl px-4 py-3" data-testid="lender-unattributed">
-          <p className="text-xs font-body font-semibold text-amber-900">
+          <p className="text-xs font-ui font-semibold text-amber-900">
             {unattributed.length} captured rates sheet{unattributed.length === 1 ? '' : 's'} with no
             lender identified
           </p>
-          <p className="text-xs font-body text-amber-800 mt-1">
+          <p className="text-xs font-ui text-amber-800 mt-1">
             The ingest could not name a lender for{' '}
             {unattributed
               .map(u => `${u.fileName ?? 'an untitled sheet'}${u.receivedAt ? ` (received ${u.receivedAt.slice(0, 10)})` : ''}`)
@@ -292,19 +292,19 @@ function SectionHeading({
   tone: 'live' | 'awaiting' | 'pending'
 }) {
   const dot =
-    tone === 'live' ? 'bg-lime' : tone === 'awaiting' ? 'bg-amber-400' : 'bg-gray-300'
+    tone === 'live' ? 'bg-green-500' : tone === 'awaiting' ? 'bg-amber-400' : 'bg-cool-300'
   return (
     <div className="flex items-center gap-2 mt-6 mb-3 first:mt-0">
       <span className={`inline-block w-2 h-2 rounded-full ${dot}`} aria-hidden />
       <h2 className="font-heading text-navy font-bold text-base">{title}</h2>
-      <span className="text-xs font-body text-gray-400">({count})</span>
+      <span className="text-xs font-ui text-cool-400">({count})</span>
     </div>
   )
 }
 
 function EmptyRow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-sm text-gray-500 font-body bg-white border border-gray-200 rounded-xl p-5">
+    <p className="text-sm text-cool-500 font-ui bg-white border border-cool-200 rounded-xl p-5">
       {children}
     </p>
   )
@@ -333,7 +333,7 @@ function LenderBrowseCard({
   return (
     <button
       onClick={onOpen}
-      className="group text-left bg-white border border-gray-200 rounded-xl p-4 cursor-pointer transition hover:border-navy hover:shadow-md focus:outline-none focus:ring-2 focus:ring-navy/30"
+      className="group text-left bg-white border border-cool-200 rounded-xl p-4 cursor-pointer transition hover:border-navy hover:shadow-md focus:outline-none focus:ring-2 focus:ring-navy/30"
       data-testid={`lender-card-${card.slug}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -355,17 +355,17 @@ function LenderBrowseCard({
         <div className="mt-2.5 space-y-0.5">
           {card.classRates.map(cr => (
             <div key={cr.productClass} className="flex items-baseline justify-between gap-2">
-              <span className="text-xs text-gray-500 font-body capitalize">
+              <span className="text-xs text-cool-500 font-ui capitalize">
                 {productClassLabel(cr.productClass)}
               </span>
-              <span className="font-body text-navy">
+              <span className="font-ui text-navy">
                 from <span className="font-heading font-bold">{cr.fromRate.toFixed(2)}%</span>
               </span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="mt-2.5 text-xs text-gray-500 font-body">
+        <p className="mt-2.5 text-xs text-cool-500 font-ui">
           No fixed rate in the approved book; see floating below.
         </p>
       )}
@@ -374,7 +374,7 @@ function LenderBrowseCard({
       {card.floatingBest.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {card.floatingBest.map(fb => (
-            <span key={fb.rateType} className="inline-flex items-center gap-1 text-xs font-body text-navy">
+            <span key={fb.rateType} className="inline-flex items-center gap-1 text-xs font-ui text-navy">
               best <span className="font-heading font-bold">{discountLabel(fb.discount)}</span>
               <span className={`${chip} ${fb.rateType === 'adjustable' ? 'bg-sky-100 text-sky-900' : 'bg-violet-100 text-violet-900'}`}>
                 {RATE_TYPE_LABEL[fb.rateType]}
@@ -384,7 +384,7 @@ function LenderBrowseCard({
         </div>
       )}
 
-      <p className="text-xs text-gray-500 font-body mt-2">
+      <p className="text-xs text-cool-500 font-ui mt-2">
         {card.approvedCount} approved product{card.approvedCount === 1 ? '' : 's'} &middot; newest sheet{' '}
         {card.newestAsOf ? fmtShortDate(card.newestAsOf) : 'undated'}
       </p>
@@ -403,7 +403,7 @@ function LenderBrowseCard({
         )}
         {card.hasCashback && <span className={`${chip} bg-emerald-100 text-emerald-800`}>cash back</span>}
         {card.pendingCount > 0 && (
-          <span className={`${chip} bg-gray-100 text-gray-600`} title="Extracted sheets awaiting your approval.">
+          <span className={`${chip} bg-cool-100 text-cool-600`} title="Extracted sheets awaiting your approval.">
             {card.pendingCount} awaiting approval
           </span>
         )}
@@ -418,7 +418,7 @@ function LenderBrowseCard({
         )}
       </div>
 
-      <div className="mt-3 flex items-center gap-1 text-xs font-body font-semibold text-navy/70 group-hover:text-navy">
+      <div className="mt-3 flex items-center gap-1 text-xs font-ui font-semibold text-navy/70 group-hover:text-navy">
         View products
         <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
           &rsaquo;
@@ -469,11 +469,11 @@ function LenderPage({
   const terms = Array.from(new Set(approved.map(q => q.termMonths))).sort((a, b) => a - b)
   const classes = Array.from(new Set(approved.map(q => q.productClass)))
   const selectCls =
-    'border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-body bg-white focus:outline-none focus:border-navy'
+    'border border-cool-200 rounded-lg px-2 py-1.5 text-xs font-ui bg-white focus:outline-none focus:border-navy'
 
   return (
     <div>
-      <button onClick={onBack} className="text-sm font-body font-semibold text-navy underline hover:text-lime">
+      <button onClick={onBack} className="text-sm font-ui font-semibold text-navy underline hover:text-ink">
         &larr; All lenders
       </button>
 
@@ -484,7 +484,7 @@ function LenderPage({
             <h2 className="font-heading text-navy font-bold text-xl truncate">
               {knowledge?.name ?? lenderDisplayName(slug)}
             </h2>
-            <p className="text-xs text-gray-500 font-body">
+            <p className="text-xs text-cool-500 font-ui">
               {approved.length} approved product{approved.length === 1 ? '' : 's'} &middot; newest sheet{' '}
               {newestAsOf ? fmtShortDate(newestAsOf) : 'undated'}
             </p>
@@ -501,13 +501,13 @@ function LenderPage({
           {knowledge ? (
             <Link
               href={`/portal/admin/knowledge/${knowledge.slug}`}
-              className="text-xs font-body font-semibold text-navy underline hover:text-lime"
+              className="text-xs font-ui font-semibold text-navy underline hover:text-ink"
             >
               Knowledge page{knowledge.as_of ? ` (as of ${knowledge.as_of})` : ''}
             </Link>
           ) : (
             <span
-              className="text-xs text-gray-400 font-body"
+              className="text-xs text-cool-400 font-ui"
               title="No knowledge page matches this quote slug yet. The knowledge index publishes quote slug aliases; the portal never invents the mapping."
             >
               no knowledge page for this slug yet
@@ -599,7 +599,7 @@ function LenderPage({
         <div className="mt-6">
           <button
             onClick={() => setShowSuperseded(s => !s)}
-            className="text-xs font-body font-semibold text-navy underline cursor-pointer"
+            className="text-xs font-ui font-semibold text-navy underline cursor-pointer"
             data-testid="superseded-toggle"
           >
             {showSuperseded ? 'Hide' : 'Show'} superseded quotes ({superseded.length})
@@ -632,17 +632,17 @@ function ProductRow({
   const display = quoteRateDisplay(quote, reference)
   return (
     <div
-      className="bg-white border border-gray-200 rounded-lg p-3 flex flex-wrap items-center justify-between gap-2"
+      className="bg-white border border-cool-200 rounded-lg p-3 flex flex-wrap items-center justify-between gap-2"
       data-testid={`lender-product-${quote.id}`}
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-sm font-body font-semibold text-navy">{termLabel(quote.termMonths)}</span>
-          <span className="text-xs text-gray-500 font-body capitalize">{productClassLabel(quote.productClass)}</span>
-          <span className="text-xs text-gray-400 font-body">{variantLabel(quote.variant)}</span>
+          <span className="text-sm font-ui font-semibold text-navy">{termLabel(quote.termMonths)}</span>
+          <span className="text-xs text-cool-500 font-ui capitalize">{productClassLabel(quote.productClass)}</span>
+          <span className="text-xs text-cool-400 font-ui">{variantLabel(quote.variant)}</span>
           <CashbackChip pct={quote.cashbackPct} />
         </div>
-        <p className="text-[11px] text-gray-400 font-body mt-0.5">
+        <p className="text-[11px] text-cool-400 font-ui mt-0.5">
           {rateLineText(display)} &middot; sheet {quote.asOfDate ? fmtShortDate(quote.asOfDate) : 'undated'}
           {superseded ? ' (superseded)' : ''}
         </p>
@@ -650,7 +650,7 @@ function ProductRow({
       {!superseded && (
         <Link
           href={`/portal/admin/lenders?tab=scenario&lender=${encodeURIComponent(quote.lenderSlug)}&product=${quote.id}`}
-          className="text-xs font-semibold text-navy underline hover:text-lime shrink-0"
+          className="text-xs font-semibold text-navy underline hover:text-ink shrink-0"
           data-testid={`lender-detail-${quote.id}`}
         >
           Details

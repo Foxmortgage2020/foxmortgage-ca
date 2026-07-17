@@ -43,11 +43,11 @@ export default async function PracticeHistoryExportPage() {
   if (!deals) {
     return (
       <div className="max-w-2xl">
-        <Link href="/portal/admin/revenue" className="text-sm font-semibold text-navy hover:text-lime">
+        <Link href="/portal/admin/revenue" className="text-sm font-semibold text-navy hover:text-ink">
           &larr; Back to Revenue
         </Link>
-        <div className="mt-4 bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-sm text-gray-500 font-body">
+        <div className="mt-4 bg-white border border-cool-200 rounded-xl p-5">
+          <p className="text-sm text-cool-500 font-ui">
             The Zoho read failed, so the export cannot render right now. Reload in a moment; nothing
             here caches a stale figure.
           </p>
@@ -69,11 +69,11 @@ export default async function PracticeHistoryExportPage() {
         <div>
           <Link
             href="/portal/admin/revenue"
-            className="text-sm font-semibold text-navy hover:text-lime"
+            className="text-sm font-semibold text-navy hover:text-ink"
           >
             &larr; Back to Revenue
           </Link>
-          <p className="text-xs text-gray-400 font-body mt-1">
+          <p className="text-xs text-cool-400 font-ui mt-1">
             Slide-ready. Download a high-resolution PNG, or print to a landscape PDF.
           </p>
         </div>
@@ -85,7 +85,7 @@ export default async function PracticeHistoryExportPage() {
 
       <div
         id="ph-export"
-        className="mx-auto bg-white border border-gray-200 rounded-xl p-4 sm:p-6"
+        className="mx-auto bg-white border border-cool-200 rounded-xl p-4 sm:p-6"
         style={{
           maxWidth: 1040,
           WebkitPrintColorAdjust: 'exact',

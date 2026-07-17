@@ -107,26 +107,26 @@ export default function DocumentUploader({
   const onPick = () => inputRef.current?.click()
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
-      <p className="text-xs font-semibold font-body text-navy mb-2">Upload a document</p>
+    <div className="rounded-lg border border-cool-200 bg-white p-3">
+      <p className="font-heading text-xs font-semibold text-navy mb-2">Upload a document</p>
       <div className="flex flex-wrap gap-2 items-end mb-2">
-        <label className="text-[11px] font-body text-gray-500">
+        <label className="text-[11px] font-ui text-cool-500">
           Document kind
           <select
             value={docKind}
             onChange={e => setDocKind(e.target.value)}
-            className="ml-1 block text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+            className="ml-1 block text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
           >
             <option value="">choose…</option>
             {DOC_KIND_OPTIONS.map(k => <option key={k} value={k}>{label(k)}</option>)}
           </select>
         </label>
-        <label className="text-[11px] font-body text-gray-500">
+        <label className="text-[11px] font-ui text-cool-500">
           Borrower
           <select
             value={borrowerId}
             onChange={e => setBorrowerId(e.target.value)}
-            className="ml-1 block text-xs font-body border border-gray-200 rounded px-1.5 py-1"
+            className="ml-1 block text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
           >
             <option value="">General</option>
             {borrowers.map(b => <option key={b.id} value={b.id}>{b.fullName}</option>)}
@@ -155,12 +155,12 @@ export default function DocumentUploader({
           const f = e.dataTransfer.files?.[0]
           if (f) void upload(f)
         }}
-        className={`w-full cursor-pointer rounded-lg border border-dashed text-center font-body transition-colors px-3 py-3 ${
-          dragging ? 'border-navy bg-navy/5' : 'border-gray-300 bg-gray-50 hover:border-navy hover:bg-navy/5'
+        className={`w-full cursor-pointer rounded-lg border border-dashed text-center font-ui transition-colors px-3 py-3 ${
+          dragging ? 'border-navy bg-navy/5' : 'border-cool-300 bg-cool-50 hover:border-navy hover:bg-navy/5'
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
         <p className="font-heading font-semibold text-navy text-sm">{busy ? 'Uploading…' : 'Drop a file, or click to browse'}</p>
-        <p className="mt-1 text-[11px] text-gray-400">PDF, DOCX, DOC, TXT (3 MB). It is redacted and indexed on upload.</p>
+        <p className="mt-1 text-[11px] text-cool-500">PDF, DOCX, DOC, TXT (3 MB). It is redacted and indexed on upload.</p>
         <input
           ref={inputRef}
           type="file"
@@ -173,8 +173,8 @@ export default function DocumentUploader({
           }}
         />
       </div>
-      {error && <p className="mt-2 text-xs font-body text-red-700">{error}</p>}
-      {ok && <p className="mt-2 text-xs font-body text-green-700">{ok}</p>}
+      {error && <p className="mt-2 text-xs font-ui text-red-700">{error}</p>}
+      {ok && <p className="mt-2 text-xs font-ui text-green-700">{ok}</p>}
     </div>
   )
 }

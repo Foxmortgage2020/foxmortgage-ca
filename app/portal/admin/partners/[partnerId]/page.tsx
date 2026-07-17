@@ -22,6 +22,7 @@ import { isMagicLinkExpired } from '@/lib/onboarding'
 import { getPartnerConfigByZohoType } from '@/lib/partner-types'
 import PartnerReferralSection from '@/components/admin/PartnerReferralSection'
 import { getAllDealsRevenue } from '@/lib/zoho-admin'
+import StatusChip, { type ChipTone } from '@/components/admin/ds/StatusChip'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,14 +49,14 @@ function fmt(v: string | null | undefined): string {
   return trimmed.length > 0 ? trimmed : '—'
 }
 
-function adminDocStatusBadge(status: string | null): { label: string; cls: string } {
+function adminDocStatusBadge(status: string | null): { label: string; tone: ChipTone } {
   switch (status) {
-    case 'Approved':  return { label: 'Approved',  cls: 'bg-lime/20 text-lime-dark' }
-    case 'Submitted': return { label: 'Submitted', cls: 'bg-gray-100 text-gray-700' }
-    case 'Pending':   return { label: 'Pending',   cls: 'bg-yellow-100 text-yellow-700' }
-    case 'Rejected':  return { label: 'Rejected',  cls: 'bg-red-100 text-red-700' }
-    case 'Expired':   return { label: 'Expired',   cls: 'bg-amber-100 text-amber-700' }
-    default:          return { label: status ?? '—', cls: 'bg-gray-100 text-gray-600' }
+    case 'Approved':  return { label: 'Approved',  tone: 'green' }
+    case 'Submitted': return { label: 'Submitted', tone: 'gray' }
+    case 'Pending':   return { label: 'Pending',   tone: 'amber' }
+    case 'Rejected':  return { label: 'Rejected',  tone: 'red' }
+    case 'Expired':   return { label: 'Expired',   tone: 'amber' }
+    default:          return { label: status ?? '—', tone: 'gray' }
   }
 }
 
@@ -79,8 +80,8 @@ export default async function AdminPartnerDetailPage({
     return (
       <div className="max-w-3xl mx-auto py-12 text-center">
         <h1 className="font-heading text-navy text-xl font-bold mb-2">Partner Not Found</h1>
-        <p className="font-body text-gray-500">No Partners record with ID {partnerId}.</p>
-        <Link href="/portal/admin/partners" className="text-lime font-semibold text-sm hover:underline mt-4 inline-block">
+        <p className="font-ui text-cool-500">No Partners record with ID {partnerId}.</p>
+        <Link href="/portal/admin/partners" className="text-navy font-semibold text-sm underline decoration-cool-300 hover:decoration-navy mt-4 inline-block">
           ← Back to Partners
         </Link>
       </div>
@@ -132,14 +133,14 @@ export default async function AdminPartnerDetailPage({
 
     return (
       <div className="max-w-3xl mx-auto">
-        <Link href="/portal/admin/partners" className="inline-flex items-center gap-1.5 text-gray-400 text-sm font-body hover:text-navy mb-4">
+        <Link href="/portal/admin/partners" className="inline-flex items-center gap-1.5 text-cool-400 text-sm font-ui hover:text-navy mb-4">
           <ArrowLeft className="w-4 h-4" /> Partners
         </Link>
 
         <div className="flex justify-between items-start gap-4 mb-6">
           <div>
             <h1 className="font-heading text-2xl font-bold text-navy">{partner.name ?? 'Partner'}</h1>
-            <p className="font-body text-gray-500 text-sm mt-1">
+            <p className="font-ui text-cool-500 text-sm mt-1">
               {partner.partnerType ?? '—'} · {partner.email ?? '—'}
             </p>
           </div>
@@ -158,20 +159,20 @@ export default async function AdminPartnerDetailPage({
         />
 
         {/* Contact details */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-[9px] border border-cool-200 p-6 mb-6">
           <h3 className="font-heading text-base font-bold text-navy mb-4">Contact</h3>
           <dl className="grid grid-cols-2 gap-4">
             <div>
-              <dt className="text-gray-500 text-xs font-body">Email</dt>
-              <dd className="text-navy font-medium text-sm font-body mt-0.5 break-all">{fmt(partner.email)}</dd>
+              <dt className="text-cool-500 text-xs font-ui">Email</dt>
+              <dd className="text-navy font-medium text-sm font-ui mt-0.5 break-all">{fmt(partner.email)}</dd>
             </div>
             <div>
-              <dt className="text-gray-500 text-xs font-body">Phone</dt>
-              <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(partner.mobile || partner.phone)}</dd>
+              <dt className="text-cool-500 text-xs font-ui">Phone</dt>
+              <dd className="text-navy font-medium text-sm font-ui mt-0.5">{fmt(partner.mobile || partner.phone)}</dd>
             </div>
             <div className="col-span-2">
-              <dt className="text-gray-500 text-xs font-body">Address</dt>
-              <dd className="text-navy font-medium text-sm font-body mt-0.5">
+              <dt className="text-cool-500 text-xs font-ui">Address</dt>
+              <dd className="text-navy font-medium text-sm font-ui mt-0.5">
                 {[partner.street, partner.city, partner.province, partner.postalCode].filter(Boolean).join(', ') || '—'}
               </dd>
             </div>
@@ -180,7 +181,7 @@ export default async function AdminPartnerDetailPage({
 
         <Link
           href={`/portal/admin/partners/${partnerId}/documents`}
-          className="inline-block bg-lime text-navy font-heading font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-lime-dark transition-colors"
+          className="inline-block bg-navy text-white font-heading font-bold text-sm px-5 py-2.5 rounded-lg hover:bg-navy-light transition-colors"
         >
           Open Documents →
         </Link>
@@ -231,7 +232,7 @@ export default async function AdminPartnerDetailPage({
 
   return (
     <div>
-      <Link href="/portal/admin/partners" className="inline-flex items-center gap-1.5 text-gray-400 text-sm font-body hover:text-navy mb-4">
+      <Link href="/portal/admin/partners" className="inline-flex items-center gap-1.5 text-cool-400 text-sm font-ui hover:text-navy mb-4">
         <ArrowLeft className="w-4 h-4" /> Partners
       </Link>
 
@@ -239,15 +240,15 @@ export default async function AdminPartnerDetailPage({
       <div className="flex justify-between items-start gap-4 mb-6">
         <div>
           <h1 className="font-heading text-2xl font-bold text-navy">{partner.name ?? 'Investor'}</h1>
-          <div className="flex flex-wrap items-center gap-3 mt-2 text-sm font-body">
-            <span className="bg-navy text-lime text-xs font-semibold px-2 py-0.5 rounded-full">
+          <div className="flex flex-wrap items-center gap-3 mt-2 text-sm font-ui">
+            <span className="bg-navy text-white text-xs font-semibold px-2 py-0.5 rounded-full">
               Investor
             </span>
-            <span className="text-gray-600">{partner.email ?? '—'}</span>
-            {partner.phone && <span className="text-gray-400">·</span>}
-            {partner.phone && <span className="text-gray-600">{partner.phone}</span>}
-            {partner.city && <span className="text-gray-400">·</span>}
-            {partner.city && <span className="text-gray-600">{partner.city}</span>}
+            <span className="text-cool-600">{partner.email ?? '—'}</span>
+            {partner.phone && <span className="text-cool-400">·</span>}
+            {partner.phone && <span className="text-cool-600">{partner.phone}</span>}
+            {partner.city && <span className="text-cool-400">·</span>}
+            {partner.city && <span className="text-cool-600">{partner.city}</span>}
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -275,27 +276,27 @@ export default async function AdminPartnerDetailPage({
 
       {/* Overview KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="font-heading text-2xl text-navy">{formatCurrency(totalDeployed)}</p>
-          <p className="text-gray-500 text-sm font-body">Total Deployed</p>
-          <p className="text-gray-400 text-xs mt-1 font-body">
+        <div className="bg-white rounded-[9px] border border-cool-200 p-5">
+          <p className="font-heading text-2xl text-navy tabular-nums">{formatCurrency(totalDeployed)}</p>
+          <p className="text-cool-500 text-sm font-ui">Total Deployed</p>
+          <p className="text-cool-400 text-xs mt-1 font-ui">
             Across {incomeActive.length} active position{incomeActive.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="font-heading text-2xl text-navy">{formatCurrency(allTimeCashEarned)}</p>
-          <p className="text-gray-500 text-sm font-body">All-Time Cash Earned</p>
-          <p className="text-gray-400 text-xs mt-1 font-body">Interest + lender fees</p>
+        <div className="bg-white rounded-[9px] border border-cool-200 p-5">
+          <p className="font-heading text-2xl text-navy tabular-nums">{formatCurrency(allTimeCashEarned)}</p>
+          <p className="text-cool-500 text-sm font-ui">All-Time Cash Earned</p>
+          <p className="text-cool-400 text-xs mt-1 font-ui">Interest + lender fees</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="font-heading text-2xl text-navy">{formatCurrency(monthlyIncome)}</p>
-          <p className="text-gray-500 text-sm font-body">Monthly Income</p>
-          <p className="text-gray-400 text-xs mt-1 font-body">Active positions</p>
+        <div className="bg-white rounded-[9px] border border-cool-200 p-5">
+          <p className="font-heading text-2xl text-navy tabular-nums">{formatCurrency(monthlyIncome)}</p>
+          <p className="text-cool-500 text-sm font-ui">Monthly Income</p>
+          <p className="text-cool-400 text-xs mt-1 font-ui">Active positions</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="font-heading text-2xl text-navy">{irrDisplay}</p>
-          <p className="text-gray-500 text-sm font-body">Portfolio IRR</p>
-          <p className="text-gray-400 text-xs mt-1 font-body">Money-weighted, lifetime</p>
+        <div className="bg-white rounded-[9px] border border-cool-200 p-5">
+          <p className="font-heading text-2xl text-navy tabular-nums">{irrDisplay}</p>
+          <p className="text-cool-500 text-sm font-ui">Portfolio IRR</p>
+          <p className="text-cool-400 text-xs mt-1 font-ui">Money-weighted, lifetime</p>
         </div>
       </div>
 
@@ -311,7 +312,7 @@ export default async function AdminPartnerDetailPage({
       <section className="mb-8">
         <div className="mb-4">
           <h2 className="font-heading text-xl font-bold text-navy">Documents</h2>
-          <p className="font-body text-gray-500 text-sm mt-0.5">
+          <p className="font-ui text-cool-500 text-sm mt-0.5">
             {approvedRequiredDocs} of {REQUIRED_DOC_TYPES.length} required compliance documents uploaded
           </p>
         </div>
@@ -320,40 +321,38 @@ export default async function AdminPartnerDetailPage({
           <DocumentUploader partnerId={partnerId} />
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-[9px] border border-cool-200 p-6">
           {documents.length === 0 ? (
-            <p className="font-body text-gray-500 text-sm py-6 text-center">No documents uploaded yet.</p>
+            <p className="font-ui text-cool-500 text-sm py-6 text-center">No documents uploaded yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider text-left">
-                    <th className="pb-3 font-medium">Document</th>
-                    <th className="pb-3 font-medium">Type</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium">Date</th>
-                    <th className="pb-3 font-medium">Reviewer Notes</th>
-                    <th className="pb-3 font-medium">Action</th>
+                  <tr className="font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600 text-left">
+                    <th className="pb-3">Document</th>
+                    <th className="pb-3">Type</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3">Date</th>
+                    <th className="pb-3">Reviewer Notes</th>
+                    <th className="pb-3">Action</th>
                   </tr>
                 </thead>
-                <tbody className="font-body">
+                <tbody className="font-ui">
                   {documents.map((doc) => {
                     const badge = adminDocStatusBadge(doc.documentStatus)
                     return (
-                      <tr key={doc.id} className="border-b border-gray-50 last:border-0">
+                      <tr key={doc.id} className="border-t border-cool-100">
                         <td className="py-3 text-navy font-medium">{doc.name}</td>
-                        <td className="py-3 text-gray-700">{doc.documentType ?? '—'}</td>
+                        <td className="py-3 text-cool-700">{doc.documentType ?? '—'}</td>
                         <td className="py-3">
-                          <span className={`${badge.cls} text-xs font-semibold px-2 py-0.5 rounded-full`}>
-                            {badge.label}
-                          </span>
+                          <StatusChip tone={badge.tone}>{badge.label}</StatusChip>
                         </td>
-                        <td className="py-3 text-gray-500">{formatDate(doc.uploadedDate)}</td>
-                        <td className="py-3 text-gray-500 max-w-xs truncate">{doc.reviewerNotes ?? '—'}</td>
+                        <td className="py-3 text-cool-500 tabular-nums">{formatDate(doc.uploadedDate)}</td>
+                        <td className="py-3 text-cool-500 max-w-xs truncate">{doc.reviewerNotes ?? '—'}</td>
                         <td className="py-3">
                           <a
                             href={`/api/portal/investor/documents/${doc.id}`}
-                            className="text-lime font-semibold text-sm hover:underline"
+                            className="text-navy font-semibold text-sm underline decoration-cool-300 hover:decoration-navy"
                           >
                             Download
                           </a>
@@ -372,45 +371,45 @@ export default async function AdminPartnerDetailPage({
       <section className="mb-8">
         <div className="mb-4">
           <h2 className="font-heading text-xl font-bold text-navy">Mortgages</h2>
-          <p className="font-body text-gray-500 text-sm mt-0.5">
+          <p className="font-ui text-cool-500 text-sm mt-0.5">
             {activeDealCount} active · {paidOutDealCount} paid out
           </p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-[9px] border border-cool-200 p-6">
           {fundedDeals.length === 0 ? (
-            <p className="font-body text-gray-500 text-sm py-6 text-center">No deals on file.</p>
+            <p className="font-ui text-cool-500 text-sm py-6 text-center">No deals on file.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider text-left">
-                    <th className="pb-3 font-medium">Property</th>
-                    <th className="pb-3 font-medium">Type</th>
-                    <th className="pb-3 font-medium">Invested</th>
-                    <th className="pb-3 font-medium">Rate</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium">Maturity</th>
+                  <tr className="font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600 text-left">
+                    <th className="pb-3">Property</th>
+                    <th className="pb-3">Type</th>
+                    <th className="pb-3">Invested</th>
+                    <th className="pb-3">Rate</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3">Maturity</th>
                   </tr>
                 </thead>
-                <tbody className="font-body">
+                <tbody className="font-ui">
                   {fundedDeals.map((deal: any) => {
                     const input = fromZohoDeal(deal)
                     const dealStatus = deriveStatus(input)
                     const badge = statusBadge(dealStatus)
                     const property = `${deal.Street ?? ''}${deal.City ? `, ${deal.City}` : ''}` || '—'
                     return (
-                      <tr key={deal.id} className="border-b border-gray-50 last:border-0">
+                      <tr key={deal.id} className="border-t border-cool-100">
                         <td className="py-3 text-navy font-medium">{property}</td>
-                        <td className="py-3 text-gray-700">{deal.Mortgage_Type ?? '—'} Mortgage</td>
-                        <td className="py-3 text-navy">{formatCurrency(input.investorAmount)}</td>
-                        <td className="py-3 text-navy">{input.investorRate}%</td>
+                        <td className="py-3 text-cool-700">{deal.Mortgage_Type ?? '—'} Mortgage</td>
+                        <td className="py-3 text-navy tabular-nums">{formatCurrency(input.investorAmount)}</td>
+                        <td className="py-3 text-navy tabular-nums">{input.investorRate}%</td>
                         <td className="py-3">
                           <span className={`${badge.color} text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1.5`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
                             {badge.label}
                           </span>
                         </td>
-                        <td className="py-3 text-gray-500">{formatDate(deal.Maturity_Date ?? null)}</td>
+                        <td className="py-3 text-cool-500 tabular-nums">{formatDate(deal.Maturity_Date ?? null)}</td>
                       </tr>
                     )
                   })}
@@ -425,81 +424,81 @@ export default async function AdminPartnerDetailPage({
       <section className="mb-8">
         <div className="mb-4">
           <h2 className="font-heading text-xl font-bold text-navy">Profile</h2>
-          <p className="font-body text-gray-500 text-sm mt-0.5">Personal information on file</p>
+          <p className="font-ui text-cool-500 text-sm mt-0.5">Personal information on file</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-white rounded-[9px] border border-cool-200 p-6">
             <h3 className="font-heading text-base font-bold text-navy mb-4">Personal Information</h3>
             <dl className="grid grid-cols-2 gap-4">
               <div>
-                <dt className="text-gray-500 text-xs font-body">Name</dt>
-                <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(partner.name)}</dd>
+                <dt className="text-cool-500 text-xs font-ui">Name</dt>
+                <dd className="text-navy font-medium text-sm font-ui mt-0.5">{fmt(partner.name)}</dd>
               </div>
               <div>
-                <dt className="text-gray-500 text-xs font-body">Email</dt>
-                <dd className="text-navy font-medium text-sm font-body mt-0.5 break-all">{fmt(partner.email)}</dd>
+                <dt className="text-cool-500 text-xs font-ui">Email</dt>
+                <dd className="text-navy font-medium text-sm font-ui mt-0.5 break-all">{fmt(partner.email)}</dd>
               </div>
               <div>
-                <dt className="text-gray-500 text-xs font-body">Phone</dt>
-                <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(partner.mobile || partner.phone)}</dd>
+                <dt className="text-cool-500 text-xs font-ui">Phone</dt>
+                <dd className="text-navy font-medium text-sm font-ui mt-0.5">{fmt(partner.mobile || partner.phone)}</dd>
               </div>
               <div>
-                <dt className="text-gray-500 text-xs font-body">Date of Birth</dt>
-                <dd className="text-navy font-medium text-sm font-body mt-0.5">{formatDate(partner.dateOfBirth)}</dd>
+                <dt className="text-cool-500 text-xs font-ui">Date of Birth</dt>
+                <dd className="text-navy font-medium text-sm font-ui mt-0.5">{formatDate(partner.dateOfBirth)}</dd>
               </div>
               <div className="col-span-2">
-                <dt className="text-gray-500 text-xs font-body">Residency Status</dt>
-                <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(partner.residencyStatus)}</dd>
+                <dt className="text-cool-500 text-xs font-ui">Residency Status</dt>
+                <dd className="text-navy font-medium text-sm font-ui mt-0.5">{fmt(partner.residencyStatus)}</dd>
               </div>
             </dl>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-white rounded-[9px] border border-cool-200 p-6">
             <h3 className="font-heading text-base font-bold text-navy mb-4">Investor Profile</h3>
             <dl className="space-y-4">
               <div>
-                <dt className="text-gray-500 text-xs font-body">Partner Type</dt>
+                <dt className="text-cool-500 text-xs font-ui">Partner Type</dt>
                 <dd className="mt-1">
                   {partner.partnerType ? (
-                    <span className="inline-block bg-navy text-lime rounded-full px-3 py-1 text-sm font-body font-semibold">
+                    <span className="inline-block bg-navy text-white rounded-full px-3 py-1 text-sm font-ui font-semibold">
                       {partner.partnerType}
                     </span>
                   ) : (
-                    <span className="text-navy font-medium text-sm font-body">—</span>
+                    <span className="text-navy font-medium text-sm font-ui">—</span>
                   )}
                 </dd>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <dt className="text-gray-500 text-xs font-body">Entity Type</dt>
-                  <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(partner.entityType)}</dd>
+                  <dt className="text-cool-500 text-xs font-ui">Entity Type</dt>
+                  <dd className="text-navy font-medium text-sm font-ui mt-0.5">{fmt(partner.entityType)}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500 text-xs font-body">Risk Profile</dt>
-                  <dd className="text-navy font-medium text-sm font-body mt-0.5">{fmt(partner.riskProfile)}</dd>
+                  <dt className="text-cool-500 text-xs font-ui">Risk Profile</dt>
+                  <dd className="text-navy font-medium text-sm font-ui mt-0.5">{fmt(partner.riskProfile)}</dd>
                 </div>
               </div>
               <div>
-                <dt className="text-gray-500 text-xs font-body">Investor Preferences</dt>
+                <dt className="text-cool-500 text-xs font-ui">Investor Preferences</dt>
                 <dd className="mt-1">
                   {partner.investorPreferences && partner.investorPreferences.trim().length > 0 ? (
-                    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 max-h-32 overflow-y-auto">
-                      <p className="text-navy text-sm font-body whitespace-pre-wrap">{partner.investorPreferences}</p>
+                    <div className="bg-cool-50 border border-cool-100 rounded-lg p-3 max-h-32 overflow-y-auto">
+                      <p className="text-navy text-sm font-ui whitespace-pre-wrap">{partner.investorPreferences}</p>
                     </div>
                   ) : (
-                    <span className="text-navy font-medium text-sm font-body">—</span>
+                    <span className="text-navy font-medium text-sm font-ui">—</span>
                   )}
                 </dd>
               </div>
             </dl>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
+          <div className="bg-white rounded-[9px] border border-cool-200 p-6 lg:col-span-2">
             <h3 className="font-heading text-base font-bold text-navy mb-4">Contact</h3>
             <dl>
               <div>
-                <dt className="text-gray-500 text-xs font-body">Mailing Address</dt>
-                <dd className="text-navy font-medium text-sm font-body mt-0.5 whitespace-pre-line">
+                <dt className="text-cool-500 text-xs font-ui">Mailing Address</dt>
+                <dd className="text-navy font-medium text-sm font-ui mt-0.5 whitespace-pre-line">
                   {address === '—' ? '—' : (
                     <>
                       {partner.street && <>{partner.street}<br /></>}

@@ -89,12 +89,12 @@ export default function RatesPromos() {
   const knowledgeFor = (slug: string) => matchKnowledge(knowledgeLenders, slug)
 
   if (offersRes.loading) {
-    return <p className="text-sm text-gray-400 font-body">Loading the offer book…</p>
+    return <p className="text-sm text-cool-400 font-ui">Loading the offer book…</p>
   }
   if (offersRes.error) {
     return (
       <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-        <p className="text-xs text-amber-800 font-body">{offersRes.error}</p>
+        <p className="text-xs text-amber-800 font-ui">{offersRes.error}</p>
         <button onClick={offersRes.retry} className="shrink-0 text-xs font-semibold text-amber-800 underline py-1.5">
           Retry
         </button>
@@ -104,14 +104,14 @@ export default function RatesPromos() {
 
   return (
     <div>
-      <p className="text-sm text-gray-500 font-body mb-4">
+      <p className="text-sm text-cool-500 font-ui mb-4">
         The live promo book, soonest to expire first. Approved offers come from the knowledge base,
         updated when Roam intel is reviewed on the approvals desk
         {offersAsOf ? `; as of ${offersAsOf}` : ''}.
       </p>
 
       {active.length === 0 ? (
-        <p className="text-sm text-gray-500 font-body bg-white border border-gray-200 rounded-xl p-5">
+        <p className="text-sm text-cool-500 font-ui bg-white border border-cool-200 rounded-xl p-5">
           No active offers right now. They land here when an offer is approved on the desk.
         </p>
       ) : (
@@ -125,7 +125,7 @@ export default function RatesPromos() {
       <div className="mt-6">
         <button
           onClick={() => setShowExpired(s => !s)}
-          className="text-xs font-body font-semibold text-navy underline cursor-pointer"
+          className="text-xs font-ui font-semibold text-navy underline cursor-pointer"
           data-testid="expired-toggle"
         >
           {showExpired ? 'Hide' : 'Show'} recently expired offers
@@ -133,7 +133,7 @@ export default function RatesPromos() {
         {showExpired && (
           <div className="mt-3" data-testid="promo-expired">
             {expired.length === 0 ? (
-              <p className="text-xs text-gray-500 font-body bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <p className="text-xs text-cool-500 font-ui bg-cool-50 border border-cool-200 rounded-lg p-3">
                 No recently expired offers in the knowledge base right now. Auto-retired offers appear
                 here as the offer book turns over.
               </p>
@@ -189,7 +189,7 @@ function PromoCard({
 
   return (
     <div
-      className={`border rounded-xl p-4 ${expired ? 'bg-gray-50 border-gray-200 opacity-90' : 'bg-white border-gray-200'}`}
+      className={`border rounded-xl p-4 ${expired ? 'bg-cool-50 border-cool-200 opacity-90' : 'bg-white border-cool-200'}`}
       data-testid={`promo-card-${offer.lender}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -197,7 +197,7 @@ function PromoCard({
           <LenderMark slug={offer.lender} name={name} size={28} />
           <span className="font-heading font-bold text-navy truncate">{name}</span>
         </span>
-        {expired && <span className="text-[11px] font-semibold text-gray-500 shrink-0">expired {expiry}</span>}
+        {expired && <span className="text-[11px] font-semibold text-cool-500 shrink-0">expired {expiry}</span>}
       </div>
 
       {/* The window, loud. A null expiry is a red warning, never a dash. */}
@@ -207,13 +207,13 @@ function PromoCard({
         </div>
       )}
 
-      <p className="text-sm font-body font-semibold text-navy mt-2">{shape.description ?? 'Promo offer'}</p>
+      <p className="text-sm font-ui font-semibold text-navy mt-2">{shape.description ?? 'Promo offer'}</p>
 
       {/* Priced elements. */}
       {tiers.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {tiers.map((t, i) => (
-            <span key={i} className="text-xs font-body bg-lime/20 border border-lime/50 rounded-full px-2 py-0.5 text-navy">
+            <span key={i} className="text-xs font-ui bg-cool-100 border border-cool-200 rounded-full px-2 py-0.5 text-cool-700">
               {t.label}: <span className="font-heading font-bold">{t.rate.toFixed(2)}%</span>
               {t.compBps !== null ? ` · ${t.compBps} bps` : ''}
               {t.buydownRatePct !== null ? ` · buydown to ${t.buydownRatePct.toFixed(2)}%` : ''}
@@ -221,14 +221,14 @@ function PromoCard({
           ))}
         </div>
       ) : ratesText ? (
-        <p className="text-xs font-body text-navy mt-2">
-          <span className="text-gray-500">Extracted: </span>
+        <p className="text-xs font-ui text-navy mt-2">
+          <span className="text-cool-500">Extracted: </span>
           <span className="font-semibold">{ratesText}</span>
         </p>
       ) : null}
 
       {/* Conditions summary from structured eligibility. */}
-      <div className="mt-2 text-xs text-gray-600 font-body space-y-0.5">
+      <div className="mt-2 text-xs text-cool-600 font-ui space-y-0.5">
         {eligibility?.required_product && <p>Requires {eligibility.required_product}.</p>}
         {typeof eligibility?.closing_within_days === 'number' && (
           <p>Closing within {eligibility.closing_within_days} days of application.</p>
@@ -236,7 +236,7 @@ function PromoCard({
         {eligibility?.application_window_start && expiry && (
           <p>Applications from {eligibility.application_window_start} to {expiry}.</p>
         )}
-        {started && <p className="text-gray-400">Effective {started}.</p>}
+        {started && <p className="text-cool-400">Effective {started}.</p>}
       </div>
 
       {/* Extraction evidence where the endpoint carries it. */}
@@ -256,7 +256,7 @@ function PromoCard({
         </div>
       )}
 
-      <p className="text-[11px] text-gray-400 font-body mt-2">
+      <p className="text-[11px] text-cool-400 font-ui mt-2">
         From the lender announcement{provenance ? ` (${provenance})` : ''}, knowledge base
         {offersAsOf ? ` as of ${offersAsOf}` : ''}. Not a rate sheet row; it has no sheet approval
         provenance.

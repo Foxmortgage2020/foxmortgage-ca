@@ -63,7 +63,7 @@ export default function LenderMark({
       aria-label={`${display} monogram`}
       title={display}
       style={{ ...box, fontSize }}
-      className={`inline-flex items-center justify-center rounded-full bg-navy text-white font-heading font-bold ring-2 ring-lime shrink-0 leading-none tracking-tight ${className}`}
+      className={`inline-flex items-center justify-center rounded-full bg-navy text-white font-heading font-bold ring-2 ring-cool-300 shrink-0 leading-none tracking-tight ${className}`}
       data-testid={`lender-mark-${slug}`}
     >
       {initials}

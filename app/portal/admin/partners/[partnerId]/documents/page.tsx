@@ -3,6 +3,8 @@ import { ArrowLeft } from 'lucide-react'
 import { requirePermission } from '@/lib/authz'
 import { getPartner, getPartnerDocuments } from '@/lib/zoho'
 import DocumentUploader from '@/components/DocumentUploader'
+import StatusChip, { type ChipTone } from '@/components/admin/ds/StatusChip'
+import { CELL_REF } from '@/components/admin/ds/table'
 
 // Tell Next.js not to attempt SSG on this dynamic admin page. We hit
 // Zoho server-side on every load and the data is per-partner; no
@@ -22,14 +24,14 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function statusBadge(status: string | null): { label: string; cls: string } {
+function statusBadge(status: string | null): { label: string; tone: ChipTone } {
   switch (status) {
-    case 'Approved':  return { label: 'Approved',  cls: 'bg-lime/20 text-lime-dark' }
-    case 'Submitted': return { label: 'Submitted', cls: 'bg-gray-100 text-gray-700' }
-    case 'Pending':   return { label: 'Pending',   cls: 'bg-yellow-100 text-yellow-700' }
-    case 'Rejected':  return { label: 'Rejected',  cls: 'bg-red-100 text-red-700' }
-    case 'Expired':   return { label: 'Expired',   cls: 'bg-amber-100 text-amber-700' }
-    default:          return { label: status ?? '—', cls: 'bg-gray-100 text-gray-600' }
+    case 'Approved':  return { label: 'Approved',  tone: 'green' }
+    case 'Submitted': return { label: 'Submitted', tone: 'gray' }
+    case 'Pending':   return { label: 'Pending',   tone: 'amber' }
+    case 'Rejected':  return { label: 'Rejected',  tone: 'red' }
+    case 'Expired':   return { label: 'Expired',   tone: 'amber' }
+    default:          return { label: status ?? '—', tone: 'gray' }
   }
 }
 
@@ -49,8 +51,8 @@ export default async function AdminPartnerDocumentsPage({
     return (
       <div className="max-w-3xl mx-auto py-12 text-center">
         <h1 className="font-heading text-navy text-xl font-bold mb-2">Partner Not Found</h1>
-        <p className="font-body text-gray-500">No Partners record with ID {partnerId}.</p>
-        <Link href="/portal/admin" className="text-lime font-semibold text-sm hover:underline mt-4 inline-block">
+        <p className="font-ui text-cool-500">No Partners record with ID {partnerId}.</p>
+        <Link href="/portal/admin" className="text-navy font-semibold text-sm underline decoration-cool-300 hover:decoration-navy mt-4 inline-block">
           ← Back to Admin
         </Link>
       </div>
@@ -64,16 +66,16 @@ export default async function AdminPartnerDocumentsPage({
     <div className="max-w-4xl mx-auto">
       <Link
         href="/portal/admin"
-        className="inline-flex items-center gap-1.5 text-gray-400 text-sm font-body hover:text-navy mb-4"
+        className="inline-flex items-center gap-1.5 text-cool-400 text-sm font-ui hover:text-navy mb-4"
       >
         <ArrowLeft className="w-4 h-4" /> Admin
       </Link>
 
       <div className="mb-6">
         <h1 className="font-heading text-2xl font-bold text-navy">Documents</h1>
-        <p className="font-body text-gray-500 text-sm mt-0.5">
+        <p className="font-ui text-cool-500 text-sm mt-0.5">
           {partner.name ?? 'Partner'} · {partner.partnerType ?? '—'} ·{' '}
-          <span className="font-mono text-xs">{partnerId}</span>
+          <span className={CELL_REF}>{partnerId}</span>
         </p>
       </div>
 
@@ -81,47 +83,45 @@ export default async function AdminPartnerDocumentsPage({
         <DocumentUploader partnerId={partnerId} />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-[9px] border border-cool-200 p-6">
         <h2 className="font-heading text-lg font-bold text-navy mb-4">
           Documents on file
-          <span className="ml-2 text-gray-400 text-sm font-body font-normal">{documents.length}</span>
+          <span className="ml-2 text-cool-400 text-sm font-ui font-normal">{documents.length}</span>
         </h2>
 
         {documents.length === 0 ? (
-          <p className="font-body text-gray-500 text-sm py-6 text-center">
+          <p className="font-ui text-cool-500 text-sm py-6 text-center">
             No documents yet. Use the form above to upload the first one.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-gray-400 text-xs uppercase tracking-wider text-left">
-                  <th className="pb-3 font-medium">Name</th>
-                  <th className="pb-3 font-medium">Type</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium">Uploaded</th>
-                  <th className="pb-3 font-medium">Expires</th>
-                  <th className="pb-3 font-medium">Download</th>
+                <tr className="font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600 text-left">
+                  <th className="pb-3">Name</th>
+                  <th className="pb-3">Type</th>
+                  <th className="pb-3">Status</th>
+                  <th className="pb-3">Uploaded</th>
+                  <th className="pb-3">Expires</th>
+                  <th className="pb-3">Download</th>
                 </tr>
               </thead>
-              <tbody className="font-body">
+              <tbody className="font-ui">
                 {documents.map((doc) => {
                   const badge = statusBadge(doc.documentStatus)
                   return (
-                    <tr key={doc.id} className="border-b border-gray-50 last:border-0">
+                    <tr key={doc.id} className="border-t border-cool-100">
                       <td className="py-3 text-navy font-medium">{doc.name}</td>
-                      <td className="py-3 text-gray-700">{doc.documentType ?? '—'}</td>
+                      <td className="py-3 text-cool-700">{doc.documentType ?? '—'}</td>
                       <td className="py-3">
-                        <span className={`${badge.cls} text-xs font-semibold px-2 py-0.5 rounded-full`}>
-                          {badge.label}
-                        </span>
+                        <StatusChip tone={badge.tone}>{badge.label}</StatusChip>
                       </td>
-                      <td className="py-3 text-gray-500">{formatDate(doc.uploadedDate)}</td>
-                      <td className="py-3 text-gray-500">{formatDate(doc.expiryDate)}</td>
+                      <td className="py-3 text-cool-500 tabular-nums">{formatDate(doc.uploadedDate)}</td>
+                      <td className="py-3 text-cool-500 tabular-nums">{formatDate(doc.expiryDate)}</td>
                       <td className="py-3">
                         <a
                           href={`/api/portal/investor/documents/${doc.id}`}
-                          className="text-lime font-semibold text-sm hover:underline"
+                          className="text-navy font-semibold text-sm underline decoration-cool-300 hover:decoration-navy"
                         >
                           Download
                         </a>

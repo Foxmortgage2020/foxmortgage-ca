@@ -22,6 +22,7 @@ import { fmtDiscount, type RatesReference } from '@/lib/scenario'
 import { daysUntil, offerRatesText } from '@/lib/offers'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import LenderMark from '@/components/admin/LenderMark'
+import StatusChip, { type ChipTone } from '@/components/admin/ds/StatusChip'
 import {
   OfferConditions,
   OfferEvidenceList,
@@ -66,20 +67,22 @@ function fieldValue(f: StatementFieldRow): string {
 
 // ─── Shared UI atoms ────────────────────────────────────────────────────────
 
-function Chip({ tone, children }: { tone: 'green' | 'amber' | 'red' | 'gray' | 'navy'; children: React.ReactNode }) {
-  const cls = {
-    green: 'bg-green-100 text-green-700',
-    amber: 'bg-amber-100 text-amber-800',
-    red: 'bg-red-100 text-red-700',
-    gray: 'bg-gray-100 text-gray-600',
-    navy: 'bg-navy/10 text-navy',
-  }[tone]
-  return <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{children}</span>
+// The four semantic tones are the design system's StatusChip; `navy` is this
+// desk's one extra (topic identity, not a status) and keeps its local span.
+function Chip({ tone, children }: { tone: ChipTone | 'navy'; children: React.ReactNode }) {
+  if (tone === 'navy') {
+    return (
+      <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-navy/10 text-navy">
+        {children}
+      </span>
+    )
+  }
+  return <StatusChip tone={tone}>{children}</StatusChip>
 }
 
 function Snippet({ page, text }: { page: number; text: string }) {
   return (
-    <p className="text-[11px] text-gray-500 font-body mt-0.5 break-words">
+    <p className="text-[11px] text-cool-500 font-ui mt-0.5 break-words">
       p{page}: &ldquo;{text}&rdquo;
     </p>
   )
@@ -88,7 +91,7 @@ function Snippet({ page, text }: { page: number; text: string }) {
 function CardError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="mt-3 flex items-center justify-between gap-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-      <p className="text-xs text-red-700 font-body">{message}</p>
+      <p className="text-xs text-red-700 font-ui">{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}
@@ -118,10 +121,10 @@ function NoteField({
         maxLength={2000}
         rows={2}
         placeholder={placeholder ?? 'Optional note (kept in the audit trail)'}
-        className="w-full text-sm font-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
+        className="w-full text-sm font-ui border border-cool-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
       />
       {value.length > 1800 && (
-        <p className="text-[11px] text-gray-400 text-right">{2000 - value.length} characters left</p>
+        <p className="text-[11px] text-cool-500 text-right">{2000 - value.length} characters left</p>
       )}
     </div>
   )
@@ -153,16 +156,16 @@ function ConfirmButton({
   onFire: () => void
 }) {
   const base =
-    'min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold font-body transition-colors disabled:opacity-50'
+    'min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold font-ui transition-colors disabled:opacity-50'
   const toneCls = armed
     ? tone === 'reject'
       ? 'bg-red-600 text-white'
       : 'bg-navy text-white'
     : tone === 'approve'
-      ? 'bg-lime text-navy hover:bg-lime/80'
+      ? 'bg-decision text-decision-ink hover:opacity-90'
       : tone === 'reject'
         ? 'bg-white border border-red-300 text-red-700 hover:bg-red-50'
-        : 'bg-white border border-gray-300 text-navy hover:bg-gray-50'
+        : 'bg-white border border-cool-300 text-navy hover:bg-cool-50'
   const fresh = armed && armedAt !== undefined && Date.now() - armedAt <= ARM_WINDOW_MS
   return (
     <button className={`${base} ${toneCls}`} disabled={busy} onClick={() => (fresh ? onFire() : onArm())}>
@@ -182,7 +185,7 @@ function PlainButton({
 }) {
   return (
     <button
-      className="min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50 disabled:opacity-50"
+      className="min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50 disabled:opacity-50"
       disabled={busy}
       onClick={onClick}
     >
@@ -514,31 +517,31 @@ export default function ApprovalsDesk({
     )
     const sev = card.severity
     return (
-      <div key={card.id} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+      <div key={card.id} className="rounded-[9px] border border-cool-200 bg-white p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <Chip tone={sev === 'high' ? 'red' : sev === 'warning' ? 'amber' : 'gray'}>{sev}</Chip>
           <h4 className="font-heading font-bold text-navy text-sm capitalize">{label(card.kind)}</h4>
           {card.dealRef && card.dealId && (
             <Link
               href={`/portal/admin/deals/${card.dealId}`}
-              className="text-xs font-semibold text-navy underline hover:text-lime ml-auto"
+              className="text-xs font-semibold text-navy underline hover:text-ink ml-auto"
             >
               {card.dealRef} deal room
             </Link>
           )}
         </div>
-        <p className="text-[11px] text-gray-400 font-body mt-1">raised {fmtWhen(card.createdAt)}</p>
+        <p className="text-[11px] text-cool-500 font-ui mt-1 tabular-nums">raised {fmtWhen(card.createdAt)}</p>
         {detailEntries.length > 0 && (
           <div className="mt-2 space-y-0.5">
             {detailEntries.map(([k, v]) => (
-              <p key={k} className="text-xs font-body text-gray-600 break-words">
-                <span className="text-gray-400">{label(k)}:</span> {String(v)}
+              <p key={k} className="text-xs font-ui text-cool-600 break-words">
+                <span className="text-cool-500">{label(k)}:</span> {String(v)}
               </p>
             ))}
           </div>
         )}
         {card.evidenceRefCount > 0 && (
-          <p className="text-[11px] text-gray-400 font-body mt-1.5">
+          <p className="text-[11px] text-cool-500 font-ui mt-1.5">
             {card.evidenceRefCount} evidence reference{card.evidenceRefCount === 1 ? '' : 's'} recorded in
             the workbench (evidence detail is not granted to the portal yet)
           </p>
@@ -615,7 +618,7 @@ export default function ApprovalsDesk({
       {/* Toast */}
       {toast && (
         <div
-          className={`sticky top-2 z-20 mb-4 rounded-lg px-4 py-2.5 text-sm font-body border ${
+          className={`sticky top-2 z-20 mb-4 rounded-lg px-4 py-2.5 text-sm font-ui border ${
             toast.tone === 'green'
               ? 'bg-green-50 border-green-200 text-green-800'
               : 'bg-amber-50 border-amber-200 text-amber-800'
@@ -625,20 +628,23 @@ export default function ApprovalsDesk({
         </div>
       )}
 
-      {/* Tab bar (horizontally scrollable on phones) */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Tab bar: the ds underline look (client-state buttons, wrapping on
+          phones). Same buttons, same handlers — only the clothes changed. */}
+      <div className="flex flex-wrap gap-x-5 gap-y-1 border-b border-cool-200">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`shrink-0 min-h-[44px] px-4 py-2 rounded-full text-sm font-semibold font-body transition-colors ${
-              tab === t.key ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-navy hover:border-navy/40'
+            className={`-mb-px inline-flex min-h-[44px] items-center gap-1.5 border-b-2 px-0.5 pb-2 pt-1 font-heading text-[13px] motion-safe:transition-colors ${
+              tab === t.key
+                ? 'border-navy font-semibold text-navy'
+                : 'border-transparent font-medium text-cool-600 hover:text-navy'
             }`}
           >
             {t.title}
             <span
-              className={`ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                tab === t.key ? 'bg-lime text-navy' : t.count > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                t.count > 0 ? 'bg-amber-100 text-amber-800' : 'bg-cool-100 text-cool-700'
               }`}
             >
               {t.count}
@@ -648,8 +654,8 @@ export default function ApprovalsDesk({
       </div>
 
       {queueError && (
-        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <p className="text-sm text-amber-800 font-body">This queue could not load fully: {queueError}</p>
+        <div className="mt-4 rounded-[9px] border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-800 font-ui">This queue could not load fully: {queueError}</p>
         </div>
       )}
 
@@ -663,14 +669,14 @@ export default function ApprovalsDesk({
               const key = `stmt:${card.documentId}`
               const discs = data.discrepancies.filter(d => d.statementDocumentId === card.documentId)
               return (
-                <div key={card.documentId} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+                <div key={card.documentId} className="rounded-[9px] border border-cool-200 bg-white p-4 sm:p-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-heading font-bold text-navy text-base capitalize">{label(card.docClass)}</h3>
                     <Chip tone="gray">{card.fields.length} fields</Chip>
                     {card.dealRef && (
                       <Link
                         href={`/portal/admin/deals/${card.dealId}`}
-                        className="text-xs font-semibold text-navy underline hover:text-lime ml-auto"
+                        className="text-xs font-semibold text-navy underline hover:text-ink ml-auto"
                       >
                         {card.dealRef} deal room
                       </Link>
@@ -678,13 +684,13 @@ export default function ApprovalsDesk({
                   </div>
 
                   {/* Extracted fields with their citations, exactly as stored */}
-                  <div className="mt-3 divide-y divide-gray-100">
+                  <div className="mt-3 divide-y divide-cool-100">
                     {card.fields.map(f => (
                       <div key={f.id} className="py-2">
                         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <span className="text-sm font-body text-gray-600">{label(f.fieldName)}</span>
-                          <span className="text-sm font-body font-semibold text-navy">{fieldValue(f)}</span>
-                          <span className="text-[11px] text-gray-400">conf {f.confidence}</span>
+                          <span className="text-sm font-ui text-cool-600">{label(f.fieldName)}</span>
+                          <span className="text-sm font-ui font-semibold text-navy tabular-nums">{fieldValue(f)}</span>
+                          <span className="text-[11px] text-cool-500">conf {f.confidence}</span>
                           {f.heldReason && <Chip tone="amber">held on approval: {f.heldReason}</Chip>}
                         </div>
                         <Snippet page={f.sourcePage} text={f.sourceSnippet} />
@@ -701,16 +707,16 @@ export default function ApprovalsDesk({
                             <Chip tone="amber">discrepancy</Chip>
                             {d.wideGap && <Chip tone="red">wide gap</Chip>}
                           </div>
-                          <p className="text-xs font-body text-gray-700 mt-1.5">
+                          <p className="text-xs font-ui text-cool-700 mt-1.5">
                             Statement says <span className="font-semibold text-navy">{d.statementValue}</span>
                             {d.statementSource ? ` (${d.statementSource})` : ''}
                           </p>
-                          <p className="text-xs font-body text-gray-700 mt-0.5">
+                          <p className="text-xs font-ui text-cool-700 mt-0.5">
                             Application says <span className="font-semibold text-navy">{d.applicationValue}</span>
                             {d.applicationField ? ` for ${label(d.applicationField)}` : ''}
                             {d.applicationSource ? ` (source: ${d.applicationSource})` : ''}
                           </p>
-                          {d.policy && <p className="text-[11px] text-gray-500 mt-1">{d.policy}</p>}
+                          {d.policy && <p className="text-[11px] text-cool-500 mt-1">{d.policy}</p>}
                         </div>
                       ))}
                     </div>
@@ -805,7 +811,7 @@ export default function ApprovalsDesk({
                 floatRange('variable'),
               ].filter(Boolean)
               return (
-                <div key={card.intelItemId} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+                <div key={card.intelItemId} className="rounded-[9px] border border-cool-200 bg-white p-4 sm:p-5">
                   <div className="flex flex-wrap items-center gap-2">
                     {card.lenderSlug && <LenderMark slug={card.lenderSlug} size={26} />}
                     <h3 className="font-heading font-bold text-navy text-base capitalize">
@@ -817,18 +823,18 @@ export default function ApprovalsDesk({
                       <Chip tone="green">{cashbackCount} cash back tier{cashbackCount === 1 ? '' : 's'}</Chip>
                     )}
                   </div>
-                  <p className="text-xs font-body text-gray-500 mt-2">{summaryParts.join(' · ')}</p>
+                  <p className="text-xs font-ui text-cool-500 mt-2 tabular-nums">{summaryParts.join(' · ')}</p>
 
                   <details className="mt-3 group">
                     <summary className="text-sm font-semibold text-navy cursor-pointer select-none py-1.5">
                       Quote detail
                     </summary>
-                    <div className="mt-1 divide-y divide-gray-100">
+                    <div className="mt-1 divide-y divide-cool-100">
                       {card.quotes.map(q => (
                         <div key={q.id} className="py-2">
-                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm font-body">
-                            <span className="text-gray-600">{label(q.productClass)}</span>
-                            {q.variant && <span className="text-gray-400 text-xs">{q.variant}</span>}
+                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm font-ui">
+                            <span className="text-cool-600">{label(q.productClass)}</span>
+                            {q.variant && <span className="text-cool-500 text-xs">{q.variant}</span>}
                             {q.rateType !== 'fixed' && (
                               <span
                                 className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
@@ -840,7 +846,7 @@ export default function ApprovalsDesk({
                                 {q.rateType}
                               </span>
                             )}
-                            <span className="text-navy font-semibold">
+                            <span className="text-navy font-semibold tabular-nums">
                               {q.termMonths % 12 === 0 ? `${q.termMonths / 12}yr` : `${q.termMonths}mo`} at{' '}
                               {q.rate !== null
                                 ? `${q.rate}%${q.primeVariance !== null ? ` (${fmtDiscount(q.primeVariance)})` : ''}`
@@ -849,19 +855,19 @@ export default function ApprovalsDesk({
                                   : 'not priced'}
                             </span>
                             {q.cashbackPct !== null && (
-                              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 tabular-nums">
                                 {q.cashbackPct}% cash back
                               </span>
                             )}
-                            {q.compBps !== null && <span className="text-xs text-gray-500">@ {q.compBps}bps</span>}
+                            {q.compBps !== null && <span className="text-xs text-cool-500 tabular-nums">@ {q.compBps}bps</span>}
                             {q.heldReason && <Chip tone="amber">held: {q.heldReason}</Chip>}
                           </div>
                           {q.programNotes && (
                             <details className="mt-1">
-                              <summary className="text-[11px] text-gray-400 cursor-pointer select-none">
+                              <summary className="text-[11px] text-cool-500 cursor-pointer select-none">
                                 program conditions, verbatim
                               </summary>
-                              <p className="mt-0.5 text-[11px] text-gray-600 font-body whitespace-pre-wrap break-words bg-gray-50 rounded p-2">
+                              <p className="mt-0.5 text-[11px] text-cool-600 font-ui whitespace-pre-wrap break-words bg-cool-50 rounded p-2">
                                 {q.programNotes}
                               </p>
                             </details>
@@ -897,7 +903,7 @@ export default function ApprovalsDesk({
                           onFire={() => decideSheet(card, 'reject')}
                         />
                       </div>
-                      <p className="text-[11px] text-gray-400 font-body mt-2">
+                      <p className="text-[11px] text-cool-500 font-ui mt-2">
                         Sheet-level decision. Anomalous quotes are held automatically for individual disposition in the CLI.
                       </p>
                     </>
@@ -922,12 +928,12 @@ export default function ApprovalsDesk({
             serviceable province (the park re-derives from the registry every
             render — no decision was made, nothing to undo). ── */}
         {tab === 'sheets' && data.parkedSheets.length > 0 && (
-          <details className="bg-gray-50 border border-gray-200 rounded-xl p-4" data-testid="parked-sheets">
+          <details className="rounded-[9px] border border-cool-200 bg-cool-50 p-4" data-testid="parked-sheets">
             <summary className="text-sm font-semibold text-navy cursor-pointer select-none">
               Parked: province-excluded ({data.parkedSheets.length} sheet
               {data.parkedSheets.length === 1 ? '' : 's'})
             </summary>
-            <p className="text-xs font-body text-gray-500 mt-2">
+            <p className="text-xs font-ui text-cool-500 mt-2">
               These lenders cannot lend in a market the practice serves, so their sheets never
               enter the queue — approving or rejecting them would be busywork. Nothing is deleted;
               they return to pending automatically if the lender registry confirms a serviceable
@@ -935,7 +941,7 @@ export default function ApprovalsDesk({
             </p>
             <div className="mt-3 space-y-2">
               {data.parkedSheets.map(p => (
-                <div key={p.card.intelItemId} className="bg-white border border-gray-200 rounded-lg px-3 py-2">
+                <div key={p.card.intelItemId} className="bg-white border border-cool-200 rounded-lg px-3 py-2">
                   <div className="flex flex-wrap items-center gap-2">
                     {p.card.lenderSlug && <LenderMark slug={p.card.lenderSlug} size={22} />}
                     <span className="font-heading font-bold text-navy text-sm capitalize">
@@ -945,7 +951,7 @@ export default function ApprovalsDesk({
                     <Chip tone="gray">{p.card.quotes.length} quotes</Chip>
                     <Chip tone="amber">province-excluded</Chip>
                   </div>
-                  <p className="text-[11px] font-body text-gray-500 mt-1">
+                  <p className="text-[11px] font-ui text-cool-500 mt-1">
                     {p.reason}
                     {p.asOf ? ` Registry fact as of ${p.asOf}.` : ''}
                   </p>
@@ -971,7 +977,7 @@ export default function ApprovalsDesk({
               return (
                 <div
                   key={card.id}
-                  className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5"
+                  className="rounded-[9px] border border-cool-200 bg-white p-4 sm:p-5"
                   data-testid={`offer-card-${card.id}`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -979,7 +985,7 @@ export default function ApprovalsDesk({
                       <LenderMark slug={card.lenderSlug} name={who} size={28} />
                       <div className="min-w-0">
                         <h3 className="font-heading font-bold text-navy text-base">{who}</h3>
-                        <p className="text-sm font-body text-gray-700 break-words">{card.offerName}</p>
+                        <p className="text-sm font-ui text-cool-700 break-words">{card.offerName}</p>
                       </div>
                     </div>
                     {card.confidence !== null && <Chip tone="gray">conf {card.confidence}</Chip>}
@@ -991,7 +997,7 @@ export default function ApprovalsDesk({
                   </div>
 
                   {/* Priced elements as identity. */}
-                  <div className="mt-3 border-t border-gray-100 pt-3">
+                  <div className="mt-3 border-t border-cool-100 pt-3">
                     <OfferPricedElements
                       offer={{
                         lenderSlug: card.lenderSlug,
@@ -1023,7 +1029,7 @@ export default function ApprovalsDesk({
                   <OfferEvidenceList evidence={card.evidence} />
 
                   {provenance && (
-                    <p className="text-[11px] text-gray-400 font-body mt-2 break-words">Extracted from {provenance}.</p>
+                    <p className="text-[11px] text-cool-500 font-ui mt-2 break-words">Extracted from {provenance}.</p>
                   )}
 
                   {canDecide.offers ? (
@@ -1079,8 +1085,8 @@ export default function ApprovalsDesk({
                 if (group.length === 0) return null
                 return (
                   <div key={sev}>
-                    <h3 className="font-heading font-bold text-navy text-sm uppercase tracking-wide mb-2 mt-2">
-                      {sev} <span className="text-gray-400 font-body font-normal">({group.length})</span>
+                    <h3 className="font-heading text-[11px] font-semibold uppercase tracking-[0.05em] text-cool-600 mb-2 mt-2">
+                      {sev} <span className="font-ui font-normal tabular-nums">({group.length})</span>
                     </h3>
                     <div className="space-y-3">{group.map(renderFlagCard)}</div>
                   </div>
@@ -1089,7 +1095,7 @@ export default function ApprovalsDesk({
             )}
             {data.flagsOnClosed.length > 0 && (
               <details className="mt-4">
-                <summary className="cursor-pointer select-none text-sm font-semibold font-body text-gray-500 py-2">
+                <summary className="cursor-pointer select-none text-sm font-semibold font-ui text-cool-500 py-2">
                   On closed files ({data.flagsOnClosed.length}): cleanup, not urgency. These never
                   count in the badge.
                 </summary>
@@ -1105,7 +1111,7 @@ export default function ApprovalsDesk({
             <EmptyState text={emptyCopy.shadow} lastDecided={lastDecidedFor.shadow} />
           ) : (
             data.shadow.map(card => (
-              <div key={card.dealId} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+              <div key={card.dealId} className="rounded-[9px] border border-cool-200 bg-white p-4 sm:p-5">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-heading font-bold text-navy text-base">{card.fileRef}</h3>
                   {card.stage && <Chip tone="gray">{card.stage}</Chip>}
@@ -1113,22 +1119,22 @@ export default function ApprovalsDesk({
                   <Chip tone={card.scoredCount > 0 ? 'amber' : 'gray'}>{card.scoredCount}/4 scored</Chip>
                   <Link
                     href={`/portal/admin/deals/${card.dealId}`}
-                    className="text-xs font-semibold text-navy underline hover:text-lime ml-auto"
+                    className="text-xs font-semibold text-navy underline hover:text-ink ml-auto"
                   >
                     deal room
                   </Link>
                 </div>
-                <p className="text-[11px] text-gray-400 font-body mt-1.5">
+                <p className="text-[11px] text-cool-500 font-ui mt-1.5">
                   System values are computed and recorded by the workbench at scoring time, through the same pathway the
                   CLI uses. Past scores show what was recorded.
                 </p>
-                <div className="mt-3 divide-y divide-gray-100">
+                <div className="mt-3 divide-y divide-cool-100">
                   {card.dimensions.map(dim => {
                     const key = `shadow:${card.dealId}:${dim.dimension}`
                     return (
                       <div key={dim.dimension} className="py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-body font-semibold text-navy capitalize">{dim.dimension}</span>
+                          <span className="text-sm font-ui font-semibold text-navy capitalize">{dim.dimension}</span>
                           {dim.lastScoredAt ? (
                             <Chip tone={dim.lastAgreement ? 'green' : 'red'}>
                               {dim.lastAgreement ? 'agreed' : 'disagreed'} {fmtWhen(dim.lastScoredAt)}
@@ -1139,16 +1145,16 @@ export default function ApprovalsDesk({
                         </div>
                         {dim.lastSystemValue !== null && dim.lastSystemValue !== undefined && (
                           <details className="mt-1.5">
-                            <summary className="text-[11px] text-gray-400 cursor-pointer select-none">
+                            <summary className="text-[11px] text-cool-500 cursor-pointer select-none">
                               last recorded system value
                             </summary>
-                            <pre className="mt-1 text-[11px] text-gray-600 bg-gray-50 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap break-words">
+                            <pre className="mt-1 text-[11px] text-cool-600 bg-cool-50 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap break-words">
                               {JSON.stringify(dim.lastSystemValue, null, 1)}
                             </pre>
                           </details>
                         )}
                         {dim.lastDisagreementNote && (
-                          <p className="text-[11px] text-gray-500 font-body mt-1">
+                          <p className="text-[11px] text-cool-500 font-ui mt-1">
                             last note: {dim.lastDisagreementNote}
                           </p>
                         )}
@@ -1204,7 +1210,7 @@ export default function ApprovalsDesk({
             groupPendingByDocument(data.knowledgeClaims, data.knowledgeDocs).map(group => {
               const docKey = `kdoc:${group.documentId ?? 'none'}`
               return (
-                <div key={docKey} className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+                <div key={docKey} className="rounded-[9px] border border-cool-200 bg-white p-4 sm:p-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <LenderMark slug={group.lenderSlug} size={26} />
                     <h3 className="font-heading font-bold text-navy text-base break-words">{group.docName}</h3>
@@ -1214,36 +1220,36 @@ export default function ApprovalsDesk({
                     </Chip>
                   </div>
 
-                  <div className="mt-3 divide-y divide-gray-100">
+                  <div className="mt-3 divide-y divide-cool-100">
                     {group.claims.map(claim => {
                       const key = `kclaim:${claim.id}`
                       return (
                         <div key={claim.id} className="py-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <Chip tone="navy">{topicLabel(claim.topic)}</Chip>
-                            <span className="text-xs font-body text-gray-500">{claim.claimKey}</span>
+                            <span className="text-xs font-ui text-cool-500">{claim.claimKey}</span>
                             {claim.program && <Chip tone="gray">program: {claim.program}</Chip>}
                             {claim.confidence !== null && (
-                              <span className="text-[11px] text-gray-400">conf {claim.confidence}</span>
+                              <span className="text-[11px] text-cool-500">conf {claim.confidence}</span>
                             )}
                           </div>
-                          <p className="text-sm font-body text-gray-700 mt-1.5">{claim.claimText}</p>
+                          <p className="text-sm font-ui text-cool-700 mt-1.5">{claim.claimText}</p>
                           {claim.claimValue !== null && (
-                            <p className="text-[11px] text-gray-500 font-mono mt-1 break-words">
+                            <p className="text-[11px] text-cool-500 font-mono mt-1 break-words">
                               {JSON.stringify(claim.claimValue)}
                             </p>
                           )}
                           {claim.sourceSnippet && (
                             <details className="mt-1">
-                              <summary className="text-[11px] text-gray-400 cursor-pointer select-none">
+                              <summary className="text-[11px] text-cool-500 cursor-pointer select-none">
                                 source snippet, verbatim
                               </summary>
-                              <p className="mt-0.5 text-[11px] text-gray-600 font-body whitespace-pre-wrap break-words bg-gray-50 rounded p-2">
+                              <p className="mt-0.5 text-[11px] text-cool-600 font-ui whitespace-pre-wrap break-words bg-cool-50 rounded p-2">
                                 {claim.sourceSnippet}
                               </p>
                             </details>
                           )}
-                          <p className="text-[11px] text-gray-400 font-body mt-1">
+                          <p className="text-[11px] text-cool-500 font-ui mt-1">
                             {claim.sourcePage !== null ? `p.${claim.sourcePage} · ` : ''}
                             {claim.asOfDate ? `as of ${claim.asOfDate}` : 'no as-of — supply to approve'}
                           </p>
@@ -1252,7 +1258,7 @@ export default function ApprovalsDesk({
                             <>
                               {claim.asOfDate === null && (
                                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                                  <label className="text-xs font-body text-gray-500" htmlFor={`asof-${claim.id}`}>
+                                  <label className="text-xs font-ui text-cool-500" htmlFor={`asof-${claim.id}`}>
                                     as-of date
                                   </label>
                                   <input
@@ -1260,7 +1266,7 @@ export default function ApprovalsDesk({
                                     type="date"
                                     value={asOfInputs[claim.id] ?? ''}
                                     onChange={e => setAsOfInputs(m => ({ ...m, [claim.id]: e.target.value }))}
-                                    className="text-sm font-body border border-gray-200 rounded-lg px-2 py-1.5"
+                                    className="text-sm font-ui border border-cool-200 rounded-lg px-2 py-1.5"
                                   />
                                 </div>
                               )}
@@ -1274,7 +1280,7 @@ export default function ApprovalsDesk({
                                     return { ...m, [claim.id]: open }
                                   })
                                 }
-                                className="mt-2 text-xs font-semibold text-navy underline hover:text-lime py-1"
+                                className="mt-2 text-xs font-semibold text-navy underline hover:text-ink py-1"
                               >
                                 {editOpen[claim.id] ? 'discard edit' : 'edit claim text'}
                               </button>
@@ -1284,7 +1290,7 @@ export default function ApprovalsDesk({
                                   onChange={e => setEditedTexts(t => ({ ...t, [claim.id]: e.target.value }))}
                                   maxLength={2000}
                                   rows={2}
-                                  className="mt-1 w-full text-sm font-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
+                                  className="mt-1 w-full text-sm font-ui border border-cool-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
                                 />
                               )}
                               <NoteField value={note(key)} onChange={v => setNote(key, v)} />
@@ -1321,7 +1327,7 @@ export default function ApprovalsDesk({
                   </div>
 
                   {canDecide.knowledge && group.documentId && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
+                    <div className="mt-3 pt-3 border-t border-cool-100">
                       <ConfirmButton
                         label={`Approve document (${group.claims.length})`}
                         confirmLabel="Tap again to approve all"
@@ -1332,7 +1338,7 @@ export default function ApprovalsDesk({
                         onArm={() => arm(`${docKey}:approve`)}
                         onFire={() => approveKnowledgeDoc(group.documentId!, group.docName)}
                       />
-                      <p className="text-[11px] text-gray-400 font-body mt-2">
+                      <p className="text-[11px] text-cool-500 font-ui mt-2">
                         Batch approval. Claims without an as-of date are held out and decided
                         individually with a supplied date.
                       </p>
@@ -1350,9 +1356,9 @@ export default function ApprovalsDesk({
 
 function EmptyState({ text, lastDecided }: { text: string; lastDecided: string | null }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl px-4 py-6 text-center">
-      <p className="text-sm text-gray-500 font-body">{text}</p>
-      <p className="text-xs text-gray-400 font-body mt-1">
+    <div className="rounded-[9px] border border-cool-200 bg-white px-4 py-6 text-center">
+      <p className="text-sm text-cool-500 font-ui">{text}</p>
+      <p className="text-xs text-cool-500 font-ui mt-1 tabular-nums">
         {lastDecided ? `Last decision recorded ${fmtWhen(lastDecided)}.` : 'No decisions recorded yet.'}
       </p>
     </div>
@@ -1361,7 +1367,7 @@ function EmptyState({ text, lastDecided }: { text: string; lastDecided: string |
 
 function ViewOnlyNote() {
   return (
-    <p className="text-xs text-gray-400 font-body mt-3">
+    <p className="text-xs text-cool-500 font-ui mt-3">
       Your role can view this queue. Decisions need the admin role.
     </p>
   )

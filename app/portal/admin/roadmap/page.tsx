@@ -180,7 +180,7 @@ const SESSIONS: {
     repo: 'foxmortgage-ca',
     items: [
       'Rates restructured into four URL-addressable tabs (Scenario default, Lenders, Promos, All quotes); the scenario lender-card click fixed with a real affordance and a scroll-to-top drill-in',
-      'LenderMark: a real logo from public/lenders/ or an on-brand navy-and-lime monogram fallback, everywhere a lender is named; no manifest to maintain',
+      'LenderMark: a real logo from public/lenders/ or an on-brand navy monogram fallback, everywhere a lender is named; no manifest to maintain',
       'Lenders tab: browse the approved book with honest per-class headline rates and the deepest floating discount (adjustable and variable kept apart), plus the three-state coverage map (live / awaiting approval / coverage pending)',
       'Promos tab: the offer book as its own board, soonest to expire first, each card citing its announcement; saved scenarios per user through FOXCA narrow functions',
       'A test locks the client rate PDF against ever disclosing lender compensation to a borrower',
@@ -261,7 +261,7 @@ const SESSIONS: {
 // The forward list once the original nine-session map is complete: the
 // side-quests and follow-ups decided along the way. Kept honest and current.
 const BACKLOG: { title: string; note: string }[] = [
-  { title: 'Command Centre Phase B: page interiors (B1 + B2a + B2b + B3 shipped; B4 the token sweep, B5 agent mode)', note: 'The 2026-07-14 shell redesign (Phase A) shipped the grouped sidebar, the Desk strip, decision badges, and the lime-as-decisions rule. B1 (the lifecycle spine) shipped ONE canonical lifecycle definition (config/lifecycle.ts). B2a (stage truth) made Zoho the position source: every board card sits where its Zoho display stage says (six of seven live files moved to their true columns). B2b (Direction 2, "the control room") made the surface Deals: the list-first daily driver with exactly one lime on the top-most actionable row, the board behind a per-user toggle, the phase-led deal room with the read-only compliance package card, the website type pair, and the new-version toast. B3 (the consistency pass, 2026-07-17) extracted the design system into components/admin/ds/ and gave the menu the lifecycle\u2019s shape: eight working destinations across The book and The practice, the three market pages merged into Lenders (rates, intel, knowledge tabs), Renewals and Opportunities merged into Beyond funding with one summed badge, Bookkeeping folded into Revenue, every old path redirecting permanently, and the flagged decorative limes (ClientConstraints, the roadmap markers) demoted to calm ink. Next: B4, the remaining surfaces onto the design system plus the mechanical token sweep (the 72-file inventory in docs/lifecycle-b1-2026-07-16.md, the rates-engine and Revenue-chart limes, Home\u2019s hover accents, and the PII-exception decision flagged in docs/consistency-b3-2026-07-17.md), then B5, agent mode. A persisted backfill-scan result would also light the Desk strip\u2019s manual-match fragment.' },
+  { title: 'Command Centre Phase B: page interiors (B1 through B4 shipped; B5 agent mode is the last phase)', note: 'The 2026-07-14 shell redesign (Phase A) shipped the grouped sidebar, the Desk strip, decision badges, and the lime-as-decisions rule. B1 (the lifecycle spine) shipped ONE canonical lifecycle definition (config/lifecycle.ts). B2a (stage truth) made Zoho the position source: every board card sits where its Zoho display stage says (six of seven live files moved to their true columns). B2b (Direction 2, "the control room") made the surface Deals: the list-first daily driver with exactly one lime on the top-most actionable row, the board behind a per-user toggle, the phase-led deal room with the read-only compliance package card, the website type pair, and the new-version toast. B3 (the consistency pass, 2026-07-17) extracted the design system into components/admin/ds/ and gave the menu the lifecycle\u2019s shape: eight working destinations across The book and The practice, the three market pages merged into Lenders (rates, intel, knowledge tabs), Renewals and Opportunities merged into Beyond funding with one summed badge, Bookkeeping folded into Revenue, every old path redirecting permanently, and the flagged decorative limes (ClientConstraints, the roadmap markers) demoted to calm ink. B4 (2026-07-17) shipped both finishing sweeps: real client names left the repo tip entirely (the standing PII exception is ended; the rewritten rule and its two carve-outs live in CLAUDE.md), the remaining admin surfaces moved onto the shared design system, the mechanical token pass retired the legacy lime, navy-hex, gray, and font classes, and the lime audit now walks the whole admin tree so a decorative lime anywhere fails the suite. The last phase of the arc is B5, agent mode. A persisted backfill-scan result would also light the Desk strip\u2019s manual-match fragment.' },
   { title: 'Hold province-excluded extractions at the source', note: 'fox-underwriting: land new extractions from registry-province-excluded lenders as status held with held_reason province_ineligible (extraction pipeline, or a hold action on the rate-sheets gate), audited. The portal parks them out of the queue meanwhile (lib/sheet-park.ts), but the park is presentation, not a recorded hold.' },
   { title: 'Assign the alterna intel slug', note: "fox-underwriting: the ingest has no 'alterna' slug, so Alterna Savings sheets arrive with a null lender guess (item b1cfd0c1, 2026-07-13). Add the slug and backfill the guess; the portal surfaces null-slug rates items on the Lenders tab meanwhile." },
   { title: 'Collapse mirror 2: provinces', note: 'config/lender-provinces.ts mirrors the workbench lender registry. Make the registry server-readable (a portal_readonly-granted table is the cheapest path), read it live everywhere, and delete the mirror. A fetch failure must fall back to last-known-good with its as-of, never to empty, or every lender silently downgrades to unknown.' },
@@ -282,7 +282,7 @@ const STATUS_CHIP: Record<SessionStatus, { label: string; cls: string }> = {
   shipped: { label: 'Shipped', cls: 'bg-cool-100 text-navy border border-cool-250' },
   current: { label: 'In progress', cls: 'bg-navy text-white' },
   next: { label: 'Next', cls: 'bg-navy/80 text-white' },
-  planned: { label: 'Planned', cls: 'bg-gray-100 text-gray-600' },
+  planned: { label: 'Planned', cls: 'bg-cool-100 text-cool-600' },
 }
 
 export default async function RoadmapPage() {
@@ -292,7 +292,7 @@ export default async function RoadmapPage() {
     <div className="max-w-3xl">
       <div className="mb-6">
         <h1 className="font-heading text-navy text-2xl font-bold">Roadmap</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1">
           The command center build: what shipped, what is in progress, and what follows. This page
           updates every session alongside the ledger and the changelog; the interstitial rows are
           hotfixes and workbench micro-sessions, kept so the history reads true.
@@ -300,9 +300,9 @@ export default async function RoadmapPage() {
       </div>
 
       {/* Architecture primer */}
-      <div className="bg-navy text-white rounded-xl p-5 mb-6">
+      <div className="bg-navy text-white rounded-[9px] p-5 mb-6">
         <h2 className="font-heading font-bold text-white text-base mb-2">Three-layer architecture</h2>
-        <ul className="text-sm font-body text-gray-300 space-y-1.5">
+        <ul className="text-sm font-ui text-cool-300 space-y-1.5">
           <li>
             <span className="text-white font-semibold">Zoho CRM</span> stays the system of record
             for relationships, stages, and tasks.
@@ -322,18 +322,18 @@ export default async function RoadmapPage() {
 
       <div className="space-y-4">
         {SESSIONS.map(s => (
-          <div key={s.n} className="bg-white border border-gray-200 rounded-xl p-5">
+          <div key={s.n} className="bg-white border border-cool-200 rounded-[9px] p-5">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="font-heading text-navy font-bold">Session {s.n}</span>
-              <span className="font-body text-gray-700">{s.title}</span>
+              <span className="font-ui text-cool-700">{s.title}</span>
               <span
                 className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_CHIP[s.status].cls}`}
               >
                 {STATUS_CHIP[s.status].label}
               </span>
-              <span className="text-[11px] text-gray-400 ml-auto">{s.repo}</span>
+              <span className="text-[11px] text-cool-500 ml-auto">{s.repo}</span>
             </div>
-            <ul className="mt-2 text-sm font-body text-gray-600 list-disc pl-5 space-y-1">
+            <ul className="mt-2 text-sm font-ui text-cool-600 list-disc pl-5 space-y-1">
               {s.items.map(item => (
                 <li key={item}>{item}</li>
               ))}
@@ -342,29 +342,29 @@ export default async function RoadmapPage() {
         ))}
       </div>
 
-      <div className="mt-8 bg-cool-50 border border-cool-200 rounded-xl p-5">
+      <div className="mt-8 bg-cool-50 border border-cool-200 rounded-[9px] p-5">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-navy font-bold text-lg">&#10003;</span>
           <h2 className="font-heading text-navy font-bold text-base">The original map is complete.</h2>
         </div>
-        <p className="text-sm font-body text-gray-600">
+        <p className="text-sm font-ui text-cool-600">
           Nine sessions (plus the hotfix and the workbench micro-sessions) took the command center
           from an audit to an installable, multi-user, demo-ready operations platform. What follows
           is the living forward list — the side-quests and follow-ups decided along the way.
         </p>
       </div>
 
-      <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
+      <div className="mt-6 bg-white border border-cool-200 rounded-[9px] p-5">
         <h2 className="font-heading text-navy font-bold text-base mb-3">Forward backlog</h2>
         <ul className="space-y-3">
           {BACKLOG.map(b => (
-            <li key={b.title} className="text-sm font-body">
+            <li key={b.title} className="text-sm font-ui">
               <span className="text-navy font-semibold">{b.title}</span>
-              <span className="text-gray-500"> — {b.note}</span>
+              <span className="text-cool-500"> — {b.note}</span>
             </li>
           ))}
         </ul>
-        <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">
+        <p className="mt-4 pt-3 border-t border-cool-100 text-xs text-cool-500">
           Tracked as decided; this page updates each session. Section names in the sidebar are
           stable; a rename requires a CLAUDE.md note.
         </p>

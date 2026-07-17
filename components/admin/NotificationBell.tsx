@@ -191,7 +191,7 @@ export default function NotificationBell() {
                   <button
                     type="button"
                     onClick={markAll}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-body text-navy/70 hover:bg-navy/5 hover:text-navy"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-ui text-navy/70 hover:bg-navy/5 hover:text-navy"
                   >
                     <Check className="h-3.5 w-3.5" /> Mark all read
                   </button>
@@ -218,27 +218,27 @@ export default function NotificationBell() {
             <div className="max-h-[calc(80vh-3rem)] overflow-y-auto sm:max-h-[calc(70vh-3rem)]">
               {error ? (
                 <div className="px-4 py-8 text-center">
-                  <p className="font-body text-sm text-navy/70">
+                  <p className="font-ui text-sm text-navy/70">
                     Could not load notifications.
                   </p>
                   <button
                     type="button"
                     onClick={load}
-                    className="mt-2 rounded-md bg-navy px-3 py-1.5 text-xs font-body text-white hover:bg-navy/90"
+                    className="mt-2 rounded-md bg-navy px-3 py-1.5 text-xs font-ui text-white hover:bg-navy/90"
                   >
                     Try again
                   </button>
                 </div>
               ) : loading && !payload ? (
-                <div className="px-4 py-8 text-center font-body text-sm text-navy/50">Loading…</div>
+                <div className="px-4 py-8 text-center font-ui text-sm text-navy/50">Loading…</div>
               ) : lanes.length === 0 ? (
                 <div className="px-4 py-10 text-center">
-                  <p className="font-body text-sm text-navy/70">You&rsquo;re all caught up.</p>
+                  <p className="font-ui text-sm text-navy/70">You&rsquo;re all caught up.</p>
                 </div>
               ) : (
                 lanes.map(g => (
                   <div key={g.lane}>
-                    <p className="sticky top-0 bg-navy/[0.03] px-4 py-1.5 font-body text-[0.7rem] font-semibold uppercase tracking-wide text-navy/50">
+                    <p className="sticky top-0 bg-navy/[0.03] px-4 py-1.5 font-ui text-[0.7rem] font-semibold uppercase tracking-wide text-navy/50">
                       {g.label}
                     </p>
                     <ul>
@@ -268,16 +268,16 @@ export default function NotificationBell() {
                               />
                               <div className="min-w-0 flex-1">
                                 <p
-                                  className={`font-body text-sm ${
+                                  className={`font-ui text-sm ${
                                     item.read ? 'text-navy/70' : 'font-semibold text-navy'
                                   }`}
                                 >
                                   {item.title}
                                 </p>
                                 {item.body && (
-                                  <p className="mt-0.5 font-body text-xs text-navy/60">{item.body}</p>
+                                  <p className="mt-0.5 font-ui text-xs text-navy/60">{item.body}</p>
                                 )}
-                                <p className="mt-1 font-body text-[0.7rem] text-navy/40">
+                                <p className="mt-1 font-ui text-[0.7rem] text-navy/40">
                                   {relativeTime(item.createdAt) || catLabel(item.category)}
                                 </p>
                               </div>
@@ -290,7 +290,7 @@ export default function NotificationBell() {
                 ))
               )}
               {payload && payload.configured === false && !error && (
-                <p className="px-4 py-3 font-body text-[0.7rem] text-navy/40">
+                <p className="px-4 py-3 font-ui text-[0.7rem] text-navy/40">
                   The notification store is not connected yet. Signals will appear once it is
                   configured.
                 </p>

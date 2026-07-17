@@ -50,6 +50,8 @@ import { indexMortgagesByName, type BookQuote } from '@/lib/smm-match'
 import { deskFragments, nextStepForStage, type DeskCounts } from '@/lib/desk'
 import { groupByPhase } from '@/config/lifecycle'
 import DeskStrip from '@/components/admin/DeskStrip'
+import StatusChip from '@/components/admin/ds/StatusChip'
+import { CELL_MONEY } from '@/components/admin/ds/table'
 import { isDemoMode } from '@/lib/demo'
 import { listCredentials } from '@/lib/compliance'
 import { credentialTone } from '@/lib/compliance-logic'
@@ -77,7 +79,7 @@ type Tone = 'red' | 'amber' | 'gray'
 const TONE_STYLES: Record<Tone, string> = {
   red: 'bg-red-50 border-red-200',
   amber: 'bg-amber-50 border-amber-200',
-  gray: 'bg-white border-gray-200',
+  gray: 'bg-white border-cool-200',
 }
 
 function AttentionCard({
@@ -96,28 +98,16 @@ function AttentionCard({
   return (
     <Link
       href={href}
-      className={`block border rounded-xl px-4 py-3 transition-colors hover:border-navy/40 ${TONE_STYLES[tone]}`}
+      className={`block border rounded-[9px] px-4 py-3 transition-colors hover:border-navy/40 ${TONE_STYLES[tone]}`}
     >
       <div className="flex items-center gap-2">
         <span
           className={`w-2 h-2 rounded-full shrink-0 ${
-            tone === 'red' ? 'bg-red-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-gray-300'
+            tone === 'red' ? 'bg-red-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-cool-300'
           }`}
         />
         <span className="font-heading font-bold text-navy text-sm">{title}</span>
-        {typeof count === 'number' && (
-          <span
-            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              tone === 'red'
-                ? 'bg-red-100 text-red-700'
-                : tone === 'amber'
-                  ? 'bg-amber-100 text-amber-800'
-                  : 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            {count}
-          </span>
-        )}
+        {typeof count === 'number' && <StatusChip tone={tone}>{count}</StatusChip>}
       </div>
       {children ? <div className="mt-2 space-y-1">{children}</div> : null}
     </Link>
@@ -126,9 +116,9 @@ function AttentionCard({
 
 function AttentionRow({ left, right }: { left: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 text-xs font-body text-gray-700">
+    <div className="flex items-baseline justify-between gap-3 text-xs font-ui text-cool-700">
       <span className="truncate">{left}</span>
-      {right ? <span className="shrink-0 text-gray-500">{right}</span> : null}
+      {right ? <span className="shrink-0 text-cool-500">{right}</span> : null}
     </div>
   )
 }
@@ -143,7 +133,7 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-white border border-cool-200 rounded-[9px] p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-navy font-bold text-base">{title}</h2>
         {action}
@@ -154,7 +144,7 @@ function SectionCard({
 }
 
 function QuietNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-gray-400 font-body py-2">{children}</p>
+  return <p className="text-sm text-cool-500 font-ui py-2">{children}</p>
 }
 
 function KpiCell({
@@ -173,17 +163,17 @@ function KpiCell({
   return (
     <Link
       href={href}
-      className="block border border-gray-200 rounded-lg px-3 py-2 bg-white hover:border-navy/40 transition-colors"
+      className="block border border-cool-200 rounded-[9px] px-3 py-2 bg-white hover:border-navy/40 transition-colors"
     >
-      <p className="text-[10px] font-body text-gray-400 uppercase tracking-wide truncate">{label}</p>
+      <p className="font-heading text-[10px] font-semibold tracking-[0.05em] text-cool-500 truncate">{label}</p>
       <p
-        className={`font-heading font-bold text-base ${
+        className={`font-heading font-bold text-base tabular-nums ${
           tone === 'good' ? 'text-green-600' : tone === 'bad' ? 'text-red-600' : 'text-navy'
         }`}
       >
         {value}
       </p>
-      {sub && <p className="text-[10px] font-body text-gray-500 truncate">{sub}</p>}
+      {sub && <p className="text-[10px] font-ui text-cool-500 truncate">{sub}</p>}
     </Link>
   )
 }
@@ -569,7 +559,7 @@ export default async function AdminHome() {
           />
         ))}
         {conds.overdue.length > 5 && (
-          <p className="text-xs text-gray-500">and {conds.overdue.length - 5} more</p>
+          <p className="text-xs text-cool-500">and {conds.overdue.length - 5} more</p>
         )}
       </AttentionCard>,
     )
@@ -843,16 +833,16 @@ export default async function AdminHome() {
       {/* Needs Attention rail */}
       <div className="mb-8">
         {workbenchOff && (
-          <div className="border border-gray-200 bg-white rounded-xl px-4 py-3 mb-3">
-            <p className="text-sm text-gray-500 font-body">
+          <div className="border border-cool-200 bg-white rounded-[9px] px-4 py-3 mb-3">
+            <p className="text-sm text-cool-500 font-ui">
               Workbench not connected. Conditions, flags, and approvals appear here once
               UW_SUPABASE_URL, UW_SUPABASE_READONLY_KEY, and UW_SUPABASE_PUBLISHABLE_KEY are set.
             </p>
           </div>
         )}
         {workbenchErr && (
-          <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 mb-3">
-            <p className="text-sm text-amber-800 font-body">Workbench: {workbenchErr}</p>
+          <div className="border border-amber-200 bg-amber-50 rounded-[9px] px-4 py-3 mb-3">
+            <p className="text-sm text-amber-800 font-ui">Workbench: {workbenchErr}</p>
           </div>
         )}
         {attentionCards.length > 0 ? (
@@ -860,8 +850,8 @@ export default async function AdminHome() {
         ) : (
           !workbenchOff &&
           !workbenchErr && (
-            <div className="border border-gray-200 bg-white rounded-xl px-4 py-3">
-              <p className="text-sm text-gray-500 font-body">
+            <div className="border border-cool-200 bg-white rounded-[9px] px-4 py-3">
+              <p className="text-sm text-cool-500 font-ui">
                 Nothing needs attention right now. Conditions, flags, approvals, and sync
                 are all clear.
               </p>
@@ -914,49 +904,49 @@ export default async function AdminHome() {
           <SectionCard
             title="Pipeline by stage"
             action={
-              <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-navy hover:text-lime">
+              <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-navy hover:text-ink">
                 Deals &rarr;
               </Link>
             }
           >
             {pipeline ? (
               <div>
-                <table className="w-full text-sm font-body">
+                <table className="w-full text-sm font-ui">
                   <thead>
-                    <tr className="text-left text-xs text-gray-400 uppercase tracking-wide">
-                      <th className="py-1.5 font-medium">Stage</th>
-                      <th className="py-1.5 font-medium text-right">Files</th>
-                      <th className="py-1.5 font-medium text-right">Volume</th>
+                    <tr className="text-left font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600">
+                      <th className="py-1.5">Stage</th>
+                      <th className="py-1.5 text-right">Files</th>
+                      <th className="py-1.5 text-right">Volume</th>
                     </tr>
                   </thead>
                   <tbody>
                     {[...pipeline.ordered, ...pipeline.other].map(row => (
-                      <tr key={row.stage} className="border-t border-gray-100">
+                      <tr key={row.stage} className="border-t border-cool-100">
                         <td className="py-2">
-                          <Link href="/portal/admin/underwriting" className="text-navy hover:text-lime">
+                          <Link href="/portal/admin/underwriting" className="text-navy hover:text-ink">
                             {row.stage}
                           </Link>
                         </td>
-                        <td className="py-2 text-right text-navy font-semibold">{row.count}</td>
-                        <td className="py-2 text-right text-gray-600">{fmtMoneyCompact(row.volume)}</td>
+                        <td className="py-2 text-right text-navy font-semibold tabular-nums">{row.count}</td>
+                        <td className={`py-2 text-right ${CELL_MONEY}`}>{fmtMoneyCompact(row.volume)}</td>
                       </tr>
                     ))}
-                    <tr className="border-t border-gray-200">
+                    <tr className="border-t border-cool-200">
                       <td className="py-2 font-semibold text-navy">Open total</td>
-                      <td className="py-2 text-right font-semibold text-navy">{pipeline.openCount}</td>
-                      <td className="py-2 text-right font-semibold text-navy">
+                      <td className="py-2 text-right font-semibold text-navy tabular-nums">{pipeline.openCount}</td>
+                      <td className={`py-2 text-right ${CELL_MONEY}`}>
                         {fmtMoneyCompact(pipeline.openVolume)}
                       </td>
                     </tr>
                   </tbody>
                 </table>
                 {pipeline.summary.map(s => (
-                  <p key={s.stage} className="text-xs text-gray-400 font-body mt-2">
+                  <p key={s.stage} className="text-xs text-cool-500 font-ui mt-2">
                     {s.stage}: {s.count} tracked records (not counted as pipeline)
                   </p>
                 ))}
                 {pipeline.staleCount > 0 && (
-                  <p className="text-xs text-amber-700 font-body mt-2">
+                  <p className="text-xs text-amber-700 font-ui mt-2">
                     {pipeline.staleCount} stale file{pipeline.staleCount === 1 ? '' : 's'} (
                     {fmtMoneyCompact(pipeline.staleVolume)}) held out of pipeline.{' '}
                     <Link href="/portal/admin/revenue" className="underline hover:text-navy">
@@ -987,11 +977,11 @@ export default async function AdminHome() {
                   className="block group"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-body text-navy group-hover:text-lime leading-snug">
+                    <span className="text-sm font-ui text-navy group-hover:text-ink leading-snug">
                       {t.subject}
                     </span>
                     <span
-                      className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                      className={`shrink-0 inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums ${
                         t.overdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
                       }`}
                     >
@@ -999,12 +989,12 @@ export default async function AdminHome() {
                     </span>
                   </div>
                   {t.priority && (
-                    <p className="text-[11px] text-gray-400 mt-0.5">{t.priority} priority</p>
+                    <p className="text-[11px] font-ui text-cool-500 mt-0.5">{t.priority} priority</p>
                   )}
                 </a>
               ))}
               {tasks.length > 8 && (
-                <p className="text-xs text-gray-400">and {tasks.length - 8} more in Zoho</p>
+                <p className="text-xs font-ui text-cool-500">and {tasks.length - 8} more in Zoho</p>
               )}
             </div>
           )}
@@ -1018,7 +1008,7 @@ export default async function AdminHome() {
           <SectionCard
             title={`Goal pacing ${year}`}
             action={
-              <Link href="/portal/admin/revenue" className="text-xs font-semibold text-navy hover:text-lime">
+              <Link href="/portal/admin/revenue" className="text-xs font-semibold text-navy hover:text-ink">
                 Revenue &rarr;
               </Link>
             }
@@ -1027,39 +1017,39 @@ export default async function AdminHome() {
               <div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
-                    <p className="font-heading text-xl text-navy font-bold">
+                    <p className="font-heading text-xl text-navy font-bold tabular-nums">
                       {fmtMoneyCompact(pacing.fundedYTD)}
                     </p>
-                    <p className="text-xs text-gray-500 font-body mt-0.5">
+                    <p className="text-xs text-cool-500 font-ui mt-0.5">
                       Funded YTD ({funded?.count ?? 0} deals)
                     </p>
                   </div>
                   <div>
-                    <p className="font-heading text-xl text-navy font-bold">
+                    <p className="font-heading text-xl text-navy font-bold tabular-nums">
                       {fmtMoneyCompact(pacing.weightedPipeline)}
                     </p>
-                    <p className="text-xs text-gray-500 font-body mt-0.5">Weighted pipeline</p>
+                    <p className="text-xs text-cool-500 font-ui mt-0.5">Weighted pipeline</p>
                   </div>
                   <div>
-                    <p className="font-heading text-xl text-navy font-bold">
+                    <p className="font-heading text-xl text-navy font-bold tabular-nums">
                       {fmtMoneyCompact(pacing.combined)}
                     </p>
-                    <p className="text-xs text-gray-500 font-body mt-0.5">Combined</p>
+                    <p className="text-xs text-cool-500 font-ui mt-0.5">Combined</p>
                   </div>
                   <div>
                     <p
-                      className={`font-heading text-xl font-bold ${pacing.onPace ? 'text-green-600' : 'text-red-600'}`}
+                      className={`font-heading text-xl font-bold tabular-nums ${pacing.onPace ? 'text-green-600' : 'text-red-600'}`}
                     >
                       {(pacing.onPace ? '+' : '-') + fmtMoneyCompact(Math.abs(pacing.delta))}
                     </p>
-                    <p className="text-xs text-gray-500 font-body mt-0.5">
+                    <p className="text-xs text-cool-500 font-ui mt-0.5">
                       {pacing.onPace ? 'Ahead of' : 'Behind'} straight-line
                     </p>
                   </div>
                 </div>
 
                 {unmappedStages.length > 0 && (
-                  <p className="mt-3 rounded bg-amber-50 border border-amber-300 px-2.5 py-1.5 text-[11px] font-body text-amber-900">
+                  <p className="mt-3 rounded bg-amber-50 border border-amber-300 px-2.5 py-1.5 text-[11px] font-ui text-amber-900">
                     <span className="font-semibold">Unmapped stage{unmappedStages.length > 1 ? 's' : ''}:</span>{' '}
                     {unmappedStages.map(s => `${s.stage} (${fmtMoneyCompact(s.volume)})`).join(', ')} counted at
                     zero weight until mapped in config/pipeline.ts.
@@ -1068,9 +1058,9 @@ export default async function AdminHome() {
 
                 {/* Progress vs the straight-line marker */}
                 <div className="mt-5">
-                  <div className="relative h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="relative h-2.5 bg-cool-100 rounded-full overflow-hidden">
                     <div
-                      className="absolute left-0 top-0 bottom-0 bg-lime"
+                      className="absolute left-0 top-0 bottom-0 bg-navy"
                       style={{
                         width: `${Math.min(100, (pacing.combined / pacing.annualTarget) * 100)}%`,
                       }}
@@ -1081,7 +1071,7 @@ export default async function AdminHome() {
                       title="Straight-line position for today"
                     />
                   </div>
-                  <div className="flex justify-between text-[11px] text-gray-400 font-body mt-1.5">
+                  <div className="flex justify-between text-[11px] text-cool-500 font-ui mt-1.5 tabular-nums">
                     <span>
                       Target {fmtMoneyCompact(pacing.annualTarget)} &middot; day {pacing.dayOfYear} of{' '}
                       {pacing.daysInYear}
@@ -1103,7 +1093,7 @@ export default async function AdminHome() {
         <SectionCard
           title="Rates"
           action={
-            <Link href="/portal/admin/lenders?tab=rates" className="text-xs font-semibold text-navy hover:text-lime">
+            <Link href="/portal/admin/lenders?tab=rates" className="text-xs font-semibold text-navy hover:text-ink">
               Rates &rarr;
             </Link>
           }
@@ -1111,28 +1101,28 @@ export default async function AdminHome() {
           {workbenchOff ? (
             <QuietNote>Workbench not connected.</QuietNote>
           ) : rates ? (
-            <div className="space-y-2.5 font-body text-sm">
+            <div className="space-y-2.5 font-ui text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Approved current quotes</span>
-                <span className="text-navy font-semibold">{rates.approvedCurrent}</span>
+                <span className="text-cool-500">Approved current quotes</span>
+                <span className="text-navy font-semibold tabular-nums">{rates.approvedCurrent}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Superseded</span>
-                <span className="text-navy font-semibold">{rates.superseded}</span>
+                <span className="text-cool-500">Superseded</span>
+                <span className="text-navy font-semibold tabular-nums">{rates.superseded}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Newest approved sheet</span>
-                <span className="text-navy font-semibold">
+                <span className="text-cool-500">Newest approved sheet</span>
+                <span className="text-navy font-semibold tabular-nums">
                   {rates.newestApprovedAsOf ? fmtShortDate(rates.newestApprovedAsOf) : 'none'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Pending sheet reviews</span>
-                <Link href="/portal/admin/approvals" className="text-navy font-semibold hover:text-lime">
+                <span className="text-cool-500">Pending sheet reviews</span>
+                <Link href="/portal/admin/approvals" className="text-navy font-semibold tabular-nums hover:text-ink">
                   {sheets.length}
                 </Link>
               </div>
-              <p className="text-[11px] text-gray-400 pt-1">
+              <p className="text-[11px] text-cool-500 pt-1">
                 Promo countdowns and the full browser live on the Rates page.
               </p>
             </div>
@@ -1147,7 +1137,7 @@ export default async function AdminHome() {
       <SectionCard
         title={`Closings in the next ${CLOSINGS_STRIP_DAYS} days`}
         action={
-          <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-navy hover:text-lime">
+          <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-navy hover:text-ink">
             Deals &rarr;
           </Link>
         }
@@ -1165,19 +1155,19 @@ export default async function AdminHome() {
                 <Link
                   key={c.id}
                   href="/portal/admin/underwriting"
-                  className="border border-gray-200 rounded-lg px-3 py-2.5 hover:border-lime transition-colors"
+                  className="border border-cool-200 rounded-[9px] px-3 py-2.5 hover:border-navy transition-colors"
                 >
-                  <p className="text-sm font-body font-semibold text-navy truncate">{c.dealName}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-sm font-ui font-semibold text-navy truncate">{c.dealName}</p>
+                  <p className="text-xs font-ui text-cool-500 mt-0.5 tabular-nums">
                     {fmtShortDate(c.closingDate)} &middot; {c.stage}
                   </p>
-                  <p className="text-[11px] mt-1">
+                  <p className="text-[11px] font-ui mt-1">
                     {wb ? (
                       <span className={openConds ? 'text-amber-700' : 'text-green-700'}>
                         {openConds} open condition{openConds === 1 ? '' : 's'}
                       </span>
                     ) : (
-                      <span className="text-gray-400">no workbench file</span>
+                      <span className="text-cool-500">no workbench file</span>
                     )}
                   </p>
                 </Link>

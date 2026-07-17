@@ -111,7 +111,7 @@ export function RateHeadline({ display, size = 'lg' }: { display: QuoteRateDispl
       <p className={`font-heading font-bold text-navy ${size === 'lg' ? 'text-3xl' : 'text-2xl'}`}>
         {rateHeadlineText(display)}
       </p>
-      {sub && <p className="text-[11px] text-gray-500 font-body mt-0.5 max-w-[180px]">{sub}</p>}
+      {sub && <p className="text-[11px] text-cool-500 font-ui mt-0.5 max-w-[180px]">{sub}</p>}
     </div>
   )
 }

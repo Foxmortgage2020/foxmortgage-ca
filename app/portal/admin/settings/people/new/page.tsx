@@ -42,17 +42,17 @@ export default async function ProvisionPage() {
     <div className="max-w-3xl">
       <div className="mb-6">
         <h1 className="font-heading text-navy text-2xl font-bold">Provision someone</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1">
           Creates the Clerk user with roles stamped, sends the invitation, and records who
           provisioned whom.{' '}
-          <Link href="/portal/admin/settings/people" className="text-navy underline hover:text-lime">
+          <Link href="/portal/admin/settings/people" className="text-navy underline hover:text-ink">
             Back to People
           </Link>
         </p>
       </div>
 
       {!zohoOk && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm font-body text-amber-800">
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-[9px] p-3 text-sm font-ui text-amber-800">
           The Zoho partner list could not be loaded, so the partner flow&apos;s picker is empty
           right now. Staff and agent flows are unaffected.
         </div>

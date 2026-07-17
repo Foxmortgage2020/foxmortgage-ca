@@ -90,7 +90,7 @@ export default async function ChangelogPage() {
 
   const KIND_STYLE: Record<ChangeEvent['kind'], string> = {
     sheet: 'bg-green-100 text-green-700',
-    intel: 'bg-gray-100 text-gray-600',
+    intel: 'bg-cool-100 text-cool-600',
     platform: 'bg-navy/10 text-navy',
   }
   const KIND_LABEL: Record<ChangeEvent['kind'], string> = {
@@ -103,24 +103,24 @@ export default async function ChangelogPage() {
     <div className="max-w-4xl">
       <div>
         <h1 className="font-heading text-navy text-2xl font-bold">Changelog</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1">
           What changed: sheets in force, intel arrivals, and platform releases, grouped by week.
         </p>
       </div>
 
       {!agentId && (
-        <div className="mt-4 bg-white border border-gray-200 rounded-xl px-4 py-3">
-          <p className="text-sm text-gray-500 font-body">
+        <div className="mt-4 bg-white border border-cool-200 rounded-[9px] px-4 py-3">
+          <p className="text-sm text-cool-500 font-ui">
             Workbench not available, so only platform notes render below.
           </p>
         </div>
       )}
 
       {/* Offers are current-state, not dated events */}
-      <div className="mt-5 bg-white border border-gray-200 rounded-xl p-5">
+      <div className="mt-5 bg-white border border-cool-200 rounded-[9px] p-5">
         <h2 className="font-heading text-navy font-bold text-base mb-3">Active offers right now</h2>
         <PromoCountdowns />
-        <p className="text-[11px] text-gray-400 font-body mt-2">
+        <p className="text-[11px] text-cool-500 font-ui mt-2">
           The knowledge base stores offer expiries, not start dates, so offers render as current
           state instead of week-dated events.
         </p>
@@ -132,7 +132,7 @@ export default async function ChangelogPage() {
             <h2 className="font-heading text-navy font-bold text-sm uppercase tracking-wide">
               Week of {fmtShortDate(week)}
             </h2>
-            <div className="mt-2 bg-white border border-gray-200 rounded-xl divide-y divide-gray-50">
+            <div className="mt-2 bg-white border border-cool-200 rounded-[9px] divide-y divide-cool-100">
               {list.map((e, i) => (
                 <div key={i} className="px-4 py-2.5">
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
@@ -140,15 +140,15 @@ export default async function ChangelogPage() {
                       {KIND_LABEL[e.kind]}
                     </span>
                     {e.href ? (
-                      <Link href={e.href} className="text-sm font-body font-semibold text-navy hover:text-lime">
+                      <Link href={e.href} className="text-sm font-ui font-semibold text-navy hover:text-ink">
                         {e.title}
                       </Link>
                     ) : (
-                      <span className="text-sm font-body font-semibold text-navy">{e.title}</span>
+                      <span className="text-sm font-ui font-semibold text-navy">{e.title}</span>
                     )}
-                    <span className="text-[11px] text-gray-400 ml-auto">{fmtDateTime(e.dateISO)}</span>
+                    <span className="text-[11px] text-cool-500 ml-auto tabular-nums">{fmtDateTime(e.dateISO)}</span>
                   </div>
-                  {e.detail && <p className="text-xs font-body text-gray-500 mt-0.5">{e.detail}</p>}
+                  {e.detail && <p className="text-xs font-ui text-cool-500 mt-0.5">{e.detail}</p>}
                 </div>
               ))}
             </div>

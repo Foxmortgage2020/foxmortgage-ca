@@ -28,6 +28,7 @@ import type {
   CompliancePolicyAck,
 } from '@/lib/compliance'
 import type { ComplianceAttentionDeal } from '@/lib/underwriting'
+import StatusChip, { type ChipTone } from '@/components/admin/ds/StatusChip'
 
 const TABS = ['dashboard', 'credentials', 'register', 'policies'] as const
 type Tab = (typeof TABS)[number]
@@ -43,15 +44,25 @@ export interface ComplianceInitial {
   workbenchOk: boolean
 }
 
-const TONE_CHIP: Record<CredentialTone, string> = {
-  red: 'bg-red-100 text-red-700',
-  amber: 'bg-amber-100 text-amber-800',
-  ok: 'bg-green-100 text-green-700',
-  'no-date': 'bg-gray-100 text-gray-600',
+const TONE_CHIP: Record<CredentialTone, ChipTone> = {
+  red: 'red',
+  amber: 'amber',
+  ok: 'green',
+  'no-date': 'gray',
 }
 
-function Chip({ cls, children }: { cls: string; children: React.ReactNode }) {
-  return <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{children}</span>
+// The four semantic tones are the design system's StatusChip; navy is this
+// module's one extension (a reported complaint is with the regulator, a
+// distinct state rather than a good/bad tone).
+function Chip({ tone, children }: { tone: ChipTone | 'navy'; children: React.ReactNode }) {
+  if (tone === 'navy') {
+    return (
+      <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-navy/10 text-navy">
+        {children}
+      </span>
+    )
+  }
+  return <StatusChip tone={tone}>{children}</StatusChip>
 }
 
 function fmtWhen(iso: string): string {
@@ -68,11 +79,11 @@ function fmtWhen(iso: string): string {
 }
 
 const inputCls =
-  'w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm font-body bg-white focus:outline-none focus:border-navy/50'
+  'w-full border border-cool-200 rounded-lg px-2.5 py-2 text-sm font-ui bg-white focus:outline-none focus:border-navy/50'
 const btnPrimary =
-  'min-h-[40px] px-4 py-2 rounded-lg text-sm font-semibold font-body bg-navy text-white hover:bg-navy/90 disabled:opacity-50'
+  'min-h-[40px] px-4 py-2 rounded-lg text-sm font-semibold font-ui bg-navy text-white hover:bg-navy/90 disabled:opacity-50'
 const btnQuiet =
-  'min-h-[40px] px-3 py-2 rounded-lg text-sm font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50 disabled:opacity-50'
+  'min-h-[40px] px-3 py-2 rounded-lg text-sm font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50 disabled:opacity-50'
 
 // One record's append-only change history, fetched on demand.
 function EventHistory({ recordType, recordId }: { recordType: string; recordId: string }) {
@@ -98,22 +109,22 @@ function EventHistory({ recordType, recordId }: { recordType: string; recordId: 
         if ((e.target as HTMLDetailsElement).open && events === null) void load()
       }}
     >
-      <summary className="text-[11px] text-gray-400 cursor-pointer select-none py-1">
+      <summary className="text-[11px] text-cool-400 cursor-pointer select-none py-1">
         change history (who and when, append-only)
       </summary>
-      {error && <p className="text-[11px] text-red-600 font-body mt-1">{error}</p>}
-      {events === null && !error && <p className="text-[11px] text-gray-400 font-body mt-1">loading…</p>}
+      {error && <p className="text-[11px] text-red-600 font-ui mt-1">{error}</p>}
+      {events === null && !error && <p className="text-[11px] text-cool-400 font-ui mt-1">loading…</p>}
       {events && events.length === 0 && (
-        <p className="text-[11px] text-gray-400 font-body mt-1">No events recorded.</p>
+        <p className="text-[11px] text-cool-400 font-ui mt-1">No events recorded.</p>
       )}
       {events && events.length > 0 && (
         <div className="mt-1 space-y-1">
           {events.map(ev => (
-            <p key={ev.id} className="text-[11px] text-gray-500 font-body">
-              <span className="font-semibold text-gray-600">{ev.action.replace(/_/g, ' ')}</span> by {ev.actor}{' '}
+            <p key={ev.id} className="text-[11px] text-cool-500 font-ui">
+              <span className="font-semibold text-cool-600">{ev.action.replace(/_/g, ' ')}</span> by {ev.actor}{' '}
               {fmtWhen(ev.created_at)}
               {ev.detail && Object.keys(ev.detail).length > 0 && (
-                <span className="text-gray-400"> · {JSON.stringify(ev.detail)}</span>
+                <span className="text-cool-400"> · {JSON.stringify(ev.detail)}</span>
               )}
             </p>
           ))}
@@ -189,8 +200,8 @@ export default function ComplianceModule({
 
   if (!initial.storeConfigured) {
     return (
-      <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
-        <p className="text-sm text-gray-500 font-body">
+      <div className="mt-6 bg-white border border-cool-200 rounded-[9px] p-5">
+        <p className="text-sm text-cool-500 font-ui">
           The compliance store is not configured (FOXCA_SUPABASE_URL and FOXCA_SUPABASE_KEY).
           Credentials, the register, and policies appear once it is.
         </p>
@@ -206,15 +217,15 @@ export default function ComplianceModule({
   return (
     <div>
       {initial.storeError && (
-        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <p className="text-sm text-amber-800 font-body">
+        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-[9px] px-4 py-3">
+          <p className="text-sm text-amber-800 font-ui">
             The compliance store did not answer fully: {initial.storeError}. Reload to retry.
           </p>
         </div>
       )}
       {banner && (
         <div
-          className={`sticky top-2 z-20 mt-4 rounded-lg px-4 py-2.5 text-sm font-body border ${
+          className={`sticky top-2 z-20 mt-4 rounded-lg px-4 py-2.5 text-sm font-ui border ${
             banner.tone === 'green'
               ? 'bg-green-50 border-green-200 text-green-800'
               : 'bg-red-50 border-red-200 text-red-700'
@@ -224,14 +235,17 @@ export default function ComplianceModule({
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="mt-5 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Tabs: client-state buttons restyled to the design-system tab look
+          (hairline track, navy active); the ?tab= handlers are unchanged. */}
+      <div className="mt-5 flex flex-wrap gap-x-5 border-b border-cool-200">
         {TABS.map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`shrink-0 min-h-[44px] px-4 py-2 rounded-full text-sm font-semibold font-body transition-colors ${
-              tab === t ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-navy hover:border-navy/40'
+            className={`-mb-px inline-flex items-center border-b-2 px-0.5 pb-2 pt-1 font-heading text-[13px] motion-safe:transition-colors ${
+              tab === t
+                ? 'border-navy font-semibold text-navy'
+                : 'border-transparent font-medium text-cool-600 hover:text-navy'
             }`}
             data-testid={`compliance-tab-${t}`}
           >
@@ -305,10 +319,10 @@ export default function ComplianceModule({
           </div>
 
           {/* Credential expiries approaching */}
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="bg-white border border-cool-200 rounded-[9px] p-5">
             <h2 className="font-heading text-navy font-bold text-base mb-3">Renewals approaching</h2>
             {activeCredentials.filter(c => credentialTone(c.expires_on, todayYMD) !== 'ok').length === 0 ? (
-              <p className="text-sm text-gray-400 font-body">
+              <p className="text-sm text-cool-400 font-ui">
                 Nothing inside the {CREDENTIAL_AMBER_DAYS}-day window, and every recorded date is
                 beyond it.
               </p>
@@ -319,15 +333,15 @@ export default function ComplianceModule({
                   .map(c => {
                     const tone = credentialTone(c.expires_on, todayYMD)
                     return (
-                      <div key={c.id} className="flex flex-wrap items-center gap-2 text-sm font-body">
-                        <Chip cls={TONE_CHIP[tone]}>
+                      <div key={c.id} className="flex flex-wrap items-center gap-2 text-sm font-ui">
+                        <Chip tone={TONE_CHIP[tone]}>
                           {tone === 'no-date'
                             ? 'no date recorded'
                             : `${daysUntil(c.expires_on!, todayYMD)} days`}
                         </Chip>
                         <span className="text-navy font-semibold">{c.name}</span>
                         {!c.date_confirmed && c.expires_on && (
-                          <Chip cls="bg-amber-100 text-amber-800">confirm date</Chip>
+                          <Chip tone="amber">confirm date</Chip>
                         )}
                       </div>
                     )
@@ -337,27 +351,27 @@ export default function ComplianceModule({
           </div>
 
           {/* Deals whose compliance card reads attention */}
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="bg-white border border-cool-200 rounded-[9px] p-5">
             <h2 className="font-heading text-navy font-bold text-base mb-3">Files reading attention</h2>
             {!initial.workbenchOk ? (
-              <p className="text-sm text-gray-400 font-body">
+              <p className="text-sm text-cool-400 font-ui">
                 The workbench did not answer; per-file signals are unavailable right now.
               </p>
             ) : initial.attentionDeals.length === 0 ? (
-              <p className="text-sm text-gray-400 font-body">
+              <p className="text-sm text-cool-400 font-ui">
                 No file has an open compliance_gap flag or an overdue compliance-bearing condition.
               </p>
             ) : (
               <div className="space-y-2">
                 {initial.attentionDeals.map(d => (
-                  <div key={d.dealId} className="flex flex-wrap items-baseline gap-2 text-sm font-body">
+                  <div key={d.dealId} className="flex flex-wrap items-baseline gap-2 text-sm font-ui">
                     <Link
                       href={`/portal/admin/deals/${d.dealId}`}
-                      className="text-navy font-semibold underline hover:text-lime"
+                      className="text-navy font-semibold underline hover:text-ink"
                     >
                       {d.fileRef}
                     </Link>
-                    <span className="text-xs text-gray-500">{d.reasons.join('; ')}</span>
+                    <span className="text-xs text-cool-500">{d.reasons.join('; ')}</span>
                   </div>
                 ))}
               </div>
@@ -365,16 +379,16 @@ export default function ComplianceModule({
           </div>
 
           {/* Honest gaps */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+          <div className="bg-cool-50 border border-cool-200 rounded-[9px] p-5">
             <h2 className="font-heading text-navy font-bold text-base mb-2">What the workbench does not capture yet</h2>
-            <p className="text-xs text-gray-500 font-body mb-2">
+            <p className="text-xs text-cool-500 font-ui mb-2">
               These fields render as honest gaps on every file's compliance card and never count
               toward a clear posture. They are the follow-up list for a future fox-underwriting
               session.
             </p>
             <ul className="list-disc pl-5 space-y-0.5">
               {WORKBENCH_GAP_FIELDS.map(f => (
-                <li key={f} className="text-sm text-gray-600 font-body">
+                <li key={f} className="text-sm text-cool-600 font-ui">
                   {f}
                 </li>
               ))}
@@ -433,22 +447,22 @@ function SummaryTile({
   onOpen?: () => void
 }) {
   const dot =
-    tone === 'red' ? 'bg-red-500' : tone === 'amber' ? 'bg-amber-500' : tone === 'ok' ? 'bg-green-500' : 'bg-gray-300'
+    tone === 'red' ? 'bg-red-500' : tone === 'amber' ? 'bg-amber-500' : tone === 'ok' ? 'bg-green-500' : 'bg-cool-300'
   const inner = (
     <>
       <div className="flex items-center gap-2">
         <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
         <span className="font-heading font-bold text-navy text-sm">{title}</span>
       </div>
-      <p className="text-xs text-gray-500 font-body mt-1.5">{body}</p>
+      <p className="text-xs text-cool-500 font-ui mt-1.5">{body}</p>
     </>
   )
   return onOpen ? (
-    <button onClick={onOpen} className="text-left bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-navy/40">
+    <button onClick={onOpen} className="text-left bg-white border border-cool-200 rounded-[9px] px-4 py-3 hover:border-navy/40">
       {inner}
     </button>
   ) : (
-    <div className="bg-white border border-gray-200 rounded-xl px-4 py-3">{inner}</div>
+    <div className="bg-white border border-cool-200 rounded-[9px] px-4 py-3">{inner}</div>
   )
 }
 
@@ -509,11 +523,11 @@ function CredentialsTab({
   const renderRow = (c: ComplianceCredential) => {
     const tone = credentialTone(c.expires_on, todayYMD)
     return (
-      <div key={c.id} className="border border-gray-100 rounded-lg p-3" data-testid={`credential-${c.id}`}>
+      <div key={c.id} className="bg-white border border-cool-200 rounded-[9px] p-3" data-testid={`credential-${c.id}`}>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-body font-semibold text-navy">{c.name}</span>
+          <span className="text-sm font-ui font-semibold text-navy">{c.name}</span>
           {c.status === 'active' ? (
-            <Chip cls={TONE_CHIP[tone]}>
+            <Chip tone={TONE_CHIP[tone]}>
               {tone === 'no-date'
                 ? 'no date recorded'
                 : tone === 'ok'
@@ -521,17 +535,17 @@ function CredentialsTab({
                   : `${daysUntil(c.expires_on!, todayYMD)} days to ${c.expires_on}`}
             </Chip>
           ) : (
-            <Chip cls="bg-gray-100 text-gray-500">retired</Chip>
+            <Chip tone="gray">retired</Chip>
           )}
           {!c.date_confirmed && c.status === 'active' && (
-            <Chip cls="bg-amber-100 text-amber-800">confirm date</Chip>
+            <Chip tone="amber">confirm date</Chip>
           )}
         </div>
-        <p className="text-xs text-gray-500 font-body mt-1">
+        <p className="text-xs text-cool-500 font-ui mt-1">
           Holder {c.holder}
           {c.notes ? ` · ${c.notes}` : ''}
         </p>
-        <p className="text-[11px] text-gray-400 font-body mt-1">
+        <p className="text-[11px] text-cool-400 font-ui mt-1">
           last change by {c.updated_by} {fmtWhen(c.updated_at)}
           {c.retired_at ? ` · retired by ${c.retired_by} ${fmtWhen(c.retired_at)}` : ''}
         </p>
@@ -571,14 +585,14 @@ function CredentialsTab({
     <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
       <div className="space-y-3">
         {active.length === 0 && (
-          <p className="text-sm text-gray-400 font-body bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-sm text-cool-400 font-ui bg-white border border-cool-200 rounded-[9px] p-5">
             No active credentials recorded.
           </p>
         )}
         {active.map(renderRow)}
         {retired.length > 0 && (
           <details className="mt-2">
-            <summary className="text-sm font-semibold text-gray-500 cursor-pointer select-none py-1.5">
+            <summary className="text-sm font-semibold text-cool-500 cursor-pointer select-none py-1.5">
               Retired ({retired.length}): kept with history, never deleted
             </summary>
             <div className="mt-2 space-y-3">{retired.map(renderRow)}</div>
@@ -586,7 +600,7 @@ function CredentialsTab({
         )}
       </div>
       {canManage && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 lg:self-start">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-4 lg:self-start">
           <h3 className="font-heading text-navy font-bold text-sm mb-3">
             {form.id ? 'Edit credential' : 'Add a credential'}
           </h3>
@@ -609,12 +623,12 @@ function CredentialsTab({
               value={form.expiresOn}
               onChange={e => setForm(f => ({ ...f, expiresOn: e.target.value }))}
             />
-            <label className="flex items-center gap-2 text-xs font-body text-gray-600 cursor-pointer select-none">
+            <label className="flex items-center gap-2 text-xs font-ui text-cool-600 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={form.dateConfirmed}
                 onChange={e => setForm(f => ({ ...f, dateConfirmed: e.target.checked }))}
-                className="accent-[#032133]"
+                className="accent-navy"
               />
               The date above is confirmed, not a placeholder
             </label>
@@ -635,7 +649,7 @@ function CredentialsTab({
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-gray-400 font-body">
+            <p className="text-[11px] text-cool-400 font-ui">
               Every change records who and when. Items within {CREDENTIAL_AMBER_DAYS} days of expiry
               join the home attention rail; within {CREDENTIAL_RED_DAYS} days they go red.
             </p>
@@ -650,11 +664,11 @@ function CredentialsTab({
 
 const COMPLAINT_STATUSES = ['open', 'investigating', 'resolved', 'reported'] as const
 
-const STATUS_CHIP: Record<string, string> = {
-  open: 'bg-red-100 text-red-700',
-  investigating: 'bg-amber-100 text-amber-800',
-  resolved: 'bg-green-100 text-green-700',
-  reported: 'bg-navy/10 text-navy',
+const STATUS_CHIP: Record<string, ChipTone | 'navy'> = {
+  open: 'red',
+  investigating: 'amber',
+  resolved: 'green',
+  reported: 'navy',
 }
 
 function RegisterTab({
@@ -709,9 +723,9 @@ function RegisterTab({
     <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
       <div className="space-y-3">
         {complaints.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <p className="text-sm text-gray-600 font-body font-semibold">The register is empty.</p>
-            <p className="text-sm text-gray-500 font-body mt-1.5">
+          <div className="bg-white border border-cool-200 rounded-[9px] p-5">
+            <p className="text-sm text-cool-600 font-ui font-semibold">The register is empty.</p>
+            <p className="text-sm text-cool-500 font-ui mt-1.5">
               FSRA expects a supervised practice to keep a complaint and incident register even when
               there is nothing to record. This is that register: when a complaint or incident
               arrives, record it here with its received date, source, and summary, and track its
@@ -720,20 +734,20 @@ function RegisterTab({
           </div>
         ) : (
           complaints.map(c => (
-            <div key={c.id} className="bg-white border border-gray-200 rounded-xl p-4" data-testid={`complaint-${c.id}`}>
+            <div key={c.id} className="bg-white border border-cool-200 rounded-[9px] p-4" data-testid={`complaint-${c.id}`}>
               <div className="flex flex-wrap items-center gap-2">
-                <Chip cls={STATUS_CHIP[c.status] ?? 'bg-gray-100 text-gray-600'}>{c.status}</Chip>
-                <span className="text-sm font-body font-semibold text-navy">received {c.received_on}</span>
-                <span className="text-xs text-gray-500 font-body">from {c.source}</span>
-                {c.reference && <Chip cls="bg-gray-100 text-gray-600">ref {c.reference}</Chip>}
+                <Chip tone={STATUS_CHIP[c.status] ?? 'gray'}>{c.status}</Chip>
+                <span className="text-sm font-ui font-semibold text-navy tabular-nums">received {c.received_on}</span>
+                <span className="text-xs text-cool-500 font-ui">from {c.source}</span>
+                {c.reference && <Chip tone="gray">ref {c.reference}</Chip>}
               </div>
-              <p className="text-sm text-gray-700 font-body mt-2 whitespace-pre-wrap break-words">{c.summary}</p>
+              <p className="text-sm text-cool-700 font-ui mt-2 whitespace-pre-wrap break-words">{c.summary}</p>
               {c.resolution_notes && (
-                <p className="text-xs text-gray-600 font-body mt-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5">
+                <p className="text-xs text-cool-600 font-ui mt-1.5 bg-cool-50 rounded-lg px-2.5 py-1.5">
                   Resolution: {c.resolution_notes}
                 </p>
               )}
-              <p className="text-[11px] text-gray-400 font-body mt-1.5">
+              <p className="text-[11px] text-cool-400 font-ui mt-1.5">
                 recorded by {c.created_by} {fmtWhen(c.created_at)} · last change by {c.updated_by}{' '}
                 {fmtWhen(c.updated_at)}
               </p>
@@ -760,7 +774,7 @@ function RegisterTab({
         )}
       </div>
       {canManage && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 lg:self-start">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-4 lg:self-start">
           <h3 className="font-heading text-navy font-bold text-sm mb-3">Record a complaint or incident</h3>
           <div className="space-y-2.5">
             <input
@@ -795,7 +809,7 @@ function RegisterTab({
             >
               {busy ? 'Working…' : 'Record it'}
             </button>
-            <p className="text-[11px] text-gray-400 font-body">
+            <p className="text-[11px] text-cool-400 font-ui">
               Records never delete. The reference is plain text; nothing writes to Zoho or the
               workbench from here.
             </p>
@@ -890,15 +904,15 @@ function PoliciesTab({
     <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
       <div className="space-y-3">
         {policies.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <p className="text-sm text-gray-600 font-body font-semibold">No policies yet.</p>
-            <p className="text-sm text-gray-500 font-body mt-1.5">
+          <div className="bg-white border border-cool-200 rounded-[9px] p-5">
+            <p className="text-sm text-cool-600 font-ui font-semibold">No policies yet.</p>
+            <p className="text-sm text-cool-500 font-ui mt-1.5">
               The library holds the practice's written policies as versioned documents with
               read-and-acknowledge records. With one person today the mechanics are simple, which
               is the right time to build the habit: the day a hire exists, their onboarding
               checklist points here.
             </p>
-            <p className="text-sm text-gray-500 font-body mt-1.5">
+            <p className="text-sm text-cool-500 font-ui mt-1.5">
               Two natural first entries, when you want them: the UI test automation discipline
               (test ids, TEST rows, preview-only decision testing) and the copy rules the platform
               writes by. These are suggestions; nothing is created for you.
@@ -908,17 +922,17 @@ function PoliciesTab({
           policies.map(p => {
             const currentAcks = ackFor(p)
             return (
-              <div key={p.id} className="bg-white border border-gray-200 rounded-xl p-4" data-testid={`policy-${p.id}`}>
+              <div key={p.id} className="bg-white border border-cool-200 rounded-[9px] p-4" data-testid={`policy-${p.id}`}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-body font-semibold text-navy">{p.title}</span>
-                  <Chip cls="bg-gray-100 text-gray-600">v{p.version}</Chip>
-                  {p.status === 'retired' && <Chip cls="bg-gray-100 text-gray-500">retired</Chip>}
-                  {p.effective_on && <Chip cls="bg-gray-100 text-gray-600">effective {p.effective_on}</Chip>}
-                  <Chip cls={currentAcks.length > 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'}>
+                  <span className="text-sm font-ui font-semibold text-navy">{p.title}</span>
+                  <Chip tone="gray">v{p.version}</Chip>
+                  {p.status === 'retired' && <Chip tone="gray">retired</Chip>}
+                  {p.effective_on && <Chip tone="gray">effective {p.effective_on}</Chip>}
+                  <Chip tone={currentAcks.length > 0 ? 'green' : 'amber'}>
                     {currentAcks.length} acknowledgment{currentAcks.length === 1 ? '' : 's'} on v{p.version}
                   </Chip>
                 </div>
-                <p className="text-[11px] text-gray-400 font-body mt-1">
+                <p className="text-[11px] text-cool-400 font-ui mt-1">
                   last change by {p.updated_by} {fmtWhen(p.updated_at)}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -947,12 +961,12 @@ function PoliciesTab({
                   )}
                 </div>
                 {openPolicy === p.id && (
-                  <div className="mt-3 border-t border-gray-100 pt-3 prose prose-sm max-w-none font-body">
+                  <div className="mt-3 border-t border-cool-100 pt-3 prose prose-sm max-w-none font-ui">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{p.body_md}</ReactMarkdown>
                   </div>
                 )}
                 {currentAcks.length > 0 && (
-                  <p className="text-[11px] text-gray-400 font-body mt-2">
+                  <p className="text-[11px] text-cool-400 font-ui mt-2">
                     {currentAcks.map(a => `${a.acked_by} ${fmtWhen(a.acked_at)}`).join(' · ')}
                   </p>
                 )}
@@ -963,7 +977,7 @@ function PoliciesTab({
         )}
       </div>
       {canManage && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 lg:self-start">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-4 lg:self-start">
           <h3 className="font-heading text-navy font-bold text-sm mb-3">
             {form.id ? 'Edit policy (creates a new version)' : 'Write a policy'}
           </h3>
@@ -1001,7 +1015,7 @@ function PoliciesTab({
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-gray-400 font-body">
+            <p className="text-[11px] text-cool-400 font-ui">
               Every version is retained; acknowledgments attach to the version that was read.
             </p>
           </div>

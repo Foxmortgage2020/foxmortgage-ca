@@ -59,7 +59,7 @@ export function OfferWindowBadge({
         <span aria-hidden className="text-red-600 text-base leading-none mt-0.5">
           &#9888;
         </span>
-        <p className="text-xs font-body font-semibold text-red-800">
+        <p className="text-xs font-ui font-semibold text-red-800">
           No stated end date. This offer will not auto-retire; confirm it is still live before quoting.
           {w.started ? ` Started ${fmtShortDate(w.started)}.` : ''}
         </p>
@@ -72,7 +72,7 @@ export function OfferWindowBadge({
       ? 'bg-red-100 text-red-800'
       : w.tone === 'amber'
         ? 'bg-amber-100 text-amber-900'
-        : 'bg-gray-100 text-gray-600'
+        : 'bg-cool-100 text-cool-600'
   const label = w.expired
     ? `expired ${fmtShortDate(w.expiry)}`
     : `${w.daysLeft} day${w.daysLeft === 1 ? '' : 's'} left, expires ${fmtShortDate(w.expiry)}`
@@ -83,7 +83,7 @@ export function OfferWindowBadge({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${toneCls}`}>{label}</span>
-      {w.started && <span className="text-[11px] text-gray-500 font-body">started {fmtShortDate(w.started)}</span>}
+      {w.started && <span className="text-[11px] text-cool-500 font-ui">started {fmtShortDate(w.started)}</span>}
     </div>
   )
 }
@@ -132,12 +132,12 @@ export function OfferPricedElements({
           />
         )}
         {rtLabel && (!shape || offer.rateType === 'fixed' || offer.rateType === 'mixed') && (
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{rtLabel}</span>
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cool-100 text-cool-700">{rtLabel}</span>
         )}
         {offer.productClass && (
-          <span className="text-[11px] text-gray-500 font-body capitalize">{productClassLabel(offer.productClass)}</span>
+          <span className="text-[11px] text-cool-500 font-ui capitalize">{productClassLabel(offer.productClass)}</span>
         )}
-        {terms && <span className="text-[11px] text-gray-500 font-body">{terms}</span>}
+        {terms && <span className="text-[11px] text-cool-500 font-ui">{terms}</span>}
         {cashback && <CashbackChip pct={offer.cashbackPct} />}
         {cashback && offer.cashbackPct === null && (
           <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
@@ -151,10 +151,10 @@ export function OfferPricedElements({
         ) : offer.ratesText ? (
           <div>
             <p className="font-heading font-bold text-navy text-lg break-words max-w-[220px]">{offer.ratesText}</p>
-            <p className="text-[10px] text-gray-400 font-body">as extracted</p>
+            <p className="text-[10px] text-cool-400 font-ui">as extracted</p>
           </div>
         ) : (
-          <p className="text-xs text-gray-400 font-body">no priced figure extracted</p>
+          <p className="text-xs text-cool-400 font-ui">no priced figure extracted</p>
         )}
       </div>
     </div>
@@ -166,7 +166,7 @@ export function OfferPricedElements({
 export function OfferConditions({ conditions }: { conditions: string[] }) {
   if (!conditions.length) return null
   return (
-    <ul className="mt-1 space-y-1 text-xs text-gray-700 font-body list-disc pl-4">
+    <ul className="mt-1 space-y-1 text-xs text-cool-700 font-ui list-disc pl-4">
       {conditions.map((c, i) => (
         <li key={i} className="break-words">
           {c}
@@ -194,15 +194,15 @@ export function OfferEvidenceList({ evidence }: { evidence: OfferEvidenceItem[] 
         {open ? 'Hide' : 'Show'} extraction evidence ({evidence.length})
       </button>
       {open && (
-        <div className="mt-2 divide-y divide-gray-100 border border-gray-100 rounded-lg">
+        <div className="mt-2 divide-y divide-cool-100 border border-cool-100 rounded-lg">
           {evidence.map((e, i) => (
             <div key={i} className="px-3 py-2">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <span className="text-[11px] font-semibold text-gray-500 font-body">{e.field}</span>
-                <span className="text-sm font-body text-navy break-words min-w-0">{e.value}</span>
-                {e.confidence !== null && <span className="text-[11px] text-gray-400">conf {e.confidence}</span>}
+                <span className="text-[11px] font-semibold text-cool-500 font-ui">{e.field}</span>
+                <span className="text-sm font-ui text-navy break-words min-w-0">{e.value}</span>
+                {e.confidence !== null && <span className="text-[11px] text-cool-400">conf {e.confidence}</span>}
               </div>
-              <p className="text-[11px] text-gray-500 font-body mt-0.5 break-words">
+              <p className="text-[11px] text-cool-500 font-ui mt-0.5 break-words">
                 {e.page !== null ? `p${e.page}: ` : ''}&ldquo;{e.snippet}&rdquo;
               </p>
             </div>

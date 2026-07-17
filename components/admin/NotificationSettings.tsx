@@ -69,37 +69,37 @@ export default function NotificationSettings() {
   return (
     <section id="notifications" className="scroll-mt-24">
       <h2 className="font-heading text-lg font-bold text-navy">Notifications</h2>
-      <p className="mt-1 font-body text-sm text-navy/60">
+      <p className="mt-1 font-ui text-sm text-cool-600">
         Choose which categories badge the bell. This controls in-portal notifications only;
         existing email flows are untouched.
       </p>
 
       {error ? (
-        <div className="mt-4 rounded-lg border border-navy/10 bg-white p-4">
-          <p className="font-body text-sm text-navy/70">Could not load notification settings.</p>
+        <div className="mt-4 rounded-[9px] border border-cool-200 bg-white p-4">
+          <p className="font-ui text-sm text-cool-700">Could not load notification settings.</p>
           <button
             type="button"
             onClick={load}
-            className="mt-2 rounded-md bg-navy px-3 py-1.5 text-xs font-body text-white hover:bg-navy/90"
+            className="mt-2 rounded-md bg-navy px-3 py-1.5 text-xs font-ui text-white hover:bg-navy/90"
           >
             Try again
           </button>
         </div>
       ) : loading ? (
-        <p className="mt-4 font-body text-sm text-navy/50">Loading…</p>
+        <p className="mt-4 font-ui text-sm text-cool-500">Loading…</p>
       ) : categories.length === 0 ? (
-        <p className="mt-4 font-body text-sm text-navy/50">
+        <p className="mt-4 font-ui text-sm text-cool-500">
           No notification categories are available to your role.
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-navy/10 rounded-lg border border-navy/10 bg-white">
+        <ul className="mt-4 divide-y divide-cool-100 rounded-[9px] border border-cool-200 bg-white">
           {categories.map(c => {
             const on = enabled[c.key] !== false
             return (
               <li key={c.key} className="flex items-start justify-between gap-4 p-4">
                 <div className="min-w-0">
-                  <p className="font-body text-sm font-semibold text-navy">{c.label}</p>
-                  <p className="mt-0.5 font-body text-xs text-navy/60">{c.description}</p>
+                  <p className="font-ui text-sm font-semibold text-navy">{c.label}</p>
+                  <p className="mt-0.5 font-ui text-xs text-cool-600">{c.description}</p>
                 </div>
                 <button
                   type="button"
@@ -108,7 +108,7 @@ export default function NotificationSettings() {
                   aria-label={`${on ? 'Disable' : 'Enable'} ${c.label}`}
                   onClick={() => toggle(c.key, !on)}
                   className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full motion-safe:transition-colors ${
-                    on ? 'bg-lime' : 'bg-navy/20'
+                    on ? 'bg-navy' : 'bg-cool-300'
                   }`}
                 >
                   <span

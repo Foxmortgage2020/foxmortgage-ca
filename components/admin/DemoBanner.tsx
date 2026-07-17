@@ -38,7 +38,7 @@ export default function DemoBanner({ active }: { active: boolean }) {
   return (
     <div
       role="status"
-      className="flex items-center justify-between gap-3 bg-lime px-4 py-2 text-navy shadow-md"
+      className="flex items-center justify-between gap-3 bg-caution px-4 py-2 text-white shadow-md"
     >
       <div className="flex items-center gap-2 text-sm font-heading font-bold">
         <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -48,7 +48,7 @@ export default function DemoBanner({ active }: { active: boolean }) {
         type="button"
         onClick={exit}
         disabled={busy}
-        className="shrink-0 rounded-md bg-navy px-3 py-1 text-xs font-heading font-bold text-lime transition-colors hover:bg-navy/90 disabled:opacity-60"
+        className="shrink-0 rounded-md bg-navy px-3 py-1 text-xs font-heading font-bold text-white transition-colors hover:bg-navy/90 disabled:opacity-60"
       >
         {busy ? 'Exiting…' : 'Exit demo'}
       </button>

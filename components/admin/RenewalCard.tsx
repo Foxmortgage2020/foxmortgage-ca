@@ -34,26 +34,26 @@ function ShockRow({ shock, currentRateType }: { shock: PaymentShock; currentRate
   const delta = shock.monthlyDelta
   const rises = delta != null && delta > 0
   return (
-    <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2">
-      <p className="text-[11px] font-body text-gray-400 uppercase tracking-wide mb-1">Payment shock preview</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 text-xs font-body">
+    <div className="mt-2 rounded-lg border border-cool-200 bg-cool-50/60 px-3 py-2">
+      <p className="text-[11px] font-ui text-cool-400 uppercase tracking-wide mb-1">Payment shock preview</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 text-xs font-ui">
         <div>
-          <p className="text-gray-500">Current rate</p>
+          <p className="text-cool-500">Current rate</p>
           {shock.currentRateKnown ? (
             <p className="text-navy font-semibold">
               {shock.currentRate}%{' '}
-              <span className="text-gray-400 font-normal">{currentRateType ? currentRateType.toLowerCase() : ''}</span>
+              <span className="text-cool-400 font-normal">{currentRateType ? currentRateType.toLowerCase() : ''}</span>
             </p>
           ) : (
             <p className="text-amber-700">not on file</p>
           )}
         </div>
         <div>
-          <p className="text-gray-500">Best approved</p>
+          <p className="text-cool-500">Best approved</p>
           {shock.newRate != null ? (
             <p className="text-navy font-semibold">
               {shock.newRate}%{' '}
-              <span className="text-gray-400 font-normal">
+              <span className="text-cool-400 font-normal">
                 {shock.newRateTermMonths ? `${shock.newRateTermMonths / 12}yr fix` : ''}
               </span>
             </p>
@@ -62,11 +62,11 @@ function ShockRow({ shock, currentRateType }: { shock: PaymentShock; currentRate
           )}
         </div>
         <div>
-          <p className="text-gray-500">Current payment</p>
+          <p className="text-cool-500">Current payment</p>
           <p className="text-navy">{shock.currentPayment != null ? money2(shock.currentPayment) : 'n/a'}</p>
         </div>
         <div>
-          <p className="text-gray-500">New payment</p>
+          <p className="text-cool-500">New payment</p>
           <p className="text-navy">{shock.newPayment != null ? money2(shock.newPayment) : 'n/a'}</p>
         </div>
       </div>
@@ -74,18 +74,18 @@ function ShockRow({ shock, currentRateType }: { shock: PaymentShock; currentRate
         <p className={`mt-1.5 text-sm font-heading font-bold ${rises ? 'text-red-600' : 'text-green-700'}`}>
           {rises ? '+' : ''}
           {money2(delta)}/mo{' '}
-          <span className="text-[11px] font-body font-normal text-gray-500">
+          <span className="text-[11px] font-ui font-normal text-cool-500">
             {rises ? 'more at renewal' : 'less at renewal'}
           </span>
         </p>
       ) : (
-        <p className="mt-1.5 text-xs font-body text-gray-400">
+        <p className="mt-1.5 text-xs font-ui text-cool-400">
           {!shock.currentRateKnown
             ? 'No delta: the current rate is not on file.'
             : 'No delta: the approved rate book is unavailable.'}
         </p>
       )}
-      <p className="mt-1 text-[10px] font-body text-gray-400">
+      <p className="mt-1 text-[10px] font-ui text-cool-400">
         Estimated at a {shock.amortYears}-year amortization on the original balance {money(shock.balance)}
         {shock.newRateAsOf ? `; best approved rate as of ${shortDate(shock.newRateAsOf)}` : ''}. The delta isolates
         the rate change; it is not a commitment.
@@ -155,24 +155,24 @@ export default function RenewalCard({
   }
 
   const barCls =
-    tone === 'red' ? 'border-l-red-500' : tone === 'amber' ? 'border-l-amber-500' : tone === 'green' ? 'border-l-green-500' : 'border-l-gray-300'
+    tone === 'red' ? 'border-l-red-500' : tone === 'amber' ? 'border-l-amber-500' : tone === 'green' ? 'border-l-green-500' : 'border-l-cool-300'
   const anomaly = termAnomaly(deal.termYears)
 
   return (
-    <div className={`border border-gray-200 border-l-4 ${barCls} rounded-xl bg-white px-4 py-3`}>
+    <div className={`border border-cool-200 border-l-4 ${barCls} rounded-xl bg-white px-4 py-3`}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <p className="font-heading font-bold text-navy text-sm truncate">
             {deal.contactName ?? deal.dealName}
           </p>
-          <p className="text-xs font-body text-gray-500">
+          <p className="text-xs font-ui text-cool-500">
             {money(deal.amount)}
             {deal.lenderName ? ` · ${deal.lenderName}` : ''}
             {deal.dealName && deal.contactName ? ` · ${deal.dealName}` : ''}
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-xs font-body text-gray-500">matures {shortDate(deal.maturityDate)}</p>
+          <p className="text-xs font-ui text-cool-500">matures {shortDate(deal.maturityDate)}</p>
           {daysRemaining != null && (
             <p
               className={`text-sm font-heading font-bold ${
@@ -183,28 +183,28 @@ export default function RenewalCard({
             </p>
           )}
           {dripState && (
-            <p className="mt-0.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{dripState}</p>
+            <p className="mt-0.5 inline-flex rounded-full bg-cool-100 px-2 py-0.5 text-[10px] font-semibold text-cool-600">{dripState}</p>
           )}
         </div>
       </div>
 
       <ShockRow shock={shock} currentRateType={deal.rateType} />
 
-      <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px] font-body">
-        <span className="text-gray-400">
+      <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px] font-ui">
+        <span className="text-cool-400">
           Status:{' '}
           {deal.renewalStatus ? (
             <span className="text-navy font-semibold">{deal.renewalStatus}</span>
           ) : (
-            <span className={tone === 'red' ? 'text-red-600 font-semibold' : 'text-gray-500'}>
+            <span className={tone === 'red' ? 'text-red-600 font-semibold' : 'text-cool-500'}>
               no outcome recorded
             </span>
           )}
         </span>
         {deal.renewalInProgress && (
-          <span className="px-1.5 py-0.5 rounded bg-lime/20 text-navy font-semibold">in progress</span>
+          <span className="px-1.5 py-0.5 rounded bg-cool-100 text-cool-700 font-semibold">in progress</span>
         )}
-        <span className="text-gray-400">
+        <span className="text-cool-400">
           Term {termYearsLabel(deal.termYears)}
         </span>
         {anomaly && (
@@ -230,14 +230,14 @@ export default function RenewalCard({
           href={zohoHref}
           target="_blank"
           rel="noreferrer"
-          className="text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 hover:border-gray-400"
+          className="text-xs font-semibold text-cool-500 border border-cool-200 rounded-lg px-3 py-1.5 hover:border-cool-400"
         >
           Open in Zoho
         </a>
       </div>
 
       {canDecide && (
-        <div className="mt-2.5 border-t border-gray-100 pt-2.5">
+        <div className="mt-2.5 border-t border-cool-100 pt-2.5">
           <div className="flex items-center gap-1.5 flex-wrap">
             {actions.map(a => (
               <button
@@ -252,14 +252,14 @@ export default function RenewalCard({
                       ? 'text-red-700 border-red-200 hover:border-red-400'
                       : a.tone === 'go'
                         ? 'text-navy border-navy/25 hover:border-navy'
-                        : 'text-gray-600 border-gray-200 hover:border-gray-400'
+                        : 'text-cool-600 border-cool-200 hover:border-cool-400'
                 }`}
               >
                 {armed === a.key ? `Confirm: ${a.label}?` : a.label}
               </button>
             ))}
           </div>
-          {msg && <p className="mt-1.5 text-[11px] font-body text-gray-500">{msg}</p>}
+          {msg && <p className="mt-1.5 text-[11px] font-ui text-cool-500">{msg}</p>}
         </div>
       )}
     </div>

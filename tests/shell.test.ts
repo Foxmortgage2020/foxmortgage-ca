@@ -318,63 +318,105 @@ describe('appears-renewed pending: the shared walk both surfaces run', () => {
   })
 })
 
-// ─── 4. The lime rule: attention currency, audited ───────────────────────────
+// ─── 4. The lime rule: attention currency, audited EXHAUSTIVELY (B4) ─────────
 
-// The shell components and where the decision token is ALLOWED to appear:
-//   - AdminShell: group dots, item badges (bg-decision / text-decision-ink),
-//     and the keyboard focus ring on dark (outline-decision) which the
-//     redesign brief sanctions explicitly.
+// B4 made the audit total: it walks EVERY source file under the admin tree
+// (app/portal/admin/** + components/admin/**). Legacy lime is extinct — zero
+// `-lime` utility classes and zero raw lime hex anywhere — and the decision
+// token renders ONLY in the eight enumerated decision surfaces, each in its
+// documented role. A new decorative lime anywhere fails this suite.
+
+function walkAdminSources(): string[] {
+  const out: string[] = []
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry)
+      if (statSync(p).isDirectory()) walk(p)
+      else if (/\.(tsx|ts)$/.test(entry)) out.push(p)
+    }
+  }
+  walk('app/portal/admin')
+  walk('components/admin')
+  return out
+}
+
+// The allowed decision surfaces and the role each may render:
+//   - AdminShell: nav group dots, item badges, the dark keyboard focus ring.
 //   - DeskStrip: the Waiting-on-you fragment links.
-//   - NotificationBell: the decision-count badge and the Decide-lane unread dot.
-//   - CommandPalette: NO decision usage (search is informational).
-const SHELL_FILES = [
-  'components/admin/AdminShell.tsx',
-  'components/admin/DeskStrip.tsx',
-  'components/admin/NotificationBell.tsx',
-  'components/admin/CommandPalette.tsx',
-  // B1: the journey stepper is audited but NOT decision-allowed — it states
-  // where a file is; it never queues a decision, so it carries no lime.
-  'components/admin/JourneyStepper.tsx',
-]
-const DECISION_ALLOWED_FILES = new Set([
-  'components/admin/AdminShell.tsx',
-  'components/admin/DeskStrip.tsx',
-  'components/admin/NotificationBell.tsx',
-])
-const DECISION_CLASS = /outline-decision|bg-decision|text-decision-ink|decoration-decision|hover:text-decision|border-t-decision/
+//   - NotificationBell: the decision-count badge and the Decide-lane dot.
+//   - Today (page.tsx): the decision cards' top border and link underline.
+//   - ConditionsChecklist: the needs-input pill and the Verify tap.
+//   - ApprovalsDesk: the armed queue decide buttons.
+//   - AgentChat: the confirm-card execute tap.
+//   - DealsList: the single-lime action button (list + phone card branches).
+const DECISION_ALLOWED: Record<string, RegExp> = {
+  'components/admin/AdminShell.tsx':
+    /outline-decision|bg-decision\b|text-decision-ink/,
+  'components/admin/DeskStrip.tsx':
+    /decoration-decision|hover:text-decision|outline-decision/,
+  'components/admin/NotificationBell.tsx': /bg-decision\b|text-decision-ink/,
+  'app/portal/admin/page.tsx': /border-t-decision|decoration-decision/,
+  'components/admin/ConditionsChecklist.tsx':
+    /bg-decision\b|text-decision-ink|hover:bg-decision/,
+  'components/admin/ApprovalsDesk.tsx': /bg-decision\b|text-decision-ink/,
+  'components/admin/AgentChat.tsx': /bg-decision\b|text-decision-ink/,
+  'components/admin/deals/DealsList.tsx':
+    /bg-decision\b|border-decision|text-decision-ink/,
+}
 
-// Lime AS A CLASS TOKEN (prose in comments may name the rule; classes are
-// what render). Covers every Tailwind utility family the legacy token used.
+// One brand-mark exception: the Practice History export slide draws the Fox
+// mark (navy squircle + lime F) and its masthead rule — a client-facing
+// artifact's brand identity, like the PDFs' masthead, not UI attention. It
+// may carry the brand HEX in SVG fills only, never a lime utility class.
+const BRAND_HEX_ALLOWED = new Set(['components/admin/PracticeHistorySlide.tsx'])
+
+// Lime AS A CLASS TOKEN (prose naming the rule is fine; classes render).
 const LIME_CLASS =
-  /(?:^|[\s'"`:${])(?:bg|text|border|decoration|outline|from|to|ring|fill|stroke)-lime\b|#95D600|#C6F53F/
+  /(?:^|[\s'"`:${])(?:bg|text|border|decoration|outline|from|to|ring|fill|stroke)-lime\b/
+// The whole brand-lime hex family (base, light, dark) plus the decision hex.
+const LIME_HEX = /#95D600|#AAE620|#7AB800|#C6F53F/i
 
-describe('lime is attention currency (shell audit)', () => {
-  it('the legacy lime token renders in no shell component', () => {
-    for (const file of SHELL_FILES) {
+describe('lime is attention currency (the exhaustive B4 audit)', () => {
+  const files = walkAdminSources()
+
+  it('walks a real tree (sanity)', () => {
+    expect(files.length).toBeGreaterThanOrEqual(80)
+    expect(files).toContain('components/admin/AdminShell.tsx')
+  })
+
+  it('legacy lime classes are extinct across the entire admin tree', () => {
+    for (const file of files) {
       const src = readFileSync(file, 'utf8')
       for (const [i, line] of Array.from(src.split('\n').entries())) {
         expect(
           LIME_CLASS.test(line),
-          `${file}:${i + 1} renders a raw lime class or hex: ${line.trim()}`,
+          `${file}:${i + 1} renders a legacy lime class: ${line.trim()}`,
         ).toBe(false)
+        if (!BRAND_HEX_ALLOWED.has(file)) {
+          expect(
+            LIME_HEX.test(line),
+            `${file}:${i + 1} carries a raw lime hex: ${line.trim()}`,
+          ).toBe(false)
+        }
       }
     }
   })
 
-  it('the decision token appears only in enumerated components, only in decision classes', () => {
+  it('the decision token appears only in the eight enumerated surfaces, only in their roles', () => {
     const DECISION_ANY = /(?:bg|text|border|decoration|outline|ring|border-t)-decision/
-    for (const file of SHELL_FILES) {
+    for (const file of files) {
       const src = readFileSync(file, 'utf8')
       const lines = src.split('\n')
       for (const [i, line] of Array.from(lines.entries())) {
         if (!DECISION_ANY.test(line)) continue
+        const allowed = DECISION_ALLOWED[file]
         expect(
-          DECISION_ALLOWED_FILES.has(file),
-          `${file}:${i + 1} renders the decision token outside the enumerated components`,
+          allowed !== undefined,
+          `${file}:${i + 1} renders the decision token outside the enumerated surfaces: ${line.trim()}`,
         ).toBe(true)
         expect(
-          DECISION_CLASS.test(line),
-          `${file}:${i + 1} uses the decision token outside its decision roles: ${line.trim()}`,
+          allowed!.test(line),
+          `${file}:${i + 1} uses the decision token outside its documented role: ${line.trim()}`,
         ).toBe(true)
       }
     }

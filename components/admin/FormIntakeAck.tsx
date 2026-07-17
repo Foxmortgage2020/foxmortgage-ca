@@ -53,26 +53,26 @@ export default function FormIntakeAck({ failures }: { failures: FormIntakeFailur
   if (failures.length === 0) return null
 
   return (
-    <div className="pt-2 border-t border-gray-100 mt-2 space-y-2">
-      <p className="text-gray-500 text-xs">
+    <div className="pt-2 border-t border-cool-100 mt-2 space-y-2">
+      <p className="text-cool-500 text-xs">
         Unacknowledged failures (rows captured, Zoho lead missing). Acknowledge once triaged;
         who and when are recorded on the row.
       </p>
       {failures.map(f => (
         <div key={f.id} className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs text-navy font-body">
+            <p className="text-xs text-navy font-ui">
               {f.source} at {fmtWhen(f.createdAt)}
             </p>
             {f.errorDetail && (
-              <p className="text-[11px] text-gray-400 truncate">{f.errorDetail}</p>
+              <p className="text-[11px] text-cool-400 truncate">{f.errorDetail}</p>
             )}
             {errors[f.id] && <p className="text-[11px] text-red-600">{errors[f.id]}</p>}
           </div>
           <button
             onClick={() => acknowledge(f.id)}
             disabled={Boolean(busy[f.id]) || Boolean(done[f.id])}
-            className="shrink-0 min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-body bg-white border border-gray-300 text-navy hover:bg-gray-50 disabled:opacity-50"
+            className="shrink-0 min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50 disabled:opacity-50"
           >
             {done[f.id] ? 'Acknowledged' : busy[f.id] ? 'Working…' : 'Acknowledge'}
           </button>

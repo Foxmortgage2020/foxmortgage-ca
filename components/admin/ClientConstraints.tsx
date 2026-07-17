@@ -213,17 +213,17 @@ export default function ClientConstraints({
   const retired = all.filter(c => c.retiredAt != null)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5" data-testid="client-constraints">
+    <div className="bg-white border border-cool-200 rounded-xl p-5" data-testid="client-constraints">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-navy font-bold text-base">Client lender constraints</h2>
         {active.length > 0 && (
-          <span className="text-xs font-body text-gray-500">
+          <span className="text-xs font-ui text-cool-500">
             {active.length} active
           </span>
         )}
       </div>
 
-      <p className="text-xs text-gray-500 font-body mb-3">
+      <p className="text-xs text-cool-500 font-ui mb-3">
         Rules a rate sheet never knows: a prior experience, a banking relationship, a lender this
         client will not use. Each one carries the reason. They narrow the eligible list and never
         override it, so a required lender that cannot do the deal finds an honest empty state, not a
@@ -232,7 +232,7 @@ export default function ClientConstraints({
 
       {toast && (
         <div
-          className={`mb-3 rounded-lg px-3 py-2 text-sm font-body border ${
+          className={`mb-3 rounded-lg px-3 py-2 text-sm font-ui border ${
             toast.tone === 'green'
               ? 'bg-green-50 border-green-200 text-green-800'
               : 'bg-amber-50 border-amber-200 text-amber-800'
@@ -243,11 +243,11 @@ export default function ClientConstraints({
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-400 font-body">Loading constraints…</p>
+        <p className="text-sm text-cool-400 font-ui">Loading constraints…</p>
       ) : loadError ? (
-        <p className="text-sm text-red-700 font-body">{loadError}</p>
+        <p className="text-sm text-red-700 font-ui">{loadError}</p>
       ) : !configured ? (
-        <p className="text-sm text-gray-400 font-body">
+        <p className="text-sm text-cool-400 font-ui">
           The constraints store is not connected. When it is, this client&rsquo;s lender rules render
           here.
         </p>
@@ -255,7 +255,7 @@ export default function ClientConstraints({
         <>
           {/* Active constraints */}
           {active.length === 0 ? (
-            <p className="text-sm text-gray-400 font-body">No lender constraints recorded for this client.</p>
+            <p className="text-sm text-cool-400 font-ui">No lender constraints recorded for this client.</p>
           ) : (
             <div className="space-y-2">
               {active.map(c => {
@@ -263,19 +263,19 @@ export default function ClientConstraints({
                 const isArmed = armed?.key === retireKey
                 const isBusy = busyKey === retireKey
                 return (
-                  <div key={c.id} className="border border-gray-100 rounded-lg p-3" data-testid={`constraint-${c.id}`}>
+                  <div key={c.id} className="border border-cool-100 rounded-lg p-3" data-testid={`constraint-${c.id}`}>
                     <div className="flex flex-wrap items-center gap-2">
                       <TypeChip type={c.type} />
-                      <span className="text-sm font-body font-semibold text-navy">
+                      <span className="text-sm font-ui font-semibold text-navy">
                         {c.lenderLabel || c.lenderSlug}
                       </span>
                       {c.lenderLabel && (
-                        <span className="text-[11px] text-gray-400 font-body">{c.lenderSlug}</span>
+                        <span className="text-[11px] text-cool-400 font-ui">{c.lenderSlug}</span>
                       )}
                     </div>
-                    <p className="text-sm font-body text-gray-700 mt-1.5 break-words">{c.reason}</p>
+                    <p className="text-sm font-ui text-cool-700 mt-1.5 break-words">{c.reason}</p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="text-[11px] text-gray-400 font-body">
+                      <span className="text-[11px] text-cool-400 font-ui">
                         {c.actingEmail} · {fmtWhen(c.createdAt)}
                       </span>
                       {canManage && (
@@ -287,10 +287,10 @@ export default function ClientConstraints({
                               ? void retire(c)
                               : arm(retireKey)
                           }
-                          className={`ml-auto min-h-[32px] px-3 py-1 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+                          className={`ml-auto min-h-[32px] px-3 py-1 rounded-lg text-xs font-semibold font-ui transition-colors disabled:opacity-50 ${
                             isArmed
                               ? 'bg-navy text-white'
-                              : 'bg-white border border-gray-300 text-navy hover:bg-gray-50'
+                              : 'bg-white border border-cool-300 text-navy hover:bg-cool-50'
                           }`}
                           data-testid={`retire-constraint-${c.id}`}
                         >
@@ -306,13 +306,13 @@ export default function ClientConstraints({
 
           {/* Add form */}
           {canManage && (
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            <div className="mt-4 border-t border-cool-100 pt-4">
+              <h3 className="text-xs font-semibold text-cool-500 uppercase tracking-wide mb-2">
                 Add a constraint
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] text-gray-500 font-body block mb-1" htmlFor="cc-lender-slug">
+                  <label className="text-[11px] text-cool-500 font-ui block mb-1" htmlFor="cc-lender-slug">
                     Lender (slug)
                   </label>
                   <input
@@ -321,11 +321,11 @@ export default function ClientConstraints({
                     value={lenderSlug}
                     onChange={e => setLenderSlug(e.target.value)}
                     placeholder="e.g. scotia"
-                    className="w-full text-sm font-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50"
+                    className="w-full text-sm font-ui border border-cool-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-gray-500 font-body block mb-1" htmlFor="cc-lender-label">
+                  <label className="text-[11px] text-cool-500 font-ui block mb-1" htmlFor="cc-lender-label">
                     Lender name (optional)
                   </label>
                   <input
@@ -334,19 +334,19 @@ export default function ClientConstraints({
                     value={lenderLabel}
                     onChange={e => setLenderLabel(e.target.value)}
                     placeholder="e.g. Scotiabank"
-                    className="w-full text-sm font-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50"
+                    className="w-full text-sm font-ui border border-cool-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50"
                   />
                 </div>
               </div>
 
               <fieldset className="mt-3">
-                <legend className="text-[11px] text-gray-500 font-body mb-1">Type</legend>
+                <legend className="text-[11px] text-cool-500 font-ui mb-1">Type</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {CONSTRAINT_TYPES.map(t => (
                     <label
                       key={t}
                       className={`flex flex-col gap-0.5 border rounded-lg p-2.5 cursor-pointer transition-colors ${
-                        type === t ? 'border-navy bg-navy/5' : 'border-gray-200 hover:bg-gray-50'
+                        type === t ? 'border-navy bg-navy/5' : 'border-cool-200 hover:bg-cool-50'
                       }`}
                     >
                       <span className="flex items-center gap-2">
@@ -361,16 +361,16 @@ export default function ClientConstraints({
                           }}
                           className="accent-navy"
                         />
-                        <span className="text-sm font-body font-semibold text-navy">{CONSTRAINT_LABEL[t]}</span>
+                        <span className="text-sm font-ui font-semibold text-navy">{CONSTRAINT_LABEL[t]}</span>
                       </span>
-                      <span className="text-[11px] text-gray-500 font-body">{CONSTRAINT_HELP[t]}</span>
+                      <span className="text-[11px] text-cool-500 font-ui">{CONSTRAINT_HELP[t]}</span>
                     </label>
                   ))}
                 </div>
               </fieldset>
 
               <div className="mt-3">
-                <label className="text-[11px] text-gray-500 font-body block mb-1" htmlFor="cc-reason">
+                <label className="text-[11px] text-cool-500 font-ui block mb-1" htmlFor="cc-reason">
                   Reason (required — the reason is the point)
                 </label>
                 <textarea
@@ -383,11 +383,11 @@ export default function ClientConstraints({
                   maxLength={2000}
                   rows={2}
                   placeholder="Why this lender is excluded, required, or preferred for this client."
-                  className="w-full text-sm font-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
+                  className="w-full text-sm font-ui border border-cool-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
                 />
               </div>
 
-              {formError && <p className="mt-2 text-xs text-red-700 font-body">{formError}</p>}
+              {formError && <p className="mt-2 text-xs text-red-700 font-ui">{formError}</p>}
 
               <div className="mt-3">
                 <button
@@ -398,7 +398,7 @@ export default function ClientConstraints({
                       ? void submitAdd()
                       : armAdd()
                   }
-                  className={`min-h-[40px] px-4 py-2 rounded-lg text-sm font-semibold font-body transition-colors disabled:opacity-50 ${
+                  className={`min-h-[40px] px-4 py-2 rounded-lg text-sm font-semibold font-ui transition-colors disabled:opacity-50 ${
                     armed?.key === 'add' ? 'bg-navy text-white' : 'bg-white border border-cool-300 text-navy hover:border-navy'
                   }`}
                   data-testid="add-constraint"
@@ -415,11 +415,11 @@ export default function ClientConstraints({
 
           {/* Retired history — nothing deletes */}
           {retired.length > 0 && (
-            <div className="mt-4 border-t border-gray-100 pt-3">
+            <div className="mt-4 border-t border-cool-100 pt-3">
               <button
                 type="button"
                 onClick={() => setShowHistory(s => !s)}
-                className="text-xs font-semibold text-gray-500 hover:text-navy font-body"
+                className="text-xs font-semibold text-cool-500 hover:text-navy font-ui"
                 data-testid="toggle-constraint-history"
               >
                 {showHistory ? 'Hide' : 'Show'} history ({retired.length} retired)
@@ -427,18 +427,18 @@ export default function ClientConstraints({
               {showHistory && (
                 <div className="mt-2 space-y-2">
                   {retired.map(c => (
-                    <div key={c.id} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
+                    <div key={c.id} className="border border-cool-100 rounded-lg p-3 bg-cool-50">
                       <div className="flex flex-wrap items-center gap-2">
                         <TypeChip type={c.type} />
-                        <span className="text-sm font-body font-semibold text-navy">
+                        <span className="text-sm font-ui font-semibold text-navy">
                           {c.lenderLabel || c.lenderSlug}
                         </span>
-                        <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">
+                        <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cool-200 text-cool-600">
                           retired
                         </span>
                       </div>
-                      <p className="text-sm font-body text-gray-600 mt-1.5 break-words">{c.reason}</p>
-                      <p className="text-[11px] text-gray-400 font-body mt-1.5">
+                      <p className="text-sm font-ui text-cool-600 mt-1.5 break-words">{c.reason}</p>
+                      <p className="text-[11px] text-cool-400 font-ui mt-1.5">
                         recorded {c.actingEmail} · {fmtWhen(c.createdAt)}
                         {c.retiredAt
                           ? ` · retired ${c.retiredBy ? `${c.retiredBy} ` : ''}${fmtWhen(c.retiredAt)}`

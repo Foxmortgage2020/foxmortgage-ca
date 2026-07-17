@@ -67,14 +67,14 @@ export default async function PeoplePage() {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="font-heading text-navy text-2xl font-bold">People</h1>
-          <p className="text-gray-500 font-body text-sm mt-1">
+          <p className="text-cool-500 font-ui text-sm mt-1">
             Everyone with portal access. Provisioning and offboarding both live here; both are
             recorded (who did what to whom, when) and nothing deletes.
           </p>
         </div>
         <Link
           href="/portal/admin/settings/people/new"
-          className="bg-lime text-navy font-heading font-bold text-sm px-4 py-2 rounded-lg hover:bg-lime-dark transition-colors"
+          className="bg-navy text-white font-heading font-bold text-sm px-4 py-2 rounded-lg hover:bg-navy-light transition-colors"
           data-testid="provision-new"
         >
           Provision someone
@@ -82,14 +82,14 @@ export default async function PeoplePage() {
       </div>
 
       {!peopleStoreConfigured() && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm font-body text-amber-800">
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-[9px] p-3 text-sm font-ui text-amber-800">
           The FOXCA store is not connected, so provisioned-by and offboarding records cannot be
           read or written right now.
         </div>
       )}
 
       {!clerkOk ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm font-body text-amber-800">
+        <div className="bg-amber-50 border border-amber-200 rounded-[9px] p-5 text-sm font-ui text-amber-800">
           Could not read the user list from Clerk right now. Try again in a moment.
         </div>
       ) : (

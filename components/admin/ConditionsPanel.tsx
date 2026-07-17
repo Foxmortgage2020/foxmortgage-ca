@@ -29,7 +29,7 @@ function StatusChip({ status }: { status: string }) {
       ? 'bg-green-100 text-green-700'
       : status === 'evidence_attached' || status === 'pre_checked' || status === 'submitted'
         ? 'bg-amber-100 text-amber-800'
-        : 'bg-gray-100 text-gray-600'
+        : 'bg-cool-100 text-cool-600'
   return <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${tone}`}>{label(status)}</span>
 }
 
@@ -123,14 +123,14 @@ export default function ConditionsPanel({
   }
 
   if (rows.length === 0) {
-    return <p className="text-sm text-gray-400 font-body">No conditions recorded on this file.</p>
+    return <p className="text-sm text-cool-400 font-ui">No conditions recorded on this file.</p>
   }
 
   return (
     <div>
       {toast && (
         <div
-          className={`mb-3 rounded-lg px-3 py-2 text-sm font-body border ${
+          className={`mb-3 rounded-lg px-3 py-2 text-sm font-ui border ${
             toast.tone === 'green'
               ? 'bg-green-50 border-green-200 text-green-800'
               : 'bg-amber-50 border-amber-200 text-amber-800'
@@ -146,21 +146,21 @@ export default function ConditionsPanel({
           return (
             <div
               key={c.id}
-              className={`border rounded-lg p-3 ${overdue ? 'border-red-200 bg-red-50' : 'border-gray-100'}`}
+              className={`border rounded-lg p-3 ${overdue ? 'border-red-200 bg-red-50' : 'border-cool-100'}`}
             >
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <p className="text-sm font-body text-gray-700 min-w-0 flex-1">
+                <p className="text-sm font-ui text-cool-700 min-w-0 flex-1">
                   {c.condNumber ? `${c.condNumber}. ` : ''}
                   {c.text}
                 </p>
               </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-body text-gray-500">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-ui text-cool-500">
                 <StatusChip status={c.status} />
                 <span className="capitalize">{c.owner}</span>
                 <span className={overdue ? 'text-red-700 font-semibold' : ''}>
                   {c.dueDate ? `due ${fmtShort(c.dueDate)}${overdue ? ' (overdue)' : ''}` : 'no due date'}
                 </span>
-                <span className="text-gray-400">source: {label(c.source)}</span>
+                <span className="text-cool-400">source: {label(c.source)}</span>
               </div>
               {canDecide && !decided && (
                 <>
@@ -170,7 +170,7 @@ export default function ConditionsPanel({
                     maxLength={2000}
                     rows={1}
                     placeholder="Note (optional for satisfied; required, 5+ characters, for moot and waived)"
-                    className="mt-2 w-full text-sm font-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
+                    className="mt-2 w-full text-sm font-ui border border-cool-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
                   />
                   <div className="mt-2 flex flex-wrap gap-2">
                     {(['satisfied', 'moot', 'waived'] as const).map(action => {
@@ -185,12 +185,12 @@ export default function ConditionsPanel({
                               ? void decide(c, action)
                               : arm(key)
                           }
-                          className={`min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-body transition-colors disabled:opacity-50 ${
+                          className={`min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-ui transition-colors disabled:opacity-50 ${
                             isArmed
                               ? 'bg-navy text-white'
                               : action === 'satisfied'
-                                ? 'bg-lime text-navy hover:bg-lime/80'
-                                : 'bg-white border border-gray-300 text-navy hover:bg-gray-50'
+                                ? 'bg-navy text-white hover:bg-navy-light'
+                                : 'bg-white border border-cool-300 text-navy hover:bg-cool-50'
                           }`}
                         >
                           {busy[c.id]
@@ -208,7 +208,7 @@ export default function ConditionsPanel({
                   </div>
                 </>
               )}
-              {errors[c.id] && <p className="mt-2 text-xs text-red-700 font-body">{errors[c.id]}</p>}
+              {errors[c.id] && <p className="mt-2 text-xs text-red-700 font-ui">{errors[c.id]}</p>}
             </div>
           )
         })}

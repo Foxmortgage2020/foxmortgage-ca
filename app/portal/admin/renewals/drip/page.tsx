@@ -30,35 +30,35 @@ export default async function RenewalDripPage() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <h1 className="text-xl font-display font-bold text-slate-900">Renewal Drip</h1>
-          <Link href="/portal/admin/renewals" className="text-xs font-semibold text-slate-600 underline decoration-slate-300 hover:decoration-slate-600">
+          <h1 className="text-xl font-display font-bold text-cool-800">Renewal Drip</h1>
+          <Link href="/portal/admin/renewals" className="text-xs font-semibold text-cool-600 underline decoration-cool-300 hover:decoration-cool-600">
             Renewal Radar
           </Link>
         </div>
-        <p className="mt-1 text-sm text-slate-500 font-body">
+        <p className="mt-1 text-sm text-cool-500 font-ui">
           Every message is drafted from the client&rsquo;s own record and waits here for your approval. Nothing sends on its own.
         </p>
       </div>
 
       <section>
-        <h2 className="text-sm font-display font-bold text-slate-900 mb-2">Waiting for your approval ({queue.length})</h2>
+        <h2 className="text-sm font-display font-bold text-cool-800 mb-2">Waiting for your approval ({queue.length})</h2>
         <RenewalDripQueue items={queue} canDecide={canDecide} demo={demo} />
       </section>
 
       <section>
-        <h2 className="text-sm font-display font-bold text-slate-900 mb-2">Active sequences ({active.length})</h2>
+        <h2 className="text-sm font-display font-bold text-cool-800 mb-2">Active sequences ({active.length})</h2>
         {active.length === 0 ? (
-          <p className="text-sm text-slate-500 font-body">No clients are enrolled yet. The daily tick enrolls funded deals as they enter the 150-day window.</p>
+          <p className="text-sm text-cool-500 font-ui">No clients are enrolled yet. The daily tick enrolls funded deals as they enter the 150-day window.</p>
         ) : (
-          <div className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+          <div className="rounded-lg border border-cool-200 bg-white divide-y divide-cool-100">
             {active.map((s) => (
-              <div key={s.sequenceId} className="flex items-center justify-between gap-2 px-4 py-2 text-sm font-body">
-                <span className="font-semibold text-slate-800">{s.clientName ?? s.zohoDealId}</span>
-                <span className="text-xs text-slate-500">matures {s.maturityDate}</span>
-                <span className="text-xs text-slate-500">
+              <div key={s.sequenceId} className="flex items-center justify-between gap-2 px-4 py-2 text-sm font-ui">
+                <span className="font-semibold text-cool-800">{s.clientName ?? s.zohoDealId}</span>
+                <span className="text-xs text-cool-500">matures {s.maturityDate}</span>
+                <span className="text-xs text-cool-500">
                   {s.nextTouch ? `next: ${s.nextTouch.skeletonId.replace('touch-', '')}d · ${s.nextTouch.scheduledFor ?? ''} (${s.nextTouch.status.replace('_', ' ')})` : 'no upcoming touch'}
                 </span>
-                <span className="text-xs text-slate-400">{s.sentCount} sent</span>
+                <span className="text-xs text-cool-400">{s.sentCount} sent</span>
               </div>
             ))}
           </div>

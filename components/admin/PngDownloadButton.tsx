@@ -172,7 +172,7 @@ export default function PngDownloadButton({
           Print / Save as PDF
         </button>
       </div>
-      {error && <p className="text-xs text-red-600 font-body">{error}</p>}
+      {error && <p className="text-xs text-red-600 font-ui">{error}</p>}
     </div>
   )
 }

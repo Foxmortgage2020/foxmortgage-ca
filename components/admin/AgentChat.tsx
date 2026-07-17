@@ -69,12 +69,12 @@ function toolLabel(name: string): string {
 function ThinkingIndicator() {
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-gray-400"
+      className="inline-flex items-center gap-1.5 text-cool-400"
       role="status"
       aria-label="Ask Fox is working"
       data-testid="thinking-indicator"
     >
-      <span className="text-xs font-body motion-safe:hidden">Working…</span>
+      <span className="text-xs font-ui motion-safe:hidden">Working…</span>
       {[0, 150, 300].map(delay => (
         <span
           key={delay}
@@ -328,8 +328,8 @@ export default function AgentChat({
 
   if (!initial.storeConfigured) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mt-6">
-        <p className="text-sm text-gray-500 font-body">
+      <div className="bg-white border border-cool-200 rounded-[9px] p-5 mt-6">
+        <p className="text-sm text-cool-500 font-ui">
           The conversation store is not configured (FOXCA_SUPABASE_URL and FOXCA_SUPABASE_KEY), and
           Ask Fox will not run unlogged. Set the store first.
         </p>
@@ -340,8 +340,8 @@ export default function AgentChat({
   return (
     <div className="flex flex-col" style={{ height: 'calc(100dvh - 180px)', minHeight: 420 }}>
       {!initial.agentConfigured && (
-        <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <p className="text-sm text-amber-800 font-body">
+        <div className="mb-3 bg-amber-50 border border-amber-200 rounded-[9px] px-4 py-3">
+          <p className="text-sm text-amber-800 font-ui">
             Ask Fox is not configured yet: add ANTHROPIC_API_KEY (and optionally AGENT_MODEL) to the
             Vercel project, then reload. The chat records and answers nothing until then.
           </p>
@@ -352,21 +352,21 @@ export default function AgentChat({
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <button
           onClick={() => setInput('Prep a call for ')}
-          className="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-gray-300 text-navy hover:border-navy"
+          className="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-cool-300 text-navy hover:border-navy"
           data-testid="prep-button"
         >
           Prep a call
         </button>
         <button
           onClick={() => setReviewOpen(o => !o)}
-          className="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-gray-300 text-navy hover:border-navy"
+          className="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-cool-300 text-navy hover:border-navy"
           data-testid="review-button"
         >
           Review a call
         </button>
         <Link
           href="/portal/admin/agent/history"
-          className="ml-auto text-xs font-semibold text-navy underline hover:text-lime"
+          className="ml-auto text-xs font-semibold text-navy underline hover:text-ink"
         >
           History
         </Link>
@@ -374,8 +374,8 @@ export default function AgentChat({
 
       {/* Call Review panel */}
       {reviewOpen && (
-        <div className="mb-3 bg-white border border-gray-200 rounded-xl p-4" data-testid="review-panel">
-          <p className="text-xs font-body text-gray-500 mb-2">
+        <div className="mb-3 bg-white border border-cool-200 rounded-[9px] p-4" data-testid="review-panel">
+          <p className="text-xs font-ui text-cool-500 mb-2">
             Paste the transcript or upload the Dialpad CSV export. It parses locally into a
             speaker-labeled transcript before it sends.
           </p>
@@ -384,11 +384,11 @@ export default function AgentChat({
             onChange={e => setReviewText(e.target.value)}
             rows={6}
             placeholder="Paste the transcript or CSV here"
-            className="w-full text-sm font-body border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
+            className="w-full text-sm font-ui border border-cool-200 rounded-lg px-3 py-2 focus:outline-none focus:border-navy/50 resize-y"
             data-testid="review-textarea"
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <label className="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-gray-300 text-navy cursor-pointer hover:border-navy">
+            <label className="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-cool-300 text-navy cursor-pointer hover:border-navy">
               Upload CSV or text
               <input
                 type="file"
@@ -408,7 +408,7 @@ export default function AgentChat({
             >
               Grade this call
             </button>
-            {cardErrors.review && <p className="text-xs text-red-600 font-body">{cardErrors.review}</p>}
+            {cardErrors.review && <p className="text-xs text-red-600 font-ui">{cardErrors.review}</p>}
           </div>
         </div>
       )}
@@ -416,13 +416,13 @@ export default function AgentChat({
       {/* Thread */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pb-4" data-testid="agent-thread">
         {messages.length === 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5">
-            <p className="text-sm font-body text-gray-600">
+          <div className="bg-white border border-cool-200 rounded-[9px] p-5">
+            <p className="text-sm font-ui text-cool-600">
               Ask about a client, a rate, or a lender, and every number comes back with its source.
               Try &quot;frame my renewal conversation with Jordan Wells&quot;, tap Prep a call, or
               paste a transcript into Review a call.
             </p>
-            <p className="text-xs font-body text-gray-400 mt-2">
+            <p className="text-xs font-ui text-cool-500 mt-2">
               Reads are live and scoped to the practice. CRM changes only happen through confirm
               cards you tap. Decisions stay on the Approvals desk. Every conversation is kept.
             </p>
@@ -434,19 +434,19 @@ export default function AgentChat({
               className={
                 m.role === 'user'
                   ? 'max-w-[85%] bg-navy text-white rounded-2xl rounded-br-md px-4 py-2.5'
-                  : 'max-w-full bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3'
+                  : 'max-w-full bg-white border border-cool-200 rounded-2xl rounded-bl-md px-4 py-3'
               }
             >
               {m.role === 'assistant' && m.toolRuns.length > 0 && (
-                <p className="text-[11px] font-body mb-1.5">
+                <p className="text-[11px] font-ui mb-1.5">
                   {m.toolRuns.map((r, j) => (
                     <span key={j}>
-                      {j > 0 && <span className="text-gray-300"> · </span>}
+                      {j > 0 && <span className="text-cool-300"> · </span>}
                       <span
                         className={
                           r.status === 'running'
                             ? 'text-navy/70 motion-safe:animate-pulse'
-                            : 'text-gray-400'
+                            : 'text-cool-400'
                         }
                         data-testid={r.status === 'running' ? 'tool-running' : undefined}
                       >
@@ -458,8 +458,8 @@ export default function AgentChat({
                 </p>
               )}
               <div
-                className={`text-sm font-body whitespace-pre-wrap break-words ${
-                  m.role === 'user' ? 'text-white' : 'text-gray-800'
+                className={`text-sm font-ui whitespace-pre-wrap break-words ${
+                  m.role === 'user' ? 'text-white' : 'text-cool-800'
                 }`}
               >
                 {m.role === 'assistant' && !m.content && streaming && i === messages.length - 1 ? (
@@ -480,7 +480,7 @@ export default function AgentChat({
                 />
               ))}
               {m.error && (
-                <p className="mt-2 text-xs font-body text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                <p className="mt-2 text-xs font-ui text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
                   {m.error}
                 </p>
               )}
@@ -491,8 +491,8 @@ export default function AgentChat({
 
       {/* Composer */}
       {capped ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-          <p className="text-sm text-gray-600 font-body">
+        <div className="bg-cool-50 border border-cool-200 rounded-[9px] px-4 py-3">
+          <p className="text-sm text-cool-600 font-ui">
             This thread reached its message limit and is closed. It stays in the history.
           </p>
           <Link
@@ -526,13 +526,13 @@ export default function AgentChat({
             rows={2}
             placeholder={streaming ? 'Working…' : 'Ask about a client, a rate, a lender'}
             disabled={streaming}
-            className="flex-1 text-sm font-body border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-navy/50 resize-none bg-white disabled:opacity-60"
+            className="flex-1 text-sm font-ui border border-cool-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-navy/50 resize-none bg-white disabled:opacity-60"
             data-testid="agent-input"
           />
           <button
             type="submit"
             disabled={streaming || !input.trim()}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-bold bg-lime text-navy disabled:opacity-50"
+            className="min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-bold bg-navy text-white disabled:opacity-50"
             data-testid="agent-send"
           >
             {streaming ? '…' : 'Send'}
@@ -572,8 +572,8 @@ function ConfirmCard({
         card.status === 'executed'
           ? 'border-green-300 bg-green-50'
           : card.status === 'dismissed'
-            ? 'border-gray-200 bg-gray-50'
-            : 'border-navy/30 bg-lime/10'
+            ? 'border-cool-200 bg-cool-50'
+            : 'border-navy/30 bg-cool-50'
       }`}
       data-testid={`card-${card.id}`}
     >
@@ -586,34 +586,34 @@ function ConfirmCard({
             card.status === 'executed'
               ? 'bg-green-100 text-green-700'
               : card.status === 'dismissed'
-                ? 'bg-gray-200 text-gray-600'
+                ? 'bg-cool-200 text-cool-600'
                 : 'bg-amber-100 text-amber-800'
           }`}
         >
           {card.status === 'proposed' ? 'awaiting confirm' : card.status}
         </span>
       </div>
-      <p className="text-sm font-body font-semibold text-navy mt-1.5">{title}</p>
+      <p className="text-sm font-ui font-semibold text-navy mt-1.5">{title}</p>
       {card.kind === 'zoho_update' && p.fields && (
         <div className="mt-1 space-y-0.5">
           {Object.entries(p.fields as Record<string, unknown>).map(([k, v]) => (
-            <p key={k} className="text-xs font-body text-gray-700">
-              <span className="text-gray-400">{k}:</span> {String(v)}
+            <p key={k} className="text-xs font-ui text-cool-700">
+              <span className="text-cool-400">{k}:</span> {String(v)}
             </p>
           ))}
         </div>
       )}
       {card.kind === 'task_create' && (
-        <div className="mt-1 space-y-0.5 text-xs font-body text-gray-700">
-          {p.due_date && <p><span className="text-gray-400">due:</span> {p.due_date}</p>}
-          {p.priority && <p><span className="text-gray-400">priority:</span> {p.priority}</p>}
-          {p.related_deal_label && <p><span className="text-gray-400">linked to:</span> {p.related_deal_label}</p>}
-          {p.description && <p className="text-gray-600 whitespace-pre-wrap">{String(p.description).slice(0, 400)}</p>}
+        <div className="mt-1 space-y-0.5 text-xs font-ui text-cool-700">
+          {p.due_date && <p><span className="text-cool-400">due:</span> {p.due_date}</p>}
+          {p.priority && <p><span className="text-cool-400">priority:</span> {p.priority}</p>}
+          {p.related_deal_label && <p><span className="text-cool-400">linked to:</span> {p.related_deal_label}</p>}
+          {p.description && <p className="text-cool-600 whitespace-pre-wrap">{String(p.description).slice(0, 400)}</p>}
         </div>
       )}
-      {card.reason && <p className="text-[11px] text-gray-500 font-body mt-1.5">Why: {card.reason}</p>}
+      {card.reason && <p className="text-[11px] text-cool-500 font-ui mt-1.5">Why: {card.reason}</p>}
       {card.status === 'executed' && card.result && (
-        <p className="text-xs font-body text-green-800 mt-1.5">
+        <p className="text-xs font-ui text-green-800 mt-1.5">
           Done{typeof card.result.task_id === 'string' ? `, task ${card.result.task_id}` : ', written to Zoho'}.
         </p>
       )}
@@ -632,7 +632,7 @@ function ConfirmCard({
               }}
               disabled={busy}
               className={`text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-50 ${
-                armed ? 'bg-navy text-white' : 'bg-lime text-navy'
+                armed ? 'bg-navy text-white' : 'bg-decision text-decision-ink'
               }`}
               data-testid={`confirm-${card.id}`}
             >
@@ -641,16 +641,16 @@ function ConfirmCard({
             <button
               onClick={onDismiss}
               disabled={busy}
-              className="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-600 disabled:opacity-50"
+              className="text-xs font-semibold px-3 py-2 rounded-lg bg-white border border-cool-300 text-cool-600 disabled:opacity-50"
               data-testid={`dismiss-${card.id}`}
             >
               Dismiss
             </button>
           </div>
         ) : (
-          <p className="text-[11px] text-gray-400 font-body mt-2">Executing needs the admin role.</p>
+          <p className="text-[11px] text-cool-400 font-ui mt-2">Executing needs the admin role.</p>
         ))}
-      {error && <p className="text-xs text-red-600 font-body mt-1.5">{error}</p>}
+      {error && <p className="text-xs text-red-600 font-ui mt-1.5">{error}</p>}
     </div>
   )
 }

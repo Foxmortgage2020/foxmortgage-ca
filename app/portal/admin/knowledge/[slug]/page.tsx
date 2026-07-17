@@ -53,7 +53,7 @@ export default async function LenderKnowledgePage({ params }: { params: { slug: 
   return (
     <div className="max-w-4xl">
       <div className="mb-2">
-        <Link href="/portal/admin/knowledge" className="text-xs font-semibold text-gray-400 hover:text-navy">
+        <Link href="/portal/admin/knowledge" className="text-xs font-semibold text-cool-400 hover:text-navy">
           &larr; Knowledge
         </Link>
       </div>

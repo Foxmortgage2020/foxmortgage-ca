@@ -54,13 +54,13 @@ export default async function CompliancePage() {
     <div className="max-w-5xl">
       <div>
         <h1 className="font-heading text-navy text-2xl font-bold">Compliance</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1">
           Is the practice inspection-ready, from what the system actually knows: licences and
           credentials with renewal dates, the complaint and incident register, the policy library
           with acknowledgments, and the files whose recorded signals need eyes.
         </p>
       </div>
-      <Suspense fallback={<p className="text-sm text-gray-400 font-body mt-6">Loading compliance…</p>}>
+      <Suspense fallback={<p className="text-sm text-cool-400 font-ui mt-6">Loading compliance…</p>}>
         <ComplianceModule initial={initial} canManage={canManage} todayYMD={todayYMD} />
       </Suspense>
     </div>

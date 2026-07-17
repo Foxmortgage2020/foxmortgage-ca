@@ -147,7 +147,7 @@ export default function LenderNotesCard({
 
   if (!canGenerate && !draft) {
     return (
-      <p className="text-sm text-gray-400 font-body">
+      <p className="text-sm text-cool-500 font-ui">
         Submission notes are generated in the deal room. Your account does not hold the notes permission.
       </p>
     )
@@ -155,15 +155,15 @@ export default function LenderNotesCard({
 
   // ── Readiness strip row ──
   const Row = ({ label, ok, value, children }: { label: string; ok: boolean; value: string; children?: React.ReactNode }) => (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5 border-b border-gray-50 last:border-0">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5 border-b border-cool-50 last:border-0">
       <span className={`inline-block w-2 h-2 rounded-full ${ok ? 'bg-navy' : 'bg-amber-400'}`} aria-hidden />
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 font-body w-28">{label}</span>
-      <span className={`text-sm font-body ${ok ? 'text-navy' : 'text-amber-700'}`}>{value}</span>
+      <span className="font-heading text-[11px] font-semibold uppercase tracking-[0.05em] text-cool-600 w-28">{label}</span>
+      <span className={`text-sm font-ui tabular-nums ${ok ? 'text-navy' : 'text-amber-700'}`}>{value}</span>
       {canManage && <span className="ml-auto flex items-center gap-2">{children}</span>}
     </div>
   )
   const SmallBtn = ({ onClick, children, busyKey }: { onClick: () => void; children: React.ReactNode; busyKey: string }) => (
-    <button type="button" onClick={onClick} disabled={busy !== ''} className="text-xs font-semibold text-navy border border-gray-200 rounded-lg px-2 py-1 hover:bg-gray-50 disabled:opacity-50">
+    <button type="button" onClick={onClick} disabled={busy !== ''} className="text-xs font-semibold text-navy border border-cool-200 rounded-lg px-2 py-1 hover:bg-cool-50 disabled:opacity-50">
       {busy === busyKey ? '…' : children}
     </button>
   )
@@ -171,20 +171,20 @@ export default function LenderNotesCard({
   return (
     <div data-testid="lender-notes-card">
       {/* Readiness strip: what the note will be built from. */}
-      <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-1.5" data-testid="lender-notes-readiness">
+      <div className="mb-4 rounded-lg border border-cool-200 bg-cool-50/50 px-3 py-1.5" data-testid="lender-notes-readiness">
         <Row label="Application" ok={Boolean(readiness.snapshotPulledAt)} value={hoursAgo(readiness.snapshotPulledAt)}>
           {readiness.hasFinmoApp
             ? <SmallBtn onClick={pull} busyKey="pull">{readiness.snapshotPulledAt ? 'Re-pull' : 'Pull from Finmo'}</SmallBtn>
-            : <span className="text-[11px] text-gray-400 font-body">no Finmo file</span>}
+            : <span className="text-[11px] text-cool-500 font-ui">no Finmo file</span>}
         </Row>
 
         <Row label="Target lender" ok={hasTarget} value={readiness.targetLender ?? 'not set (required)'}>
           {editField === 'target' ? (
             <span className="flex items-center gap-1">
               <input autoFocus value={fieldVal} onChange={e => setFieldVal(e.target.value)} placeholder="e.g. TD Mortgages"
-                className="text-sm border border-gray-200 rounded px-2 py-1 w-40 focus:outline-none focus:ring-1 focus:ring-navy" />
+                className="text-sm border border-cool-200 rounded px-2 py-1 w-40 focus:outline-none focus:ring-1 focus:ring-navy" />
               <SmallBtn onClick={() => runField('target', 'set_target_lender', fieldVal, null)} busyKey="target">Save</SmallBtn>
-              <button type="button" onClick={() => setEditField('')} className="text-xs text-gray-400 px-1">Cancel</button>
+              <button type="button" onClick={() => setEditField('')} className="text-xs text-cool-500 px-1">Cancel</button>
             </span>
           ) : (
             <SmallBtn onClick={() => { setEditField('target'); setFieldVal(readiness.targetLender ?? '') }} busyKey="_">{hasTarget ? 'Change' : 'Set'}</SmallBtn>
@@ -195,19 +195,19 @@ export default function LenderNotesCard({
           {editField === 'insured' ? (
             <span className="flex items-center gap-1">
               <select autoFocus value={fieldVal} onChange={e => setFieldVal(e.target.value)}
-                className="text-sm border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-navy">
+                className="text-sm border border-cool-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-navy">
                 <option value="">choose…</option>
                 <option value="insured">insured</option>
                 <option value="insurable">insurable</option>
                 <option value="uninsured">uninsured</option>
               </select>
               <SmallBtn onClick={() => runField('insured', 'set_insured_status', fieldVal, null)} busyKey="insured">Save</SmallBtn>
-              <button type="button" onClick={() => setEditField('')} className="text-xs text-gray-400 px-1">Cancel</button>
+              <button type="button" onClick={() => setEditField('')} className="text-xs text-cool-500 px-1">Cancel</button>
             </span>
           ) : (
             <span className="flex items-center gap-2">
               {!readiness.insuredStatus && readiness.platformInsuredSuggestion && (
-                <span className="text-[11px] text-gray-400 font-body italic">platform reads: {readiness.platformInsuredSuggestion}</span>
+                <span className="text-[11px] text-cool-500 font-ui italic">platform reads: {readiness.platformInsuredSuggestion}</span>
               )}
               <SmallBtn onClick={() => { setEditField('insured'); setFieldVal(readiness.insuredStatus ?? '') }} busyKey="_">{readiness.insuredStatus ? 'Change' : 'Set'}</SmallBtn>
             </span>
@@ -219,11 +219,11 @@ export default function LenderNotesCard({
           {editField === 'rate' ? (
             <span className="flex items-center gap-1">
               <input autoFocus type="number" step="0.01" value={fieldVal} onChange={e => setFieldVal(e.target.value)} placeholder="4.29"
-                className="text-sm border border-gray-200 rounded px-2 py-1 w-20 focus:outline-none focus:ring-1 focus:ring-navy" />
+                className="text-sm border border-cool-200 rounded px-2 py-1 w-20 focus:outline-none focus:ring-1 focus:ring-navy" />
               <input value={rateNote} onChange={e => setRateNote(e.target.value)} placeholder="note (optional)"
-                className="text-sm border border-gray-200 rounded px-2 py-1 w-32 focus:outline-none focus:ring-1 focus:ring-navy" />
+                className="text-sm border border-cool-200 rounded px-2 py-1 w-32 focus:outline-none focus:ring-1 focus:ring-navy" />
               <SmallBtn onClick={() => runField('rate', 'set_rate_override', Number(fieldVal), rateNote)} busyKey="rate">Save</SmallBtn>
-              <button type="button" onClick={() => setEditField('')} className="text-xs text-gray-400 px-1">Cancel</button>
+              <button type="button" onClick={() => setEditField('')} className="text-xs text-cool-500 px-1">Cancel</button>
             </span>
           ) : (
             <span className="flex items-center gap-2">
@@ -247,17 +247,17 @@ export default function LenderNotesCard({
                 className="text-sm font-semibold bg-white border border-cool-300 text-navy rounded-lg px-3 py-1.5 hover:border-navy disabled:opacity-50">
                 {draft ? 'Regenerate lender notes' : 'Generate lender notes'}
               </button>
-              {!hasTarget && <span className="text-[11px] text-amber-700 font-body">Set the target lender first (the note opens with the lender by name).</span>}
+              {!hasTarget && <span className="text-[11px] text-amber-700 font-ui">Set the target lender first (the note opens with the lender by name).</span>}
             </div>
           ) : (
-            <div className="rounded-lg border border-gray-200 bg-white p-3">
-              <label className="block text-xs font-semibold font-body text-navy mb-1" htmlFor="advisor-context">Advisor context (optional)</label>
-              <p className="text-[11px] text-gray-400 font-body mb-2">
+            <div className="rounded-lg border border-cool-200 bg-white p-3">
+              <label className="block font-heading text-xs font-semibold text-navy mb-1" htmlFor="advisor-context">Advisor context (optional)</label>
+              <p className="text-[11px] text-cool-500 font-ui mb-2">
                 Your own notes about the deal (framing, corrections, what to lead with). Highest authority after the file&rsquo;s own data.
               </p>
               <textarea id="advisor-context" value={advisor} onChange={e => setAdvisor(e.target.value)} rows={3} maxLength={4000}
                 disabled={busy !== ''}
-                className="w-full text-sm font-body border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-navy"
+                className="w-full text-sm font-ui border border-cool-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-navy"
                 placeholder="e.g. Qualifying on the co-borrower only; lead with the reserves." />
               <div className="mt-2 flex items-center gap-2">
                 <button type="button" onClick={() => generate()} disabled={busy !== ''} data-testid="lender-notes-submit"
@@ -265,14 +265,14 @@ export default function LenderNotesCard({
                   {busy === 'generate' ? 'Generating…' : 'Generate draft'}
                 </button>
                 <button type="button" onClick={() => setComposing(false)} disabled={busy !== ''}
-                  className="text-sm font-semibold text-gray-500 hover:text-navy px-2 py-1.5">Cancel</button>
+                  className="text-sm font-semibold text-cool-500 hover:text-navy px-2 py-1.5">Cancel</button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {error && <p className="mb-3 text-sm font-body text-red-700">{error}</p>}
+      {error && <p className="mb-3 text-sm font-ui text-red-700">{error}</p>}
       {/* Fresh Finmo pull failed; offer the explicit stale-snapshot second click
           (never silently stale). The readiness strip states the snapshot age. */}
       {staleOffer && (
@@ -281,10 +281,10 @@ export default function LenderNotesCard({
             className="text-sm font-semibold bg-white border border-cool-300 text-navy rounded-lg px-3 py-1.5 hover:border-navy disabled:opacity-50">
             {busy === 'generate' ? 'Generating…' : `Generate from the snapshot ${hoursAgo(readiness.snapshotPulledAt)}`}
           </button>
-          <span className="ml-2 text-[11px] text-gray-400 font-body">Uses the last pull, not the current Finmo data.</span>
+          <span className="ml-2 text-[11px] text-cool-500 font-ui">Uses the last pull, not the current Finmo data.</span>
         </div>
       )}
-      {notice && <p className="mb-3 text-sm font-body text-amber-700">{notice}</p>}
+      {notice && <p className="mb-3 text-sm font-ui text-amber-700">{notice}</p>}
 
       {draft ? (
         <div>
@@ -292,30 +292,30 @@ export default function LenderNotesCard({
             <span className="inline-block text-[11px] font-bold uppercase tracking-wide bg-navy text-white rounded px-2 py-0.5">
               {initialDraft?.source === 'human_edited' && !dirty ? 'Edited draft' : 'Draft'}
             </span>
-            <span className="text-[11px] text-gray-400 font-body">Nothing is sent. Copy it out when you are ready.</span>
-            <span className={`text-[11px] font-body ml-auto ${over ? 'text-red-700 font-semibold' : 'text-gray-400'}`}>
+            <span className="text-[11px] text-cool-500 font-ui">Nothing is sent. Copy it out when you are ready.</span>
+            <span className={`text-[11px] font-ui ml-auto tabular-nums ${over ? 'text-red-700 font-semibold' : 'text-cool-500'}`}>
               {count.toLocaleString('en-CA')} / {LENDER_NOTES_CEILING.toLocaleString('en-CA')}{over ? ' over ceiling' : ''}
             </span>
           </div>
           <textarea value={draft} onChange={e => { setDraft(e.target.value); setDirty(true) }} rows={20} data-testid="lender-notes-draft"
-            className="w-full text-sm font-body text-gray-800 border border-gray-200 rounded-lg p-3 whitespace-pre-wrap focus:outline-none focus:ring-1 focus:ring-navy" />
+            className="w-full text-sm font-ui text-cool-800 border border-cool-200 rounded-lg p-3 whitespace-pre-wrap focus:outline-none focus:ring-1 focus:ring-navy" />
           <div className="mt-2 flex items-center gap-2">
             <button type="button" onClick={copy}
-              className="text-sm font-semibold text-navy border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50" data-testid="lender-notes-copy">
+              className="text-sm font-semibold text-navy border border-cool-200 rounded-lg px-3 py-1.5 hover:bg-cool-50" data-testid="lender-notes-copy">
               {copied ? 'Copied' : 'Copy to clipboard'}
             </button>
             {canManage && (
               <button type="button" onClick={saveEdit} disabled={busy !== '' || !dirty} data-testid="lender-notes-save-edit"
-                className="text-sm font-semibold text-navy border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 disabled:opacity-40">
+                className="text-sm font-semibold text-navy border border-cool-200 rounded-lg px-3 py-1.5 hover:bg-cool-50 disabled:opacity-40">
                 {busy === 'edit' ? 'Saving…' : savedEdit ? 'Saved' : 'Save edit'}
               </button>
             )}
-            {dirty && <span className="text-[11px] text-gray-400 font-body">Unsaved edits. Copy works on what you see; Save edit keeps it in history.</span>}
+            {dirty && <span className="text-[11px] text-cool-500 font-ui">Unsaved edits. Copy works on what you see; Save edit keeps it in history.</span>}
           </div>
         </div>
       ) : (
         !composing && (
-          <p className="text-sm text-gray-400 font-body">
+          <p className="text-sm text-cool-500 font-ui">
             No draft yet. Generate one from the deal&rsquo;s own data; it lands here as an editable draft you can copy out.
           </p>
         )

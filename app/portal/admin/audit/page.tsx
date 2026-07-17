@@ -83,11 +83,11 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
     <div className="max-w-4xl">
       <div>
         <h1 className="font-heading text-navy text-2xl font-bold">Audit Log</h1>
-        <p className="text-gray-500 font-body text-sm mt-1">
+        <p className="text-cool-500 font-ui text-sm mt-1">
           Append-only supervision record from the workbench. Entries are never edited or
           deleted; test entries are marked and superseded, never removed. Portal gate actions
           carry the acting human&rsquo;s identity.{' '}
-          <Link href="/portal/admin/audit/view-as" className="text-navy underline hover:text-lime">
+          <Link href="/portal/admin/audit/view-as" className="text-navy underline hover:text-ink">
             View-as sessions
           </Link>{' '}
           have their own log.
@@ -95,8 +95,8 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
       </div>
 
       {!agentId ? (
-        <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-sm text-gray-500 font-body">
+        <div className="mt-6 bg-white border border-cool-200 rounded-[9px] p-5">
+          <p className="text-sm text-cool-500 font-ui">
             {!agentRes.configured
               ? 'Workbench not connected. The audit log reads the fox-underwriting project through the read-only role.'
               : 'Workbench is configured but not answering. See Status for details.'}
@@ -105,32 +105,32 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
       ) : (
         <>
           {/* Filters (plain GET form; the URL is the state) */}
-          <form method="GET" className="mt-5 bg-white border border-gray-200 rounded-xl p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm font-body">
+          <form method="GET" className="mt-5 bg-white border border-cool-200 rounded-[9px] p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm font-ui">
               <label className="block">
-                <span className="text-xs text-gray-400">From</span>
+                <span className="text-xs text-cool-500">From</span>
                 <input
                   type="date"
                   name="from"
                   defaultValue={searchParams.from ?? ''}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-2.5 py-2"
+                  className="mt-1 w-full border border-cool-200 rounded-lg px-2.5 py-2"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-gray-400">To</span>
+                <span className="text-xs text-cool-500">To</span>
                 <input
                   type="date"
                   name="to"
                   defaultValue={searchParams.to ?? ''}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-2.5 py-2"
+                  className="mt-1 w-full border border-cool-200 rounded-lg px-2.5 py-2"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-gray-400">Actor</span>
+                <span className="text-xs text-cool-500">Actor</span>
                 <select
                   name="actor"
                   defaultValue={searchParams.actor ?? ''}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-2.5 py-2 bg-white"
+                  className="mt-1 w-full border border-cool-200 rounded-lg px-2.5 py-2 bg-white"
                 >
                   <option value="">any</option>
                   {ACTORS.map(a => (
@@ -141,39 +141,39 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
                 </select>
               </label>
               <label className="block">
-                <span className="text-xs text-gray-400">Action contains</span>
+                <span className="text-xs text-cool-500">Action contains</span>
                 <input
                   type="text"
                   name="action"
                   defaultValue={searchParams.action ?? ''}
                   placeholder="statements.doc"
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-2.5 py-2"
+                  className="mt-1 w-full border border-cool-200 rounded-lg px-2.5 py-2"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-gray-400">Deal file ref</span>
+                <span className="text-xs text-cool-500">Deal file ref</span>
                 <input
                   type="text"
                   name="deal"
                   defaultValue={searchParams.deal ?? ''}
                   placeholder="BRXM-F053107"
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-2.5 py-2"
+                  className="mt-1 w-full border border-cool-200 rounded-lg px-2.5 py-2"
                 />
               </label>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <button
                 type="submit"
-                className="min-h-[40px] px-4 py-2 rounded-lg text-sm font-semibold font-body bg-navy text-white hover:bg-navy/90"
+                className="min-h-[40px] px-4 py-2 rounded-lg text-sm font-semibold font-ui bg-navy text-white hover:bg-navy/90"
               >
                 Apply filters
               </button>
-              <Link href="/portal/admin/audit" className="text-xs font-semibold text-gray-500 hover:text-navy">
+              <Link href="/portal/admin/audit" className="text-xs font-semibold text-cool-500 hover:text-navy">
                 Clear
               </Link>
               <a
                 href={`/api/portal/admin/audit/export?${qs({})}`}
-                className="ml-auto text-xs font-semibold text-navy underline hover:text-lime"
+                className="ml-auto text-xs font-semibold text-navy underline hover:text-ink"
               >
                 Export CSV (first {AUDIT_EXPORT_CAP.toLocaleString('en-CA')} rows of this view)
               </a>
@@ -181,8 +181,8 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
           </form>
 
           {dealRefMiss && (
-            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-sm text-amber-800 font-body">
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-[9px] px-4 py-3">
+              <p className="text-sm text-amber-800 font-ui">
                 No workbench deal matches file ref &ldquo;{searchParams.deal}&rdquo;. Check the ref
                 and try again.
               </p>
@@ -190,27 +190,27 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
           )}
 
           {entriesRes && (!entriesRes.configured || !entriesRes.ok) && (
-            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-sm text-amber-800 font-body">The audit query failed. Reload to retry.</p>
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-[9px] px-4 py-3">
+              <p className="text-sm text-amber-800 font-ui">The audit query failed. Reload to retry.</p>
             </div>
           )}
 
           {/* Entries */}
-          <div className="mt-4 bg-white border border-gray-200 rounded-xl">
+          <div className="mt-4 bg-white border border-cool-200 rounded-[9px]">
             {entries.length === 0 ? (
-              <p className="text-sm text-gray-500 font-body px-5 py-6">
+              <p className="text-sm text-cool-500 font-ui px-5 py-6">
                 No entries match this view.
               </p>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-cool-100">
                 {entries.map(a => (
                   <div key={a.id} className="px-4 py-2.5">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm font-body">
-                      <span className="text-[11px] text-gray-400 tabular-nums w-32 shrink-0">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm font-ui">
+                      <span className="text-[11px] text-cool-500 tabular-nums w-32 shrink-0">
                         {fmtDateTime(a.createdAt)}
                       </span>
                       <span
-                        className={`text-xs font-semibold ${a.actor === 'portal' ? 'text-navy' : 'text-gray-500'}`}
+                        className={`text-xs font-semibold ${a.actor === 'portal' ? 'text-navy' : 'text-cool-500'}`}
                       >
                         {a.actorEmail ?? a.actor}
                       </span>
@@ -218,7 +218,7 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
                       {a.dealRef && a.dealId && (
                         <Link
                           href={`/portal/admin/deals/${a.dealId}`}
-                          className="text-xs text-gray-500 underline hover:text-navy"
+                          className="text-xs text-cool-500 underline hover:text-navy tabular-nums"
                         >
                           {a.dealRef}
                         </Link>
@@ -226,8 +226,8 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
                     </div>
                     {a.detail !== null && (
                       <details>
-                        <summary className="text-[11px] text-gray-400 cursor-pointer select-none">detail</summary>
-                        <pre className="mt-1 text-[11px] text-gray-600 bg-gray-50 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap break-words">
+                        <summary className="text-[11px] text-cool-500 cursor-pointer select-none">detail</summary>
+                        <pre className="mt-1 text-[11px] text-cool-600 bg-cool-50 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap break-words">
                           {JSON.stringify(a.detail, null, 1)}
                         </pre>
                       </details>
@@ -239,20 +239,20 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
           </div>
 
           {/* Pagination */}
-          <div className="mt-4 flex items-center justify-between text-sm font-body">
+          <div className="mt-4 flex items-center justify-between text-sm font-ui">
             <div>
               {page > 1 ? (
                 <Link
                   href={`/portal/admin/audit?${qs({ page: String(page - 1) })}`}
-                  className="font-semibold text-navy hover:text-lime"
+                  className="font-semibold text-navy hover:text-ink"
                 >
                   &larr; Newer
                 </Link>
               ) : (
-                <span className="text-gray-300">&larr; Newer</span>
+                <span className="text-cool-300">&larr; Newer</span>
               )}
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-cool-500 tabular-nums">
               Page {page}
               {totalPages !== null ? ` of ${totalPages}` : ''}
               {total !== null ? ` (${total.toLocaleString('en-CA')} entries)` : ''}
@@ -261,12 +261,12 @@ export default async function AuditPage({ searchParams }: { searchParams: AuditS
               {totalPages === null || page < totalPages ? (
                 <Link
                   href={`/portal/admin/audit?${qs({ page: String(page + 1) })}`}
-                  className="font-semibold text-navy hover:text-lime"
+                  className="font-semibold text-navy hover:text-ink"
                 >
                   Older &rarr;
                 </Link>
               ) : (
-                <span className="text-gray-300">Older &rarr;</span>
+                <span className="text-cool-300">Older &rarr;</span>
               )}
             </div>
           </div>

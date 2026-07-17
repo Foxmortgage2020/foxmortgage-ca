@@ -96,7 +96,7 @@ export default function OverridePanel({
   }
 
   return (
-    <div className="mt-2 border-t border-gray-100 pt-2">
+    <div className="mt-2 border-t border-cool-100 pt-2">
       <div className="flex items-center gap-2 flex-wrap">
         {overrideId ? (
           <button
@@ -115,11 +115,11 @@ export default function OverridePanel({
             {open ? 'Close override' : 'Override comparable'}
           </button>
         )}
-        {msg && <span className="text-[11px] font-body text-gray-500">{msg}</span>}
+        {msg && <span className="text-[11px] font-ui text-cool-500">{msg}</span>}
       </div>
 
       {open && !overrideId && (
-        <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2 space-y-2 text-xs font-body">
+        <div className="mt-2 rounded-lg border border-cool-200 bg-cool-50/60 px-3 py-2 space-y-2 text-xs font-ui">
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input type="radio" checked={mode === 'book_quote'} onChange={() => setMode('book_quote')} className="accent-navy" />
@@ -133,9 +133,9 @@ export default function OverridePanel({
 
           {mode === 'book_quote' &&
             (options.length === 0 ? (
-              <p className="text-gray-500">No eligible same-tier candidates exist for this client; a desk rate is the only path.</p>
+              <p className="text-cool-500">No eligible same-tier candidates exist for this client; a desk rate is the only path.</p>
             ) : (
-              <select value={candidateKey} onChange={e => setCandidateKey(e.target.value)} className="w-full border border-gray-300 rounded-lg px-2 py-1 bg-white">
+              <select value={candidateKey} onChange={e => setCandidateKey(e.target.value)} className="w-full border border-cool-300 rounded-lg px-2 py-1 bg-white">
                 <option value="">choose an eligible quote…</option>
                 {options.map(o => (
                   <option key={o.key} value={o.key}>{o.label}</option>
@@ -145,19 +145,19 @@ export default function OverridePanel({
 
           {mode === 'desk_rate' && (
             <div className="grid grid-cols-2 gap-2">
-              <input value={lender} onChange={e => setLender(e.target.value)} placeholder="lender name" className="border border-gray-300 rounded-lg px-2 py-1" />
-              <input value={rate} onChange={e => setRate(e.target.value)} placeholder="rate % (e.g. 4.44)" className="border border-gray-300 rounded-lg px-2 py-1" />
-              <select value={rateType} onChange={e => setRateType(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1 bg-white">
+              <input value={lender} onChange={e => setLender(e.target.value)} placeholder="lender name" className="border border-cool-300 rounded-lg px-2 py-1" />
+              <input value={rate} onChange={e => setRate(e.target.value)} placeholder="rate % (e.g. 4.44)" className="border border-cool-300 rounded-lg px-2 py-1" />
+              <select value={rateType} onChange={e => setRateType(e.target.value)} className="border border-cool-300 rounded-lg px-2 py-1 bg-white">
                 <option value="fixed">fixed</option>
                 <option value="adjustable">adjustable</option>
                 <option value="variable">variable</option>
               </select>
-              <input value={termMonths} onChange={e => setTermMonths(e.target.value)} placeholder="term (months)" className="border border-gray-300 rounded-lg px-2 py-1" />
-              <input value={sourceNote} onChange={e => setSourceNote(e.target.value)} placeholder="source: who quoted it and when (required)" className="col-span-2 border border-gray-300 rounded-lg px-2 py-1" />
+              <input value={termMonths} onChange={e => setTermMonths(e.target.value)} placeholder="term (months)" className="border border-cool-300 rounded-lg px-2 py-1" />
+              <input value={sourceNote} onChange={e => setSourceNote(e.target.value)} placeholder="source: who quoted it and when (required)" className="col-span-2 border border-cool-300 rounded-lg px-2 py-1" />
             </div>
           )}
 
-          <input value={reason} onChange={e => setReason(e.target.value)} placeholder="reason for the override (required; this is the suitability record)" className="w-full border border-gray-300 rounded-lg px-2 py-1" />
+          <input value={reason} onChange={e => setReason(e.target.value)} placeholder="reason for the override (required; this is the suitability record)" className="w-full border border-cool-300 rounded-lg px-2 py-1" />
 
           <button
             onClick={submit}
