@@ -55,6 +55,7 @@ import ClientConstraints from '@/components/admin/ClientConstraints'
 import PhaseSection from '@/components/admin/deals/PhaseSection'
 import StepList from '@/components/admin/deals/StepList'
 import CloseoutPanel from '@/components/admin/deals/CloseoutPanel'
+import StatusChip from '@/components/admin/ds/StatusChip'
 import { scenarioFromParams, scenarioParamsFromDeal, scenarioVerdict } from '@/lib/scenario'
 import { activeConstraints } from '@/lib/constraints'
 import { constraintsFor } from '@/lib/constraints-store'
@@ -155,15 +156,8 @@ function SectionFallback({ state, notGrantedCopy }: { state: SectionState<unknow
   return <Muted>This section did not load: {state.kind === 'error' ? state.message : 'unknown'}. Reload to retry.</Muted>
 }
 
-function Chip({ tone, children, title }: { tone: 'green' | 'amber' | 'red' | 'gray'; children: React.ReactNode; title?: string }) {
-  const cls = {
-    green: 'bg-green-100 text-green-700',
-    amber: 'bg-amber-100 text-amber-800',
-    red: 'bg-red-100 text-red-700',
-    gray: 'bg-cool-100 text-cool-700',
-  }[tone]
-  return <span title={title} className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{children}</span>
-}
+// The status chip is the design system's (extracted in B3, byte-identical).
+const Chip = StatusChip
 
 // Calc provenance line: the version and inputs hash the workbench stores
 // beside every calculation. Never render a calc stripped of these.
@@ -869,7 +863,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
               )}
               <p className="mt-2 text-sm font-body text-cool-700">
                 Funded files live on the{' '}
-                <Link href="/portal/admin/renewals" className="underline text-navy">
+                <Link href="/portal/admin/beyond?tab=renewals" className="underline text-navy">
                   Renewal Radar
                 </Link>{' '}
                 and in Strategic Mortgage Monitoring.

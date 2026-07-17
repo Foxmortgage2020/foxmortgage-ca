@@ -287,6 +287,23 @@ const DEALS_FILES_NO_LIME = [
   'components/admin/LenderNotesCard.tsx',
   'app/portal/admin/underwriting/page.tsx',
   'app/portal/admin/deals/[id]/page.tsx',
+  // B3: the design system itself and the merged pages add zero lime; the
+  // three flagged demotions (ClientConstraints ×2, the roadmap marker) hold.
+  'components/admin/ds/SummaryStrip.tsx',
+  'components/admin/ds/NavyBar.tsx',
+  'components/admin/ds/StatusChip.tsx',
+  'components/admin/ds/TabBar.tsx',
+  'components/admin/ds/table.tsx',
+  'app/portal/admin/lenders/page.tsx',
+  'app/portal/admin/beyond/page.tsx',
+  'components/admin/lenders/RatesTab.tsx',
+  'components/admin/lenders/IntelTab.tsx',
+  'components/admin/lenders/KnowledgeTab.tsx',
+  'components/admin/beyond/RenewalsTab.tsx',
+  'components/admin/beyond/OpportunitiesTab.tsx',
+  'components/admin/revenue/BookkeepingTab.tsx',
+  'components/admin/ClientConstraints.tsx',
+  'app/portal/admin/roadmap/page.tsx',
 ]
 
 const LIME_RENDER = /(?:bg|text|border|decoration|outline|from|to|ring|fill|stroke)-lime\b|#95D600|#C6F53F/

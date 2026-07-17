@@ -1,10 +1,11 @@
-// Rates v3 (Session 10): a tabbed surface. Scenario (who wins this deal,
-// default), Lenders (where a lender sits today), Promos (what's live and
-// expiring), and All quotes (the dense table with superseded history). The
-// server resolves the approved book, the pending-sheet and intel signals for
-// the coverage map, and each approved quote's sheet-review provenance once,
-// so the client tabs render without extra round trips. Every rate carries its
-// sheet date; approved quotes only anywhere a rate is quotable.
+// The Rates engine (Rates v3, Session 10) — reparented unchanged as the
+// Lenders page's Rates tab (B3). Scenario (who wins this deal, default),
+// Lenders (where a lender sits today), Promos (what's live and expiring),
+// and All quotes ride RatesTabs' own inner ?tab values (scenario | lenders |
+// promos | all — disjoint from the page's rates | intel | knowledge, and
+// pathname-relative, so they compose). The server resolves the approved
+// book, coverage signals, and sheet-review provenance once. Every rate
+// carries its sheet date; approved quotes only anywhere a rate is quotable.
 
 import { requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
@@ -21,13 +22,11 @@ import { lenderCoverage } from '@/lib/lender-browse'
 import { torontoTodayYMD } from '@/lib/dates'
 import RatesTabs from '@/components/admin/RatesTabs'
 
-export const dynamic = 'force-dynamic'
-
 function val<T>(r: UwResult<T> | null): T | null {
   return r && r.configured && r.ok ? r.data : null
 }
 
-export default async function RatesPage() {
+export default async function RatesTab() {
   await requirePermission('rates.view')
 
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
@@ -35,10 +34,10 @@ export default async function RatesPage() {
 
   if (!agentId) {
     return (
-      <div className="max-w-5xl">
+      <div>
         <Header />
-        <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-sm text-gray-500 font-body">
+        <div className="mt-4 bg-white border border-cool-200 rounded-[9px] p-5">
+          <p className="text-sm text-cool-600 font-ui">
             {!agentRes.configured
               ? 'Workbench not connected. Rates reads approved quotes through the read-only role.'
               : 'Workbench is configured but not answering. See Status for details.'}
@@ -90,7 +89,7 @@ export default async function RatesPage() {
   const provenance: Record<string, SheetProvenance> = val(provenanceR) ?? {}
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <Header />
       <RatesTabs quotes={quotes} provenance={provenance} coverage={coverage} todayYMD={todayYMD} unattributed={unattributed} />
     </div>
@@ -99,12 +98,9 @@ export default async function RatesPage() {
 
 function Header() {
   return (
-    <div>
-      <h1 className="font-heading text-navy text-2xl font-bold">Rates</h1>
-      <p className="text-gray-500 font-body text-sm mt-1">
-        Describe a deal and see which lenders win it, browse where each lender sits today, and track
-        the promo book, all from rate sheets Michael approved through the audited gate.
-      </p>
-    </div>
+    <p className="font-ui text-sm text-cool-600">
+      Describe a deal and see which lenders win it, browse where each lender sits today, and track
+      the promo book, all from rate sheets Michael approved through the audited gate.
+    </p>
   )
 }

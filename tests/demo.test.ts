@@ -74,6 +74,19 @@ describe('demo mode guards', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
+  it('the Beyond funding and Lenders strips resolve from fixtures and empty stores with zero real reads (B3)', async () => {
+    const { getRenewalDeals } = await import('@/lib/zoho-admin')
+    const { recentUploads } = await import('@/lib/smm-store')
+    const { getKnowledgeClaimQueue } = await import('@/lib/underwriting')
+    const renewals = await getRenewalDeals()
+    expect(renewals.withMaturity.length).toBeGreaterThan(0)
+    const uploads = await recentUploads(3)
+    expect(uploads).toEqual({ configured: true, ok: true, data: [] })
+    const claims = await getKnowledgeClaimQueue('anything')
+    expect(claims.configured && claims.ok).toBe(true)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it('getDealCloseout (B2b closeout read) resolves from fixtures with zero real reads', async () => {
     const inReview = await getDealCloseout('demo-z-2')
     expect(inReview?.complianceStatus).toBe('In Review')

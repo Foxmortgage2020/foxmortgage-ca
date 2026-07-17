@@ -452,7 +452,7 @@ export default async function AdminHome() {
       title: 'Renewals to confirm',
       body: 'The monitoring feed contradicts the recorded terms. Confirm renewed with us or clear with a reason.',
       cta: 'Confirm renewals',
-      href: '/portal/admin/renewals',
+      href: '/portal/admin/beyond?tab=renewals',
     })
   }
   if ((reviewFiles ?? 0) > 0) {
@@ -463,7 +463,7 @@ export default async function AdminHome() {
       title: 'Files in review',
       body: 'Balances that did not reconcile or data the analysis will not state a figure on.',
       cta: 'Review files',
-      href: '/portal/admin/opportunities',
+      href: '/portal/admin/beyond?tab=opportunities',
     })
   }
   const topDecisionCards = decisionCards.slice(0, 3)
@@ -491,7 +491,7 @@ export default async function AdminHome() {
         tone="red"
         title="Lapsed renewals"
         count={renewalBuckets.lapsed.count}
-        href="/portal/admin/renewals"
+        href="/portal/admin/beyond?tab=renewals"
       >
         <AttentionRow
           left={`${fmtMoney(renewalBuckets.lapsed.volume)} matured with no recorded outcome`}
@@ -507,7 +507,7 @@ export default async function AdminHome() {
         tone="amber"
         title="Renewals in the action window"
         count={renewalBuckets.action.count}
-        href="/portal/admin/renewals"
+        href="/portal/admin/beyond?tab=renewals"
       >
         <AttentionRow
           left={`${fmtMoney(renewalBuckets.action.volume)} maturing within 130 days`}
@@ -523,7 +523,7 @@ export default async function AdminHome() {
         tone="amber"
         title="Funded deals with no maturity date"
         count={missingMaturityCount}
-        href="/portal/admin/renewals"
+        href="/portal/admin/beyond?tab=renewals"
       >
         <AttentionRow
           left={`${fmtMoney(missingMaturityVol)} invisible to the renewal system until backfilled`}
@@ -542,7 +542,7 @@ export default async function AdminHome() {
         tone="amber"
         title="Monitoring opportunities to call"
         count={oppActNow.count}
-        href="/portal/admin/opportunities"
+        href="/portal/admin/beyond?tab=opportunities"
       >
         <AttentionRow
           left={`${fmtMoney(oppActNow.netBenefit)} estimated net benefit across act-now files`}
@@ -893,7 +893,7 @@ export default async function AdminHome() {
               label="Renewals to action"
               value={`${renewalBuckets.action.count} files`}
               sub={fmtMoneyCompact(renewalBuckets.action.volume)}
-              href="/portal/admin/renewals"
+              href="/portal/admin/beyond?tab=renewals"
             />
           )}
           {canRenewals && renewalBuckets && (
@@ -902,7 +902,7 @@ export default async function AdminHome() {
               value={`${renewalBuckets.lapsed.count} files`}
               sub={fmtMoneyCompact(renewalBuckets.lapsed.volume)}
               tone={renewalBuckets.lapsed.count > 0 ? 'bad' : undefined}
-              href="/portal/admin/renewals"
+              href="/portal/admin/beyond?tab=renewals"
             />
           )}
         </div>
@@ -1103,7 +1103,7 @@ export default async function AdminHome() {
         <SectionCard
           title="Rates"
           action={
-            <Link href="/portal/admin/rates" className="text-xs font-semibold text-navy hover:text-lime">
+            <Link href="/portal/admin/lenders?tab=rates" className="text-xs font-semibold text-navy hover:text-lime">
               Rates &rarr;
             </Link>
           }

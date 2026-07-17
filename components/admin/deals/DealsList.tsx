@@ -13,6 +13,15 @@ import Link from 'next/link'
 import type { DealRow } from '@/lib/deals-surface'
 import { actionHref, phaseCounts } from '@/lib/deals-surface'
 import { fmtMoneyCompact, fmtShortDate } from '@/lib/dates'
+import SummaryStrip from '@/components/admin/ds/SummaryStrip'
+import {
+  CELL_DATE,
+  CELL_MONEY,
+  CELL_REF,
+  TABLE_CARD,
+  TABLE_HEADER_ROW,
+  TABLE_ROW,
+} from '@/components/admin/ds/table'
 
 function closesSub(days: number | null): string | null {
   if (days === null) return null
@@ -33,7 +42,7 @@ function ActionCell({ row }: { row: DealRow }) {
   if (row.funded) {
     return (
       <Link
-        href="/portal/admin/renewals"
+        href="/portal/admin/beyond?tab=renewals"
         className="font-ui text-[13px] text-cool-500 underline decoration-cool-300 underline-offset-4 hover:text-navy"
       >
         Moves to renewals
@@ -71,34 +80,12 @@ function ActionCell({ row }: { row: DealRow }) {
   )
 }
 
+// The phase spine is the design system's summary strip (extracted in B3).
 function PhaseStrip({ rows }: { rows: DealRow[] }) {
-  const tiles = phaseCounts(rows)
   return (
-    <>
-      {/* Desktop spine: four tiles on hairline dividers. */}
-      <div className="mb-4 hidden overflow-hidden rounded-[9px] border border-cool-200 bg-cool-200 md:flex md:gap-px">
-        {tiles.map(t => (
-          <div key={t.key} className="flex-1 bg-white px-4 py-3">
-            <div className="font-heading text-[21px] font-semibold leading-none text-navy tabular-nums">
-              {t.count}
-            </div>
-            <div className="mt-1.5 font-ui text-xs text-cool-700">{t.label}</div>
-          </div>
-        ))}
-      </div>
-      {/* Phone spine: the same counts as wrap chips. */}
-      <div className="mb-3 flex flex-wrap gap-2 md:hidden">
-        {tiles.map(t => (
-          <div
-            key={t.key}
-            className="flex items-baseline gap-1.5 rounded-[7px] border border-cool-200 bg-white px-2.5 py-1.5"
-          >
-            <span className="font-heading text-[13px] font-semibold text-navy tabular-nums">{t.count}</span>
-            <span className="font-ui text-[10.5px] text-cool-700">{t.label}</span>
-          </div>
-        ))}
-      </div>
-    </>
+    <SummaryStrip
+      tiles={phaseCounts(rows).map(t => ({ key: t.key, label: t.label, value: String(t.count) }))}
+    />
   )
 }
 
@@ -110,8 +97,8 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
       <PhaseStrip rows={rows} />
 
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-[9px] border border-cool-200 bg-white md:block">
-        <div className={`${GRID} px-5 py-2.5 font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600`}>
+      <div className={TABLE_CARD}>
+        <div className={`${GRID} ${TABLE_HEADER_ROW}`}>
           <div>Client</div>
           <div>Phase</div>
           <div>Where it is</div>
@@ -127,7 +114,7 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
         {rows.map(r => (
           <div
             key={r.roomId}
-            className={`${GRID} border-t border-cool-100 px-5 py-3 ${r.funded ? 'opacity-60' : ''}`}
+            className={`${GRID} ${TABLE_ROW} ${r.funded ? 'opacity-60' : ''}`}
             data-testid={`deal-row-${r.fileRef}`}
           >
             <div className="min-w-0">
@@ -137,7 +124,7 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
               >
                 {r.client}
               </Link>
-              <p className="mt-0.5 font-ui text-[10.5px] tracking-[0.04em] text-cool-500 tabular-nums">
+              <p className={`mt-0.5 ${CELL_REF}`}>
                 {r.fileRef}
                 {r.positionFromRoom && (
                   <span
@@ -168,7 +155,7 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
             </div>
             <div>
               <p
-                className={`font-ui text-[13px] tabular-nums ${
+                className={`${CELL_DATE} ${
                   !r.funded && r.closingAmber ? 'font-semibold text-caution' : 'text-cool-800'
                 }`}
               >
@@ -184,7 +171,7 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
                 </p>
               )}
             </div>
-            <div className="text-right font-ui text-[13.5px] font-semibold text-navy tabular-nums">
+            <div className={`text-right ${CELL_MONEY}`}>
               {r.amount !== null ? fmtMoneyCompact(r.amount) : '—'}
             </div>
             <div className="flex justify-end">
@@ -216,7 +203,7 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
                 >
                   {r.client}
                 </Link>
-                <span className="shrink-0 font-ui text-[13.5px] font-semibold text-navy tabular-nums">
+                <span className={`shrink-0 ${CELL_MONEY}`}>
                   {r.amount !== null ? fmtMoneyCompact(r.amount) : '—'}
                 </span>
               </div>
@@ -236,7 +223,7 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
               </div>
               {r.funded ? (
                 <Link
-                  href="/portal/admin/renewals"
+                  href="/portal/admin/beyond?tab=renewals"
                   className="mt-3 block font-ui text-[12.5px] text-cool-500 underline decoration-cool-300 underline-offset-4"
                 >
                   Moves to renewals

@@ -62,7 +62,7 @@ export default async function ChangelogPage() {
       kind: 'sheet' as const,
       title: `Rate sheet ${s.decision}: ${s.lenderSlugGuess ?? 'lender'} (${s.quotesTotal} quotes)`,
       detail: s.fileName,
-      href: '/portal/admin/rates',
+      href: '/portal/admin/lenders?tab=rates',
     })),
     ...intel.slice(0, 50).map(i => ({
       dateISO: i.receivedAt,

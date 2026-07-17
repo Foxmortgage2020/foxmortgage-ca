@@ -49,7 +49,7 @@
     {
       "name": "Deals",
       "short_name": "Deals",
-      "url": "/portal/admin/deals"
+      "url": "/portal/admin/underwriting"
     }
   ]
 }

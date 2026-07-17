@@ -492,7 +492,7 @@ function LenderPage({
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <Link
-            href={`/portal/admin/rates?tab=scenario&lender=${encodeURIComponent(slug)}`}
+            href={`/portal/admin/lenders?tab=scenario&lender=${encodeURIComponent(slug)}`}
             className="text-xs font-semibold bg-navy text-white rounded-lg px-3 py-1.5 hover:bg-navy/90"
             data-testid="price-a-deal"
           >
@@ -649,7 +649,7 @@ function ProductRow({
       </div>
       {!superseded && (
         <Link
-          href={`/portal/admin/rates?tab=scenario&lender=${encodeURIComponent(quote.lenderSlug)}&product=${quote.id}`}
+          href={`/portal/admin/lenders?tab=scenario&lender=${encodeURIComponent(quote.lenderSlug)}&product=${quote.id}`}
           className="text-xs font-semibold text-navy underline hover:text-lime shrink-0"
           data-testid={`lender-detail-${quote.id}`}
         >

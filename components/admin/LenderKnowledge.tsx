@@ -443,7 +443,7 @@ export default function LenderKnowledge({
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading text-navy font-bold text-base">Active offers</h2>
           <Link
-            href={`/portal/admin/rates?lender=${encodeURIComponent(data.slug)}`}
+            href={`/portal/admin/lenders?lender=${encodeURIComponent(data.slug)}`}
             className="text-xs font-semibold text-navy hover:text-lime"
           >
             {approvedQuoteCount !== null ? `${approvedQuoteCount} approved quotes in Rates` : 'Rates'} &rarr;

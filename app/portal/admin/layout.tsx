@@ -26,7 +26,7 @@ import AdminShell, { type ShellNavGroup } from '@/components/admin/AdminShell'
 import { isDemoMode } from '@/lib/demo'
 import { redirect } from 'next/navigation'
 
-const GROUP_ORDER: AdminNavGroupKey[] = ['today', 'pipeline', 'market', 'practice', 'system']
+const GROUP_ORDER: AdminNavGroupKey[] = ['today', 'book', 'practice', 'system']
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser()

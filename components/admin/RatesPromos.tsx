@@ -265,13 +265,13 @@ function PromoCard({
       {!expired && (
         <div className="flex flex-wrap gap-2 mt-3">
           <Link
-            href={`/portal/admin/rates?tab=lenders&lender=${encodeURIComponent(linkSlug)}`}
+            href={`/portal/admin/lenders?tab=lenders&lender=${encodeURIComponent(linkSlug)}`}
             className="text-xs font-semibold text-navy border border-navy/30 rounded-lg px-2.5 py-1 hover:border-navy"
           >
             Open lender
           </Link>
           <Link
-            href={`/portal/admin/rates?tab=scenario&lender=${encodeURIComponent(linkSlug)}`}
+            href={`/portal/admin/lenders?tab=scenario&lender=${encodeURIComponent(linkSlug)}`}
             className="text-xs font-semibold bg-navy text-white rounded-lg px-2.5 py-1 hover:bg-navy/90"
           >
             Test against a deal

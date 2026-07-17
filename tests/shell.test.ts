@@ -58,11 +58,18 @@ function routeOf(pagePath: string): string {
 }
 
 describe('route inventory: every admin route stays on the map', () => {
-  // Phase B1: the Deals LIST moved to Underwriting; the old route redirects
-  // permanently (next.config.js) while deal ROOMS keep /deals/[id] URLs.
-  // A redirected prefix counts as covered when its target is in the nav.
+  // Phase B1: the Deals LIST moved to Underwriting; B3: the merged pages
+  // (Lenders, Beyond funding, Revenue?tab=bookkeeping) absorbed five more.
+  // Old routes redirect permanently (next.config.js); SUBROUTES under a
+  // redirected prefix (renewals/drip, opportunities/backfill,
+  // knowledge/[slug]) stay live and count as covered through it.
   const REDIRECTED: Record<string, string> = {
     '/portal/admin/deals': '/portal/admin/underwriting',
+    '/portal/admin/renewals': '/portal/admin/beyond',
+    '/portal/admin/opportunities': '/portal/admin/beyond',
+    '/portal/admin/rates': '/portal/admin/lenders',
+    '/portal/admin/intel': '/portal/admin/lenders',
+    '/portal/admin/knowledge': '/portal/admin/lenders',
   }
   const navHrefs = [
     ...ADMIN_NAV.map(i => i.href),
@@ -73,16 +80,27 @@ describe('route inventory: every admin route stays on the map', () => {
       .map(([source]) => source),
   ]
 
-  it('the /deals redirect actually exists in next.config.js', () => {
+  it('every retired path redirects permanently in next.config.js', () => {
     const cfg = readFileSync('next.config.js', 'utf8')
-    expect(cfg).toContain("source: '/portal/admin/deals'")
-    expect(cfg).toContain("destination: '/portal/admin/underwriting'")
+    const pairs: [string, string][] = [
+      ['/portal/admin/deals', '/portal/admin/underwriting'],
+      ['/portal/admin/renewals', '/portal/admin/beyond?tab=renewals'],
+      ['/portal/admin/opportunities', '/portal/admin/beyond?tab=opportunities'],
+      ['/portal/admin/rates', '/portal/admin/lenders?tab=rates'],
+      ['/portal/admin/intel', '/portal/admin/lenders?tab=intel'],
+      ['/portal/admin/knowledge', '/portal/admin/lenders?tab=knowledge'],
+      ['/portal/bookkeeping', '/portal/admin/revenue?tab=bookkeeping'],
+    ]
+    for (const [source, destination] of pairs) {
+      expect(cfg).toContain(`source: '${source}'`)
+      expect(cfg).toContain(`destination: '${destination}'`)
+    }
     expect(cfg).toContain('permanent: true')
   })
 
   it('every router page under /portal/admin has a nav ancestor', () => {
     const routes = walkPages('app/portal/admin').map(routeOf)
-    expect(routes.length).toBeGreaterThanOrEqual(29)
+    expect(routes.length).toBeGreaterThanOrEqual(26)
     for (const route of routes) {
       const covered = navHrefs.some(h => route === h || route.startsWith(h + '/'))
       expect(covered, `route ${route} has no nav ancestor — it fell off the map`).toBe(true)
@@ -103,12 +121,27 @@ describe('route inventory: every admin route stays on the map', () => {
     }
   })
 
-  it('the five groups cover every nav item and carry labels', () => {
+  it('the B3 groups cover every nav item and carry labels', () => {
     const keys = Array.from(new Set(ADMIN_NAV.map(i => i.group)))
-    expect(keys.sort()).toEqual(['market', 'pipeline', 'practice', 'system', 'today'])
-    for (const key of ['pipeline', 'market', 'practice', 'system'] as const) {
+    expect(keys.sort()).toEqual(['book', 'practice', 'system', 'today'])
+    for (const key of ['book', 'practice', 'system'] as const) {
       expect(NAV_GROUP_LABELS[key]).toBeTruthy()
     }
+  })
+
+  it('the working nav is eight destinations across two honest groups (B3)', () => {
+    const working = ADMIN_NAV.filter(i => i.group !== 'system')
+    expect(working.map(i => i.label)).toEqual([
+      'Today',
+      'Deals',
+      'Approvals',
+      'Beyond funding',
+      'Lenders',
+      'Revenue',
+      'Partners',
+      'Compliance',
+    ])
+    expect(ADMIN_NAV.some(i => i.href === '/portal/bookkeeping')).toBe(false)
   })
 
   it('Ask Fox is the footer, not a nav-list item', () => {
@@ -119,13 +152,16 @@ describe('route inventory: every admin route stays on the map', () => {
 // ─── 2. Role scoping: presentation only, never widening ─────────────────────
 
 describe('agent-role nav scoping', () => {
-  it('agent-only roles see Today, Pipeline, and Market groups only', () => {
+  it('agent-only roles see Today, The book, and The practice groups only (B3)', () => {
     const scoped = scopeNavForRoles(ADMIN_NAV, ['agent'])
     expect(scoped.length).toBeGreaterThan(0)
     for (const item of scoped) {
-      expect(['today', 'pipeline', 'market']).toContain(item.group)
+      expect(['today', 'book', 'practice']).toContain(item.group)
     }
-    expect(scoped.some(i => i.group === 'practice')).toBe(false)
+    // The can() filter narrows further at render; presentation scoping only
+    // removes System. Agents keep their knowledge path (Lenders is keyed on
+    // knowledge.view, which agents hold).
+    expect(ADMIN_NAV.find(i => i.label === 'Lenders')?.permission).toBe('knowledge.view')
     expect(scoped.some(i => i.group === 'system')).toBe(false)
   })
 
@@ -171,8 +207,8 @@ describe('desk fragments and badges', () => {
       '15 files in review',
     ])
     expect(f[0].href).toBe('/portal/admin/approvals?tab=sheets')
-    expect(f[1].href).toBe('/portal/admin/renewals')
-    expect(f[3].href).toBe('/portal/admin/opportunities')
+    expect(f[1].href).toBe('/portal/admin/beyond?tab=renewals')
+    expect(f[3].href).toBe('/portal/admin/beyond?tab=opportunities')
   })
 
   it('singular labels read naturally', () => {
@@ -212,8 +248,9 @@ describe('desk fragments and badges', () => {
       manualMatches: 1,
     })
     expect(b['/portal/admin/approvals']).toBe(11)
-    expect(b['/portal/admin/renewals']).toBe(2)
-    expect(b['/portal/admin/opportunities']).toBe(6)
+    // B3: Beyond funding is one destination; its badge sums what the two
+    // badges showed separately (2 renewals + 5 review + 1 manual match).
+    expect(b['/portal/admin/beyond']).toBe(8)
   })
 
   it('zero-count queues produce no badge at all', () => {

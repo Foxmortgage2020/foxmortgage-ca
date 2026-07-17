@@ -13,6 +13,7 @@ import { boardPhaseColumns } from '@/lib/deals-surface'
 import { PHASE_STEPS } from '@/config/lifecycle'
 import { DAYS_IDLE_AMBER } from '@/lib/underwriting-bridge'
 import { fmtMoneyCompact, fmtShortDate } from '@/lib/dates'
+import NavyBar from '@/components/admin/ds/NavyBar'
 
 function closesLine(row: DealRow): string {
   if (!row.closing) return 'no close date'
@@ -43,10 +44,8 @@ export default function DealsBoard({ rows }: { rows: DealRow[] }) {
       <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {columns.map(col => (
           <div key={col.key} className="flex min-w-0 flex-col">
-            <div className="flex items-center justify-between rounded-t-lg bg-navy px-3.5 py-2.5 text-white">
-              <span className="font-heading text-[12.5px] font-semibold">{col.label}</span>
-              <span className="font-ui text-xs text-white/75 tabular-nums">{col.rows.length}</span>
-            </div>
+            {/* The design system's navy section header (extracted in B3). */}
+            <NavyBar rounded="top" label={col.label} right={col.rows.length} />
             <div className="flex flex-col gap-2.5 rounded-b-lg border border-t-0 border-cool-200 bg-cool-50 p-3">
               {col.rows.length === 0 && placeholders.length === 0 && (
                 <p className="px-1 py-1 font-ui text-xs text-cool-500">Empty.</p>

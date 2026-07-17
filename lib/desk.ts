@@ -68,9 +68,9 @@ export function deskFragments(c: DeskCounts): DeskFragment[] {
   add(c.offers, n => `${n} ${plural(n, 'offer', 'offers')} to decide`, '/portal/admin/approvals?tab=offers')
   add(c.flags, n => `${n} ${plural(n, 'flag', 'flags')} to resolve`, '/portal/admin/approvals?tab=flags')
   add(c.shadow, n => `${n} ${plural(n, 'file', 'files')} to score`, '/portal/admin/approvals?tab=shadow')
-  add(c.renewalsToConfirm, n => `${n} ${plural(n, 'renewal', 'renewals')} to confirm`, '/portal/admin/renewals')
+  add(c.renewalsToConfirm, n => `${n} ${plural(n, 'renewal', 'renewals')} to confirm`, '/portal/admin/beyond?tab=renewals')
   add(c.manualMatches, n => `${n} manual ${plural(n, 'match', 'matches')}`, '/portal/admin/opportunities/backfill')
-  add(c.reviewFiles, n => `${n} ${plural(n, 'file', 'files')} in review`, '/portal/admin/opportunities')
+  add(c.reviewFiles, n => `${n} ${plural(n, 'file', 'files')} in review`, '/portal/admin/beyond?tab=opportunities')
   return f
 }
 
@@ -82,9 +82,10 @@ export function deskBadges(c: DeskCounts): Record<string, number> {
   const approvals =
     (c.sheets ?? 0) + (c.statements ?? 0) + (c.offers ?? 0) + (c.flags ?? 0) + (c.shadow ?? 0)
   if (approvals > 0) badges['/portal/admin/approvals'] = approvals
-  if ((c.renewalsToConfirm ?? 0) > 0) badges['/portal/admin/renewals'] = c.renewalsToConfirm as number
-  const opp = (c.reviewFiles ?? 0) + (c.manualMatches ?? 0)
-  if (opp > 0) badges['/portal/admin/opportunities'] = opp
+  // B3: Renewals and Opportunities are one Beyond funding destination; its
+  // badge sums what the two badges showed separately.
+  const beyond = (c.renewalsToConfirm ?? 0) + (c.reviewFiles ?? 0) + (c.manualMatches ?? 0)
+  if (beyond > 0) badges['/portal/admin/beyond'] = beyond
   return badges
 }
 

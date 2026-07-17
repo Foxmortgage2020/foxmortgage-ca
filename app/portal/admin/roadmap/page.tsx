@@ -261,7 +261,7 @@ const SESSIONS: {
 // The forward list once the original nine-session map is complete: the
 // side-quests and follow-ups decided along the way. Kept honest and current.
 const BACKLOG: { title: string; note: string }[] = [
-  { title: 'Command Centre Phase B: page interiors (B1 + B2a + B2b shipped; B3 agent mode next)', note: 'The 2026-07-14 shell redesign (Phase A) shipped the grouped sidebar, the Desk strip, decision badges, and the lime-as-decisions rule. B1 (the lifecycle spine) shipped ONE canonical lifecycle definition (config/lifecycle.ts). B2a (stage truth) made Zoho the position source: every board card sits where its Zoho display stage says (six of seven live files moved to their true columns), every portal stage read normalizes to display space, and the Ready To Close weight amber cleared with zero weight edits. B2b (2026-07-17, Direction 2 "the control room") made the surface Deals: a list-first daily driver (phase spine, closing-date order, exactly one lime on the top-most actionable row, next actions wired from the lifecycle step map) with the board behind a per-user toggle, a phase-led deal room (navy header band, node stepper, current phase open first, surfaces reparented under their phases), the read-only compliance package card off Zoho Compliance_Status with Paid from the commission truth, the website type pair (Poppins + Montserrat) across the shell, and the new-version toast. Next: B3 (agent mode). The remaining visual debt inventory in docs/lifecycle-b1-2026-07-16.md feeds it, plus the room\u2019s two pre-existing non-decision limes in ClientConstraints. A persisted backfill-scan result would also light the Desk strip\u2019s manual-match fragment.' },
+  { title: 'Command Centre Phase B: page interiors (B1 + B2a + B2b + B3 shipped; B4 the token sweep, B5 agent mode)', note: 'The 2026-07-14 shell redesign (Phase A) shipped the grouped sidebar, the Desk strip, decision badges, and the lime-as-decisions rule. B1 (the lifecycle spine) shipped ONE canonical lifecycle definition (config/lifecycle.ts). B2a (stage truth) made Zoho the position source: every board card sits where its Zoho display stage says (six of seven live files moved to their true columns). B2b (Direction 2, "the control room") made the surface Deals: the list-first daily driver with exactly one lime on the top-most actionable row, the board behind a per-user toggle, the phase-led deal room with the read-only compliance package card, the website type pair, and the new-version toast. B3 (the consistency pass, 2026-07-17) extracted the design system into components/admin/ds/ and gave the menu the lifecycle\u2019s shape: eight working destinations across The book and The practice, the three market pages merged into Lenders (rates, intel, knowledge tabs), Renewals and Opportunities merged into Beyond funding with one summed badge, Bookkeeping folded into Revenue, every old path redirecting permanently, and the flagged decorative limes (ClientConstraints, the roadmap markers) demoted to calm ink. Next: B4, the remaining surfaces onto the design system plus the mechanical token sweep (the 72-file inventory in docs/lifecycle-b1-2026-07-16.md, the rates-engine and Revenue-chart limes, Home\u2019s hover accents, and the PII-exception decision flagged in docs/consistency-b3-2026-07-17.md), then B5, agent mode. A persisted backfill-scan result would also light the Desk strip\u2019s manual-match fragment.' },
   { title: 'Hold province-excluded extractions at the source', note: 'fox-underwriting: land new extractions from registry-province-excluded lenders as status held with held_reason province_ineligible (extraction pipeline, or a hold action on the rate-sheets gate), audited. The portal parks them out of the queue meanwhile (lib/sheet-park.ts), but the park is presentation, not a recorded hold.' },
   { title: 'Assign the alterna intel slug', note: "fox-underwriting: the ingest has no 'alterna' slug, so Alterna Savings sheets arrive with a null lender guess (item b1cfd0c1, 2026-07-13). Add the slug and backfill the guess; the portal surfaces null-slug rates items on the Lenders tab meanwhile." },
   { title: 'Collapse mirror 2: provinces', note: 'config/lender-provinces.ts mirrors the workbench lender registry. Make the registry server-readable (a portal_readonly-granted table is the cheapest path), read it live everywhere, and delete the mirror. A fetch failure must fall back to last-known-good with its as-of, never to empty, or every lender silently downgrades to unknown.' },
@@ -279,7 +279,7 @@ const BACKLOG: { title: string; note: string }[] = [
 ]
 
 const STATUS_CHIP: Record<SessionStatus, { label: string; cls: string }> = {
-  shipped: { label: 'Shipped', cls: 'bg-lime/20 text-navy border border-lime/50' },
+  shipped: { label: 'Shipped', cls: 'bg-cool-100 text-navy border border-cool-250' },
   current: { label: 'In progress', cls: 'bg-navy text-white' },
   next: { label: 'Next', cls: 'bg-navy/80 text-white' },
   planned: { label: 'Planned', cls: 'bg-gray-100 text-gray-600' },
@@ -301,7 +301,7 @@ export default async function RoadmapPage() {
 
       {/* Architecture primer */}
       <div className="bg-navy text-white rounded-xl p-5 mb-6">
-        <h2 className="font-heading font-bold text-lime text-base mb-2">Three-layer architecture</h2>
+        <h2 className="font-heading font-bold text-white text-base mb-2">Three-layer architecture</h2>
         <ul className="text-sm font-body text-gray-300 space-y-1.5">
           <li>
             <span className="text-white font-semibold">Zoho CRM</span> stays the system of record
@@ -342,9 +342,9 @@ export default async function RoadmapPage() {
         ))}
       </div>
 
-      <div className="mt-8 bg-lime/10 border border-lime/40 rounded-xl p-5">
+      <div className="mt-8 bg-cool-50 border border-cool-200 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-lime font-bold text-lg">&#10003;</span>
+          <span className="text-navy font-bold text-lg">&#10003;</span>
           <h2 className="font-heading text-navy font-bold text-base">The original map is complete.</h2>
         </div>
         <p className="text-sm font-body text-gray-600">

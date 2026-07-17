@@ -14,6 +14,43 @@ const nextConfig = {
         destination: '/portal/admin/underwriting',
         permanent: true,
       },
+      // B3 (2026-07-17): the lifecycle-shaped menu. Every merged page's old
+      // path resolves permanently to its new tab; SUBROUTES stay live at
+      // their own paths (renewals/drip, opportunities/backfill,
+      // knowledge/[slug], bookkeeping/review-queue, bookkeeping/projects),
+      // so nothing bookmarked or installed breaks.
+      {
+        source: '/portal/admin/renewals',
+        destination: '/portal/admin/beyond?tab=renewals',
+        permanent: true,
+      },
+      {
+        source: '/portal/admin/opportunities',
+        destination: '/portal/admin/beyond?tab=opportunities',
+        permanent: true,
+      },
+      {
+        source: '/portal/admin/rates',
+        destination: '/portal/admin/lenders?tab=rates',
+        permanent: true,
+      },
+      {
+        source: '/portal/admin/intel',
+        destination: '/portal/admin/lenders?tab=intel',
+        permanent: true,
+      },
+      {
+        source: '/portal/admin/knowledge',
+        destination: '/portal/admin/lenders?tab=knowledge',
+        permanent: true,
+      },
+      {
+        // Cross-prefix: the bookkeeping landing folded into Revenue. Its
+        // working subpages keep their /portal/bookkeeping/* paths.
+        source: '/portal/bookkeeping',
+        destination: '/portal/admin/revenue?tab=bookkeeping',
+        permanent: true,
+      },
     ];
   },
   async headers() {

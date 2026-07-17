@@ -1,8 +1,10 @@
-// Strategic Mortgage Monitoring — the Opportunities board. Reads the latest
-// upload's raw rows from FOXCA, parses and collapses them, computes Fox's own
-// opportunity analysis against the gate-approved rate book beside the service's
-// figure, and ranks who to call by dollars. Everything here is analysis on
-// estimate-labeled monitored data; underwriting begins at application.
+// The Strategic Mortgage Monitoring engine (the Opportunities board) —
+// reparented unchanged as the Beyond funding page's Opportunities tab (B3).
+// Reads the latest upload's raw rows from FOXCA, parses and collapses them,
+// computes Fox's own opportunity analysis against the gate-approved rate
+// book beside the service's figure, and ranks who to call by dollars.
+// Everything here is analysis on estimate-labeled monitored data;
+// underwriting begins at application.
 
 import Link from 'next/link'
 import { can, requirePermission } from '@/lib/authz'
@@ -41,8 +43,6 @@ import { isDemoMode } from '@/lib/demo'
 import SmmUpload from '@/components/admin/SmmUpload'
 import OpportunityCard from '@/components/admin/OpportunityCard'
 
-export const dynamic = 'force-dynamic'
-
 export interface OppView {
   mortgage: SmmMortgage
   analysis: FoxAnalysis
@@ -55,17 +55,17 @@ export interface OppView {
   overrideOptions: { key: string; label: string }[]
 }
 
-export default async function OpportunitiesPage() {
+export default async function OpportunitiesTab() {
   const user = await requirePermission('opportunities.view')
   const todayYMD = torontoTodayYMD()
   const canManage = can(user, 'opportunities.manage') && !isDemoMode()
 
   if (!smmStoreConfigured()) {
     return (
-      <div className="max-w-3xl">
+      <div>
         <Header />
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-sm text-gray-500 font-body">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-5">
+          <p className="text-sm text-cool-600 font-body">
             The upload store is not connected. Set FOXCA_SUPABASE_URL and FOXCA_SUPABASE_KEY to enable
             the monitoring pipeline.
           </p>
@@ -81,11 +81,11 @@ export default async function OpportunitiesPage() {
 
   if (!current) {
     return (
-      <div className="max-w-3xl space-y-5">
+      <div className="space-y-5">
         <Header />
         {canManage && <SmmUpload />}
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-sm text-gray-500 font-body">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-5">
+          <p className="text-sm text-cool-600 font-body">
             No monitoring export uploaded yet. Upload the monthly CSV to build the board.
           </p>
         </div>
@@ -191,7 +191,7 @@ export default async function OpportunitiesPage() {
       analysis,
       serviceSavings: p.savingsPotential,
       serviceRelief: p.paymentRelief,
-      scenarioHref: `/portal/admin/rates?${scenarioParams.toString()}`,
+      scenarioHref: `/portal/admin/lenders?${scenarioParams.toString()}`,
       prepHref: `/portal/admin/agent?prep=${encodeURIComponent(`${p.firstName} ${p.lastName}`.trim() || p.fileRef)}`,
       pdfKey: p.householdId,
       overrideId: ovr?.id ?? null,
@@ -281,20 +281,20 @@ export default async function OpportunitiesPage() {
   const unmapped = Array.from(new Set(currParsed.filter(r => r.lenderRaw && !r.lender.mapped).map(r => r.lenderRaw)))
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="space-y-5">
       <Header />
 
       {canManage && <SmmUpload />}
 
       {/* Batch summary + delta */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-white border border-cool-200 rounded-[9px] p-5">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
           <h2 className="font-heading font-bold text-navy text-base">Latest upload</h2>
           <div className="flex items-center gap-2">
-            <Link href="/portal/admin/opportunities/backfill" className="text-xs font-semibold text-navy hover:text-lime border border-navy/20 rounded-lg px-2.5 py-1">
+            <Link href="/portal/admin/opportunities/backfill" className="text-xs font-semibold text-navy border border-navy/20 rounded-lg px-2.5 py-1 hover:border-navy">
               Backfill Zoho &rarr;
             </Link>
-            <Link href="/portal/admin/renewals" className="text-xs font-semibold text-navy hover:text-lime border border-navy/20 rounded-lg px-2.5 py-1">
+            <Link href="/portal/admin/beyond?tab=renewals" className="text-xs font-semibold text-navy border border-navy/20 rounded-lg px-2.5 py-1 hover:border-navy">
               Lapsed reconciliation &rarr;
             </Link>
           </div>
@@ -306,7 +306,7 @@ export default async function OpportunitiesPage() {
           <Stat label="Unmapped lenders" value={String(unmapped.length)} sub={unmapped.length ? unmapped.slice(0, 2).join(', ') : 'all resolved'} tone={unmapped.length ? 'warn' : undefined} />
         </div>
         {delta && (
-          <p className="text-xs font-body text-gray-500 mt-3 border-t border-gray-100 pt-2">
+          <p className="text-xs font-body text-cool-600 mt-3 border-t border-cool-100 pt-2">
             Since the prior upload: {delta.newOpportunities.length} new, {delta.improved.length} improved,{' '}
             {delta.resolved.length} resolved, {delta.departed.length} left the export.
           </p>
@@ -325,12 +325,12 @@ export default async function OpportunitiesPage() {
           <div className="flex items-center gap-2 flex-wrap mb-2">
             <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
             <h2 className="font-heading font-bold text-navy text-lg">Appears renewed</h2>
-            <span className="text-sm font-body text-gray-500">{bucketed.appears_renewed.length} files, held out of Act now</span>
+            <span className="text-sm font-body text-cool-600">{bucketed.appears_renewed.length} files, held out of Act now</span>
           </div>
           <p className="text-xs font-body text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
             The monitoring feed says these clients renewed since their Zoho deal closed, so a switch call
             now is the wrong call. Confirm or clear each one on the{' '}
-            <Link href="/portal/admin/renewals" className="underline font-semibold">Renewals page</Link>; they return
+            <Link href="/portal/admin/beyond?tab=renewals" className="underline font-semibold">Renewals page</Link>; they return
             to the buckets once decided.{' '}
             {bucketed.appears_renewed.map(v => `${v.mortgage.primary.firstName} ${v.mortgage.primary.lastName}`.trim() || v.mortgage.primary.fileRef).join(', ')}.
           </p>
@@ -347,22 +347,19 @@ export default async function OpportunitiesPage() {
 
 function Header() {
   return (
-    <div>
-      <h1 className="font-heading text-navy text-2xl font-bold">Opportunities</h1>
-      <p className="text-gray-500 font-body text-sm mt-1">
-        The monitoring export as a pipeline: who to call, by dollars, with Fox&apos;s analysis beside
-        the service&apos;s figure. Analysis on monitored data; underwriting begins at application.
-      </p>
-    </div>
+    <p className="font-ui text-sm text-cool-600">
+      The monitoring export as a pipeline: who to call, by dollars, with Fox&apos;s analysis beside
+      the service&apos;s figure. Analysis on monitored data; underwriting begins at application.
+    </p>
   )
 }
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'good' | 'warn' }) {
   return (
-    <div className="border border-gray-100 rounded-lg px-3 py-2 bg-gray-50/50">
-      <p className="text-[11px] font-body text-gray-400 uppercase tracking-wide">{label}</p>
+    <div className="border border-cool-100 rounded-lg px-3 py-2 bg-cool-50">
+      <p className="text-[11px] font-body text-cool-500 uppercase tracking-wide">{label}</p>
       <p className={`font-heading font-bold text-lg ${tone === 'good' ? 'text-green-700' : tone === 'warn' ? 'text-amber-700' : 'text-navy'}`}>{value}</p>
-      {sub && <p className="text-[11px] font-body text-gray-500 mt-0.5">{sub}</p>}
+      {sub && <p className="text-[11px] font-body text-cool-600 mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -387,13 +384,13 @@ function Bucket({
   return (
     <section>
       <div className="flex items-center gap-2 flex-wrap mb-2">
-        <span className={`w-2.5 h-2.5 rounded-full ${tone === 'good' ? 'bg-green-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-gray-300'}`} />
+        <span className={`w-2.5 h-2.5 rounded-full ${tone === 'good' ? 'bg-green-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-cool-300'}`} />
         <h2 className="font-heading font-bold text-navy text-lg">{title}</h2>
-        <span className="text-sm font-body text-gray-500">{views.length} files</span>
+        <span className="text-sm font-body text-cool-600">{views.length} files</span>
       </div>
-      <p className="text-xs font-body text-gray-400 mb-3">{hint}</p>
+      <p className="text-xs font-body text-cool-500 mb-3">{hint}</p>
       {views.length === 0 ? (
-        <p className="text-sm text-gray-400 font-body">Nothing here right now.</p>
+        <p className="text-sm text-cool-500 font-body">Nothing here right now.</p>
       ) : (
         <div className="space-y-2">
           {views.map(v => (

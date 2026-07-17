@@ -6,7 +6,9 @@
 // acceptance; the EstChip and its assumptions tooltip are that contract.
 
 import Link from 'next/link'
-import { requirePermission } from '@/lib/authz'
+import { can, requirePermission } from '@/lib/authz'
+import TabBar from '@/components/admin/ds/TabBar'
+import BookkeepingTab from '@/components/admin/revenue/BookkeepingTab'
 import { ANNUAL_FUNDED_TARGET } from '@/config/targets'
 import { COMP_MODEL } from '@/config/comp'
 import {
@@ -109,8 +111,32 @@ function SectionCard({
   )
 }
 
-export default async function RevenuePage() {
-  await requirePermission('revenue.view')
+export default async function RevenuePage({
+  searchParams,
+}: {
+  searchParams: { tab?: string }
+}) {
+  const user = await requirePermission('revenue.view')
+
+  // B3: Revenue absorbs the Bookkeeping landing as a tab. The tab shows
+  // only for bookkeeping.view holders (the standalone page's own key,
+  // unchanged); its working pages keep their /portal/bookkeeping/* routes.
+  const showBookkeeping = can(user, 'bookkeeping.view')
+  const tabs = [
+    { key: 'revenue', label: 'Revenue', href: '/portal/admin/revenue' },
+    ...(showBookkeeping
+      ? [{ key: 'bookkeeping', label: 'Bookkeeping', href: '/portal/admin/revenue?tab=bookkeeping' }]
+      : []),
+  ]
+  if (searchParams.tab === 'bookkeeping' && showBookkeeping) {
+    return (
+      <div className="space-y-5">
+        <Header />
+        <TabBar tabs={tabs} active="bookkeeping" />
+        <BookkeepingTab />
+      </div>
+    )
+  }
 
   const todayYMD = torontoTodayYMD()
   const year = Number(todayYMD.slice(0, 4))
@@ -146,6 +172,7 @@ export default async function RevenuePage() {
     return (
       <div>
         <Header />
+        <TabBar tabs={tabs} active="revenue" />
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-sm text-gray-500 font-body">
             The Zoho read failed, so nothing on this page can compute right now. Reload in a
@@ -215,6 +242,7 @@ export default async function RevenuePage() {
   return (
     <div className="space-y-5">
       <Header />
+      <TabBar tabs={tabs} active="revenue" />
 
       {/* ── Practice history ── */}
       <SectionCard
@@ -222,7 +250,7 @@ export default async function RevenuePage() {
         chip={
           <Link
             href="/portal/admin/revenue/export"
-            className="text-xs font-semibold text-navy hover:text-lime border border-navy/20 rounded-lg px-2.5 py-1"
+            className="text-xs font-semibold text-navy border border-navy/20 rounded-lg px-2.5 py-1 hover:border-navy"
           >
             Download slide &rarr;
           </Link>
@@ -278,7 +306,7 @@ export default async function RevenuePage() {
       <SectionCard
         title="Renewal book"
         chip={
-          <Link href="/portal/admin/renewals" className="text-xs font-semibold text-navy hover:text-lime border border-navy/20 rounded-lg px-2.5 py-1">
+          <Link href="/portal/admin/beyond?tab=renewals" className="text-xs font-semibold text-navy border border-navy/20 rounded-lg px-2.5 py-1 hover:border-navy">
             Renewals &rarr;
           </Link>
         }

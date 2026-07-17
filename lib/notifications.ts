@@ -310,7 +310,7 @@ export function renewalCrossingNotifications(
       category: 'renewal_crossing',
       title: `${d.contactName ?? d.dealName} renewal is in the action window`,
       body: `${renewalMoney(d.amount)} matures ${d.maturityDate}, ${days} days out. The rate-hold window is open; engage now.`,
-      href: '/portal/admin/renewals',
+      href: '/portal/admin/beyond?tab=renewals',
       createdAt: d.maturityDate,
     })
   }
@@ -333,7 +333,7 @@ export function renewalLapsedNotifications(
       category: 'renewal_lapsed',
       title: `${d.contactName ?? d.dealName} renewal has lapsed`,
       body: `${renewalMoney(d.amount)} matured ${d.maturityDate}, ${Math.abs(days)} days ago, with no recorded outcome.`,
-      href: '/portal/admin/renewals',
+      href: '/portal/admin/beyond?tab=renewals',
       createdAt: d.maturityDate,
     })
   }

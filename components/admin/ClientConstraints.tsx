@@ -48,7 +48,7 @@ function TypeChip({ type }: { type: ConstraintType }) {
       ? 'bg-red-100 text-red-700'
       : type === 'required'
         ? 'bg-navy/10 text-navy'
-        : 'bg-lime/25 text-navy'
+        : 'bg-cool-100 text-cool-700'
   return (
     <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${tone}`}>
       {CONSTRAINT_LABEL[type]}
@@ -399,7 +399,7 @@ export default function ClientConstraints({
                       : armAdd()
                   }
                   className={`min-h-[40px] px-4 py-2 rounded-lg text-sm font-semibold font-body transition-colors disabled:opacity-50 ${
-                    armed?.key === 'add' ? 'bg-navy text-white' : 'bg-lime text-navy hover:bg-lime/80'
+                    armed?.key === 'add' ? 'bg-navy text-white' : 'bg-white border border-cool-300 text-navy hover:border-navy'
                   }`}
                   data-testid="add-constraint"
                 >

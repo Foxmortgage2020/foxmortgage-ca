@@ -1,6 +1,8 @@
-// The Renewal Radar. Every funded deal with a maturity date, bucketed by
-// window. Read-only from Zoho; status writes go through the confirmed-action
-// route. The buckets are the product: Lapsed is an alarm, not a status.
+// The Renewal Radar engine — reparented unchanged as the Beyond funding
+// page's Renewals tab (B3). Every funded deal with a maturity date,
+// bucketed by window. Read-only from Zoho; status writes go through the
+// confirmed-action route. The buckets are the product: Lapsed is an alarm,
+// not a status.
 //
 // Reconciles live (2026-07-12): Lapsed 18 files, Action 8 / $4,368,600,
 // Monitoring 0, Watching 22, Resolved 0; renewal book $17.95M under
@@ -39,14 +41,12 @@ import {
 import RenewalCard from '@/components/admin/RenewalCard'
 import AppearsRenewedCard from '@/components/admin/AppearsRenewedCard'
 
-export const dynamic = 'force-dynamic'
-
 const zohoDealUrl = (id: string) => `https://crm.zoho.com/crm/org906105026/tab/Potentials/${id}`
 const prepHrefFor = (d: RenewalDeal) =>
   `/portal/admin/agent?prep=${encodeURIComponent(d.contactName ?? d.dealName)}`
 const ALL_ACTIONS = Object.values(RENEWAL_ACTIONS)
 
-export default async function RenewalsPage() {
+export default async function RenewalsTab() {
   const user = await requirePermission('renewals.view')
   const todayYMD = torontoTodayYMD()
 
@@ -84,10 +84,10 @@ export default async function RenewalsPage() {
 
   if (!renewals) {
     return (
-      <div className="max-w-3xl">
+      <div>
         <Header dripPending={dripPending} />
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-sm text-gray-500 font-body">
+        <div className="bg-white border border-cool-200 rounded-[9px] p-5">
+          <p className="text-sm text-cool-600 font-body">
             The Zoho read failed, so the radar cannot compute right now. Reload in a moment; nothing
             here caches a stale figure.
           </p>
@@ -218,7 +218,7 @@ export default async function RenewalsPage() {
   })
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="space-y-6">
       <Header dripPending={dripPending} />
 
       {/* ── Missing maturity: the block that must reach empty ── */}
@@ -238,7 +238,7 @@ export default async function RenewalsPage() {
               <div key={d.id} className="flex items-center justify-between gap-3 text-xs font-body border-t border-red-200 py-1.5">
                 <span className="text-navy truncate">{d.contactName ?? d.dealName}</span>
                 <span className="flex items-center gap-3 shrink-0">
-                  <span className="text-gray-600">{fmtMoney(d.amount)}</span>
+                  <span className="text-cool-700">{fmtMoney(d.amount)}</span>
                   <a href={zohoDealUrl(d.id)} target="_blank" rel="noreferrer" className="text-red-700 font-semibold underline">
                     backfill in Zoho
                   </a>
@@ -256,7 +256,7 @@ export default async function RenewalsPage() {
       )}
 
       {/* ── Renewal book KPI ── */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-white border border-cool-200 rounded-[9px] p-5">
         <h2 className="font-heading font-bold text-navy text-base mb-3">Renewal book</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <BookStat label="Book under management" value={fmtMoney(book.underManagement.volume)} sub={`${book.underManagement.count} funded files not yet matured`} />
@@ -284,7 +284,7 @@ export default async function RenewalsPage() {
           )}
         </p>
         {buckets.lapsed.count === 0 ? (
-          <p className="text-sm text-gray-400 font-body">No lapsed renewals. Every matured file has an outcome.</p>
+          <p className="text-sm text-cool-500 font-body">No lapsed renewals. Every matured file has an outcome.</p>
         ) : (
           <div className="space-y-2">
             {buckets.lapsed.deals.map(d => (
@@ -306,7 +306,7 @@ export default async function RenewalsPage() {
           <div className="flex items-center gap-2 flex-wrap mb-2">
             <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
             <h2 className="font-heading font-bold text-navy text-lg">Appears renewed</h2>
-            <span className="text-sm font-body text-gray-500">
+            <span className="text-sm font-body text-cool-600">
               {appearsRenewed.length} files · {fmtMoney(suppressedVolume)}
             </span>
           </div>
@@ -344,26 +344,26 @@ export default async function RenewalsPage() {
       {/* ── Watching (150+ days): compact, visibility only ── */}
       <section>
         <div className="flex items-center gap-2 flex-wrap mb-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+          <span className="w-2.5 h-2.5 rounded-full bg-cool-300" />
           <h2 className="font-heading font-bold text-navy text-lg">Watching</h2>
-          <span className="text-sm font-body text-gray-500">
+          <span className="text-sm font-body text-cool-600">
             {buckets.watching.count} files · {fmtMoney(buckets.watching.volume)}
           </span>
         </div>
-        <p className="text-xs font-body text-gray-400 mb-2">150+ days out. Visibility only, no action.</p>
+        <p className="text-xs font-body text-cool-500 mb-2">150+ days out. Visibility only, no action.</p>
         {buckets.watching.count === 0 ? (
-          <p className="text-sm text-gray-400 font-body">Nothing further out on the book.</p>
+          <p className="text-sm text-cool-500 font-body">Nothing further out on the book.</p>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-x-auto">
+          <div className="bg-white border border-cool-200 rounded-[9px] divide-y divide-cool-100 overflow-x-auto">
             {buckets.watching.deals.map(d => (
               <div key={d.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs font-body min-w-[440px]">
                 <span className="text-navy truncate flex-1">{d.contactName ?? d.dealName}</span>
-                <span className="text-gray-500 w-20 text-right">{fmtMoneyCompact(d.amount)}</span>
-                <span className="text-gray-500 w-24 text-right">{fmtShortDate(d.maturityDate)}</span>
-                <span className="text-gray-400 w-16 text-right">
+                <span className="text-cool-600 w-20 text-right">{fmtMoneyCompact(d.amount)}</span>
+                <span className="text-cool-600 w-24 text-right">{fmtShortDate(d.maturityDate)}</span>
+                <span className="text-cool-500 w-16 text-right">
                   {d.maturityDate ? `${daysToMaturity(d.maturityDate, todayYMD)}d` : ''}
                 </span>
-                <a href={zohoDealUrl(d.id)} target="_blank" rel="noreferrer" className="text-navy hover:text-lime shrink-0">
+                <a href={zohoDealUrl(d.id)} target="_blank" rel="noreferrer" className="text-navy underline decoration-cool-300 hover:decoration-navy shrink-0">
                   Zoho
                 </a>
               </div>
@@ -377,29 +377,29 @@ export default async function RenewalsPage() {
         <div className="flex items-center gap-2 flex-wrap mb-2">
           <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
           <h2 className="font-heading font-bold text-navy text-lg">Resolved</h2>
-          <span className="text-sm font-body text-gray-500">
+          <span className="text-sm font-body text-cool-600">
             {buckets.resolved.count} files · {fmtMoney(buckets.resolved.volume)}
           </span>
         </div>
         {buckets.resolved.count === 0 ? (
-          <p className="text-sm text-gray-400 font-body">
+          <p className="text-sm text-cool-500 font-body">
             No renewals resolved yet. An outcome lands here once a renewal is marked renewed elsewhere,
             no longer needed, or opted out.
           </p>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
+          <div className="bg-white border border-cool-200 rounded-[9px] divide-y divide-cool-100">
             {buckets.resolved.deals.map(d => (
               <div key={d.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs font-body">
                 <span className="text-navy truncate">{d.contactName ?? d.dealName}</span>
                 <span className="flex items-center gap-3 shrink-0">
-                  <span className="text-gray-500">{fmtMoneyCompact(d.amount)}</span>
+                  <span className="text-cool-600">{fmtMoneyCompact(d.amount)}</span>
                   <span className="text-green-700 font-semibold">{d.renewalStatus ?? 'opted out'}</span>
                 </span>
               </div>
             ))}
           </div>
         )}
-        <p className="text-[11px] font-body text-gray-400 mt-2">
+        <p className="text-[11px] font-body text-cool-500 mt-2">
           A won renewal records as Renewed With Us (the picklist value arrived 2026-07-13); it, renewed
           elsewhere, no longer needs, and opted out all resolve a file here.
         </p>
@@ -410,20 +410,17 @@ export default async function RenewalsPage() {
 
 function Header({ dripPending }: { dripPending: number }) {
   return (
-    <div className="mb-1">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="font-heading text-navy text-2xl font-bold">Renewals</h1>
-        <Link
-          href="/portal/admin/renewals/drip"
-          className="text-xs font-semibold text-navy underline decoration-gray-300 hover:decoration-navy"
-        >
-          Renewal Drip{dripPending > 0 ? ` · ${dripPending} waiting` : ''}
-        </Link>
-      </div>
-      <p className="text-gray-500 font-body text-sm mt-1">
+    <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+      <p className="font-ui text-sm text-cool-600">
         Every funded deal by maturity window. The payment shock is why a client answers the phone;
         the buckets are why none of them slips again.
       </p>
+      <Link
+        href="/portal/admin/renewals/drip"
+        className="text-xs font-semibold text-navy underline decoration-cool-300 hover:decoration-navy"
+      >
+        Renewal Drip{dripPending > 0 ? ` · ${dripPending} waiting` : ''}
+      </Link>
     </div>
   )
 }
@@ -441,11 +438,11 @@ function LapsedReconciliation({
 }) {
   if (!hasExport) {
     return (
-      <section className="bg-white border border-gray-200 rounded-xl p-5">
+      <section className="bg-white border border-cool-200 rounded-[9px] p-5">
         <h2 className="font-heading font-bold text-navy text-base mb-1">Lapsed reconciliation</h2>
-        <p className="text-sm font-body text-gray-500">
+        <p className="text-sm font-body text-cool-600">
           Upload a Strategic Mortgage Monitoring export on the{' '}
-          <Link href="/portal/admin/opportunities" className="text-navy underline hover:text-lime">Opportunities</Link>{' '}
+          <Link href="/portal/admin/beyond?tab=opportunities" className="text-navy underline hover:text-ink">Opportunities</Link>{' '}
           page to reconcile these lapsed files against what the monitoring service still sees.
         </p>
       </section>
@@ -457,13 +454,13 @@ function LapsedReconciliation({
   const label: Record<string, { text: string; cls: string }> = {
     still_with_lender: { text: 'still with lender', cls: 'text-green-700 bg-green-50 border-green-200' },
     lender_changed: { text: 'lender changed', cls: 'text-amber-800 bg-amber-50 border-amber-200' },
-    unmonitored: { text: 'unmonitored', cls: 'text-gray-600 bg-gray-50 border-gray-200' },
+    unmonitored: { text: 'unmonitored', cls: 'text-cool-700 bg-cool-50 border-cool-200' },
   }
   return (
-    <section className="bg-white border border-gray-200 rounded-xl p-5">
+    <section className="bg-white border border-cool-200 rounded-[9px] p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
         <h2 className="font-heading font-bold text-navy text-base">Lapsed reconciliation</h2>
-        <span className="text-xs font-body text-gray-500">
+        <span className="text-xs font-body text-cool-600">
           reconciled against the latest monitoring export by borrower name
         </span>
       </div>
@@ -473,17 +470,17 @@ function LapsedReconciliation({
         <BookStat label="Unmonitored" value={String(retention.unmonitored)} sub="not in the export" />
         <BookStat label="Retention signal" value={retentionPct == null ? 'n/a' : `${retentionPct}%`} sub="still with lender / matched" />
       </div>
-      <p className="text-xs font-body text-gray-500 mb-3">
+      <p className="text-xs font-body text-cool-600 mb-3">
         Still-with-lender past maturity is almost certainly an automatic lender renewal &mdash; recoverable, and the
         highest-value calls on the board. Lender-changed means the client moved; the data cannot say whether the deal was
         written or lost. Conflicts below are flagged, never overwritten.
       </p>
-      <div className="border border-gray-100 rounded-lg divide-y divide-gray-100 overflow-x-auto">
+      <div className="border border-cool-100 rounded-lg divide-y divide-cool-100 overflow-x-auto">
         {recons.map(({ deal, recon }) => (
           <div key={deal.id} className="flex items-start justify-between gap-3 px-3 py-2 text-xs font-body min-w-[520px]">
             <div className="flex-1 min-w-0">
               <span className="text-navy font-semibold">{deal.contactName ?? deal.dealName}</span>
-              <span className="text-gray-400"> · {fmtMoneyCompact(deal.amount)}</span>
+              <span className="text-cool-500"> · {fmtMoneyCompact(deal.amount)}</span>
               {recon.conflicts.length > 0 && (
                 <div className="mt-0.5 text-amber-800">
                   {recon.conflicts.map(c => (
@@ -499,12 +496,12 @@ function LapsedReconciliation({
               <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${label[recon.reconClass].cls}`}>
                 {label[recon.reconClass].text}
               </span>
-              <a href={zohoDealUrl(deal.id)} target="_blank" rel="noreferrer" className="text-navy hover:text-lime">Zoho</a>
+              <a href={zohoDealUrl(deal.id)} target="_blank" rel="noreferrer" className="text-navy underline decoration-cool-300 hover:decoration-navy">Zoho</a>
             </span>
           </div>
         ))}
       </div>
-      <p className="text-[11px] font-body text-gray-400 mt-2">
+      <p className="text-[11px] font-body text-cool-500 mt-2">
         Matching is by borrower name; a name the export does not carry reconciles as unmonitored. A conflict never
         triggers a write &mdash; resolve it in Zoho, or from the Opportunities backfill where the CRM field is empty.
       </p>
@@ -514,10 +511,10 @@ function LapsedReconciliation({
 
 function BookStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: 'bad' }) {
   return (
-    <div className="border border-gray-100 rounded-lg px-3 py-2 bg-gray-50/50">
-      <p className="text-[11px] font-body text-gray-400 uppercase tracking-wide">{label}</p>
+    <div className="border border-cool-100 rounded-lg px-3 py-2 bg-cool-50">
+      <p className="text-[11px] font-body text-cool-500 uppercase tracking-wide">{label}</p>
       <p className={`font-heading font-bold text-lg ${tone === 'bad' ? 'text-red-600' : 'text-navy'}`}>{value}</p>
-      <p className="text-[11px] font-body text-gray-500 mt-0.5">{sub}</p>
+      <p className="text-[11px] font-body text-cool-600 mt-0.5">{sub}</p>
     </div>
   )
 }
@@ -540,15 +537,15 @@ function BucketSection({
   return (
     <section>
       <div className="flex items-center gap-2 flex-wrap mb-2">
-        <span className={`w-2.5 h-2.5 rounded-full ${tone === 'amber' ? 'bg-amber-500' : 'bg-gray-300'}`} />
+        <span className={`w-2.5 h-2.5 rounded-full ${tone === 'amber' ? 'bg-amber-500' : 'bg-cool-300'}`} />
         <h2 className="font-heading font-bold text-navy text-lg">{title}</h2>
-        <span className="text-sm font-body text-gray-500">
+        <span className="text-sm font-body text-cool-600">
           {bucket.count} files · {fmtMoney(bucket.volume)}
         </span>
       </div>
-      <p className="text-xs font-body text-gray-400 mb-3">{hint}</p>
+      <p className="text-xs font-body text-cool-500 mb-3">{hint}</p>
       {bucket.count === 0 ? (
-        <p className="text-sm text-gray-400 font-body">Nothing in this window right now.</p>
+        <p className="text-sm text-cool-500 font-body">Nothing in this window right now.</p>
       ) : (
         <div className="space-y-2">
           {bucket.deals.map(d => (
