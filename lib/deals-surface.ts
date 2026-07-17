@@ -68,9 +68,9 @@ export interface DealRow {
   rawStage: string | null
 }
 
-// "BRXM-F059751 — Nicholas Aitken" -> "Nicholas Aitken". A name without the
-// leading ref (legacy strays, demo fixtures) passes through whole; no name
-// at all falls back to the file ref.
+// "FOX-1004 — Sofia Ricci" -> "Sofia Ricci". A name without the leading ref
+// (legacy strays, demo fixtures) passes through whole; no name at all falls
+// back to the file ref.
 export function clientFromDealName(dealName: string | null, fileRef: string): string {
   if (!dealName || dealName.trim() === '') return fileRef
   const m = dealName.trim().match(/^[A-Z]{2,6}-F?\d{4,}\s*[—–-]\s*(.+)$/i)

@@ -60,9 +60,9 @@ export interface BridgePlan {
   notYetBridged: SlimDeal[]
 }
 
-// "BRXM-F059751 — Nicholas Aitken" -> "BRXM-F059751" (the book convention;
-// one legacy stray uses a plain hyphen, and property rows prefix addresses,
-// so the ref pattern anchors at the start).
+// "FOX-1004 — Sofia Ricci" -> "FOX-1004" (the book convention; one legacy
+// stray uses a plain hyphen, and property rows prefix addresses, so the ref
+// pattern anchors at the start).
 export function fileRefFromDealName(dealName: string): string | null {
   const m = dealName.trim().match(/^([A-Z]{2,6}-F?\d{4,})/i)
   return m ? m[1].toUpperCase() : null
