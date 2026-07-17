@@ -13,6 +13,7 @@ import {
   LIFECYCLE_PHASES,
   PHASE_STEPS,
   boardPhaseGroups,
+  columnForDisplayStage,
   groupByPhase,
   journeyForStage,
   phaseForBoardColumn,
@@ -21,8 +22,14 @@ import {
   type PhaseKey,
   type StepShape,
 } from '../config/lifecycle'
-import { FUNDED_STAGES, PIPELINE_STAGE_ORDER, STAGE_WEIGHTS } from '../config/pipeline'
+import {
+  FUNDED_STAGES,
+  PIPELINE_STAGE_ORDER,
+  STAGE_WEIGHTS,
+  normalizeDisplayStage,
+} from '../config/pipeline'
 import { BOARD_COLUMNS } from '../lib/underwriting-bridge'
+import { demoDeals, demoSlimDeals } from '../lib/demo-fixtures'
 
 const PHASE_KEYS = LIFECYCLE_PHASES.map(p => p.key)
 const phaseIdx = (k: PhaseKey) => PHASE_KEYS.indexOf(k)
@@ -216,6 +223,92 @@ describe('journeyForStage', () => {
     expect(j.steps).toEqual([])
     const empty = journeyForStage({ stage: null, shape: 'unknown', space: 'room' })
     expect(empty.mapped).toBe(false)
+  })
+})
+
+// ─── B2a: stage truth — reads normalize, the board positions from Zoho ──────
+
+describe('normalizeDisplayStage (B2a)', () => {
+  it('canonicalizes every differing actual-space value to its display form', () => {
+    expect(normalizeDisplayStage('Ready To Close')).toBe('Broker Complete')
+    expect(normalizeDisplayStage('Application Pending')).toBe('Application Started')
+    expect(normalizeDisplayStage('Underwritting In Progress')).toBe('Underwriting In Progress')
+    expect(normalizeDisplayStage('Application Sent To Lender')).toBe('Conditionally Approved')
+    expect(normalizeDisplayStage('Mortgage Closed')).toBe('Mortgage Funded')
+  })
+
+  it('passes display values and unknown values through untouched', () => {
+    for (const stage of PIPELINE_STAGE_ORDER) {
+      expect(normalizeDisplayStage(stage)).toBe(stage)
+    }
+    expect(normalizeDisplayStage('Some Future Stage')).toBe('Some Future Stage')
+    expect(normalizeDisplayStage('  Mortgage Funded ')).toBe('Mortgage Funded')
+  })
+
+  it('absorbs case drift on the actual forms', () => {
+    expect(normalizeDisplayStage('ready to close')).toBe('Broker Complete')
+    expect(normalizeDisplayStage('MORTGAGE CLOSED')).toBe('Mortgage Funded')
+  })
+})
+
+describe('columnForDisplayStage (B2a)', () => {
+  it('is total over the funnel order plus the known belts', () => {
+    for (const stage of [...PIPELINE_STAGE_ORDER, 'Qualification', 'Ready To Close']) {
+      expect(columnForDisplayStage(stage), `stage ${stage} maps to no column`).not.toBeNull()
+    }
+  })
+
+  it('assigns the decided granularity', () => {
+    expect(columnForDisplayStage('Submitted')).toBe('intake')
+    expect(columnForDisplayStage('Collecting Documentation')).toBe('evidence')
+    expect(columnForDisplayStage('Options')).toBe('evidence')
+    expect(columnForDisplayStage('Underwriting In Progress')).toBe('evidence')
+    expect(columnForDisplayStage('Ready to Submit')).toBe('packaging')
+    expect(columnForDisplayStage('Submitted to Lender')).toBe('with_lender')
+    expect(columnForDisplayStage('Conditionally Approved')).toBe('conditions')
+    expect(columnForDisplayStage('Approved')).toBe('conditions')
+    expect(columnForDisplayStage('Broker Complete')).toBe('ready')
+    expect(columnForDisplayStage('Ready To Close')).toBe('ready')
+  })
+
+  it('funded terminals land in the funded column', () => {
+    for (const stage of FUNDED_STAGES) {
+      expect(columnForDisplayStage(stage)).toBe('funded')
+    }
+  })
+
+  it('column and phase agree for every open stage', () => {
+    for (const stage of [...PIPELINE_STAGE_ORDER, 'Qualification', 'Ready To Close']) {
+      const col = columnForDisplayStage(stage)!
+      expect(
+        phaseForBoardColumn(col),
+        `stage ${stage}: column ${col} disagrees with the phase map`,
+      ).toBe(phaseForDisplayStage(stage))
+    }
+    // Funded terminals are the documented B1 exception: the board's funded
+    // column groups under Complete & paid while per-file surfaces show
+    // Beyond funding — asserted here so the divergence stays deliberate.
+    for (const stage of FUNDED_STAGES) {
+      expect(phaseForBoardColumn(columnForDisplayStage(stage)!)).toBe('complete_paid')
+      expect(phaseForDisplayStage(stage)).toBe('beyond_funding')
+    }
+  })
+
+  it('unknown stages return null (the loud fallback contract)', () => {
+    expect(columnForDisplayStage('Some Future Stage')).toBeNull()
+    expect(columnForDisplayStage('Archive')).toBeNull()
+  })
+
+  it('the demo board takes the Zoho path: every demo room links a mappable demo deal', () => {
+    const zoho = new Map(demoSlimDeals.map(d => [d.id, d]))
+    for (const room of demoDeals) {
+      const z = room.zohoPotentialId ? zoho.get(room.zohoPotentialId) : null
+      expect(z, `demo room ${room.id} links no demo Zoho deal`).toBeTruthy()
+      expect(
+        columnForDisplayStage(z!.stage),
+        `demo room ${room.id} would fall back to the room stage`,
+      ).not.toBeNull()
+    }
   })
 })
 

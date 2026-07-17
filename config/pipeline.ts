@@ -138,6 +138,32 @@ export const STAGE_WEIGHTS: Record<string, number> = {
   'Conditions Fulfilled': 0.75,
 }
 
+// ─── Read-side display normalization (B2a, verified 2026-07-16) ─────────────
+// The Stage picklist metadata confirms the display/actual pairs are UNCHANGED
+// (display 'Broker Complete' still pairs with actual 'Ready To Close',
+// probability 90) — yet a live records-API read returned 'Ready To Close'
+// VERBATIM on one file. So a read can surface the RECORD-LEVEL stored value
+// in ACTUAL space; the best-supported mechanism is that the Finmo sync
+// writes actual-space values by design (its stage guard's STAGE_ORDER is
+// actual space) and reads return what a sync-written record stores. The
+// 2026-07-14 "reads return display values" observation was drawn from
+// UI-written records. Every portal read therefore canonicalizes through
+// this map — all five differing pairs, not just the one seen live, because
+// the sync can write any of them. Keys lowercase (case drift absorbed);
+// values are the canonical DISPLAY strings the rest of this file speaks.
+export const DISPLAY_READ_ALIASES: Record<string, string> = {
+  'application pending': 'Application Started',
+  'underwritting in progress': 'Underwriting In Progress', // the double-t actual
+  'application sent to lender': 'Conditionally Approved',
+  'ready to close': 'Broker Complete',
+  'mortgage closed': 'Mortgage Funded',
+}
+
+export function normalizeDisplayStage(raw: string): string {
+  const s = raw.trim()
+  return DISPLAY_READ_ALIASES[s.toLowerCase()] ?? s
+}
+
 export function isTerminalStage(stage: string): boolean {
   return (TERMINAL_STAGES as readonly string[]).includes(stage)
 }

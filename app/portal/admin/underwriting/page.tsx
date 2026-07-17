@@ -30,7 +30,7 @@ import {
   DAYS_IDLE_AMBER,
   nextStepForRoom,
 } from '@/lib/underwriting-bridge'
-import { boardPhaseGroups } from '@/config/lifecycle'
+import { boardPhaseGroups, columnForDisplayStage } from '@/config/lifecycle'
 import { closingPillAmber, type ConditionCount } from '@/lib/conditions-status'
 import { daysUntil } from '@/lib/compliance-logic'
 import { runBridgeSweep } from '@/lib/underwriting-sweep'
@@ -109,13 +109,22 @@ export default async function UnderwritingPage({
 
   const cardFor = (r: WorkbenchDeal) => {
     const z = r.zohoPotentialId ? dealByZohoId.get(r.zohoPotentialId) : null
-    const { column, mapped } = boardColumnFor(r.stage)
+    // Zoho is the system of record for stage (B2a): every card positions by
+    // the linked deal's display stage through the lifecycle map. The room's
+    // own stage is the fallback ONLY when no Zoho stage could be read, and
+    // the card says so — never a silent bucket.
+    const zohoColumn = z ? columnForDisplayStage(z.stage) : null
+    const roomPosition = boardColumnFor(r.stage)
+    const positionFromRoom = zohoColumn === null
+    const column = zohoColumn ?? roomPosition.column
+    const mapped = !positionFromRoom || roomPosition.mapped
     const idle = daysIdle(r.updatedAt, todayYMD)
     const closing = z?.closingDate ?? r.closingDate
     return {
       room: r,
       column,
       mapped,
+      positionFromRoom,
       idle,
       clientLine: z ? z.dealName : r.fileRef,
       amount: z && z.amount > 0 ? z.amount : null,
@@ -135,7 +144,7 @@ export default async function UnderwritingPage({
       <div className="mb-5">
         <h1 className="font-ui text-ink-navy text-2xl font-bold">Underwriting</h1>
         <p className="text-muted font-ui text-sm mt-1">
-          Every live file, grouped by lifecycle phase. The board keeps itself in step with Zoho.
+          Every live file, positioned by its Zoho stage and grouped by lifecycle phase.
         </p>
         {!sweep.ok && (
           <p className="mt-2 rounded bg-caution-bg border border-caution/40 px-2.5 py-1.5 text-xs font-ui text-caution">
@@ -256,6 +265,14 @@ export default async function UnderwritingPage({
                       >
                         {c.idle}d idle
                       </span>
+                      {c.positionFromRoom && (
+                        <span
+                          className="inline-block rounded-full bg-fog px-1.5 py-0.5 text-[10px] font-ui font-semibold text-muted-2"
+                          title="No linked Zoho stage could be read, so this card sits where the workbench room's own stage puts it."
+                        >
+                          position from the room, not Zoho
+                        </span>
+                      )}
                       {!c.mapped && (
                         <span className="inline-block rounded bg-caution-bg px-1.5 py-0.5 text-[10px] font-ui font-semibold text-caution">
                           stage &quot;{c.room.stage ?? 'none'}&quot; unmapped

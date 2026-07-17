@@ -22,6 +22,7 @@ import {
   isRenewalPoolDeal,
   isSummaryStage,
   isTerminalStage,
+  normalizeDisplayStage,
 } from '@/config/pipeline'
 import type { StageVolume } from '@/lib/pacing'
 import type { RevenueDeal } from '@/lib/revenue'
@@ -89,7 +90,8 @@ export async function getAllDealsSlim(): Promise<SlimDeal[]> {
       all.push({
         id: d.id,
         dealName: d.Deal_Name ?? '(untitled)',
-        stage: String(d.Stage ?? '').trim(),
+        // Reads canonicalize to display space (B2a; see config/pipeline.ts).
+        stage: normalizeDisplayStage(String(d.Stage ?? '')),
         amount: dealAmount(d),
         closingDate: typeof d.Closing_Date === 'string' ? d.Closing_Date : null,
         createdTime: typeof d.Created_Time === 'string' ? d.Created_Time.slice(0, 10) : null,
@@ -410,7 +412,8 @@ export async function getAllDealsRevenue(): Promise<RevenueDeal[]> {
       all.push({
         id: d.id,
         dealName: d.Deal_Name ?? '(untitled)',
-        stage: String(d.Stage ?? '').trim(),
+        // Reads canonicalize to display space (B2a; see config/pipeline.ts).
+        stage: normalizeDisplayStage(String(d.Stage ?? '')),
         amount: dealAmount(d),
         closingDate: typeof d.Closing_Date === 'string' ? d.Closing_Date : null,
         createdTime: typeof d.Created_Time === 'string' ? d.Created_Time.slice(0, 10) : null,
@@ -655,7 +658,7 @@ async function fetchFundedRenewalDeals(): Promise<RenewalDeal[]> {
       // The renewal pool is FUNDED-stage deals only (both legacy spellings),
       // never Additional Properties child rows — a property row carrying an
       // amount and a maturity date is not a mortgage (Task 0c).
-      if (!isRenewalPoolDeal(String(d.Stage ?? '').trim(), String(d.Deal_Name ?? ''))) continue
+      if (!isRenewalPoolDeal(normalizeDisplayStage(String(d.Stage ?? '')), String(d.Deal_Name ?? ''))) continue
       all.push(normalizeRenewalDeal(d))
     }
     if (data?.info?.more_records !== true) break

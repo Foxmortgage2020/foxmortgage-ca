@@ -138,6 +138,42 @@ export function phaseForBoardColumn(column: BoardColumn): PhaseKey {
   return PHASE_BY_COLUMN[column]
 }
 
+// ─── Display stage → board column (B2a: the board positions from Zoho) ──────
+// Zoho is the system of record for stage; the board positions every card by
+// the linked deal's DISPLAY stage through this map (the workbench room stage
+// is only the fallback when no Zoho deal is linked or fetched). Boundaries
+// are positions in the imported funnel order, same discipline as the phase
+// map above. Totality and phase consistency are tested: for every funnel
+// stage, phaseForBoardColumn(columnForDisplayStage(s)) === phaseForDisplayStage(s).
+
+const COLUMN_BY_DISPLAY = new Map<string, BoardColumn>()
+for (const s of segment('Lead', 'Submitted')) COLUMN_BY_DISPLAY.set(s.toLowerCase(), 'intake')
+for (const s of segment('Collecting Documentation', 'Underwriting In Progress'))
+  COLUMN_BY_DISPLAY.set(s.toLowerCase(), 'evidence')
+for (const s of segment('Ready to Submit', 'Ready to Submit'))
+  COLUMN_BY_DISPLAY.set(s.toLowerCase(), 'packaging')
+for (const s of segment('Submitted to Lender', 'Submitted to Lender'))
+  COLUMN_BY_DISPLAY.set(s.toLowerCase(), 'with_lender')
+for (const s of segment('Conditionally Approved', 'Approved'))
+  COLUMN_BY_DISPLAY.set(s.toLowerCase(), 'conditions')
+for (const s of segment('Broker Complete', 'Broker Complete'))
+  COLUMN_BY_DISPLAY.set(s.toLowerCase(), 'ready')
+for (const s of FUNDED_STAGES) COLUMN_BY_DISPLAY.set(s.toLowerCase(), 'funded')
+// The same belts the phase map carries (legacy + verbatim actual-space reads;
+// reads normalize at the fetcher boundary, these keep the map total on raw input).
+COLUMN_BY_DISPLAY.set('qualification', 'intake')
+COLUMN_BY_DISPLAY.set('ready to close', 'ready')
+COLUMN_BY_DISPLAY.set('mortgage closed', 'funded')
+
+/**
+ * Maps a Zoho DISPLAY stage to its board column. Unknown stages return null
+ * — the caller falls back to the room's own stage and says so on the card,
+ * never a silent bucket.
+ */
+export function columnForDisplayStage(stage: string): BoardColumn | null {
+  return COLUMN_BY_DISPLAY.get(stage.toLowerCase().trim()) ?? null
+}
+
 /** Groups the board's columns under their phase headers, board order kept. */
 export function boardPhaseGroups<T extends { key: BoardColumn }>(
   columns: readonly T[],
