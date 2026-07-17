@@ -271,3 +271,70 @@ describe('demo mode on the renewal drip (2026-07-16): canned queue, zero reads, 
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+// ─── The client portal (B5) ─────────────────────────────────────────────────
+// A client's own file page is the highest-stakes surface in the app: it shows
+// a real person's PII to whoever holds a link. In demo it must render fully
+// from the synthetic fixture and touch nothing real, and the admin's link
+// controls must refuse to mint anything.
+
+describe('demo mode on the client portal (B5)', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '',
+      headers: new Headers(),
+    } as unknown as Response)
+  })
+  it('the demo client file renders in full with zero real reads', async () => {
+    const { demoClientFileView, DEMO_CLIENT_TOKEN } = await import('@/lib/demo-fixtures')
+    const view = demoClientFileView(DEMO_CLIENT_TOKEN)
+    expect(view).toBeTruthy()
+    expect(view!.firstName).toBe('Sofia')
+    expect(view!.journey.mapped).toBe(true)
+    // A real page: a current phase in client words and a team to contact.
+    expect(view!.journey.current?.label).toBe('Reviewing your file')
+    expect(view!.team.length).toBeGreaterThanOrEqual(2)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('the admin link list resolves empty in demo, with no store call', async () => {
+    const { clientLinksForDeal } = await import('@/lib/client-links-store')
+    const res = await clientLinksForDeal('7112178000000000001')
+    expect(res).toEqual({ configured: true, ok: true, data: [] })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('minting or revoking a client link is refused in demo and never calls fetch', async () => {
+    const { createClientLink, revokeClientLink } = await import('@/lib/client-links-store')
+    await expect(
+      createClientLink({
+        zohoDealId: '7112178000000000001',
+        fileRef: 'FOX-1004',
+        tokenHash: 'x'.repeat(64),
+        createdBy: 'demo@example.com',
+        expiresAt: new Date().toISOString(),
+      }),
+    ).rejects.toThrow(/Demo mode/)
+    await expect(revokeClientLink('11111111-1111-1111-1111-111111111111', 'demo@example.com')).rejects.toThrow(
+      /Demo mode/,
+    )
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('the audit recorder writes nothing in demo', async () => {
+    const { recordClientLinkEvent } = await import('@/lib/client-links-store')
+    await recordClientLinkEvent({
+      linkId: null,
+      zohoDealId: '7112178000000000001',
+      fileRef: 'FOX-1004',
+      action: 'created',
+      actingEmail: 'demo@example.com',
+    })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})

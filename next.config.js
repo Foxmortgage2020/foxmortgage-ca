@@ -74,6 +74,23 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // A client's own file page (B5). Belt-and-suspenders alongside the
+        // robots metadata on the page itself: a private link must never be
+        // indexed, and a crawler that ignores the meta tag still sees this.
+        source: '/portal/file/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive',
+          },
+          {
+            // Nothing about a client's page should ride out in a referrer.
+            key: 'Referrer-Policy',
+            value: 'no-referrer',
+          },
+        ],
+      },
     ];
   },
 };

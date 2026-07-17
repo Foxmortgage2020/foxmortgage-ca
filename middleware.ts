@@ -42,6 +42,14 @@ export default authMiddleware({
     // before they have an account. Without this they hit the sign-in wall.
     '/onboard/partner/(.*)',
     '/onboard/expired',
+    // The client's own status page (B5). Same model as the onboard routes
+    // above: the token IS the auth, and it must be reachable by a client who
+    // has no account and never will. The page validates the token itself
+    // (opaque, 256-bit, stored hashed) and renders one identical not-found
+    // page for anything that does not resolve. The token is deliberately hex:
+    // the matcher below skips any path ending in `.<word>`, so a token with a
+    // dot in it would route around this middleware entirely.
+    '/portal/file/(.*)',
     '/api/contact',
     '/api/smm-enroll',
     '/api/investor-inquiry',

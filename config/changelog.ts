@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-17',
+    title: 'Clients can see where their file stands, from a private link',
+    detail:
+      'The first page built for clients, not staff. Michael can now hand a client a private link that opens a simple status page: where their mortgage is, in plain words, what is happening right now, anything we need back from them, their closing date, and the people on their team with tap-to-call and email. It reads from the same lifecycle the command centre uses, but says it the way a person would, not the way a system does, and it never shows anything about anyone else. Sections only appear when there is something real to show, and a client is never told no on a web page. The link is made and turned off from a card in the deal room, lasts ninety days, and nothing sends on its own yet: Michael copies the link into his own message. A link that is turned off, or expired, or simply wrong all show the same friendly "ask Michael for a new one" page, so the link can never be used to fish for whose files exist. Nothing about a client is ever in the web address itself. Two housekeeping notes shipped alongside: the placeholder Google reviews came off the homepage until there are real ones, and a spot on the old partner sign-up flow that could show a partner name to a stranger was closed.',
+  },
+  {
+    date: '2026-07-17',
     title: 'A new version now actually announces itself',
     detail:
       'The quiet "A new version is ready" toast has been in the portal since Tuesday and has never once appeared, across two deploys. Two reasons, and both had to be fixed. First, the small background program the browser keeps for the app was byte-for-byte identical on every deploy, and a browser decides there is a new version by noticing that file changed. It never changed, so as far as every browser knew, nothing new ever shipped. It now carries the deploy it came from, so each deploy genuinely looks new. Second, nothing ever asked the browser to look. A tab left open all day sat there until the browser got around to its own check, which can take a full day. An open tab now checks a few seconds after it loads, every ten minutes after that, and the moment you come back to the tab. What has not changed is the important part: the page never reloads itself. It waits, offers Refresh, and you decide when. The proof of this one is the next deploy, not this one: leave a tab open, ship, and the toast should find you within about ten minutes.',

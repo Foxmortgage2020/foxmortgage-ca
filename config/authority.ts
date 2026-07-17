@@ -113,6 +113,9 @@ export const PERMISSIONS = {
   // approve/edit/skip a drip touch, exclude a client, change the auto-send
   // toggle — client-facing outbound decisions, admin-only.
   'renewal.decide': ['admin'],
+  // B5: minting a link that shows a client their own file is a PII disclosure
+  // control, so it stays with Michael. Admin-only by the tested posture.
+  'client.link.manage': ['admin'],
   // ── Additive view keys (Session 1) ─────────────────────────────────────
   // Nav and page gating for sections the original matrix carries no key
   // for. All seeded admin-only except where a broader default is safe.
@@ -184,6 +187,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',
   'renewal.decide': 'Approve, edit, or skip renewal drip messages and manage drip enrollment',
+  'client.link.manage': 'Create and revoke the private link that shows a client their own file status',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',
   'intel.view': 'See the lender intel feed',

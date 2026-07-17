@@ -52,6 +52,8 @@ import DocumentUploader from '@/components/admin/DocumentUploader'
 import LenderNotesCard from '@/components/admin/LenderNotesCard'
 import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
+import ClientPortalCard from '@/components/admin/ClientPortalCard'
+import { clientLinksForDeal } from '@/lib/client-links-store'
 import PhaseSection from '@/components/admin/deals/PhaseSection'
 import StepList from '@/components/admin/deals/StepList'
 import CloseoutPanel from '@/components/admin/deals/CloseoutPanel'
@@ -212,7 +214,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     )
   }
 
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, lenderNotesR, finmoSnapR, contextCountsR, closeoutR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, lenderNotesR, finmoSnapR, contextCountsR, closeoutR, clientLinksR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -235,6 +237,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       deal.zohoPotentialId
         ? getDealCloseout(deal.zohoPotentialId).catch(() => null)
         : Promise.resolve(null),
+      // B5: the client-portal links for this deal. Metadata only — the store
+      // never returns a token or a hash.
+      deal.zohoPotentialId
+        ? clientLinksForDeal(deal.zohoPotentialId).catch(() => null)
+        : Promise.resolve(null),
     ])
   const conds = val(condsR) ?? []
   const pendingCommit = val(pendingCommitR) ?? []
@@ -250,6 +257,8 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const finmoSnap = val(finmoSnapR) ?? null
   const contextCounts = val(contextCountsR) ?? { calls: 0, emails: 0 }
   const closeout = closeoutR
+  const clientLinks =
+    clientLinksR && clientLinksR.configured && clientLinksR.ok ? clientLinksR.data : []
   // The Finmo-carried requested rate (for the readiness "Rate" row), read from
   // the snapshot's mapped requested block when present.
   const finmoRequested = (finmoSnap?.mapped?.requested ?? null) as { rate?: number | null } | null
@@ -1083,6 +1092,19 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
           clientKey={deal.zohoPotentialId ?? deal.fileRef}
           canManage={can(user, 'constraints.manage')}
         />
+
+        {/* The client's own status page (B5): a private link that shows this
+            client where their file stands, in their words. Nothing sends —
+            Michael copies the link into his own message. Creating and revoking
+            need client.link.manage and are refused in demo (server-enforced). */}
+        <Section id="client-portal" title="Client portal">
+          <ClientPortalCard
+            zohoDealId={deal.zohoPotentialId}
+            fileRef={deal.fileRef}
+            initialLinks={clientLinks}
+            canManage={can(user, 'client.link.manage') && !isDemoMode()}
+          />
+        </Section>
 
         {/* Flags with disposition history */}
         <Section id="flags" title={`Flags (${openFlags.length} open of ${flags.length})`}>

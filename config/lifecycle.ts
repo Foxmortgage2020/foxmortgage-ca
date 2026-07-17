@@ -598,3 +598,245 @@ export function nextActionForJourney(journey: Journey): NextAction | null {
   }
   return ACTION_BY_PHASE[journey.currentPhase]
 }
+
+// ─── The client's words (B5, 2026-07-17) ─────────────────────────────────────
+//
+// Everything above is the words WE use. This layer is the words the CLIENT
+// reads on their own status page (/portal/file/[token]). It is a config, not
+// strings scattered through a component, so Michael can change a sentence by
+// editing one cell and no page needs touching.
+//
+// THE RULES THIS LAYER INHERITS, AND EVERY FUTURE SESSION WITH IT:
+//
+//  1. THE PORTAL NEVER TELLS A PERSON NO. Nothing here renders a
+//     qualification judgment, a decline, a rate they did not get, or a
+//     reason they fell short. A person's own status page is not where they
+//     learn bad news — that is a conversation with Michael, not a web page.
+//     If a future phase adds qualification, it does not add it HERE.
+//  2. NO INTERNAL VOCABULARY, EVER. The client never reads "underwriting",
+//     "packaging", "evidence", "conditions" as a system word, a lender's
+//     name we have not committed to, a system name, or the word broker.
+//     Michael is a Mortgage Agent Level 2. Tests assert this.
+//  3. NO PLACEHOLDERS. The internal surfaces show planned capability on
+//     purpose — it teaches the process. The client page must not: a
+//     placeholder on a client's page just advertises what we cannot do yet.
+//     Steps with status 'planned' carry words here for totality, and the
+//     page filters them out. They must never render.
+//  4. GRADE 6, WARM, CONTRACTIONS, PLAIN. Short sentences. No dashes, no
+//     exclamation points, no semicolons. Read it aloud: it should sound
+//     like Michael talking, not a system reporting.
+//  5. TOTAL. Every phase and every step key above has words below, enforced
+//     by tests/client-portal.test.ts — so adding a lifecycle step fails
+//     loudly here rather than shipping a blank line to a client.
+//
+// Shape-awareness is inherited, not restated: PHASE_STEPS already decides
+// which steps a purchase or a renewal sees, so keying these by step key
+// makes the client words shape-aware for free.
+
+export interface ClientWords {
+  /** The client-facing name for this phase or step. */
+  label: string
+  /** One warm sentence: what is happening right now. */
+  happening: string
+  /** One sentence, only when the step genuinely needs something of them. */
+  needFromYou?: string
+}
+
+/** What the client reads when a stage maps to no phase. Calm, never an error. */
+export const CLIENT_UNMAPPED: ClientWords = {
+  label: 'Your file',
+  happening: "We're working on your file. Michael will be in touch with an update.",
+}
+
+export const CLIENT_PHASES: Record<PhaseKey, ClientWords> = {
+  intake: {
+    label: 'Getting started',
+    happening: "Your file's open and we're getting your application together.",
+  },
+  underwriting: {
+    label: 'Reviewing your file',
+    happening: "We're going through everything and getting your file ready for lenders.",
+  },
+  fulfilment: {
+    label: 'Finalizing your approval',
+    happening: "Your lender said yes. Now we're tying up the last details.",
+  },
+  complete_paid: {
+    label: 'Closing',
+    happening: "Everything's done on our side and your lawyer takes it from here.",
+  },
+  beyond_funding: {
+    label: 'Looking after it',
+    happening: "Your mortgage is done. We keep an eye on it from here.",
+  },
+}
+
+/**
+ * Client words per step key. Keys match PHASE_STEPS exactly (tested).
+ * 'planned' steps carry words so this map stays total as the lifecycle
+ * grows, but the client page never renders them (rule 3).
+ */
+export const CLIENT_STEPS: Record<string, ClientWords> = {
+  // Getting started
+  qualify: {
+    label: 'Getting to know your plans',
+    happening: "Michael wants to hear what you're hoping to do, so he can point you the right way.",
+    needFromYou: 'Give Michael a call or reply to his message whenever it suits you.',
+  },
+  application: {
+    label: 'Your application',
+    happening: "We're getting your application filled in.",
+    needFromYou: 'Finishing your application is the one thing that gets this moving.',
+  },
+  application_chase: {
+    label: 'A gentle reminder',
+    happening: "We'll remind you if your application still needs something.",
+  },
+  first_review: {
+    label: 'Reading it over',
+    happening: "Michael's reading through everything you sent.",
+  },
+
+  // Reviewing your file
+  documents: {
+    label: 'Your paperwork',
+    happening: "We're gathering the paperwork your lender needs to see.",
+    needFromYou: "Sending anything we've asked for is what moves this along fastest.",
+  },
+  underwrite: {
+    label: 'Checking the numbers',
+    happening: "Michael's going through your file in detail and checking every number.",
+  },
+  plan: {
+    label: 'Your options',
+    happening: "Michael's putting your options together so you can pick what fits.",
+  },
+  preapproval_letter: {
+    label: 'Your pre-approval letter',
+    happening: "Michael's getting your letter ready so you can shop knowing your number.",
+  },
+  shopping: {
+    label: 'Out looking',
+    happening: "You're pre-approved and out looking. Tell us when you find the one.",
+  },
+  package_submit: {
+    label: 'Off to your lender',
+    happening: "Michael's putting your file together and sending it to your lender.",
+  },
+  with_lender: {
+    label: "It's with your lender",
+    happening: "Your file's with the lender and we're waiting on their answer. Michael checks in if it goes quiet.",
+  },
+
+  // Finalizing your approval
+  commitment: {
+    label: "Your approval's in",
+    happening: "Your lender said yes. Michael's going through the paperwork now.",
+  },
+  conditions: {
+    label: 'The last few items',
+    happening: "Your lender asked for a few final things and we're working through them.",
+    needFromYou: "If we've asked you for anything, sending it back quickly keeps your closing date safe.",
+  },
+  final_approval: {
+    label: 'Final sign-off',
+    happening: "We're confirming the last sign-off with your lender.",
+  },
+
+  // Closing
+  broker_complete: {
+    label: "Everything's set",
+    happening: "Everything's done on our side. Your lawyer takes it from here.",
+    needFromYou: 'Your lawyer will be in touch to book your signing.',
+  },
+  compliance_package: {
+    label: 'Filing the paperwork',
+    happening: "We're filing the last of the paperwork.",
+  },
+  paid: {
+    label: 'All done',
+    happening: 'Your mortgage is funded and everything is complete. Congratulations.',
+  },
+
+  // Looking after it
+  renewal_watch: {
+    label: "We're watching your renewal",
+    happening: "We keep an eye on your renewal date so it never sneaks up on you.",
+  },
+  monitoring: {
+    label: 'Strategic Mortgage Monitoring',
+    happening:
+      "Every month we check your mortgage against what's out there, and Michael reaches out when there's something worth doing.",
+  },
+  renewal_outreach: {
+    label: 'Your renewal check-in',
+    happening: "We'll be in touch well before your renewal comes up.",
+  },
+}
+
+export interface ClientJourneyPhase {
+  key: PhaseKey
+  label: string
+  state: JourneyState
+}
+
+export interface ClientJourney {
+  /** False = the stage maps to no phase: the page shows the calm generic. */
+  mapped: boolean
+  phases: ClientJourneyPhase[]
+  /** The current phase in the client's words; null when unmapped. */
+  current: (ClientWords & { key: PhaseKey }) | null
+  /** The current step's words, when a step claims the stage. */
+  step: ClientWords | null
+  /** The one thing we need from them, if this step needs anything. */
+  needFromYou: string | null
+}
+
+/**
+ * The client's view of a file's journey, from the same Journey the internal
+ * surfaces render. Planned steps never surface (rule 3): they carry no
+ * stages, so they can never be current, and the belt is here anyway.
+ */
+export function clientJourneyFor(journey: Journey): ClientJourney {
+  if (!journey.mapped || !journey.currentPhase) {
+    return {
+      mapped: false,
+      phases: LIFECYCLE_PHASES.map(p => ({
+        key: p.key,
+        label: CLIENT_PHASES[p.key].label,
+        state: 'upcoming' as const,
+      })),
+      current: null,
+      step: null,
+      needFromYou: null,
+    }
+  }
+
+  const phases: ClientJourneyPhase[] = journey.phases.map(p => ({
+    key: p.key,
+    label: CLIENT_PHASES[p.key].label,
+    state: p.state,
+  }))
+
+  const currentStep = journey.steps.find(s => s.state === 'current' && s.status !== 'planned')
+  const stepWords = currentStep ? (CLIENT_STEPS[currentStep.key] ?? null) : null
+
+  return {
+    mapped: true,
+    phases,
+    current: { key: journey.currentPhase, ...CLIENT_PHASES[journey.currentPhase] },
+    step: stepWords,
+    needFromYou: stepWords?.needFromYou ?? null,
+  }
+}
+
+/** Every step key the lifecycle defines, deduped. The totality test's input. */
+export function allStepKeys(): string[] {
+  const keys = new Set<string>()
+  for (const phase of Object.values(PHASE_STEPS)) {
+    for (const steps of Object.values(phase)) {
+      for (const s of steps) keys.add(s.key)
+    }
+  }
+  return Array.from(keys)
+}

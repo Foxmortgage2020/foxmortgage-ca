@@ -13,6 +13,12 @@
 // fetchers it fixtures (no import cycle): the guards import the data from
 // here, this file imports only their types.
 
+import { clientJourneyFor, journeyForStage } from '@/config/lifecycle'
+// The agent card comes from the LEAF module, and the view is a TYPE-ONLY
+// import: this file must never take a runtime dependency on a fetcher (the
+// header rule at the top), or it cycles back through lib/zoho.
+import { AGENT_MEMBER } from '@/lib/client-team'
+import type { ClientFileView } from '@/lib/client-file'
 import type {
   UwResult,
   WorkbenchDeal,
@@ -744,3 +750,80 @@ export const demoRenewalSequenceStates: RenewalSequenceState[] = [
     sentCount: 1,
   },
 ]
+
+// ─── The client's own status page (B5, 2026-07-17) ──────────────────────────
+// A synthetic file from the design cast, so the client page can be shown,
+// screenshotted, and demoed without any real client's link ever being opened.
+// Fixed dates, obviously fictional people, and a token that resolves only in
+// demo mode (isDemoMode() gates it before any store call, so this token is
+// inert in production).
+
+// 64 hex chars: the shape gate runs BEFORE the demo check, so even the demo
+// token has to be a real token shape. ('demo' repeated is not hex.)
+export const DEMO_CLIENT_TOKEN = 'de'.repeat(32)
+
+export function demoClientFileView(token: string): ClientFileView | null {
+  // NO fallback. An unknown token must resolve to nothing here exactly as it
+  // does in production, or demo mode quietly lies about the one behaviour this
+  // surface most needs to get right: an unusable link shows the not-found page.
+  // (It first shipped with a convenience fallback, which made every
+  // well-formed token render the demo file and hid the not-found state.)
+  return DEMO_CLIENT_FILES[token] ?? null
+}
+
+// A mid-underwriting purchase: documents outstanding, a realtor on the team.
+const demoPurchaseFile: ClientFileView = {
+  fileRef: 'FOX-1004',
+  firstName: 'Sofia',
+  journey: clientJourneyFor(
+    journeyForStage({ stage: 'Collecting Documentation', shape: 'purchase', space: 'display' }),
+  ),
+  closingDate: '2026-09-18',
+  team: [
+    AGENT_MEMBER,
+    {
+      role: 'realtor',
+      roleLabel: 'Your realtor',
+      name: 'Marcus Tran',
+      email: 'marcus@example.com',
+      phone: '519-555-0142',
+    },
+  ],
+}
+
+// A refinance clearing conditions: the lender said yes, a lawyer is on.
+const demoRefiFile: ClientFileView = {
+  fileRef: 'FOX-1011',
+  firstName: 'Jordan',
+  journey: clientJourneyFor(
+    journeyForStage({ stage: 'Conditionally Approved', shape: 'refi', space: 'display' }),
+  ),
+  closingDate: '2026-08-04',
+  team: [
+    AGENT_MEMBER,
+    {
+      role: 'lawyer',
+      roleLabel: 'Your lawyer',
+      name: 'Noor Haddad',
+      email: 'noor@example.com',
+      phone: '519-555-0177',
+    },
+  ],
+}
+
+// A funded file: beyond funding, no closing countdown, monitoring words.
+const demoFundedFile: ClientFileView = {
+  fileRef: 'FOX-0994',
+  firstName: 'Ava',
+  journey: clientJourneyFor(
+    journeyForStage({ stage: 'Mortgage Funded', shape: 'renewal', space: 'display' }),
+  ),
+  closingDate: null,
+  team: [AGENT_MEMBER],
+}
+
+const DEMO_CLIENT_FILES: Record<string, ClientFileView> = {
+  [DEMO_CLIENT_TOKEN]: demoPurchaseFile,
+  ['a1'.repeat(32)]: demoRefiFile,
+  ['b2'.repeat(32)]: demoFundedFile,
+}

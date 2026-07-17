@@ -178,6 +178,16 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
     return <>{children}</>
   }
 
+  // The client's own file page (/portal/file/[token], B5) is the one surface
+  // here with no account behind it: the reader is a mortgage client holding a
+  // private link, not a partner. This partner chrome — the sidebar, the portal
+  // switcher, the sign-out control — would be meaningless to them and would
+  // invite them to a sign-in they can never complete. The page brings its own
+  // bare, brand-styled layout.
+  if (pathname?.startsWith('/portal/file')) {
+    return <>{children}</>
+  }
+
   // Derive roles from Clerk user metadata. Three shapes exist in production
   // and all three must normalize to a string[]:
   //   1. `roles: ['financial-planner']`  (plural array)
