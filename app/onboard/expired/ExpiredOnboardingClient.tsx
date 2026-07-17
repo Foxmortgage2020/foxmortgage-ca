@@ -6,13 +6,16 @@ import { Loader2 } from 'lucide-react'
 interface ExpiredOnboardingClientProps {
   partnerIdParam: string
   refToken: string
-  partnerName: string | null
-  partnerEmail: string | null
 }
 
 // Single-screen client: shows the expired-link message, lets the
 // investor request a new link, then shows the confirmation message.
 // The investor never sees an error state — the flow stays warm.
+//
+// This screen deliberately identifies NOBODY (see the security note in
+// page.tsx): it is reachable by anyone with a guessed id, so it renders the
+// same words for every visitor. Mike's notification email carries the
+// partner's identity; the public page does not.
 //
 // NOTE: prop is named `refToken` rather than `ref` because `ref` is
 // a reserved React prop and can't be passed from a Server Component
@@ -20,8 +23,6 @@ interface ExpiredOnboardingClientProps {
 export default function ExpiredOnboardingClient({
   partnerIdParam,
   refToken,
-  partnerName,
-  partnerEmail,
 }: ExpiredOnboardingClientProps) {
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
@@ -92,13 +93,6 @@ export default function ExpiredOnboardingClient({
               {busy ? 'Sending request…' : 'Request a new link'}
             </button>
 
-            {/* Surfacing partner name/email only when we already
-                resolved it server-side — never as a leak channel. */}
-            {partnerName && (
-              <p className="text-gray-500 text-xs font-body mt-6">
-                Linked to {partnerName}{partnerEmail ? ` (${partnerEmail})` : ''}.
-              </p>
-            )}
           </>
         )}
       </div>
