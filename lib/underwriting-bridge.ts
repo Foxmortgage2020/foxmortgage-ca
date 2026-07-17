@@ -157,12 +157,14 @@ export type BoardColumn =
   | 'ready'
   | 'funded'
 
+// Labels speak the lifecycle vocabulary (Brief B1, config/lifecycle.ts);
+// the KEYS are load-bearing via COLUMN_BY_STAGE and never change.
 export const BOARD_COLUMNS: { key: BoardColumn; label: string }[] = [
   { key: 'intake', label: 'Intake' },
-  { key: 'evidence', label: 'Evidence' },
-  { key: 'packaging', label: 'Packaging' },
-  { key: 'with_lender', label: 'With lender' },
-  { key: 'conditions', label: 'Commitment · conditions' },
+  { key: 'evidence', label: 'Documents & review' },
+  { key: 'packaging', label: 'Package & submit' },
+  { key: 'with_lender', label: 'With the lender' },
+  { key: 'conditions', label: 'Conditions' },
   { key: 'ready', label: 'Ready to close' },
   { key: 'funded', label: 'Funded' },
 ]

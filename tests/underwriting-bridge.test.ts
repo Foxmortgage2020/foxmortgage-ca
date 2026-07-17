@@ -153,7 +153,9 @@ describe('the board mapping (workbench vocabulary onto columns)', () => {
       'ready',
       'funded',
     ])
-    expect(BOARD_COLUMNS.find(c => c.key === 'conditions')!.label).toBe('Commitment · conditions')
+    // B1 relabel: labels speak the lifecycle vocabulary, keys never move.
+    expect(BOARD_COLUMNS.find(c => c.key === 'conditions')!.label).toBe('Conditions')
+    expect(BOARD_COLUMNS.find(c => c.key === 'evidence')!.label).toBe('Documents & review')
   })
 
   it('maps the live legacy values and flags unknowns instead of hiding them', () => {

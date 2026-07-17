@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-16',
+    title: 'One lifecycle, spoken everywhere: Intake, Underwriting, Fulfilment, Complete & paid, Beyond funding',
+    detail:
+      'The pipeline surfaces stop speaking three vocabularies at once. One canonical lifecycle now drives them all: the Underwriting board groups its seven columns under four phase headers (Underwriting runs until a commitment is in hand, so a lender decline loops back through packaging without leaving the phase), the columns themselves got plain-words names (Documents & review, Package & submit, With the lender, Conditions), and the Today pipeline table groups its rows under the same phase names, so the board and the morning view finally read as one system. Every deal room header gains a journey stepper: the five phases in a row with the current one emphasized, and under it the current phase steps in the training-deck words, shaped to the file (a purchase shows the pre-approval letter and shopping steps, a refinance does not). Steps are marked honestly: what the platform does on its own, what Michael does by hand today (hover shows the how, so the dashboard doubles as the standing procedure), and what is coming (application chase reminders, a pre-approved-and-shopping signal, renewal outreach sends). Funded files read Beyond funding and link straight to Renewals. Nothing moved: every file sits in exactly the column and stage it did yesterday, only the headers and labels changed, and a stage the lifecycle does not know renders a loud amber flag instead of being forced into a group.',
+  },
+  {
     date: '2026-07-14',
     title: 'Underwriting: every file gets its room, automatically',
     detail:

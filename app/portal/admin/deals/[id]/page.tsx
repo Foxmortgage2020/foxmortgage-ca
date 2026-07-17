@@ -51,6 +51,8 @@ import { daysUntil } from '@/lib/compliance-logic'
 import { lenderDisplayName } from '@/config/lenders'
 import { fmtDateTime, fmtMoney, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
 import { dealGoalDisplay } from '@/lib/deal-goal'
+import { stepShapeFor } from '@/config/lifecycle'
+import JourneyStepper from '@/components/admin/JourneyStepper'
 
 export const dynamic = 'force-dynamic'
 
@@ -133,7 +135,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   if (!agentId) {
     return (
       <div className="max-w-4xl">
-        <h1 className="font-heading text-navy text-2xl font-bold">Deal room</h1>
+        <h1 className="font-ui text-ink-navy text-2xl font-bold">Deal room</h1>
         <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
           <p className="text-sm text-gray-500 font-body">
             Workbench not available right now. See Status for details.
@@ -149,7 +151,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   if (!deal) {
     return (
       <div className="max-w-4xl">
-        <h1 className="font-heading text-navy text-2xl font-bold">Deal room</h1>
+        <h1 className="font-ui text-ink-navy text-2xl font-bold">Deal room</h1>
         <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-5">
           <p className="text-sm text-amber-800 font-body">The workbench did not answer for this deal. Reload to retry.</p>
         </div>
@@ -235,6 +237,13 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const closeDays = deal.closingDate ? daysUntil(deal.closingDate, today) : null
   const closingAmber = closingHeaderAmber(closeDays)
 
+  // The journey stepper (B1): the header chip's honesty rule feeds the step
+  // shape too — the Finmo goal wins a conflict with the record type. A dead
+  // room (dormant or closed without funding) shows no journey; a funded room
+  // always does (Beyond funding).
+  const finmoGoal = (finmoSnap?.mapped as { goal?: string } | null)?.goal ?? null
+  const showJourney = !terminal || boardColumn === 'funded'
+
   const ROOM_SECTIONS = [
     { id: 'overview', label: 'Overview' },
     { id: 'conditions', label: 'Conditions' },
@@ -318,17 +327,17 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     <div className="max-w-4xl">
       {/* Snapshot header */}
       <div className="mb-2">
-        <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-gray-400 hover:text-navy">
-          &larr; Deals
+        <Link href="/portal/admin/underwriting" className="font-ui text-xs font-semibold text-muted-2 hover:text-ink-navy">
+          &larr; Underwriting
         </Link>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="font-heading text-navy text-2xl font-bold">{deal.fileRef}</h1>
+        <h1 className="font-ui text-ink-navy text-2xl font-bold">{deal.fileRef}</h1>
         {(() => {
           // Header honesty: when the deals row's type conflicts with the Finmo
           // application goal, show the Finmo goal with a conflict marker rather
           // than the record type as unqualified fact (corrected at source in Zoho).
-          const gd = dealGoalDisplay(deal.dealType, (finmoSnap?.mapped as { goal?: string } | null)?.goal)
+          const gd = dealGoalDisplay(deal.dealType, finmoGoal)
           return gd.conflict ? (
             <Chip tone="amber" title={`The deal record type is "${gd.dealTypeLabel}", but the Finmo application goal is "${gd.goalLabel}". Showing the Finmo goal; correct the record in Zoho.`}>
               {gd.goalLabel} <span className="font-normal opacity-70">· record says {gd.dealTypeLabel}</span>
@@ -367,13 +376,24 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                 purchasePrice: deal.purchasePrice,
               }),
             ).toString()}`}
-            className="text-xs font-bold bg-lime text-navy rounded-lg px-3 py-1.5 hover:opacity-90"
+            className="text-xs font-bold bg-white border border-hairline text-ink rounded-lg px-3 py-1.5 hover:border-ink-navy/40"
             data-testid="find-rates-for-deal"
           >
             Find rates for this deal
           </Link>
         </div>
       </div>
+      {/* The journey (B1): where this file sits on the lifecycle spine, and
+          the current phase's steps in plain words. Display only. */}
+      {showJourney && (
+        <div className="mt-3">
+          <JourneyStepper
+            stage={deal.stage}
+            shape={stepShapeFor(deal.dealType, finmoGoal)}
+            space="room"
+          />
+        </div>
+      )}
       <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm font-body">
         <div>
           <p className="text-xs text-gray-400">Mortgage amount</p>

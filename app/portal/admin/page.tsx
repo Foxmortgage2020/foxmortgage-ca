@@ -48,6 +48,7 @@ import { collapseCoBorrowers, parseSmmRow, type SmmMortgage } from '@/lib/smm'
 import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
 import { indexMortgagesByName, type BookQuote } from '@/lib/smm-match'
 import { deskFragments, nextStepForStage, type DeskCounts } from '@/lib/desk'
+import { groupByPhase } from '@/config/lifecycle'
 import DeskStrip from '@/components/admin/DeskStrip'
 import { isDemoMode } from '@/lib/demo'
 import { listCredentials } from '@/lib/compliance'
@@ -467,12 +468,18 @@ export default async function AdminHome() {
   }
   const topDecisionCards = decisionCards.slice(0, 3)
 
-  // Compact pipeline: the active files with a plain-words next step.
+  // Compact pipeline: the active files with a plain-words next step, grouped
+  // by lifecycle phase (B1). Group rows beat a per-row chip at these counts:
+  // a chip would put a second pill on every row and repeat the same phase
+  // word eight times; four quiet group rows say it once each, in the same
+  // words as the board. Closing-date order holds within each group. A stage
+  // with no phase lands in the loud trailing group, never forced in.
   const compactPipeline = pipeline
     ? [...pipeline.activeDeals].sort((a, b) =>
         (a.closingDate ?? '9999').localeCompare(b.closingDate ?? '9999'),
       )
     : []
+  const compactPipelineGroups = groupByPhase(compactPipeline, d => d.stage)
 
   const attentionCards: React.ReactNode[] = []
 
@@ -784,38 +791,51 @@ export default async function AdminHome() {
                 <th className="py-2.5 px-4 font-semibold text-right"></th>
               </tr>
             </thead>
-            <tbody>
-              {compactPipeline.map(d => {
-                const wb = wbByZohoId.get(d.id)
-                return (
-                  <tr key={d.id} className="border-t border-hairline hover:bg-[#FAFCF5]">
-                    <td className="py-2.5 px-4 text-ink font-medium truncate max-w-[240px]">
-                      {d.dealName}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="inline-block rounded-full bg-fog px-2 py-0.5 text-[11px] font-semibold text-muted">
-                        {d.stage}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-right text-ink tabular-nums">
-                      {fmtMoneyCompact(d.amount)}
-                    </td>
-                    <td className="py-2.5 px-3 text-muted tabular-nums">
-                      {d.closingDate ? fmtShortDate(d.closingDate) : 'not set'}
-                    </td>
-                    <td className="py-2.5 px-3 text-muted">{nextStepForStage(d.stage)}</td>
-                    <td className="py-2.5 px-4 text-right">
-                      <Link
-                        href={wb ? `/portal/admin/deals/${wb.id}` : '/portal/admin/underwriting#not-yet-bridged'}
-                        className="font-semibold text-ink text-[13px] underline decoration-hairline underline-offset-4 hover:decoration-ink-navy"
-                      >
-                        Open
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
+            {compactPipelineGroups.map(group => (
+              <tbody key={group.key}>
+                <tr className="border-t border-hairline">
+                  <td colSpan={6} className="pt-2.5 pb-1 px-4">
+                    <span
+                      className={`font-ui text-[10px] font-bold uppercase tracking-[1.6px] ${
+                        group.key === 'unmapped' ? 'text-caution' : 'text-ink-navy'
+                      }`}
+                    >
+                      {group.label}
+                    </span>
+                  </td>
+                </tr>
+                {group.items.map(d => {
+                  const wb = wbByZohoId.get(d.id)
+                  return (
+                    <tr key={d.id} className="border-t border-hairline hover:bg-[#FAFCF5]">
+                      <td className="py-2.5 px-4 text-ink font-medium truncate max-w-[240px]">
+                        {d.dealName}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="inline-block rounded-full bg-fog px-2 py-0.5 text-[11px] font-semibold text-muted">
+                          {d.stage}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-ink tabular-nums">
+                        {fmtMoneyCompact(d.amount)}
+                      </td>
+                      <td className="py-2.5 px-3 text-muted tabular-nums">
+                        {d.closingDate ? fmtShortDate(d.closingDate) : 'not set'}
+                      </td>
+                      <td className="py-2.5 px-3 text-muted">{nextStepForStage(d.stage)}</td>
+                      <td className="py-2.5 px-4 text-right">
+                        <Link
+                          href={wb ? `/portal/admin/deals/${wb.id}` : '/portal/admin/underwriting#not-yet-bridged'}
+                          className="font-semibold text-ink text-[13px] underline decoration-hairline underline-offset-4 hover:decoration-ink-navy"
+                        >
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            ))}
           </table>
         </div>
       )}

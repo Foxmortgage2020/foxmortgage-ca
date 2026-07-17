@@ -30,6 +30,7 @@ import {
   DAYS_IDLE_AMBER,
   nextStepForRoom,
 } from '@/lib/underwriting-bridge'
+import { boardPhaseGroups } from '@/config/lifecycle'
 import { closingPillAmber, type ConditionCount } from '@/lib/conditions-status'
 import { daysUntil } from '@/lib/compliance-logic'
 import { runBridgeSweep } from '@/lib/underwriting-sweep'
@@ -41,6 +42,19 @@ export const dynamic = 'force-dynamic'
 
 function val<T>(r: { configured: boolean } & ({ ok: true; data: T } | { ok: false }) | null): T | null {
   return r && r.configured && 'ok' in r && r.ok ? (r as { data: T }).data : null
+}
+
+// Phase sections keep the seven columns' relative widths on wide screens and
+// stack phase by phase below xl. Keyed by a section's column count.
+const PHASE_GROW: Record<number, string> = {
+  1: 'xl:grow xl:basis-0',
+  2: 'xl:grow-[2] xl:basis-0',
+  3: 'xl:grow-[3] xl:basis-0',
+}
+const PHASE_GRID: Record<number, string> = {
+  1: 'grid grid-cols-1 gap-3',
+  2: 'grid grid-cols-1 sm:grid-cols-2 gap-3',
+  3: 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3',
 }
 
 export default async function UnderwritingPage({
@@ -119,10 +133,9 @@ export default async function UnderwritingPage({
   return (
     <div className="max-w-6xl">
       <div className="mb-5">
-        <h1 className="font-heading text-navy text-2xl font-bold">Underwriting</h1>
+        <h1 className="font-ui text-ink-navy text-2xl font-bold">Underwriting</h1>
         <p className="text-muted font-ui text-sm mt-1">
-          Every bridged file by state. The bridge keeps this in step with the Zoho pipeline on
-          load and on a schedule; rooms are created empty, and nothing here is ever deleted.
+          Every live file, grouped by lifecycle phase. The board keeps itself in step with Zoho.
         </p>
         {!sweep.ok && (
           <p className="mt-2 rounded bg-caution-bg border border-caution/40 px-2.5 py-1.5 text-xs font-ui text-caution">
@@ -170,14 +183,26 @@ export default async function UnderwritingPage({
         )}
       </div>
 
-      {/* The board — seven columns (Phase B2) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-        {BOARD_COLUMNS.map(col => {
+      {/* The board — the same seven columns (Phase B2) under four lifecycle
+          phase headers (B1). Column keys, mapping, and cards are unchanged;
+          only the grouping and labels moved. On wide screens the sections
+          keep the columns' relative widths (1 : 3 : 1 : 2); below xl the
+          board stacks phase by phase. */}
+      <div className="flex flex-col gap-6 xl:flex-row xl:gap-4">
+        {boardPhaseGroups(BOARD_COLUMNS).map(group => (
+          <section key={group.key} className={`min-w-0 ${PHASE_GROW[group.columns.length]}`}>
+            <p className="mb-2.5 border-b border-hairline pb-1.5 font-ui text-[10px] font-bold uppercase tracking-[1.6px] text-ink-navy">
+              {group.label}
+            </p>
+            <div className={PHASE_GRID[group.columns.length]}>
+        {group.columns.map(col => {
           const colCards = byColumn.get(col.key) ?? []
           return (
             <div key={col.key} className="min-w-0">
               <p className="px-1 pb-2 font-ui text-[11px] font-bold uppercase tracking-wide text-muted flex items-baseline gap-1.5">
-                {col.label}
+                {/* A single-column phase already says its name in the phase
+                    header; repeating it here is clutter (B1 clutter pass). */}
+                {col.label !== group.label && col.label}
                 <span className="tabular-nums text-muted-2">{colCards.length}</span>
               </p>
               <div className="space-y-2.5">
@@ -243,6 +268,9 @@ export default async function UnderwritingPage({
             </div>
           )
         })}
+            </div>
+          </section>
+        ))}
       </div>
 
       {/* Older funded + dormant rooms, present but out of the way (recently

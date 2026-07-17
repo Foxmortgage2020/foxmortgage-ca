@@ -295,6 +295,9 @@ const SHELL_FILES = [
   'components/admin/DeskStrip.tsx',
   'components/admin/NotificationBell.tsx',
   'components/admin/CommandPalette.tsx',
+  // B1: the journey stepper is audited but NOT decision-allowed — it states
+  // where a file is; it never queues a decision, so it carries no lime.
+  'components/admin/JourneyStepper.tsx',
 ]
 const DECISION_ALLOWED_FILES = new Set([
   'components/admin/AdminShell.tsx',
