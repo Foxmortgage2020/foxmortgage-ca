@@ -7,11 +7,19 @@
 // only wires them to the browser events (updatefound → statechange
 // 'installed' with an existing controller, a waiting worker found at
 // registration, or controllerchange on a page that had a controller).
+//
+// The toast fix (2026-07-17): those events only fire if something ASKS the
+// browser to look. Nothing did — Next's client-side routing never triggers
+// the browser's own check, so an idle tab waited up to 24 hours. We now ask
+// once after registration settles, every ten minutes, and whenever the tab
+// becomes visible. Asking is not reloading: the rules above still decide
+// whether the toast appears, and the human still presses Refresh.
 
 import { useEffect, useState } from 'react'
 import {
   controllerChangeMeansUpdate,
   installedBehindController,
+  scheduleUpdateChecks,
   updateReadyNow,
 } from '@/lib/sw-update'
 
@@ -24,6 +32,7 @@ export default function ServiceWorkerRegister() {
     if (!('serviceWorker' in navigator)) return
 
     let cancelled = false
+    let stopChecks: (() => void) | null = null
     const ready = () => {
       if (!cancelled) setUpdateReady(true)
     }
@@ -31,6 +40,7 @@ export default function ServiceWorkerRegister() {
     const hadControllerAtStart = hasController()
 
     const watch = (reg: ServiceWorkerRegistration) => {
+      if (cancelled) return
       if (updateReadyNow(reg, hasController())) ready()
       reg.addEventListener('updatefound', () => {
         const incoming = reg.installing
@@ -38,6 +48,22 @@ export default function ServiceWorkerRegister() {
         incoming.addEventListener('statechange', () => {
           if (installedBehindController(incoming.state, hasController())) ready()
         })
+      })
+
+      // Ask the browser to look: once now that registration has settled, then
+      // on the interval and whenever the tab comes back into view.
+      const check = () => {
+        reg.update().catch(() => {
+          // Offline or the check failed; the next one will do.
+        })
+      }
+      check()
+      stopChecks = scheduleUpdateChecks(check, {
+        setInterval: (fn, ms) => window.setInterval(fn, ms),
+        clearInterval: id => window.clearInterval(id as number),
+        addVisibilityListener: fn => document.addEventListener('visibilitychange', fn),
+        removeVisibilityListener: fn => document.removeEventListener('visibilitychange', fn),
+        isVisible: () => document.visibilityState === 'visible',
       })
     }
 
@@ -62,6 +88,7 @@ export default function ServiceWorkerRegister() {
     }
     return () => {
       cancelled = true
+      stopChecks?.()
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange)
       window.removeEventListener('load', register)
     }

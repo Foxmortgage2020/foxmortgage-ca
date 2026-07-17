@@ -2,6 +2,16 @@
  * ============================================================================
  * SERVICE WORKER CACHING POSTURE (Session 9)
  * ============================================================================
+ * THIS FILE IS A TEMPLATE, NOT A SERVED ASSET (the toast fix, 2026-07-17).
+ * It lives outside public/ and is served at /sw.js by app/sw.js/route.ts,
+ * which replaces __SW_VERSION__ with the deploy's identity at BUILD time. It
+ * used to sit in public/ with a hardcoded version, so its bytes were
+ * identical on every deploy — and a browser only fires the update events the
+ * refresh toast listens for when the fetched worker differs byte-for-byte
+ * from the installed one. A hardcoded version means a silent worker forever.
+ * NEVER hardcode SW_VERSION here again; the placeholder is load-bearing and
+ * lib/sw-source.ts fails the build if it goes missing.
+ *
  * The security posture IS the product. This service worker is deliberately
  * minimal and NEVER caches authenticated content. Read these rules before
  * touching anything below.
@@ -32,7 +42,10 @@
  * ============================================================================
  */
 
-const SW_VERSION = 'fox-s9-v1';
+// Stamped per deploy by app/sw.js/route.ts. The cache name rides the version,
+// so every deploy opens a fresh cache and the activate handler below deletes
+// every cache that is not the current one (no leak, no stale asset).
+const SW_VERSION = '__SW_VERSION__';
 const STATIC_CACHE = 'fox-static-' + SW_VERSION;
 
 // Precache ONLY small, public, static assets. Never a /portal page, never /api.

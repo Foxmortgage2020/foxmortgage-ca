@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-17',
+    title: 'A new version now actually announces itself',
+    detail:
+      'The quiet "A new version is ready" toast has been in the portal since Tuesday and has never once appeared, across two deploys. Two reasons, and both had to be fixed. First, the small background program the browser keeps for the app was byte-for-byte identical on every deploy, and a browser decides there is a new version by noticing that file changed. It never changed, so as far as every browser knew, nothing new ever shipped. It now carries the deploy it came from, so each deploy genuinely looks new. Second, nothing ever asked the browser to look. A tab left open all day sat there until the browser got around to its own check, which can take a full day. An open tab now checks a few seconds after it loads, every ten minutes after that, and the moment you come back to the tab. What has not changed is the important part: the page never reloads itself. It waits, offers Refresh, and you decide when. The proof of this one is the next deploy, not this one: leave a tab open, ship, and the toast should find you within about ten minutes.',
+  },
+  {
+    date: '2026-07-17',
     title: 'Client names leave the codebase, and the whole portal speaks one visual language',
     detail:
       'Two finishing sweeps. First, real client names are out of the codebase entirely: every comment, test fixture, config string, and session note now speaks in file references or a small synthetic cast, the standing named exception is retired, and a repo-wide scan holds the line (the testimonials clients approved for the public site stay, and the git-history question is recorded for Michael). Second, the visual language is one system end to end: the remaining admin surfaces (Today below the fold, Approvals, Partners, Compliance, the System pages, Ask Fox, and the deal room interior) moved onto the shared design components, more than two thousand legacy color and font classes became their token equivalents, and the Revenue history chart now draws its projection hatch in calm gray beside solid navy actuals. Lime keeps exactly one meaning: a decision waiting on a human. The decide buttons on the approvals desk, the confirm tap on an Ask Fox card, and the single lime on the Deals list now wear the same decision token as the shell, everything decorative went calm navy or ink, and a test now walks every admin file so a stray decorative lime anywhere fails the build.',
