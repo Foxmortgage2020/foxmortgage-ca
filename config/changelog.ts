@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-17',
+    title: 'A deal file shows its documents at a glance, grouped by what needs you',
+    detail:
+      'The documents area inside a deal file used to be one long table. It is now a desk of small cards, sorted into three plain groups: what needs your eyes, what we are still waiting on from the client, and what is done. A document that has arrived but has not been looked at sits at the top, where it belongs; a document we asked for but have not received yet shows as a card in its own group so nothing is quietly forgotten. Where the workbench has already read a document and formed a view, the card says so in a few words, whether it meets the requirement or falls short or needs a look, shown as a draft you confirm rather than a verdict. Everything you could do before is exactly where it was: the same uploaders, the same review flow, nothing about how documents are collected or approved changed. This is the same information, laid out so a whole file reads in one look.',
+  },
+  {
+    date: '2026-07-17',
     title: 'Clients can see where their file stands, from a private link',
     detail:
       'The first page built for clients, not staff. Michael can now hand a client a private link that opens a simple status page: where their mortgage is, in plain words, what is happening right now, anything we need back from them, their closing date, and the people on their team with tap-to-call and email. It reads from the same lifecycle the command centre uses, but says it the way a person would, not the way a system does, and it never shows anything about anyone else. Sections only appear when there is something real to show, and a client is never told no on a web page. The link is made and turned off from a card in the deal room, lasts ninety days, and nothing sends on its own yet: Michael copies the link into his own message. A link that is turned off, or expired, or simply wrong all show the same friendly "ask Michael for a new one" page, so the link can never be used to fish for whose files exist. Nothing about a client is ever in the web address itself. Two housekeeping notes shipped alongside: the placeholder Google reviews came off the homepage until there are real ones, and a spot on the old partner sign-up flow that could show a partner name to a stranger was closed.',

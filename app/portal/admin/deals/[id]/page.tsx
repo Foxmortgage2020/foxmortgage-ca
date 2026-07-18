@@ -58,7 +58,8 @@ import PhaseSection from '@/components/admin/deals/PhaseSection'
 import StepList from '@/components/admin/deals/StepList'
 import CloseoutPanel from '@/components/admin/deals/CloseoutPanel'
 import StatusChip from '@/components/admin/ds/StatusChip'
-import { CELL_DATE } from '@/components/admin/ds/table'
+import DocumentsDesk from '@/components/admin/deals/DocumentsDesk'
+import { buildDocumentsDesk } from '@/lib/documents-desk'
 import { scenarioFromParams, scenarioParamsFromDeal, scenarioVerdict } from '@/lib/scenario'
 import { activeConstraints } from '@/lib/constraints'
 import { constraintsFor } from '@/lib/constraints-store'
@@ -534,73 +535,23 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                   </div>
                 )}
                 {documents.kind === 'ok' ? (
-                  documents.data.length === 0 ? (
-                    <Muted>No documents recorded on this file yet.</Muted>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      {documents.data.some(d => d.provenance === 'synthetic') && (
-                        <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-                          <span className="font-semibold">Synthetic (stand-in) document on this file.</span>{' '}
-                          One or more documents below are marked <span className="font-mono">synthetic</span> — they are NOT lender
-                          documents, cannot be approved, and do not feed the checklist. A real commitment upload replaces them.
-                        </div>
-                      )}
-                      <table className="w-full text-sm font-ui min-w-[480px]">
-                        <thead>
-                          <tr className="text-left font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600 border-b border-cool-100">
-                            <th className="py-2 pr-3">Document</th>
-                            <th className="py-2 pr-3">Borrower</th>
-                            <th className="py-2 pr-3">Source</th>
-                            <th className="py-2 pr-3">Received</th>
-                            <th className="py-2">Review</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {documents.data.map(d => {
-                            const synthetic = d.provenance === 'synthetic'
-                            return (
-                            <tr key={d.id} className={`border-b border-cool-100${synthetic ? ' bg-red-50/60' : ''}`}>
-                              <td className="py-2 pr-3 text-cool-800 capitalize">
-                                {label(d.docType)}
-                                {synthetic && (
-                                  <span className="ml-2 inline-block rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white align-middle">
-                                    Synthetic — not a lender document
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2 pr-3 text-cool-600">
-                                {d.borrowerId ? (borrowerNameById.get(d.borrowerId) ?? 'unknown') : 'General'}
-                              </td>
-                              <td className="py-2 pr-3 text-cool-600">{d.source}</td>
-                              <td className={`py-2 pr-3 text-cool-600 ${CELL_DATE}`}>
-                                {d.receivedAt ? fmtDateTime(d.receivedAt) : 'not recorded'}
-                              </td>
-                              <td className="py-2">
-                                <Chip
-                                  tone={
-                                    d.reviewStatus === 'approved'
-                                      ? 'green'
-                                      : d.reviewStatus === 'rejected'
-                                        ? 'red'
-                                        : d.reviewStatus === 'pending'
-                                          ? 'amber'
-                                          : 'gray'
-                                  }
-                                >
-                                  {label(d.reviewStatus)}
-                                </Chip>
-                              </td>
-                            </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )
+                  <>
+                    {documents.data.some(d => d.provenance === 'synthetic') && (
+                      <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                        <span className="font-semibold">Synthetic (stand-in) document on this file.</span>{' '}
+                        One or more cards below are marked <span className="font-mono">synthetic</span>. They are NOT lender
+                        documents, cannot be approved, and do not feed the checklist. A real commitment upload replaces them.
+                      </div>
+                    )}
+                    <DocumentsDesk
+                      desk={buildDocumentsDesk(documents.data, conds)}
+                      borrowerNameById={borrowerNameById}
+                    />
+                  </>
                 ) : (
                   <SectionFallback
                     state={documents}
-                    notGrantedCopy="Document metadata is not granted to the portal read-only role. When the grant lands, the document list renders here (metadata only, never file content)."
+                    notGrantedCopy="Document metadata is not granted to the portal read-only role. When the grant lands, the documents desk renders here (metadata only, never file content)."
                   />
                 )}
               </Sub>

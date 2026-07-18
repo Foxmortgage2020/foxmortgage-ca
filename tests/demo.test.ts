@@ -35,7 +35,10 @@ import {
   getAgentIdByEmail,
   getAuditEntries,
   getNumberLinks,
+  getDealDocuments,
+  getApprovedConditions,
 } from '@/lib/underwriting'
+import { buildDocumentsDesk } from '@/lib/documents-desk'
 import { listCredentials, listComplaints, createComplaint } from '@/lib/compliance'
 import { updatePartner, getPartner } from '@/lib/zoho'
 import { getAgents } from '@/lib/underwriting'
@@ -95,6 +98,26 @@ describe('demo mode guards', () => {
     expect(approved?.complianceStatus).toBe('Approved')
     expect(approved?.totalCommission).toBe(7140)
     expect(await getDealCloseout('demo-z-none')).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('the documents desk (B6) renders all three groups + the amber state from fixtures with zero real reads', async () => {
+    const docsR = await getDealDocuments(DEMO_AGENT_ID, 'demo-deal-1')
+    const condsR = await getApprovedConditions(DEMO_AGENT_ID, 'demo-deal-1')
+    expect(docsR.configured && docsR.ok).toBe(true)
+    expect(condsR.configured && condsR.ok).toBe(true)
+    if (docsR.configured && docsR.ok && condsR.configured && condsR.ok) {
+      const desk = buildDocumentsDesk(docsR.data, condsR.data)
+      expect(desk.needsEyes.length).toBeGreaterThan(0)
+      expect(desk.waiting.length).toBeGreaterThan(0)
+      expect(desk.done.length).toBeGreaterThan(0)
+      // The amber "Needs attention" state — a received income document whose
+      // draft verdict is a gap, joined to the card by document_id.
+      const amber = desk.needsEyes.find(c => c.state.tone === 'amber')
+      expect(amber).toBeDefined()
+      expect(amber?.name).toBe('t4_noa')
+      expect(amber?.analysis?.tone).toBe('red')
+    }
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
