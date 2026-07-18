@@ -80,7 +80,11 @@ import {
   demoKnowledgePageHits,
   demoRenewalDripQueue,
   demoRenewalSequenceStates,
+  demoCommsQueue,
+  demoCommsTimeline,
+  demoCommsSettings,
 } from '@/lib/demo-fixtures'
+import { COMMS_TOUCH_KINDS, type CommsTouchKind, type CommsSettingsRow } from '@/lib/comms'
 
 export type UwResult<T> =
   | { configured: false }
@@ -2710,14 +2714,17 @@ export async function getRenewalDripQueue(agentId: string): Promise<UwResult<Ren
   const seqIds = Array.from(new Set(touches.data.map((t) => t.sequence_id)))
   const seqs = await uwSelectAll<{
     id: string; zoho_deal_id: string; client_name: string | null; first_name: string | null
-    client_email: string | null; maturity_date: string
+    client_email: string | null; maturity_date: string; touch_kind: string | null
   }>('renewal_sequences', {
-    select: 'id,zoho_deal_id,client_name,first_name,client_email,maturity_date',
+    select: 'id,zoho_deal_id,client_name,first_name,client_email,maturity_date,touch_kind',
     agent_id: `eq.${agentId}`,
     id: `in.(${seqIds.join(',')})`,
   })
   if (!seqs.configured || !seqs.ok) return seqs
-  const seqById = new Map(seqs.data.map((s) => [s.id, s]))
+  // B7-P: the touches + drafts tables are shared with the client-comms engine
+  // (migration 0050). This desk is the RENEWAL desk, so drop any touch whose
+  // sequence is a comms kind — those belong to the Approvals comms queue.
+  const seqById = new Map(seqs.data.filter((s) => (s.touch_kind ?? 'renewal') === 'renewal').map((s) => [s.id, s]))
 
   const touchIds = touches.data.map((t) => t.id)
   const drafts = await uwSelectAll<{
@@ -2775,6 +2782,8 @@ export async function getRenewalSequenceStates(agentId: string): Promise<UwResul
   }>('renewal_sequences', {
     select: 'id,zoho_deal_id,status,exit_reason,maturity_date,client_name',
     agent_id: `eq.${agentId}`,
+    // B7-P: renewal sequences only — the comms engine shares this table.
+    touch_kind: 'eq.renewal',
   })
   if (!seqs.configured || !seqs.ok) return seqs
   if (!seqs.data.length) return { configured: true, ok: true, data: [] }
@@ -2805,4 +2814,224 @@ export async function getRenewalSequenceStates(agentId: string): Promise<UwResul
     }
   })
   return { configured: true, ok: true, data: states }
+}
+
+// ─── Client comms (B7-P, 2026-07-18) ─────────────────────────────────────────
+// The read side of the comms desk: the pending-approval queue, a per-deal
+// timeline, and the settings + suppression list. All through portal_readonly
+// (0047 grants + comms_suppressions from 0050); demo returns canned fixtures
+// (zero reads). Every send remains the workbench's, individually approved.
+
+export interface CommsQueueItem {
+  touchId: string
+  sequenceId: string
+  zohoDealId: string
+  touchKind: CommsTouchKind
+  skeletonId: string
+  status: 'pending_approval' | 'held'
+  heldReason: string | null
+  scheduledFor: string | null
+  createdAt: string | null
+  clientName: string | null
+  firstName: string | null
+  clientEmail: string | null
+  subject: string
+  body: string
+  // Deterministic-template provenance (the comms drafts are string substitution,
+  // not a model): which merge fields filled, and the copy-gate verdict.
+  mergeFields: string[]
+  copyGate: string | null
+  draftSource: 'generated' | 'human_edited'
+}
+
+export async function getCommsQueue(agentId: string): Promise<UwResult<CommsQueueItem[]>> {
+  if (isDemoMode()) return demoResult(demoCommsQueue)
+  if (!workbenchConfigured()) return { configured: false }
+  // 1) The agent's comms sequences (the 4 comms kinds only; renewal excluded).
+  const seqs = await uwSelectAll<{
+    id: string; zoho_deal_id: string; touch_kind: string
+    client_name: string | null; first_name: string | null; client_email: string | null
+  }>('renewal_sequences', {
+    select: 'id,zoho_deal_id,touch_kind,client_name,first_name,client_email',
+    agent_id: `eq.${agentId}`,
+    touch_kind: `in.(${COMMS_TOUCH_KINDS.join(',')})`,
+  })
+  if (!seqs.configured || !seqs.ok) return seqs
+  if (!seqs.data.length) return { configured: true, ok: true, data: [] }
+  const seqById = new Map(seqs.data.map((s) => [s.id, s]))
+  const seqIds = seqs.data.map((s) => s.id)
+
+  // 2) Pending / held touches on those sequences.
+  const touches = await uwSelectAll<{
+    id: string; sequence_id: string; skeleton_id: string; status: string
+    held_reason: string | null; scheduled_for: string | null; created_at: string | null
+  }>('renewal_touches', {
+    select: 'id,sequence_id,skeleton_id,status,held_reason,scheduled_for,created_at',
+    agent_id: `eq.${agentId}`,
+    sequence_id: `in.(${seqIds.join(',')})`,
+    status: 'in.(pending_approval,held)',
+    order: 'scheduled_for.asc',
+  })
+  if (!touches.configured || !touches.ok) return touches
+  if (!touches.data.length) return { configured: true, ok: true, data: [] }
+
+  // 3) The current draft per touch.
+  const touchIds = touches.data.map((t) => t.id)
+  const drafts = await uwSelectAll<{
+    touch_id: string; subject: string; body: string; source: string
+    sources_snapshot: Record<string, unknown> | null
+  }>('renewal_touch_drafts', {
+    select: 'touch_id,subject,body,source,sources_snapshot',
+    agent_id: `eq.${agentId}`,
+    touch_id: `in.(${touchIds.join(',')})`,
+    status: 'eq.draft',
+  })
+  if (!drafts.configured || !drafts.ok) return drafts
+  const draftByTouch = new Map(drafts.data.map((d) => [d.touch_id, d]))
+
+  const items: CommsQueueItem[] = []
+  for (const t of touches.data) {
+    const seq = seqById.get(t.sequence_id)
+    const draft = draftByTouch.get(t.id)
+    if (!seq || !draft) continue
+    const snap = (draft.sources_snapshot ?? {}) as { merge_fields?: string[]; copy_gate?: string }
+    items.push({
+      touchId: t.id,
+      sequenceId: t.sequence_id,
+      zohoDealId: seq.zoho_deal_id,
+      touchKind: seq.touch_kind as CommsTouchKind,
+      skeletonId: t.skeleton_id,
+      status: t.status as 'pending_approval' | 'held',
+      heldReason: t.held_reason,
+      scheduledFor: t.scheduled_for,
+      createdAt: t.created_at,
+      clientName: seq.client_name,
+      firstName: seq.first_name,
+      clientEmail: seq.client_email,
+      subject: draft.subject,
+      body: draft.body,
+      mergeFields: Array.isArray(snap.merge_fields) ? snap.merge_fields : [],
+      copyGate: typeof snap.copy_gate === 'string' ? snap.copy_gate : null,
+      draftSource: draft.source === 'human_edited' ? 'human_edited' : 'generated',
+    })
+  }
+  return { configured: true, ok: true, data: items }
+}
+
+export interface CommsTimelineTouch {
+  skeletonId: string
+  touchKind: CommsTouchKind
+  status: string
+  scheduledFor: string | null
+  sentAt: string | null
+  sentMode: string | null
+}
+export interface CommsSuppressionInfo {
+  clientEmail: string
+  reason: string
+  source: string
+  suppressedAt: string
+}
+export interface CommsTimeline {
+  hasSequences: boolean
+  sent: CommsTimelineTouch[]
+  pending: CommsTimelineTouch[]
+  suppression: CommsSuppressionInfo | null
+}
+
+export async function getDealCommsTimeline(
+  agentId: string,
+  zohoDealId: string | null,
+): Promise<UwResult<CommsTimeline>> {
+  if (isDemoMode()) return demoResult(demoCommsTimeline)
+  if (!workbenchConfigured()) return { configured: false }
+  const empty: CommsTimeline = { hasSequences: false, sent: [], pending: [], suppression: null }
+  if (!zohoDealId) return { configured: true, ok: true, data: empty }
+  const seqs = await uwSelectAll<{ id: string; touch_kind: string; client_email: string | null }>(
+    'renewal_sequences',
+    {
+      select: 'id,touch_kind,client_email',
+      agent_id: `eq.${agentId}`,
+      zoho_deal_id: `eq.${zohoDealId}`,
+      touch_kind: `in.(${COMMS_TOUCH_KINDS.join(',')})`,
+    },
+  )
+  if (!seqs.configured || !seqs.ok) return seqs
+  if (!seqs.data.length) return { configured: true, ok: true, data: empty }
+  const kindBySeq = new Map(seqs.data.map((s) => [s.id, s.touch_kind]))
+  const seqIds = seqs.data.map((s) => s.id)
+  const touches = await uwSelectAll<{
+    sequence_id: string; skeleton_id: string; status: string
+    scheduled_for: string | null; sent_at: string | null; send_mode: string | null
+  }>('renewal_touches', {
+    select: 'sequence_id,skeleton_id,status,scheduled_for,sent_at,send_mode',
+    agent_id: `eq.${agentId}`,
+    sequence_id: `in.(${seqIds.join(',')})`,
+    order: 'scheduled_for.asc',
+  })
+  if (!touches.configured || !touches.ok) return touches
+  const mapTouch = (t: {
+    sequence_id: string; skeleton_id: string; status: string
+    scheduled_for: string | null; sent_at: string | null; send_mode: string | null
+  }): CommsTimelineTouch => ({
+    skeletonId: t.skeleton_id,
+    touchKind: (kindBySeq.get(t.sequence_id) ?? 'stage_update') as CommsTouchKind,
+    status: t.status,
+    scheduledFor: t.scheduled_for,
+    sentAt: t.sent_at,
+    sentMode: t.send_mode,
+  })
+  const sent = touches.data.filter((t) => t.status === 'sent').map(mapTouch)
+  const pending = touches.data.filter((t) => t.status === 'pending_approval' || t.status === 'held').map(mapTouch)
+  const emails = Array.from(new Set(seqs.data.map((s) => s.client_email).filter((e): e is string => Boolean(e))))
+  let suppression: CommsSuppressionInfo | null = null
+  if (emails.length) {
+    const sup = await uwSelectAll<{ client_email: string; reason: string; source: string; suppressed_at: string }>(
+      'comms_suppressions',
+      {
+        select: 'client_email,reason,source,suppressed_at',
+        agent_id: `eq.${agentId}`,
+        client_email: `in.(${emails.map((e) => `"${e}"`).join(',')})`,
+      },
+    )
+    if (sup.configured && sup.ok && sup.data.length) {
+      const s = sup.data[0]!
+      suppression = { clientEmail: s.client_email, reason: s.reason, source: s.source, suppressedAt: s.suppressed_at }
+    }
+  }
+  return { configured: true, ok: true, data: { hasSequences: true, sent, pending, suppression } }
+}
+
+export interface CommsSettingsRead {
+  // The raw settings row (or null when no row exists — the dark-by-absence
+  // state the fail-closed read model, deriveCommsSettings, treats as OFF).
+  settings: CommsSettingsRow | null
+  suppressions: CommsSuppressionInfo[]
+}
+
+export async function getCommsSettings(agentId: string): Promise<UwResult<CommsSettingsRead>> {
+  if (isDemoMode()) return demoResult(demoCommsSettings)
+  if (!workbenchConfigured()) return { configured: false }
+  const settingsR = await uwSelectAll<CommsSettingsRow>('renewal_settings', {
+    select: 'comms_enabled,comms_mailing_address,comms_max_per_client_per_day,comms_max_per_client_per_week',
+    agent_id: `eq.${agentId}`,
+  })
+  if (!settingsR.configured || !settingsR.ok) return settingsR
+  const settings = settingsR.data[0] ?? null
+  const supR = await uwSelectAll<{ client_email: string; reason: string; source: string; suppressed_at: string }>(
+    'comms_suppressions',
+    {
+      select: 'client_email,reason,source,suppressed_at',
+      agent_id: `eq.${agentId}`,
+      order: 'suppressed_at.desc',
+    },
+  )
+  if (!supR.configured || !supR.ok) return supR
+  const suppressions = supR.data.map((s) => ({
+    clientEmail: s.client_email,
+    reason: s.reason,
+    source: s.source,
+    suppressedAt: s.suppressed_at,
+  }))
+  return { configured: true, ok: true, data: { settings, suppressions } }
 }

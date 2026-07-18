@@ -335,6 +335,48 @@ describe('demo mode on the renewal drip (2026-07-16): canned queue, zero reads, 
   })
 })
 
+describe('demo mode on the client comms desk (B7-P): canned queue, zero reads, writes blocked', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '',
+      headers: new Headers(),
+    } as unknown as Response)
+  })
+
+  it('the queue, per-deal timeline, and settings resolve from fixtures with ZERO real reads', async () => {
+    const { getCommsQueue, getDealCommsTimeline, getCommsSettings } = await import('@/lib/underwriting')
+    const q = await getCommsQueue('demo-agent')
+    const tl = await getDealCommsTimeline('demo-agent', 'demo-zoho-10')
+    const settings = await getCommsSettings('demo-agent')
+    expect(q.configured && q.ok && q.data.length).toBeGreaterThan(0)
+    if (q.configured && q.ok) {
+      // Synthetic clients only, and every touch family is present.
+      expect(q.data[0]!.clientName).toBe('Sofia Ricci')
+      const kinds = new Set(q.data.map((i) => i.touchKind))
+      expect(kinds).toEqual(new Set(['stage_update', 'app_chase', 'doc_chase', 'review_ask']))
+      expect(q.data.some((i) => i.status === 'held')).toBe(true)
+    }
+    expect(tl.configured && tl.ok && tl.data.hasSequences).toBe(true)
+    // The demo settings show the engine DARK (kill switch off) with a suppression.
+    expect(settings.configured && settings.ok && settings.data.settings?.comms_enabled).toBe(false)
+    expect(settings.configured && settings.ok && settings.data.suppressions.length).toBeGreaterThan(0)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('every comms write path rejects with DemoWriteBlocked and never calls fetch', async () => {
+    const { approveCommsTouch, editCommsTouchDraft, skipCommsTouch, setCommsSettings } = await import('@/lib/gates')
+    await expect(approveCommsTouch('t1', 'tok')).rejects.toThrow(/Demo mode/)
+    await expect(editCommsTouchDraft('t1', { body: 'x'.repeat(10) }, 'tok')).rejects.toThrow(/Demo mode/)
+    await expect(skipCommsTouch('t1', 'stale', 'tok')).rejects.toThrow(/Demo mode/)
+    await expect(setCommsSettings({ comms_enabled: true }, 'tok')).rejects.toThrow(/Demo mode/)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})
+
 // ─── The client portal (B5) ─────────────────────────────────────────────────
 // A client's own file page is the highest-stakes surface in the app: it shows
 // a real person's PII to whoever holds a link. In demo it must render fully

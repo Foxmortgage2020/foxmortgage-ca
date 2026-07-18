@@ -176,12 +176,34 @@ export default function ClientFilePage({ view }: { view: ClientFileView }) {
             >
               Call {CONTACT.phone.display}
             </a>
+            {CONTACT.bookingUrl && (
+              <a
+                href={CONTACT.bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl border border-white/20 px-5 py-3 text-center font-heading text-sm font-bold text-white"
+              >
+                Book a time with Michael
+              </a>
+            )}
             <a
               href={CONTACT.email.href}
               className="rounded-xl border border-white/20 px-5 py-3 text-center font-heading text-sm font-bold text-white"
             >
               Email Michael
             </a>
+            {/* Review link renders only when the URL exists (placeholder-absent
+                rule); no dead link ever shows to a client. */}
+            {CONTACT.reviewUrl && (
+              <a
+                href={CONTACT.reviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl border border-white/20 px-5 py-3 text-center font-heading text-sm font-bold text-white"
+              >
+                Leave a review
+              </a>
+            )}
           </div>
         </section>
 

@@ -16,7 +16,7 @@ import ApprovalsDesk from '@/components/admin/ApprovalsDesk'
 
 export const dynamic = 'force-dynamic'
 
-const TAB_KEYS = ['statements', 'sheets', 'offers', 'flags', 'shadow', 'knowledge'] as const
+const TAB_KEYS = ['statements', 'sheets', 'offers', 'flags', 'shadow', 'knowledge', 'comms'] as const
 
 export default async function ApprovalsPage({
   searchParams,
@@ -78,6 +78,7 @@ export default async function ApprovalsPage({
             flags: !demo && can(user, 'flags.disposition'),
             shadow: !demo && can(user, 'shadow.score'),
             knowledge: !demo && can(user, 'approvals.knowledge.decide'),
+            comms: !demo && can(user, 'comms.decide'),
           }}
         />
       </div>

@@ -8,11 +8,17 @@ export interface ContactInfo {
   phone: { display: string; href: string }
   email: { address: string; href: string }
   /**
-   * Public booking link (e.g. Zoho Bookings). Empty string until provisioned.
-   * When empty, Support pages route "Book a Call" to the Messages inbox rather
-   * than dead-linking; when set, they deep-link to it in a new tab.
+   * Public booking link (Zoho Bookings). Set 2026-07-18 (B7-P). When empty,
+   * Support pages route "Book a Call" to the Messages inbox rather than
+   * dead-linking; when set, they deep-link to it in a new tab.
    */
   bookingUrl: string
+  /**
+   * Public Google review link. A NAMED PLACEHOLDER: empty until Michael
+   * supplies the value. Nothing renders a placeholder to a client — every
+   * surface that uses this stays ABSENT (truthiness-gated) until it is set.
+   */
+  reviewUrl: string
 }
 
 export const CONTACT: ContactInfo = {
@@ -22,5 +28,8 @@ export const CONTACT: ContactInfo = {
   // else, so it can never drift out of sync again.
   phone: { display: '226-770-8880', href: 'tel:+12267708880' },
   email: { address: 'mfox@foxmortgage.ca', href: 'mailto:mfox@foxmortgage.ca' },
-  bookingUrl: '',
+  bookingUrl: 'https://foxmortgage.zohobookings.com/4936582000000975003',
+  // Placeholder: set to Michael's Google review link when available. Until then
+  // it stays empty and no surface renders it.
+  reviewUrl: '',
 }

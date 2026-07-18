@@ -119,6 +119,7 @@ describe('session 8 role baselines', () => {
       'conditions.decide',
       'commitment.upload',
       'approvals.conditions.decide',
+      'comms.decide',
       'agent.execute',
       'compliance.manage',
       'constraints.manage',

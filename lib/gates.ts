@@ -97,7 +97,7 @@ async function gateCall<T>(
   path: string,
   body: Record<string, unknown>,
   token: string | null,
-  opts?: { surfaceError?: boolean },
+  opts?: { surfaceError?: boolean; surface409?: boolean },
 ): Promise<GateResult<T>> {
   const base = gatesBase()
   if (!base) {
@@ -139,6 +139,15 @@ async function gateCall<T>(
     // raw 500/internal message never reaches the browser; mapGateResponse
     // already surfaces the 422 body.
     if (opts?.surfaceError && (res.status === 502 || res.status === 503) && parsed && typeof (parsed as { error?: unknown }).error === 'string') {
+      return { ok: false, kind: err.kind, message: (parsed as { error: string }).error }
+    }
+    // surface409: the comms approve gate overloads 409 with the true fail-closed
+    // reason (the kill switch is off, the client is suppressed, a cap was hit, or
+    // the mode gate refused) instead of a plain already-decided. In the engine's
+    // dark-by-default state that reason is exactly what the operator needs, so
+    // pass the workbench message through rather than the generic "Already
+    // decided." (scoped to comms approve; other queues keep the fixed 409 copy).
+    if (opts?.surface409 && res.status === 409 && parsed && typeof (parsed as { error?: unknown }).error === 'string') {
       return { ok: false, kind: err.kind, message: (parsed as { error: string }).error }
     }
     return { ok: false, ...err }
@@ -1121,4 +1130,71 @@ export function setRenewalAutosend(
 ): Promise<GateResult<RenewalAutosendResponse>> {
   if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('setRenewalAutosend'))
   return gateCall('/api/gates/renewal/autosend', { tier, enabled }, token)
+}
+
+// ─── Client comms (B7-P, 2026-07-18) ─────────────────────────────────────────
+// The comms approval desk's write actions. CONTRACT with the workbench gates
+// API (comms.decide, admin, human-only): approve SENDS (triple-gated on the
+// workbench — kill switch off by default, env mode gate, human approval — so it
+// cannot send while dark), edit saves a superseding human_edited draft, skip
+// cancels one touch, and settings sets the kill switch, caps, and CASL mailing
+// address. Every one demo-blocked.
+
+export interface CommsApproveResponse {
+  touchId: string
+  sentTo?: string
+  messageId?: string
+  mode?: 'test' | 'live'
+}
+export interface CommsEditResponse {
+  touchId: string
+  draftId: string
+}
+export interface CommsSkipResponse {
+  touchId: string
+}
+export interface CommsSettingsResponse {
+  agentId: string
+}
+
+export function approveCommsTouch(
+  touchId: string,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<CommsApproveResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('approveCommsTouch'))
+  return gateCall(`/api/gates/comms/touches/${touchId}/approve`, withNote({}, note), token, { surface409: true })
+}
+
+export function editCommsTouchDraft(
+  touchId: string,
+  body: { subject?: string; body: string },
+  token: string | null,
+): Promise<GateResult<CommsEditResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('editCommsTouchDraft'))
+  return gateCall(`/api/gates/comms/touches/${touchId}/edit`, body, token)
+}
+
+export function skipCommsTouch(
+  touchId: string,
+  reason: string,
+  token: string | null,
+): Promise<GateResult<CommsSkipResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('skipCommsTouch'))
+  return gateCall(`/api/gates/comms/touches/${touchId}/skip`, { reason }, token)
+}
+
+export interface CommsSettingsInput {
+  comms_enabled?: boolean
+  comms_mailing_address?: string
+  comms_max_per_client_per_day?: number
+  comms_max_per_client_per_week?: number
+}
+
+export function setCommsSettings(
+  input: CommsSettingsInput,
+  token: string | null,
+): Promise<GateResult<CommsSettingsResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('setCommsSettings'))
+  return gateCall('/api/gates/comms/settings', { ...input }, token)
 }

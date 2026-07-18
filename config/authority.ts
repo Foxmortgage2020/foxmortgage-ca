@@ -118,6 +118,10 @@ export const PERMISSIONS = {
   // approve/edit/skip a drip touch, exclude a client, change the auto-send
   // toggle — client-facing outbound decisions, admin-only.
   'renewal.decide': ['admin'],
+  // Client comms (B7-P, 2026-07-18, CONTRACT key with the workbench gates API):
+  // approve/edit/skip an outbound client message and set the comms kill switch,
+  // caps, and CASL mailing address — client-facing outbound decisions, admin-only.
+  'comms.decide': ['admin'],
   // B5: minting a link that shows a client their own file is a PII disclosure
   // control, so it stays with Michael. Admin-only by the tested posture.
   'client.link.manage': ['admin'],
@@ -193,6 +197,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',
   'renewal.decide': 'Approve, edit, or skip renewal drip messages and manage drip enrollment',
+  'comms.decide': 'Approve, edit, or hold outbound client comms and set the master switch, caps, and mailing address',
   'client.link.manage': 'Create and revoke the private link that shows a client their own file status',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',

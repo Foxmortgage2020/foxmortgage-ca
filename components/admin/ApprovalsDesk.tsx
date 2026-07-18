@@ -22,6 +22,7 @@ import { fmtDiscount, type RatesReference } from '@/lib/scenario'
 import { daysUntil, offerRatesText } from '@/lib/offers'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import LenderMark from '@/components/admin/LenderMark'
+import CommsQueue from '@/components/admin/CommsQueue'
 import StatusChip, { type ChipTone } from '@/components/admin/ds/StatusChip'
 import {
   OfferConditions,
@@ -224,7 +225,7 @@ async function postDecision(
 
 // ─── The desk ───────────────────────────────────────────────────────────────
 
-export type TabKey = 'statements' | 'sheets' | 'offers' | 'flags' | 'shadow' | 'knowledge'
+export type TabKey = 'statements' | 'sheets' | 'offers' | 'flags' | 'shadow' | 'knowledge' | 'comms'
 
 export interface CanDecide {
   statements: boolean
@@ -233,6 +234,7 @@ export interface CanDecide {
   flags: boolean
   shadow: boolean
   knowledge: boolean
+  comms: boolean
 }
 
 export default function ApprovalsDesk({
@@ -591,6 +593,7 @@ export default function ApprovalsDesk({
     { key: 'flags', title: 'Flags', count: data.flags.length },
     { key: 'shadow', title: 'Shadow scores', count: data.shadow.length },
     { key: 'knowledge', title: 'Knowledge', count: data.knowledgeClaims.length },
+    { key: 'comms', title: 'Client comms', count: data.comms.length },
   ]
 
   const lastDecidedFor: Record<TabKey, string | null> = {
@@ -600,6 +603,7 @@ export default function ApprovalsDesk({
     flags: data.lastDecided.flags,
     shadow: data.lastDecided.shadow,
     knowledge: null,
+    comms: null,
   }
 
   const emptyCopy: Record<TabKey, string> = {
@@ -609,9 +613,10 @@ export default function ApprovalsDesk({
     flags: 'No open flags.',
     shadow: 'No shadow scores due.',
     knowledge: 'No lender knowledge claims pending.',
+    comms: 'No client messages waiting.',
   }
 
-  const queueError = { statements: data.errors.statements, sheets: data.errors.sheets, offers: data.errors.offers, flags: data.errors.flags, shadow: data.errors.shadow, knowledge: data.errors.knowledge }[tab]
+  const queueError = { statements: data.errors.statements, sheets: data.errors.sheets, offers: data.errors.offers, flags: data.errors.flags, shadow: data.errors.shadow, knowledge: data.errors.knowledge, comms: data.errors.comms }[tab]
 
   return (
     <div>
@@ -1349,6 +1354,19 @@ export default function ApprovalsDesk({
               )
             })
           ))}
+
+        {/* ── Client comms ── the outbound-message approval queue (B7-P). Its
+            own self-contained sub-desk: navy controls, grouped by client, the
+            full rendered message, held + catch-up flags. Reconciles through the
+            shared refetch so a decision survives a tab switch. */}
+        {tab === 'comms' && (
+          <CommsQueue
+            items={data.comms}
+            canDecide={canDecide.comms}
+            onChanged={() => void refetch()}
+            todayYMD={todayYMD}
+          />
+        )}
       </div>
     </div>
   )

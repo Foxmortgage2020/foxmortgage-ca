@@ -57,6 +57,9 @@ import type {
   DealContextCounts,
   RenewalDripQueueItem,
   RenewalSequenceState,
+  CommsQueueItem,
+  CommsTimeline,
+  CommsSettingsRead,
 } from '@/lib/underwriting'
 import type { ConditionCount } from '@/lib/conditions-status'
 import type { SlimDeal, OpenTask, SlimLead, DealCloseout } from '@/lib/zoho-admin'
@@ -877,6 +880,85 @@ export const demoRenewalSequenceStates: RenewalSequenceState[] = [
     sentCount: 1,
   },
 ]
+
+// ─── Client comms (B7-P, 2026-07-18): the canned approval queue, a per-deal
+// timeline, and the settings + suppression list. Synthetic design cast only;
+// demo performs zero workbench reads and every comms write is DemoWriteBlocked.
+// The queue carries all four touch families plus a held draft and a catch-up
+// (stale-dated) draft, so a demo shows the whole surface with no client on it.
+export const demoCommsQueue: CommsQueueItem[] = [
+  {
+    touchId: 'demo-ct-1', sequenceId: 'demo-cs-1', zohoDealId: 'demo-zoho-10',
+    touchKind: 'stage_update', skeletonId: 'stage-funded', status: 'pending_approval',
+    heldReason: null, scheduledFor: '2026-07-17', createdAt: '2026-07-17T14:00:00Z',
+    clientName: 'Sofia Ricci', firstName: 'Sofia', clientEmail: 'sofia@example.com',
+    subject: 'Your mortgage is funded',
+    body: 'Hi Sofia,\n\nIt is official. Your mortgage has funded and everything is done. Congratulations.\n\nI will keep an eye on your mortgage for you through my Strategic Mortgage Monitoring service, so you always have someone watching the market on your behalf.\n\nIt was a pleasure working with you.\n\nTalk soon,\nMichael',
+    mergeFields: ['first_name'], copyGate: 'ok', draftSource: 'generated',
+  },
+  {
+    touchId: 'demo-ct-2', sequenceId: 'demo-cs-2', zohoDealId: 'demo-zoho-11',
+    touchKind: 'app_chase', skeletonId: 'app-chase-d5', status: 'pending_approval',
+    heldReason: null, scheduledFor: '2026-07-16', createdAt: '2026-07-16T09:00:00Z',
+    clientName: 'Jordan Wells', firstName: 'Jordan', clientEmail: 'jordan@example.com',
+    subject: 'A quick nudge on your application',
+    body: 'Hi Jordan,\n\nI noticed your mortgage application is not quite finished yet. No worries, it happens.\n\nWhen you have a few minutes, please pop back in and finish it so I can get to work for you. Just reply to this email if you hit a snag.\n\nTalk soon,\nMichael',
+    mergeFields: ['first_name'], copyGate: 'ok', draftSource: 'generated',
+  },
+  {
+    touchId: 'demo-ct-3', sequenceId: 'demo-cs-3', zohoDealId: 'demo-zoho-12',
+    touchKind: 'doc_chase', skeletonId: 'doc-chase-2', status: 'pending_approval',
+    heldReason: null, scheduledFor: '2026-07-15', createdAt: '2026-07-09T09:00:00Z',
+    clientName: 'Marcus Tran', firstName: 'Marcus', clientEmail: 'marcus@example.com',
+    subject: 'A couple of documents I still need',
+    body: 'Hi Marcus,\n\nI am still waiting on a few documents to keep your file moving. Here is what I need:\n- your latest pay stub\n- a recent bank statement\n\nWhenever you get a chance to send those over, I will take it from there. Just reply to this email if you have any questions.\n\nTalk soon,\nMichael',
+    mergeFields: ['first_name', 'documents'], copyGate: 'ok', draftSource: 'human_edited',
+  },
+  {
+    touchId: 'demo-ct-4', sequenceId: 'demo-cs-4', zohoDealId: 'demo-zoho-13',
+    touchKind: 'review_ask', skeletonId: 'review-ask', status: 'held',
+    heldReason: 'the review link is not configured yet', scheduledFor: '2026-07-14', createdAt: '2026-07-14T09:00:00Z',
+    clientName: 'Priya Anand', firstName: 'Priya', clientEmail: 'priya.a@example.com',
+    subject: 'A quick favour',
+    body: 'Hi Priya,\n\nI hope you are settling in and enjoying your new mortgage. It was great working with you.\n\nIf you have a minute, a short Google review would mean a lot and helps other families find me. Here is the link:\n[review link not set]\n\nThank you either way,\nMichael',
+    mergeFields: ['first_name'], copyGate: 'held', draftSource: 'generated',
+  },
+  {
+    // A catch-up crop example: a stage transition from weeks ago, scheduled in
+    // the past, so the queue flags it for fast review.
+    touchId: 'demo-ct-5', sequenceId: 'demo-cs-5', zohoDealId: 'demo-zoho-14',
+    touchKind: 'stage_update', skeletonId: 'stage-conditions_cleared', status: 'pending_approval',
+    heldReason: null, scheduledFor: '2026-06-18', createdAt: '2026-06-18T09:00:00Z',
+    clientName: 'Dana Okafor', firstName: 'Dana', clientEmail: 'dana.o@example.com',
+    subject: 'You are cleared to close',
+    body: 'Hi Dana,\n\nMore good news. All the conditions on your mortgage are cleared. You are set to close on August 1, 2026.\n\nYour lawyer will handle the final signing. I am here if anything comes up before then.\n\nTalk soon,\nMichael',
+    mergeFields: ['first_name', 'closing_date'], copyGate: 'ok', draftSource: 'generated',
+  },
+]
+
+export const demoCommsTimeline: CommsTimeline = {
+  hasSequences: true,
+  sent: [
+    { skeletonId: 'stage-application_received', touchKind: 'stage_update', status: 'sent', scheduledFor: '2026-06-30', sentAt: '2026-06-30T15:12:00Z', sentMode: 'live' },
+    { skeletonId: 'stage-submitted_to_lender', touchKind: 'stage_update', status: 'sent', scheduledFor: '2026-07-08', sentAt: '2026-07-08T11:04:00Z', sentMode: 'live' },
+  ],
+  pending: [
+    { skeletonId: 'doc-chase-1', touchKind: 'doc_chase', status: 'pending_approval', scheduledFor: '2026-07-15', sentAt: null, sentMode: null },
+  ],
+  suppression: null,
+}
+
+export const demoCommsSettings: CommsSettingsRead = {
+  settings: {
+    comms_enabled: false,
+    comms_mailing_address: '123 Example Street, Guelph ON N1H 0A0',
+    comms_max_per_client_per_day: 1,
+    comms_max_per_client_per_week: 3,
+  },
+  suppressions: [
+    { clientEmail: 'eli@example.com', reason: 'client used the unsubscribe link', source: 'unsubscribe', suppressedAt: '2026-07-10T12:00:00Z' },
+  ],
+}
 
 // ─── The client's own status page (B5, 2026-07-17) ──────────────────────────
 // A synthetic file from the design cast, so the client page can be shown,

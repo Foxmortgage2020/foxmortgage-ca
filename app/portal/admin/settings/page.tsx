@@ -8,6 +8,7 @@ import { PERMISSIONS, ROLES, type Role } from '@/config/authority'
 import { effectiveAccess } from '@/lib/effective-access'
 import { isDemoMode, demoModeAvailable } from '@/lib/demo'
 import NotificationSettings from '@/components/admin/NotificationSettings'
+import CommsSettings from '@/components/admin/CommsSettings'
 import DemoToggle from '@/components/admin/DemoToggle'
 
 export const dynamic = 'force-dynamic'
@@ -215,6 +216,14 @@ export default async function SettingsPage({
       <div className="mt-6">
         <NotificationSettings />
       </div>
+
+      {/* B7-P: the client-comms master switch, caps, CASL address, and the
+          permanent suppression list. Admin-only; read-only in demo. */}
+      {can(user, 'comms.decide') && (
+        <div className="mt-6">
+          <CommsSettings canWrite={!isDemoMode()} />
+        </div>
+      )}
 
       {/* Session 9: demo mode — admin only, env-fenced. */}
       {can(user, 'demo.mode') && (

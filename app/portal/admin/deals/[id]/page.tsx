@@ -47,6 +47,7 @@ import {
   isPermissionRefusal,
   type UwResult,
   getRenewalSequenceStates,
+  getDealCommsTimeline,
 } from '@/lib/underwriting'
 import { getDealCloseout } from '@/lib/zoho-admin'
 import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
@@ -56,6 +57,7 @@ import LenderNotesCard from '@/components/admin/LenderNotesCard'
 import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
 import ClientPortalCard from '@/components/admin/ClientPortalCard'
+import DealCommsCard from '@/components/admin/deals/DealCommsCard'
 import { clientLinksForDeal } from '@/lib/client-links-store'
 import PhaseSection from '@/components/admin/deals/PhaseSection'
 import StepList from '@/components/admin/deals/StepList'
@@ -268,7 +270,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     )
   }
 
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, closeoutR, clientLinksR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, commsTimelineR, closeoutR, clientLinksR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -291,6 +293,9 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       getDealLenderNotes(agentId, deal.id),
       getDealFinmoSnapshot(agentId, deal.id),
       getDealContextCounts(agentId, deal.id, deal.zohoPotentialId, deal.createdAt),
+      // B7-P: the per-deal client-comms timeline (sent + pending touches +
+      // suppression state), read-only via portal_readonly.
+      getDealCommsTimeline(agentId, deal.zohoPotentialId),
       // B2b: the read-only closeout read (Deal_Name for the band,
       // Compliance_Status + the commission truth for Complete & paid).
       deal.zohoPotentialId
@@ -315,6 +320,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const lenderNoteDraft = val(lenderNotesR) ?? null
   const finmoSnap = val(finmoSnapR) ?? null
   const contextCounts = val(contextCountsR) ?? { calls: 0, emails: 0 }
+  const commsTimeline = val(commsTimelineR) ?? { hasSequences: false, sent: [], pending: [], suppression: null }
   const closeout = closeoutR
   const clientLinks =
     clientLinksR && clientLinksR.configured && clientLinksR.ok ? clientLinksR.data : []
@@ -1123,6 +1129,13 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
             initialLinks={clientLinks}
             canManage={can(user, 'client.link.manage') && !isDemoMode()}
           />
+        </Section>
+
+        {/* Client comms (B7-P): a quiet, read-only view of what has been said
+            to this client and what is queued. Approvals happen on the comms
+            queue in the Approvals area, never here. */}
+        <Section id="comms" title="Client comms">
+          <DealCommsCard timeline={commsTimeline} />
         </Section>
 
         {/* Flags with disposition history */}
