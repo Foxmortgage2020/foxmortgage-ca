@@ -29,6 +29,22 @@ function foxcaEnv(): { url: string; key: string } | null {
   return { url: url.replace(/\/+$/, '').replace(/\/rest\/v1$/, ''), key }
 }
 
+// The operator secret (B7-P Task 0). The FOXCA anon key is not a secret — it is
+// shared with public form-intake — so the admin-side client_link_* functions
+// (create / revoke / links_for_deal) now demand this second, server-held factor
+// (migration 20260718160000). It is passed to those functions and matched
+// against the sha256 they carry; it lives ONLY here, server-side, never
+// NEXT_PUBLIC. Throw-if-unset (the SESSION_SECRET discipline) so a misconfigured
+// deploy fails loud rather than silently sending an empty secret a permissive
+// function might one day accept.
+function foxcaOperatorSecret(): string {
+  const s = process.env.FOXCA_OPERATOR_SECRET
+  if (!s) {
+    throw new Error('FOXCA_OPERATOR_SECRET is not set. Add it to .env.local and Vercel (all targets).')
+  }
+  return s
+}
+
 export function clientLinksStoreConfigured(): boolean {
   return foxcaEnv() !== null
 }
@@ -142,6 +158,7 @@ export async function createClientLink(input: {
     p_token_hash: input.tokenHash,
     p_created_by: input.createdBy,
     p_expires_at: input.expiresAt,
+    p_operator_secret: foxcaOperatorSecret(),
   })
   return res
 }
@@ -151,14 +168,21 @@ export async function revokeClientLink(
   revokedBy: string,
 ): Promise<ClientLinkStoreResult<string | null>> {
   if (isDemoMode()) blockInDemo('client-link.revoke')
-  return rpc<string | null>('client_link_revoke', { p_id: id, p_revoked_by: revokedBy })
+  return rpc<string | null>('client_link_revoke', {
+    p_id: id,
+    p_revoked_by: revokedBy,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
 }
 
 export async function clientLinksForDeal(
   zohoDealId: string,
 ): Promise<ClientLinkStoreResult<ClientLinkSummary[]>> {
   if (isDemoMode()) return { configured: true, ok: true, data: [] }
-  const res = await rpc<any[]>('client_links_for_deal', { p_zoho_deal_id: zohoDealId })
+  const res = await rpc<any[]>('client_links_for_deal', {
+    p_zoho_deal_id: zohoDealId,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
   if (!res.configured || !res.ok) return res as ClientLinkStoreResult<ClientLinkSummary[]>
   return { configured: true, ok: true, data: (res.data ?? []).map(mapSummary) }
 }
