@@ -26,6 +26,15 @@ describe('freshnessKindFor', () => {
   it('proof of pay deposit is not swallowed by the pay-stub pattern', () => {
     expect(freshnessKindFor(null, 'Proof of pay deposit')).toBe('proof_of_pay_deposit')
   })
+  it('a compound tax name is never given a false pay-deposit window (regression)', () => {
+    // "proof of income" must not win over "notice of assessment": an NOA has no
+    // day window, so it must never earn a false stale advisory.
+    expect(freshnessKindFor(null, 'Proof of income - Notice of Assessment')).toBe('noa')
+    expect(freshnessWindowDays(null, 'Proof of income - Notice of Assessment')).toBeNull()
+  })
+  it('"proof of income" alone is not a day-window kind', () => {
+    expect(freshnessKindFor(null, 'Proof of income')).toBeNull()
+  })
   it('an unrecognised name gets no kind', () => {
     expect(freshnessKindFor(null, 'Some Unusual Document')).toBeNull()
   })

@@ -59,7 +59,15 @@ function kindFromDocKind(docKind: string): string | null {
 // null when nothing matches — no window, never a guess.
 function kindFromName(name: string): string | null {
   const s = name.toLowerCase()
-  if (/proof of (pay|income)|pay deposit|direct deposit/.test(s)) return 'proof_of_pay_deposit'
+  // A no-day-window tax document is classified FIRST so a compound name (e.g.
+  // "Proof of income — Notice of Assessment") is never given a false day window
+  // by a broader pattern below it.
+  if (/notice of assessment|\bnoa\b/.test(s)) return 'noa'
+  if (/\bt4\b/.test(s)) return 't4'
+  if (/\bt1\b/.test(s)) return 't1'
+  // "Proof of PAY deposit" is the recent bank-deposit proof (30 days); it is
+  // deliberately narrow — "proof of income" alone is not a day-window kind.
+  if (/proof of pay|pay deposit|direct deposit/.test(s)) return 'proof_of_pay_deposit'
   if (/pay ?stub/.test(s)) return 'pay_stub'
   if (/letter of employment|employment letter/.test(s)) return 'letter_of_employment'
   if (/line of credit|heloc/.test(s)) return 'loc_statement'
@@ -67,9 +75,6 @@ function kindFromName(name: string): string | null {
   if (/bank statement|chequing statement|savings statement/.test(s)) return 'bank_statement'
   if (/child benefit|\bccb\b|benefit statement/.test(s)) return 'benefit_statement'
   if (/property tax/.test(s)) return 'property_tax'
-  if (/notice of assessment|\bnoa\b/.test(s)) return 'noa'
-  if (/\bt4\b/.test(s)) return 't4'
-  if (/\bt1\b/.test(s)) return 't1'
   if (/void ?che/.test(s)) return 'void_cheque'
   if (/identification|\bid\b|passport|driver'?s licen/.test(s)) return 'id'
   return null

@@ -46,7 +46,7 @@ On the real F053107 the two "Lyntje Zinger" sections become **"Lyntje (family)"*
 ## Verification
 
 - **tsc** clean; **`next build`** green.
-- **Full suite: 742 tests / 49 files** (from 720; new `tests/doc-freshness.test.ts`, and B6.3 cases in `tests/documents-desk.test.ts`; `tests/demo.test.ts` asserts the new desk).
+- **Full suite: 744 tests / 49 files** (from 720; new `tests/doc-freshness.test.ts`, and B6.3 cases in `tests/documents-desk.test.ts`; `tests/demo.test.ts` asserts the new desk).
 - **Census untouched** — no fetcher/gate/authz/write change; the only new read is `borrowers.relationship`.
 - **Demo** renders it all with **zero real reads** (asserted): an approved-and-stale card showing both truths, a no-window kind that never flags, and disambiguated "Jordan (parent)" / "Jordan (spouse)" sections.
 - **Render proofs** (blessed dev-instance pattern; dev Clerk ephemeral TEST admin created + deleted; synthetic demo data only): the desk with a "Bank Statement — Approved in Finmo + May be stale (uploaded 89 days ago)" card sorted into Needs your look (just below the flagged item), pills **All 12 / Waiting 4 / Needs your look 5 / Done 3**, the two disambiguated Jordan sections, and 375px single-column with zero horizontal overflow.
@@ -58,7 +58,7 @@ Fixtures cover the brief's list: an approved-and-stale card (both truths), an un
 
 ### Adversarial review (2 dimensions, each finding verified)
 
-One confirmed finding, fixed: the Task 1 attribution reached the state chip but not the request-expansion's reviewed line, which still read a bare "Approved <date>" — now "Approved in Finmo <date>". No other correctness, honesty, copy, or lime issue survived (no bare "Approved" or "by you" renders anywhere; the staleness line renders beside the approval chip, never replacing it; the freshness defaults match the brief; no UI em dashes; zero lime).
+Two confirmed findings, both fixed: (1) the Task 1 attribution reached the state chip but not the request-expansion's reviewed line, which still read a bare "Approved <date>" — now "Approved in Finmo <date>"; (2) a classifier ordering bug — the broad `proof of income` pattern preceded the NOA pattern, so a compound name like "Proof of income - Notice of Assessment" wrongly earned a 30-day window (a false "may be stale" advisory on an annual tax document) — fixed by classifying the no-day-window tax kinds (NOA / T4 / T1) first and narrowing the proof-of-pay pattern to "proof of pay", with two regression tests. No other correctness, honesty, copy, or lime issue survived (the staleness line renders beside the approval chip, never replacing it; the freshness defaults match the brief; no UI em dashes; zero lime).
 
 ## W2 content-date freshness (for a future session, once B7 exists)
 
