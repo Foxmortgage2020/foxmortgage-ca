@@ -1545,12 +1545,15 @@ export interface BorrowerRow {
   // a commitment condition's borrower into the same section as its Finmo document
   // requests (which carry borrower_finmo_id).
   finmoBorrowerId: string | null
+  // The structured kinship field (migration 0046), for disambiguating
+  // same-given-name borrower sections. Null when the application states none.
+  relationship: string | null
 }
 
 export async function getDealBorrowers(agentId: string, dealId: string): Promise<UwResult<BorrowerRow[]>> {
   if (isDemoMode()) return demoResult(demoDealBorrowers(dealId))
   const res = await uwSelect<any>('borrowers', {
-    select: 'id,role,full_name,dob,marital_status,employment,finmo_borrower_id',
+    select: 'id,role,full_name,dob,marital_status,employment,finmo_borrower_id,relationship',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
     order: 'role.asc',
@@ -1565,6 +1568,7 @@ export async function getDealBorrowers(agentId: string, dealId: string): Promise
       maritalStatus: r.marital_status ?? null,
       employment: r.employment ?? null,
       finmoBorrowerId: r.finmo_borrower_id ?? null,
+      relationship: r.relationship ?? null,
     })),
   )
 }

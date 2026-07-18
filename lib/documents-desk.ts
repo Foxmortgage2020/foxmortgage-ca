@@ -22,6 +22,7 @@
 // work, not a queued platform decision.
 
 import type { DealConditionRow } from './underwriting'
+import { freshnessWindowDays, staleness } from '@/config/doc-freshness'
 
 export interface DocumentRequestRow {
   finmoRequestId: string
@@ -72,6 +73,11 @@ export interface RequestCard {
   // The stored document this request's verdict analysed (for the evidence
   // reparent). Only set when a bridging condition carried analysis.document_id.
   documentId: string | null
+  // A deterministic freshness advisory (B6.3): the newest received file is past
+  // its configured window. `days` = age of that file in days. An advisory that
+  // NEVER hides or demotes an approval — it renders beside the chip. Null when
+  // there is no window or no honest received date.
+  stale: { days: number } | null
   borrowerKey: string
   borrowerLabel: string
 }
@@ -94,6 +100,10 @@ export interface RequestsDesk {
 export interface BorrowerInfo {
   finmoBorrowerId: string | null
   fullName: string
+  // The structured kinship field (workbench migration 0046), used to
+  // disambiguate same-given-name section headers (B6.3). Null when the
+  // application states none (typically the primary).
+  relationship: string | null
 }
 
 const GENERAL = '__general__'
@@ -174,12 +184,20 @@ function deriveState(opts: {
 const filterOf = (s: RequestState): RequestFilterKey =>
   s === 'waiting' ? 'waiting' : s === 'reviewed' ? 'done' : 'look'
 
-const STATE_RANK: Record<RequestState, number> = {
-  ai_flagged: 0,
-  received: 1,
-  ai_passed: 2,
-  waiting: 3,
-  reviewed: 4,
+// Sort within a section: AI-flagged first, then STALE (just below flagged),
+// then the rest by state. A stale card that is also flagged stays with the
+// flagged group (rank 0) — the flag is the louder signal.
+const REST_RANK: Record<RequestState, number> = {
+  ai_flagged: 0, // unused (handled first); kept total
+  received: 0,
+  ai_passed: 1,
+  waiting: 2,
+  reviewed: 3,
+}
+function rankOf(c: RequestCard): number {
+  if (c.state === 'ai_flagged') return 0
+  if (c.stale) return 1
+  return 2 + REST_RANK[c.state]
 }
 
 /**
@@ -192,6 +210,7 @@ export function buildRequestsDesk(
   requests: DocumentRequestRow[],
   conditions: DealConditionRow[],
   borrowerInfoById: Map<string, BorrowerInfo> = new Map(),
+  now: number = Date.now(),
 ): RequestsDesk {
   // Bridge: a condition that names a Finmo request is that request's overlay
   // (verdict + human-confirmed state), not a separate card.
@@ -216,13 +235,17 @@ export function buildRequestsDesk(
     // Finmo-approved-but-flagged request stays 'ai_flagged' and must NOT also
     // claim "Approved <date>" (its Finmo status still shows in the expansion).
     const isReviewed = state === 'reviewed'
+    // Freshness (B6.3): a Finmo request's kind is classified from its name; the
+    // newest received file's Finmo timestamp is the honest date. Stale forces the
+    // card into "look" without touching the approval state.
+    const stale = received ? staleness(freshnessWindowDays(null, r.documentName), r.finmoUpdatedAt, now) : null
     const borrowerKey = r.borrowerFinmoId ?? (r.borrowerName ? `name:${r.borrowerName}` : GENERAL)
     cards.push({
       key: `req:${r.finmoRequestId}`,
       name: r.documentName,
       origin: 'finmo',
       state,
-      filter: filterOf(state),
+      filter: stale ? 'look' : filterOf(state),
       finmoStatus: r.status,
       received: received
         ? {
@@ -237,6 +260,7 @@ export function buildRequestsDesk(
       reviewedKind: isReviewed ? (verified ? 'confirmed' : finmoApproved ? 'finmo_approved' : null) : null,
       requestedAt: r.requestedAt,
       documentId: analysis?.documentId ?? null,
+      stale,
       borrowerKey,
       borrowerLabel: givenName(r.borrowerName) ?? 'General',
     })
@@ -271,6 +295,9 @@ export function buildRequestsDesk(
       reviewedKind: state === 'reviewed' && verified ? 'confirmed' : null,
       requestedAt: c.dueDate,
       documentId: analysis?.documentId ?? null,
+      // A commitment-derived request carries no honest received timestamp, so it
+      // never flags a day-window staleness (no date, no guess).
+      stale: null,
       borrowerKey,
       borrowerLabel: info ? (givenName(info.fullName) ?? 'General') : 'General',
     })
@@ -298,17 +325,52 @@ export function buildRequestsDesk(
     const list = byKey.get(k)!
     list.sort(
       (a, b) =>
-        STATE_RANK[a.state] - STATE_RANK[b.state] ||
+        rankOf(a) - rankOf(b) ||
         (a.requestedAt ?? '').localeCompare(b.requestedAt ?? '') ||
         a.name.localeCompare(b.name),
     )
     const label = k === GENERAL ? 'General' : list[0]!.borrowerLabel
-    const done = list.filter(c => c.state === 'reviewed').length
+    // "done" is the resolved-and-not-stale set: a stale card counts into "look".
+    const done = list.filter(c => c.filter === 'done').length
     return { key: k, label, cards: list, done, total: list.length }
   })
 
+  // Disambiguate same-given-name section headers (Task 3): relationship where
+  // known ("Lyntje (spouse)"), else a neutral ordinal — never fabricated. Ported
+  // from the notes layer's precedence idea (structured field, ordinal fallback),
+  // adapted to the desk's given-name headers and relationship-first form (dob is
+  // not populated, and a section header reads friendlier as "(spouse)").
+  const relByFinmo = new Map<string, string | null>()
+  borrowerInfoById.forEach(info => {
+    if (info.finmoBorrowerId) relByFinmo.set(info.finmoBorrowerId, info.relationship)
+  })
+  const givenGroups = new Map<string, BorrowerSection[]>()
+  for (const s of sections) {
+    if (s.key === GENERAL) continue
+    givenGroups.set(s.label, [...(givenGroups.get(s.label) ?? []), s])
+  }
+  givenGroups.forEach(group => {
+    if (group.length < 2) return
+    const labeled = group.map(s => {
+      const rel = relByFinmo.get(s.key) ?? null
+      return { s, label: rel ? `${s.label} (${rel})` : s.label }
+    })
+    const counts = new Map<string, number>()
+    labeled.forEach(l => counts.set(l.label, (counts.get(l.label) ?? 0) + 1))
+    const running = new Map<string, number>()
+    labeled.forEach(l => {
+      if ((counts.get(l.label) ?? 0) > 1) {
+        const i = (running.get(l.label) ?? 0) + 1
+        running.set(l.label, i)
+        l.s.label = `${l.label} (${i})`
+      } else {
+        l.s.label = l.label
+      }
+    })
+  })
+
   const total = cards.length
-  const done = cards.filter(c => c.state === 'reviewed').length
+  const done = cards.filter(c => c.filter === 'done').length
   const waiting = cards.filter(c => c.filter === 'waiting').length
   const look = cards.filter(c => c.filter === 'look').length
   return {

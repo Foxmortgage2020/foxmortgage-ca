@@ -506,9 +506,12 @@ export function demoDealShadowHistory(dealId: string): DealShadowScore[] {
 export function demoDealBorrowers(dealId: string): BorrowerRow[] {
   if (dealId === 'demo-deal-1') {
     return [
-      { id: 'demo-b-1', role: 'primary', fullName: 'Marty McFixture', dob: '1988-04-12', maritalStatus: 'married', employment: { employer: 'Fixture Manufacturing Ltd', type: 'salaried' }, finmoBorrowerId: 'fin-b-1' },
-      { id: 'demo-b-2', role: 'co-applicant', fullName: 'Sample Borrower', dob: '1990-09-30', maritalStatus: 'married', employment: { employer: 'Testwell Clinic', type: 'salaried' }, finmoBorrowerId: 'fin-b-2' },
-      { id: 'demo-b-3', role: 'guarantor', fullName: 'Jordan Wells', dob: '1962-02-08', maritalStatus: 'single', employment: { employer: 'Retired', type: 'other' }, finmoBorrowerId: 'fin-b-3' },
+      { id: 'demo-b-1', role: 'primary', fullName: 'Marty McFixture', dob: '1988-04-12', maritalStatus: 'married', employment: { employer: 'Fixture Manufacturing Ltd', type: 'salaried' }, finmoBorrowerId: 'fin-b-1', relationship: null },
+      { id: 'demo-b-2', role: 'co-applicant', fullName: 'Sample Borrower', dob: '1990-09-30', maritalStatus: 'married', employment: { employer: 'Testwell Clinic', type: 'salaried' }, finmoBorrowerId: 'fin-b-2', relationship: 'spouse' },
+      // Two borrowers share the given name "Jordan" — the sections disambiguate by
+      // relationship ("Jordan (parent)" / "Jordan (spouse)").
+      { id: 'demo-b-3', role: 'guarantor', fullName: 'Jordan Wells', dob: '1962-02-08', maritalStatus: 'single', employment: { employer: 'Retired', type: 'other' }, finmoBorrowerId: 'fin-b-3', relationship: 'parent' },
+      { id: 'demo-b-4', role: 'co-applicant', fullName: 'Jordan Anand', dob: '1991-03-14', maritalStatus: 'married', employment: { employer: 'Northwind Design', type: 'salaried' }, finmoBorrowerId: 'fin-b-4', relationship: 'spouse' },
     ]
   }
   return []
@@ -536,6 +539,11 @@ export function demoDealDocumentRequests(dealId: string): DocumentRequestRow[] {
       { finmoRequestId: 'fin-req-noa', borrowerFinmoId: 'fin-b-2', borrowerName: 'Sample Borrower', documentName: 'Notice of Assessment (2 years)', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: null, finmoUpdatedAt: null },
       // Jordan (guarantor); bridged by a passing verdict -> AI passed.
       { finmoRequestId: 'fin-req-gift', borrowerFinmoId: 'fin-b-3', borrowerName: 'Jordan Wells', documentName: 'Gift Letter', status: 'for_review', numberOfFiles: 1, hasSrc: false, filename: 'gift.pdf', requestedAt: '2026-07-03T12:00:00Z', finmoUpdatedAt: '2026-07-07T09:00:00Z' },
+      // Approved in Finmo AND past its freshness window — both truths render, and
+      // it counts into Needs your look (uploaded well over the 60-day bank window).
+      { finmoRequestId: 'fin-req-bank', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Bank Statement (90 days)', status: 'approved', numberOfFiles: 1, hasSrc: false, filename: 'bank-apr.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-04-20T10:00:00Z' },
+      // The second "Jordan" — disambiguates the section header by relationship.
+      { finmoRequestId: 'fin-req-jw2', borrowerFinmoId: 'fin-b-4', borrowerName: 'Jordan Anand', documentName: 'Notice of Assessment (2 years)', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: '2026-07-03T12:00:00Z', finmoUpdatedAt: null },
     ]
   }
   return []

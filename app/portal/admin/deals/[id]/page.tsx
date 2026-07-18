@@ -327,10 +327,10 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const borrowerInfoById = new Map<string, BorrowerInfo>(
     (borrowers.kind === 'ok' ? borrowers.data : []).map(b => [
       b.id,
-      { finmoBorrowerId: b.finmoBorrowerId, fullName: b.fullName },
+      { finmoBorrowerId: b.finmoBorrowerId, fullName: b.fullName, relationship: b.relationship },
     ]),
   )
-  const requestsDesk = buildRequestsDesk(requests, conds, borrowerInfoById)
+  const requestsDesk = buildRequestsDesk(requests, conds, borrowerInfoById, Date.now())
   const requestsRefused = isPermissionRefusal(requestsR)
   const linkedDocIds = new Set(
     requestsDesk.sections.flatMap(s => s.cards.map(c => c.documentId).filter((x): x is string => !!x)),

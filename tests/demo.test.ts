@@ -103,7 +103,7 @@ describe('demo mode guards', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('the documents desk (B6.2) builds the request-centric desk from fixtures with zero real reads', async () => {
+  it('the documents desk (B6.2/B6.3) builds the request-centric desk from fixtures with zero real reads', async () => {
     const reqR = await getDealDocumentRequests(DEMO_AGENT_ID, 'demo-deal-1')
     const condsR = await getApprovedConditions(DEMO_AGENT_ID, 'demo-deal-1')
     const borrR = await getDealBorrowers(DEMO_AGENT_ID, 'demo-deal-1')
@@ -111,18 +111,27 @@ describe('demo mode guards', () => {
     expect(condsR.configured && condsR.ok).toBe(true)
     if (reqR.configured && reqR.ok && condsR.configured && condsR.ok && borrR.configured && borrR.ok) {
       const info = new Map<string, BorrowerInfo>(
-        borrR.data.map(b => [b.id, { finmoBorrowerId: b.finmoBorrowerId, fullName: b.fullName }]),
+        borrR.data.map(b => [b.id, { finmoBorrowerId: b.finmoBorrowerId, fullName: b.fullName, relationship: b.relationship }]),
       )
-      const desk = buildRequestsDesk(reqR.data, condsR.data, info)
+      const now = Date.parse('2026-07-18T00:00:00Z')
+      const desk = buildRequestsDesk(reqR.data, condsR.data, info, now)
       const cards = desk.sections.flatMap(s => s.cards)
-      // Three borrower sections + General.
-      expect(desk.sections.map(s => s.label)).toEqual(expect.arrayContaining(['General', 'Marty', 'Sample', 'Jordan']))
+      // General + Marty + Sample + two disambiguated "Jordan" sections (B6.3).
+      expect(desk.sections.map(s => s.label)).toEqual(
+        expect.arrayContaining(['General', 'Marty', 'Sample', 'Jordan (parent)', 'Jordan (spouse)']),
+      )
       // Every lifecycle state renders.
       const states = new Set(cards.map(c => c.state))
       expect(states).toEqual(new Set(['waiting', 'received', 'ai_flagged', 'ai_passed', 'reviewed']))
       // The AI-flagged item carries a plain-words reason.
       const flagged = cards.find(c => c.state === 'ai_flagged')!
       expect(flagged.analysis?.reason).toBe('Dated over 30 days ago')
+      // Approved in Finmo AND stale (B6.3): both truths, counted into look, not done.
+      const bank = cards.find(c => c.name === 'Bank Statement (90 days)')!
+      expect(bank.state).toBe('reviewed')
+      expect(bank.reviewedKind).toBe('finmo_approved')
+      expect(bank.stale).not.toBeNull()
+      expect(bank.filter).toBe('look')
       // A commitment-derived request renders (Task 3).
       expect(cards.some(c => c.origin === 'commitment')).toBe(true)
       // Progress + filter partition.

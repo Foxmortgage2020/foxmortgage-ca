@@ -33,10 +33,13 @@ function StateChip({ card }: { card: RequestCard }) {
     )
   if (s === 'ai_passed') return <StatusChip tone="green">✓ Looks right</StatusChip>
   if (s === 'ai_flagged') return <StatusChip tone="amber">Flagged</StatusChip>
-  // reviewed
+  // reviewed: an approval always names its source. Finmo's status token reflects
+  // Michael's accepts inside Finmo, so it reads "Approved in Finmo" — never a bare
+  // "Approved" and never "by you" (the desk cannot know which human clicked in
+  // Finmo). A bridging condition Michael verified reads "Confirmed".
   return (
     <StatusChip tone="green">
-      ✓ {card.reviewedKind === 'confirmed' ? 'Confirmed' : 'Approved'}
+      ✓ {card.reviewedKind === 'confirmed' ? 'Confirmed' : 'Approved in Finmo'}
     </StatusChip>
   )
 }
@@ -108,7 +111,7 @@ function RequestCardView({
   const evidence = card.documentId ? evidenceByDocId[card.documentId] : undefined
   const flagged = card.state === 'ai_flagged'
   return (
-    <details className={`group rounded-[9px] border bg-white ${flagged ? 'border-amber-300' : 'border-cool-200'}`}>
+    <details className={`group rounded-[9px] border bg-white ${flagged || card.stale ? 'border-amber-300' : 'border-cool-200'}`}>
       <summary className="cursor-pointer list-none p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -124,6 +127,13 @@ function RequestCardView({
         </div>
         {flagged && card.analysis?.reason && (
           <p className="mt-2 font-ui text-[11px] font-semibold text-amber-800">Flagged: {card.analysis.reason}</p>
+        )}
+        {/* A freshness advisory renders BESIDE the approval chip, never replacing
+            it — a stale document that is approved in Finmo shows both truths. */}
+        {card.stale && (
+          <p className="mt-2 font-ui text-[11px] font-semibold text-amber-800">
+            May be stale (uploaded {card.stale.days} days ago)
+          </p>
         )}
       </summary>
 
@@ -145,7 +155,7 @@ function RequestCardView({
           )}
           {card.reviewedAt && (
             <span>
-              {card.reviewedKind === 'confirmed' ? 'Confirmed' : 'Approved'}{' '}
+              {card.reviewedKind === 'confirmed' ? 'Confirmed' : 'Approved in Finmo'}{' '}
               <span className="font-semibold text-navy">{fmtShortDate(card.reviewedAt)}</span>
             </span>
           )}

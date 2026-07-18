@@ -217,7 +217,7 @@ describe('buildRequestsDesk — commitment-only requests (Task 3)', () => {
 
 describe('buildRequestsDesk — borrower sections + progress', () => {
   const info = new Map<string, BorrowerInfo>([
-    ['b-2', { finmoBorrowerId: 'fin-b-2', fullName: 'Sample Borrower' }],
+    ['b-2', { finmoBorrowerId: 'fin-b-2', fullName: 'Sample Borrower', relationship: 'spouse' }],
   ])
 
   it('sections by borrower, General first, with per-section and overall progress', () => {
@@ -257,5 +257,114 @@ describe('buildRequestsDesk — borrower sections + progress', () => {
       [],
     )
     expect(desk.filterCounts).toEqual({ all: 3, waiting: 1, look: 1, done: 1 })
+  })
+})
+
+describe('buildRequestsDesk — freshness (B6.3)', () => {
+  const now = Date.parse('2026-07-18T00:00:00Z')
+
+  it('an approved-and-stale request shows BOTH truths, counts into look, not done', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', documentName: 'Pay Stub(s)', status: 'approved', numberOfFiles: 1, finmoUpdatedAt: '2026-06-01T00:00:00Z' })],
+      [],
+      new Map(),
+      now,
+    )
+    const c = cardFor(desk, 'req:r1')!
+    // The approval state is untouched — the chip still renders reviewed/Approved.
+    expect(c.state).toBe('reviewed')
+    expect(c.reviewedKind).toBe('finmo_approved')
+    // The staleness advisory rides alongside it, and moves the card into look.
+    expect(c.stale).toEqual({ days: 47 })
+    expect(c.filter).toBe('look')
+    expect(desk.filterCounts.done).toBe(0)
+    expect(desk.filterCounts.look).toBe(1)
+  })
+
+  it('a no-window kind never flags regardless of age', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', documentName: 'Void Cheque', status: 'approved', numberOfFiles: 1, finmoUpdatedAt: '2020-01-01T00:00:00Z' })],
+      [],
+      new Map(),
+      now,
+    )
+    const c = cardFor(desk, 'req:r1')!
+    expect(c.stale).toBeNull()
+    expect(c.filter).toBe('done')
+  })
+
+  it('a fresh windowed request does not flag', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', documentName: 'Pay Stub(s)', status: 'for_review', numberOfFiles: 1, finmoUpdatedAt: '2026-07-10T00:00:00Z' })],
+      [],
+      new Map(),
+      now,
+    )
+    expect(cardFor(desk, 'req:r1')!.stale).toBeNull()
+  })
+
+  it('stale sorts just below AI-flagged, above the rest', () => {
+    const desk = buildRequestsDesk(
+      [
+        req({ finmoRequestId: 'appr', borrowerFinmoId: 'b1', borrowerName: 'Dana Okafor', documentName: 'Void Cheque', status: 'approved', numberOfFiles: 1 }),
+        req({ finmoRequestId: 'stale', borrowerFinmoId: 'b1', borrowerName: 'Dana Okafor', documentName: 'Pay Stub(s)', status: 'approved', numberOfFiles: 1, finmoUpdatedAt: '2026-05-01T00:00:00Z' }),
+        req({ finmoRequestId: 'flag', borrowerFinmoId: 'b1', borrowerName: 'Dana Okafor', documentName: 'Letter of Employment', status: 'for_review', numberOfFiles: 1 }),
+      ],
+      [bridge('flag', 'stale')],
+      new Map(),
+      now,
+    )
+    const dana = desk.sections.find(s => s.label === 'Dana')!
+    // flagged first, stale second, the plain approved last.
+    expect(dana.cards.map(c => c.key)).toEqual(['req:flag', 'req:stale', 'req:appr'])
+  })
+
+  it('a commitment-derived request never flags a day-window staleness (no honest date)', () => {
+    const desk = buildRequestsDesk(
+      [],
+      [cond({ id: 'c1', docKind: 'pay_stub', presence: 'obtained' })],
+      new Map(),
+      now,
+    )
+    expect(cardFor(desk, 'cond:c1')!.stale).toBeNull()
+  })
+})
+
+describe('buildRequestsDesk — same-named section disambiguation (B6.3)', () => {
+  const twoJordans = (relA: string | null, relB: string | null) =>
+    buildRequestsDesk(
+      [
+        req({ finmoRequestId: 'a', borrowerFinmoId: 'fa', borrowerName: 'Jordan Wells', status: 'requested' }),
+        req({ finmoRequestId: 'b', borrowerFinmoId: 'fb', borrowerName: 'Jordan Anand', status: 'requested' }),
+      ],
+      [],
+      new Map<string, BorrowerInfo>([
+        ['wa', { finmoBorrowerId: 'fa', fullName: 'Jordan Wells', relationship: relA }],
+        ['an', { finmoBorrowerId: 'fb', fullName: 'Jordan Anand', relationship: relB }],
+      ]),
+    )
+
+  it('disambiguates by distinct relationships', () => {
+    const desk = twoJordans('parent', 'spouse')
+    expect(desk.sections.map(s => s.label).sort()).toEqual(['Jordan (parent)', 'Jordan (spouse)'])
+  })
+
+  it('one relationship known, the other bare (the brief example)', () => {
+    const desk = twoJordans(null, 'spouse')
+    expect(desk.sections.map(s => s.label).sort()).toEqual(['Jordan', 'Jordan (spouse)'])
+  })
+
+  it('falls back to a neutral ordinal when neither has a relationship', () => {
+    const desk = twoJordans(null, null)
+    expect(desk.sections.map(s => s.label).sort()).toEqual(['Jordan (1)', 'Jordan (2)'])
+  })
+
+  it('a unique given name is never decorated', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'a', borrowerFinmoId: 'fa', borrowerName: 'Marcus Tran', status: 'requested' })],
+      [],
+      new Map<string, BorrowerInfo>([['t', { finmoBorrowerId: 'fa', fullName: 'Marcus Tran', relationship: 'spouse' }]]),
+    )
+    expect(desk.sections.find(s => s.label === 'Marcus')).toBeDefined()
   })
 })
