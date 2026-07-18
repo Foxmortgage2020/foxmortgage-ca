@@ -36,6 +36,8 @@ import {
   getAuditEntries,
   getNumberLinks,
   getDealDocumentRequests,
+  getDealRequestReviews,
+  getDealRequestDecisions,
   getApprovedConditions,
   getDealBorrowers,
 } from '@/lib/underwriting'
@@ -44,7 +46,7 @@ import type { BorrowerInfo } from '@/lib/documents-desk'
 import { listCredentials, listComplaints, createComplaint } from '@/lib/compliance'
 import { updatePartner, getPartner } from '@/lib/zoho'
 import { getAgents } from '@/lib/underwriting'
-import { decideStatement } from '@/lib/gates'
+import { decideStatement, decideDocumentRequest, checkFinmoNow } from '@/lib/gates'
 import { DemoWriteBlocked, DEMO_AGENT_ID } from '@/lib/demo'
 import {
   demoSlimDeals,
@@ -103,41 +105,52 @@ describe('demo mode guards', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('the documents desk (B6.2/B6.3) builds the request-centric desk from fixtures with zero real reads', async () => {
+  it('the documents desk (B6.4) reads verdicts + decisions from fixtures with zero real reads', async () => {
     const reqR = await getDealDocumentRequests(DEMO_AGENT_ID, 'demo-deal-1')
     const condsR = await getApprovedConditions(DEMO_AGENT_ID, 'demo-deal-1')
     const borrR = await getDealBorrowers(DEMO_AGENT_ID, 'demo-deal-1')
+    const reviewsR = await getDealRequestReviews(DEMO_AGENT_ID, 'demo-deal-1')
+    const decisionsR = await getDealRequestDecisions(DEMO_AGENT_ID, 'demo-deal-1')
     expect(reqR.configured && reqR.ok).toBe(true)
-    expect(condsR.configured && condsR.ok).toBe(true)
-    if (reqR.configured && reqR.ok && condsR.configured && condsR.ok && borrR.configured && borrR.ok) {
+    expect(reviewsR.configured && reviewsR.ok).toBe(true)
+    expect(decisionsR.configured && decisionsR.ok).toBe(true)
+    if (
+      reqR.configured && reqR.ok && condsR.configured && condsR.ok && borrR.configured && borrR.ok &&
+      reviewsR.configured && reviewsR.ok && decisionsR.configured && decisionsR.ok
+    ) {
       const info = new Map<string, BorrowerInfo>(
         borrR.data.map(b => [b.id, { finmoBorrowerId: b.finmoBorrowerId, fullName: b.fullName, relationship: b.relationship }]),
       )
       const now = Date.parse('2026-07-18T00:00:00Z')
-      const desk = buildRequestsDesk(reqR.data, condsR.data, info, now)
+      const desk = buildRequestsDesk(reqR.data, condsR.data, info, now, reviewsR.data, decisionsR.data)
       const cards = desk.sections.flatMap(s => s.cards)
       // General + Marty + Sample + two disambiguated "Jordan" sections (B6.3).
       expect(desk.sections.map(s => s.label)).toEqual(
         expect.arrayContaining(['General', 'Marty', 'Sample', 'Jordan (parent)', 'Jordan (spouse)']),
       )
-      // Every lifecycle state renders.
+      // All four review verdict states render.
       const states = new Set(cards.map(c => c.state))
-      expect(states).toEqual(new Set(['waiting', 'received', 'ai_flagged', 'ai_passed', 'reviewed']))
-      // The AI-flagged item carries a plain-words reason.
-      const flagged = cards.find(c => c.state === 'ai_flagged')!
-      expect(flagged.analysis?.reason).toBe('Dated over 30 days ago')
-      // Approved in Finmo AND stale (B6.3): both truths, counted into look, not done.
+      for (const s of ['waiting', 'ai_flagged', 'ai_passed', 'ai_questions', 'ai_stale_cycle', 'reviewed']) {
+        expect(states).toContain(s)
+      }
+      // Questions has its own pill and does not swell Needs your look.
+      expect(desk.filterCounts.questions).toBeGreaterThanOrEqual(1)
+      // The bank statement shows all three truths: Finmo approved, AI flagged, approved by you.
       const bank = cards.find(c => c.name === 'Bank Statement (90 days)')!
-      expect(bank.state).toBe('reviewed')
-      expect(bank.reviewedKind).toBe('finmo_approved')
-      expect(bank.stale).not.toBeNull()
-      expect(bank.filter).toBe('look')
-      // A commitment-derived request renders (Task 3).
-      expect(cards.some(c => c.origin === 'commitment')).toBe(true)
-      // Progress + filter partition.
+      expect(bank.finmoApproved).toBe(true)
+      expect(bank.state).toBe('ai_flagged')
+      expect(bank.verdictSource).toBe('review')
+      expect(bank.decision?.verdict).toBe('approved')
+      expect(bank.filter).toBe('done')
+      // A commitment condition's verdict is preferred where it covers the request.
+      const loe = cards.find(c => c.name === 'Letter of Employment')!
+      expect(loe.state).toBe('ai_flagged')
+      expect(loe.analysis?.reason).toBe('Dated over 30 days ago')
+      // Two requests were withdrawn in Finmo (hidden from active groups + counts).
+      expect(desk.withdrawnCount).toBe(2)
       expect(desk.progress.total).toBe(cards.length)
-      expect(desk.filterCounts.all).toBe(cards.length)
     }
+    // The request-less residual (Task 3) resolves from the documents fixture.
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -185,6 +198,13 @@ describe('demo mode guards', () => {
 
   it('a gate decision rejects with DemoWriteBlocked and never calls fetch', async () => {
     await expect(decideStatement('demo-doc', 'approve', 'tok')).rejects.toBeInstanceOf(DemoWriteBlocked)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('the documents-desk gate actions (approve / send back / check Finmo) reject in demo and never call fetch', async () => {
+    await expect(decideDocumentRequest('req-1', 'approve', 'tok')).rejects.toBeInstanceOf(DemoWriteBlocked)
+    await expect(decideDocumentRequest('req-1', 'send_back', 'tok', 'please resend')).rejects.toBeInstanceOf(DemoWriteBlocked)
+    await expect(checkFinmoNow('demo-deal-1', 'tok')).rejects.toBeInstanceOf(DemoWriteBlocked)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

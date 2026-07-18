@@ -4,11 +4,38 @@
 // requests render too.
 
 import { describe, it, expect } from 'vitest'
-import { buildRequestsDesk } from '@/lib/documents-desk'
-import type { DocumentRequestRow, BorrowerInfo } from '@/lib/documents-desk'
-import type { DealConditionRow } from '@/lib/underwriting'
+import { buildRequestsDesk, residualDocuments } from '@/lib/documents-desk'
+import type { DocumentRequestRow, BorrowerInfo, ResidualDocInput } from '@/lib/documents-desk'
+import type { DealConditionRow, RequestReviewRow, RequestDecisionRow, RequestVerdict } from '@/lib/underwriting'
+
+// A per-document AI request verdict (document_request_reviews).
+function review(finmoRequestId: string, verdict: RequestVerdict, p: Partial<RequestReviewRow> = {}): RequestReviewRow {
+  return {
+    documentId: p.documentId ?? `doc-${++n}`,
+    finmoRequestId,
+    docKind: p.docKind ?? null,
+    borrowerId: p.borrowerId ?? null,
+    verdict,
+    reasons: p.reasons ?? [{ code: 'x', severity: verdict === 'flagged' ? 'high' : verdict === 'questions' ? 'question' : 'advisory', message: 'a cited reason', citation: null }],
+    contentDate: p.contentDate ?? null,
+    contentDates: p.contentDates ?? null,
+    analyzedAt: p.analyzedAt ?? '2026-07-06T00:00:00Z',
+  }
+}
+
+// Michael's recorded decision (document_request_decisions).
+function decision(finmoRequestId: string, verdict: 'approved' | 'sent_back', p: Partial<RequestDecisionRow> = {}): RequestDecisionRow {
+  return {
+    finmoRequestId,
+    verdict,
+    note: p.note ?? (verdict === 'sent_back' ? 'please resend a clearer copy' : null),
+    decidedByEmail: p.decidedByEmail ?? 'michael@app.foxmortgage.ca',
+    decidedAt: p.decidedAt ?? '2026-07-09T00:00:00Z',
+  }
+}
 
 let n = 0
+const NOW = Date.parse('2026-07-18T00:00:00Z')
 function req(p: Partial<DocumentRequestRow> = {}): DocumentRequestRow {
   return {
     finmoRequestId: p.finmoRequestId ?? `fr-${++n}`,
@@ -21,6 +48,7 @@ function req(p: Partial<DocumentRequestRow> = {}): DocumentRequestRow {
     filename: p.filename ?? null,
     requestedAt: p.requestedAt ?? '2026-07-02T00:00:00Z',
     finmoUpdatedAt: p.finmoUpdatedAt ?? null,
+    withdrawnAt: p.withdrawnAt ?? null,
   }
 }
 
@@ -256,7 +284,7 @@ describe('buildRequestsDesk — borrower sections + progress', () => {
       ],
       [],
     )
-    expect(desk.filterCounts).toEqual({ all: 3, waiting: 1, look: 1, done: 1 })
+    expect(desk.filterCounts).toEqual({ all: 3, waiting: 1, look: 1, questions: 0, done: 1 })
   })
 })
 
@@ -366,5 +394,235 @@ describe('buildRequestsDesk — same-named section disambiguation (B6.3)', () =>
       new Map<string, BorrowerInfo>([['t', { finmoBorrowerId: 'fa', fullName: 'Marcus Tran', relationship: 'spouse' }]]),
     )
     expect(desk.sections.find(s => s.label === 'Marcus')).toBeDefined()
+  })
+})
+
+describe('buildRequestsDesk — the request-review verdict (B6.4 Task 1)', () => {
+  const received = (id: string) => req({ finmoRequestId: id, status: 'for_review', numberOfFiles: 1, filename: 'f.pdf' })
+
+  it('a passed review is AI passed, in Needs your look', () => {
+    const desk = buildRequestsDesk([received('a')], [], new Map(), NOW, [review('a', 'passed')])
+    const c = cardFor(desk, 'req:a')!
+    expect(c.state).toBe('ai_passed')
+    expect(c.verdict).toBe('passed')
+    expect(c.verdictSource).toBe('review')
+    expect(c.filter).toBe('look')
+  })
+
+  it('a flagged review is amber, in Needs your look, and sorts first', () => {
+    const desk = buildRequestsDesk(
+      [received('a'), received('b')],
+      [],
+      new Map(),
+      NOW,
+      [review('a', 'passed'), review('b', 'flagged', { reasons: [{ code: 'stale', severity: 'high', message: '92 days old', citation: null }] })],
+    )
+    const b = cardFor(desk, 'req:b')!
+    expect(b.state).toBe('ai_flagged')
+    expect(b.filter).toBe('look')
+    // flagged sorts before passed within the section
+    const section = desk.sections[0]!
+    expect(section.cards[0]!.key).toBe('req:b')
+  })
+
+  it('a questions review gets its OWN pill and does NOT swell Needs your look', () => {
+    const desk = buildRequestsDesk([received('a')], [], new Map(), NOW, [review('a', 'questions')])
+    const c = cardFor(desk, 'req:a')!
+    expect(c.state).toBe('ai_questions')
+    expect(c.filter).toBe('questions')
+    expect(desk.filterCounts.questions).toBe(1)
+    expect(desk.filterCounts.look).toBe(0)
+  })
+
+  it('the 35-questions-heavy shape does not drown Needs your look', () => {
+    const reqs = Array.from({ length: 35 }, (_, i) => received(`q${i}`))
+    const reviews = reqs.map(r => review(r.finmoRequestId, 'questions'))
+    reqs.push(received('flag1'))
+    reviews.push(review('flag1', 'flagged'))
+    const desk = buildRequestsDesk(reqs, [], new Map(), NOW, reviews)
+    expect(desk.filterCounts.questions).toBe(35)
+    expect(desk.filterCounts.look).toBe(1) // only the single flagged request
+  })
+
+  it('a stale_cycle review is a soft state (never flagged), carries the verbatim line', () => {
+    const desk = buildRequestsDesk([received('a')], [], new Map(), NOW, [
+      review('a', 'stale_cycle', { reasons: [{ code: 'newer_cycle_available', severity: 'advisory', message: 'a newer Notice of Assessment should be available now', citation: null }] }),
+    ])
+    const c = cardFor(desk, 'req:a')!
+    expect(c.state).toBe('ai_stale_cycle')
+    expect(c.review?.reasons[0]?.message).toContain('newer Notice of Assessment')
+    expect(c.filter).toBe('look')
+  })
+
+  it('takes the BEST review per request (flagged beats passed on a multi-document request)', () => {
+    const desk = buildRequestsDesk([received('a')], [], new Map(), NOW, [
+      review('a', 'passed', { documentId: 'd1' }),
+      review('a', 'flagged', { documentId: 'd2' }),
+      review('a', 'stale_cycle', { documentId: 'd3' }),
+    ])
+    expect(cardFor(desk, 'req:a')!.verdict).toBe('flagged')
+  })
+
+  it('PREFERS the condition verdict where a commitment condition covers the request', () => {
+    // condition says passed (meets), review says flagged — the condition wins.
+    const desk = buildRequestsDesk([received('a')], [bridge('a', 'meets')], new Map(), NOW, [review('a', 'flagged')])
+    const c = cardFor(desk, 'req:a')!
+    expect(c.verdictSource).toBe('condition')
+    expect(c.verdict).toBe('passed')
+    expect(c.review).toBeNull()
+  })
+
+  it('surfaces content_date from the best review onto the card', () => {
+    const desk = buildRequestsDesk([received('a')], [], new Map(), NOW, [
+      review('a', 'passed', { contentDate: '2026-03-28', contentDates: { pay_date: '2026-03-28' } }),
+    ])
+    const c = cardFor(desk, 'req:a')!
+    expect(c.contentDate).toBe('2026-03-28')
+    expect(c.contentDates).toEqual({ pay_date: '2026-03-28' })
+  })
+
+  it('a verdict suppresses the B6.3 day-window advisory (never double-flags)', () => {
+    // A bank statement past its 60-day window but with a review verdict -> the
+    // verdict governs; the portal does NOT also compute a stale advisory.
+    const old = req({ finmoRequestId: 'a', documentName: 'Bank Statement', status: 'for_review', numberOfFiles: 1, filename: 'b.pdf', finmoUpdatedAt: '2026-01-01T00:00:00Z' })
+    const withVerdict = buildRequestsDesk([old], [], new Map(), NOW, [review('a', 'passed')])
+    expect(cardFor(withVerdict, 'req:a')!.stale).toBeNull()
+    // With NO verdict, the day-window advisory still fires (B6.3 fallback).
+    const noVerdict = buildRequestsDesk([old], [], new Map(), NOW)
+    expect(cardFor(noVerdict, 'req:a')!.stale).not.toBeNull()
+  })
+})
+
+describe('buildRequestsDesk — Michael\'s decision (B6.4 Task 5)', () => {
+  const received = (id: string, status = 'for_review') => req({ finmoRequestId: id, status, numberOfFiles: 1, filename: 'f.pdf' })
+
+  it('an approved decision completes the card and carries the badge alongside', () => {
+    const desk = buildRequestsDesk([received('a')], [], new Map(), NOW, [review('a', 'passed')], [decision('a', 'approved')])
+    const c = cardFor(desk, 'req:a')!
+    expect(c.decision?.verdict).toBe('approved')
+    expect(c.filter).toBe('done')
+    expect(desk.filterCounts.done).toBe(1)
+  })
+
+  it('a sent-back decision is recorded but leaves the card visible (not done)', () => {
+    const desk = buildRequestsDesk([received('a')], [], new Map(), NOW, [review('a', 'passed')], [decision('a', 'sent_back')])
+    const c = cardFor(desk, 'req:a')!
+    expect(c.decision?.verdict).toBe('sent_back')
+    expect(c.decision?.note).toContain('resend')
+    expect(c.filter).toBe('look') // still needs to resolve
+    expect(desk.filterCounts.done).toBe(0)
+  })
+
+  it('renders all three truths side by side: Finmo approved, AI flagged, approved by you', () => {
+    const desk = buildRequestsDesk(
+      [received('a', 'approved')],
+      [],
+      new Map(),
+      NOW,
+      [review('a', 'flagged')],
+      [decision('a', 'approved')],
+    )
+    const c = cardFor(desk, 'req:a')!
+    expect(c.finmoApproved).toBe(true) // Finmo chip
+    expect(c.state).toBe('ai_flagged') // AI verdict is NOT silenced by the Finmo approval
+    expect(c.decision?.verdict).toBe('approved') // your decision
+    expect(c.filter).toBe('done')
+  })
+})
+
+describe('buildRequestsDesk — withdrawn requests (B6.4 Task 2)', () => {
+  it('a withdrawn request leaves the active groups + counts, shown under its section', () => {
+    const desk = buildRequestsDesk(
+      [
+        req({ finmoRequestId: 'a', borrowerFinmoId: 'fb', borrowerName: 'Priya Anand', status: 'requested' }),
+        req({ finmoRequestId: 'gone', borrowerFinmoId: 'fb', borrowerName: 'Priya Anand', documentName: 'Sale Agreement', withdrawnAt: '2026-07-09T00:00:00Z' }),
+      ],
+      [],
+    )
+    const section = desk.sections.find(s => s.label === 'Priya')!
+    expect(section.cards.map(c => c.key)).toEqual(['req:a']) // only the active one
+    expect(section.total).toBe(1)
+    expect(section.withdrawn.map(w => w.name)).toEqual(['Sale Agreement'])
+    expect(desk.filterCounts.all).toBe(1)
+    expect(desk.withdrawnCount).toBe(1)
+  })
+
+  it('a section holding only withdrawn ghosts still renders (nothing lost)', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'gone', borrowerFinmoId: 'fz', borrowerName: 'Eli Fraser', documentName: 'Old Request', withdrawnAt: '2026-07-09T00:00:00Z' })],
+      [],
+    )
+    const section = desk.sections.find(s => s.label === 'Eli')!
+    expect(section.cards.length).toBe(0)
+    expect(section.withdrawn.length).toBe(1)
+    expect(desk.isEmpty).toBe(false)
+  })
+})
+
+describe('residualDocuments (B6.4 Task 3)', () => {
+  const doc = (p: Partial<ResidualDocInput> = {}): ResidualDocInput => ({
+    id: p.id ?? `id-${++n}`,
+    docType: p.docType ?? 'credit_report',
+    source: p.source ?? 'finmo',
+    receivedAt: p.receivedAt ?? '2026-06-28T00:00:00Z',
+    createdAt: p.createdAt ?? '2026-06-28T00:00:00Z',
+    provenance: p.provenance ?? 'real',
+    reviewStatus: p.reviewStatus ?? 'reviewed',
+    finmoRequestId: p.finmoRequestId ?? null,
+  })
+
+  it('lists documents with no request link, kind/source/date', () => {
+    const out = residualDocuments([doc({ id: 'x', docType: 'consent_form' })])
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ documentId: 'x', kind: 'consent_form', source: 'finmo' })
+  })
+
+  it('excludes request-linked, synthetic, rejected, and already-reparented documents', () => {
+    const out = residualDocuments(
+      [
+        doc({ id: 'linked', finmoRequestId: 'req-1' }),
+        doc({ id: 'synthetic', provenance: 'synthetic' }),
+        doc({ id: 'rejected', reviewStatus: 'rejected' }),
+        doc({ id: 'reparented' }),
+        doc({ id: 'keep' }),
+      ],
+      new Set(['reparented']),
+    )
+    expect(out.map(d => d.documentId)).toEqual(['keep'])
+  })
+})
+
+describe('buildRequestsDesk — adversarial-review regressions (B6.4)', () => {
+  const received = (id: string) => req({ finmoRequestId: id, status: 'for_review', numberOfFiles: 1, filename: 'f.pdf' })
+
+  it('a review-path card carries the best review document id, so its evidence reparents (not the residual)', () => {
+    const desk = buildRequestsDesk([received('a')], [], new Map(), NOW, [review('a', 'flagged', { documentId: 'doc-xyz' })])
+    // documentId flows to the card so the desk reparents the evidence into THIS
+    // request, rather than mislabelling it under "Not tied to a request".
+    expect(cardFor(desk, 'req:a')!.documentId).toBe('doc-xyz')
+  })
+
+  it('a commitment-derived card is origin "commitment" (never decidable via the request gate)', () => {
+    // The component gates Approve/Send-back on origin==='finmo'; a commitment card
+    // carries no finmo_request_id and must never POST a condition id to the gate.
+    const desk = buildRequestsDesk(
+      [],
+      [cond({ id: 'k1', docKind: 'fire_insurance_binder', presence: 'obtained' })],
+    )
+    const c = cardFor(desk, 'cond:k1')!
+    expect(c.origin).toBe('commitment')
+    expect(c.received).not.toBeNull()
+  })
+
+  it('a condition bridging a WITHDRAWN request still renders as its own card (obligation not lost)', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'gone', documentName: 'LOE', withdrawnAt: '2026-07-09T00:00:00Z' })],
+      [cond({ id: 'c9', docKind: 'letter_of_employment', presence: 'needs_input', presenceDetail: { matched_request_id: 'gone' } })],
+    )
+    // The request is a ghost; the still-open obligation renders as a commitment card.
+    expect(desk.withdrawnCount).toBe(1)
+    const c = cardFor(desk, 'cond:c9')!
+    expect(c.origin).toBe('commitment')
+    expect(c.state).toBe('waiting')
   })
 })

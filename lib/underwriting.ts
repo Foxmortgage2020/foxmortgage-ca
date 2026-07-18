@@ -54,6 +54,8 @@ import {
   demoDealRatioCalcs,
   demoDealDocuments,
   demoDealDocumentRequests,
+  demoDealRequestReviews,
+  demoDealRequestDecisions,
   demoDealLenderNotes,
   demoDealFinmoSnapshot,
   demoDealContextCounts,
@@ -1076,6 +1078,9 @@ export interface DealDetail {
   insuredStatusSetAt: string | null
   rateOverride: number | null
   rateOverrideNote: string | null
+  // When the Finmo document inventory was last pulled (migration 0049). Backs the
+  // documents desk's "last checked N ago" line beside the Check-Finmo-now button.
+  finmoDocsPulledAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -1084,7 +1089,7 @@ export async function getDealDetail(agentId: string, dealId: string): Promise<Uw
   if (isDemoMode()) return demoResult(demoDealDetail(dealId))
   const res = await uwSelect<any>('deals', {
     select:
-      'id,file_ref,deal_type,stage,status,purchase_price,mortgage_amount,closing_date,lender,product,zoho_potential_id,finmo_app_id,target_lender,target_lender_set_at,insured_status,insured_status_set_at,rate_override,rate_override_note,created_at,updated_at',
+      'id,file_ref,deal_type,stage,status,purchase_price,mortgage_amount,closing_date,lender,product,zoho_potential_id,finmo_app_id,target_lender,target_lender_set_at,insured_status,insured_status_set_at,rate_override,rate_override_note,finmo_docs_pulled_at,created_at,updated_at',
     agent_id: `eq.${agentId}`,
     id: `eq.${dealId}`,
     limit: '1',
@@ -1111,6 +1116,7 @@ export async function getDealDetail(agentId: string, dealId: string): Promise<Uw
       insuredStatusSetAt: r.insured_status_set_at ?? null,
       rateOverride: r.rate_override !== null && r.rate_override !== undefined ? Number(r.rate_override) : null,
       rateOverrideNote: r.rate_override_note ?? null,
+      finmoDocsPulledAt: r.finmo_docs_pulled_at ?? null,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }
@@ -1588,13 +1594,17 @@ export interface DocumentRequestRow {
   filename: string | null
   requestedAt: string | null
   finmoUpdatedAt: string | null
+  // Task 4 (migration 0049): a request absent from Finmo's current list is marked
+  // withdrawn (never hard-deleted). Non-null = a ghost the desk hides from the
+  // active groups and shows under a per-borrower "Withdrawn (N)" expandable.
+  withdrawnAt: string | null
 }
 
 export async function getDealDocumentRequests(agentId: string, dealId: string): Promise<UwResult<DocumentRequestRow[]>> {
   if (isDemoMode()) return demoResult(demoDealDocumentRequests(dealId))
   const res = await uwSelect<any>('document_index', {
     select:
-      'finmo_request_id,borrower_finmo_id,borrower_name,document_name,status,number_of_files,has_src,filename,requested_at,finmo_updated_at',
+      'finmo_request_id,borrower_finmo_id,borrower_name,document_name,status,number_of_files,has_src,filename,requested_at,finmo_updated_at,withdrawn_at',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
     order: 'requested_at.asc.nullslast',
@@ -1612,6 +1622,103 @@ export async function getDealDocumentRequests(agentId: string, dealId: string): 
       filename: r.filename ?? null,
       requestedAt: r.requested_at ?? null,
       finmoUpdatedAt: r.finmo_updated_at ?? null,
+      withdrawnAt: r.withdrawn_at ?? null,
+    })),
+  )
+}
+
+// ─── The AI request verdict + Michael's decision (migration 0049, B6.4) ──────
+// The document analysis meets the document AT THE DOOR: for every stored document
+// that resolves to a Finmo request, the workbench writes a cited verdict into
+// document_request_reviews (one row per document — a multi-file request is N
+// documents = N verdicts). The desk groups by finmo_request_id and shows the best
+// per the rank flagged > questions > stale_cycle > passed. content_date is the
+// freshness substrate the day-window layer consumes portal-side.
+
+export type RequestVerdict = 'passed' | 'flagged' | 'questions' | 'stale_cycle'
+
+export interface RequestReviewReason {
+  code: string
+  severity: 'high' | 'question' | 'advisory' | 'info' | string
+  message: string
+  citation: { page: number | null; snippet: string | null } | null
+}
+
+export interface RequestReviewRow {
+  documentId: string
+  finmoRequestId: string | null
+  docKind: string | null
+  borrowerId: string | null
+  verdict: RequestVerdict
+  reasons: RequestReviewReason[]
+  contentDate: string | null
+  contentDates: Record<string, string> | null
+  analyzedAt: string | null
+}
+
+function reviewReason(r: any): RequestReviewReason {
+  const cit = r && typeof r === 'object' && r.citation && typeof r.citation === 'object' ? r.citation : null
+  return {
+    code: typeof r?.code === 'string' ? r.code : '',
+    severity: typeof r?.severity === 'string' ? r.severity : 'info',
+    message: typeof r?.message === 'string' ? r.message : '',
+    citation: cit
+      ? {
+          page: typeof cit.page === 'number' ? cit.page : null,
+          snippet: typeof cit.snippet === 'string' ? cit.snippet : null,
+        }
+      : null,
+  }
+}
+
+export async function getDealRequestReviews(agentId: string, dealId: string): Promise<UwResult<RequestReviewRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealRequestReviews(dealId))
+  const res = await uwSelectAll<any>('document_request_reviews', {
+    select: 'document_id,finmo_request_id,doc_kind,borrower_id,verdict,reasons,content_date,content_dates,analyzed_at',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    order: 'analyzed_at.asc.nullslast',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      documentId: r.document_id,
+      finmoRequestId: r.finmo_request_id ?? null,
+      docKind: r.doc_kind ?? null,
+      borrowerId: r.borrower_id ?? null,
+      verdict: (r.verdict as RequestVerdict) ?? 'passed',
+      reasons: Array.isArray(r.reasons) ? r.reasons.map(reviewReason) : [],
+      contentDate: r.content_date ?? null,
+      contentDates:
+        r.content_dates && typeof r.content_dates === 'object' ? (r.content_dates as Record<string, string>) : null,
+      analyzedAt: r.analyzed_at ?? null,
+    })),
+  )
+}
+
+export interface RequestDecisionRow {
+  finmoRequestId: string
+  verdict: 'approved' | 'sent_back'
+  note: string | null
+  decidedByEmail: string | null
+  decidedAt: string | null
+}
+
+export async function getDealRequestDecisions(agentId: string, dealId: string): Promise<UwResult<RequestDecisionRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealRequestDecisions(dealId))
+  const res = await uwSelect<any>('document_request_decisions', {
+    select: 'finmo_request_id,verdict,note,decided_by_email,decided_at',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    order: 'decided_at.desc',
+    limit: '200',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      finmoRequestId: r.finmo_request_id,
+      verdict: (r.verdict as 'approved' | 'sent_back') ?? 'approved',
+      note: r.note ?? null,
+      decidedByEmail: r.decided_by_email ?? null,
+      decidedAt: r.decided_at ?? null,
     })),
   )
 }
@@ -1705,12 +1812,16 @@ export interface DocumentRow {
   // The borrower a document is attributed to (null = General). Set on upload;
   // drives the per-borrower presence match.
   borrowerId: string | null
+  // The Finmo request this file satisfies (migration 0049, Task 3). Null = a
+  // request-less document (an older credit report, a consent, a statement whose
+  // request is gone) — the desk's "Not tied to a request" residual block.
+  finmoRequestId: string | null
 }
 
 export async function getDealDocuments(agentId: string, dealId: string): Promise<UwResult<DocumentRow[]>> {
   if (isDemoMode()) return demoResult(demoDealDocuments(dealId))
   const res = await uwSelect<any>('documents', {
-    select: 'id,doc_type,source,received_at,review_status,created_at,provenance,borrower_id',
+    select: 'id,doc_type,source,received_at,review_status,created_at,provenance,borrower_id,finmo_request_id',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
     order: 'created_at.desc',
@@ -1725,6 +1836,7 @@ export async function getDealDocuments(agentId: string, dealId: string): Promise
       reviewStatus: r.review_status,
       createdAt: r.created_at,
       provenance: r.provenance ?? 'real',
+      finmoRequestId: r.finmo_request_id ?? null,
       borrowerId: r.borrower_id ?? null,
     })),
   )

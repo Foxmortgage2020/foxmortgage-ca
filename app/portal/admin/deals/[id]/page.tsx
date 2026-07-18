@@ -32,6 +32,8 @@ import {
   getDealDetail,
   getDealDocuments,
   getDealDocumentRequests,
+  getDealRequestReviews,
+  getDealRequestDecisions,
   getDealFlags,
   getDealIncomeCalcs,
   getDealLenderNotes,
@@ -60,8 +62,8 @@ import StepList from '@/components/admin/deals/StepList'
 import CloseoutPanel from '@/components/admin/deals/CloseoutPanel'
 import StatusChip from '@/components/admin/ds/StatusChip'
 import DocumentsDesk from '@/components/admin/deals/DocumentsDesk'
-import { buildRequestsDesk } from '@/lib/documents-desk'
-import type { BorrowerInfo } from '@/lib/documents-desk'
+import { buildRequestsDesk, residualDocuments } from '@/lib/documents-desk'
+import type { BorrowerInfo, ResidualDoc } from '@/lib/documents-desk'
 import { scenarioFromParams, scenarioParamsFromDeal, scenarioVerdict } from '@/lib/scenario'
 import { activeConstraints } from '@/lib/constraints'
 import { constraintsFor } from '@/lib/constraints-store'
@@ -266,7 +268,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     )
   }
 
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, lenderNotesR, finmoSnapR, contextCountsR, closeoutR, clientLinksR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, closeoutR, clientLinksR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -282,6 +284,10 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       getDealRatioCalcs(agentId, deal.id),
       getDealDocuments(agentId, deal.id),
       getDealDocumentRequests(agentId, deal.id),
+      // B6.4: the AI request verdicts (document_request_reviews) and Michael's own
+      // recorded decisions (document_request_decisions).
+      getDealRequestReviews(agentId, deal.id),
+      getDealRequestDecisions(agentId, deal.id),
       getDealLenderNotes(agentId, deal.id),
       getDealFinmoSnapshot(agentId, deal.id),
       getDealContextCounts(agentId, deal.id, deal.zohoPotentialId, deal.createdAt),
@@ -324,22 +330,39 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // id. Statement evidence reparents into each request's expansion by the analysis
   // document_id; anything unlinked stays in a residual block.
   const requests = val(requestsR) ?? []
+  const reviews = val(reviewsR) ?? []
+  const decisions = val(decisionsR) ?? []
   const borrowerInfoById = new Map<string, BorrowerInfo>(
     (borrowers.kind === 'ok' ? borrowers.data : []).map(b => [
       b.id,
       { finmoBorrowerId: b.finmoBorrowerId, fullName: b.fullName, relationship: b.relationship },
     ]),
   )
-  const requestsDesk = buildRequestsDesk(requests, conds, borrowerInfoById, Date.now())
+  const requestsDesk = buildRequestsDesk(requests, conds, borrowerInfoById, Date.now(), reviews, decisions)
   const requestsRefused = isPermissionRefusal(requestsR)
+  // Statement evidence keyed by the document id (a documents.id) — the card
+  // reparent AND the residual block both look up by it.
+  const evidenceByDocId: Record<string, (typeof stmtDocs)[number]> = {}
+  for (const d of stmtDocs) evidenceByDocId[d.documentId] = d
   const linkedDocIds = new Set(
     requestsDesk.sections.flatMap(s => s.cards.map(c => c.documentId).filter((x): x is string => !!x)),
   )
-  const evidenceByDocId: Record<string, (typeof stmtDocs)[number]> = {}
-  const unlinkedEvidence: typeof stmtDocs = []
+  // Task 3 residual: documents collected but not tied to any Finmo request, plus
+  // any statement evidence not reparented into a card — so nothing collected ever
+  // becomes invisible (it graduates into a card when a pull links it).
+  const residual: ResidualDoc[] = residualDocuments(documents.kind === 'ok' ? documents.data : [], linkedDocIds)
+  const residualIds = new Set(residual.map(r => r.documentId))
+  // A document that IS tied to a Finmo request must never fall under the "Not tied
+  // to a request" header (even when its evidence didn't reparent into a card) — the
+  // fallback only rescues genuinely request-less statement evidence.
+  const requestTiedDocIds = new Set(
+    (documents.kind === 'ok' ? documents.data : []).filter(d => d.finmoRequestId).map(d => d.id),
+  )
   for (const d of stmtDocs) {
-    if (linkedDocIds.has(d.documentId)) evidenceByDocId[d.documentId] = d
-    else unlinkedEvidence.push(d)
+    if (!linkedDocIds.has(d.documentId) && !residualIds.has(d.documentId) && !requestTiedDocIds.has(d.documentId)) {
+      residual.push({ key: `res:${d.documentId}`, documentId: d.documentId, kind: d.docClass, source: 'statement', date: null })
+      residualIds.add(d.documentId)
+    }
   }
 
   const today = torontoTodayYMD()
@@ -356,6 +379,9 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const canRecompute = can(user, 'conditions.recompute') && !isDemoMode()
   const canUploadCommitment = can(user, 'commitment.upload') && !isDemoMode()
   const canUploadDocument = can(user, 'document.upload') && !isDemoMode()
+  // B6.4: approving a Finmo document request (or sending it back) is Michael's
+  // human review, admin-only and refused in demo (both enforced server-side too).
+  const canDecideDocRequest = can(user, 'approvals.document_request.decide') && !isDemoMode()
   // Notes generation is NOT gated on demo: in demo the button produces a canned
   // note client-side (zero real reads/writes; the proxy + gate client are
   // demo-blocked as defense in depth). Outside demo it calls the workbench.
@@ -628,7 +654,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                 <DocumentsDesk
                   desk={requestsDesk}
                   evidenceByDocId={evidenceByDocId}
-                  unlinkedEvidence={unlinkedEvidence}
+                  residual={residual}
+                  dealId={deal.id}
+                  canDecide={canDecideDocRequest}
+                  lastCheckedAt={deal.finmoDocsPulledAt}
+                  demo={isDemoMode()}
                 />
                 {pendingStmtDocs.length > 0 && (
                   <p className="mt-3 font-ui text-xs text-cool-500">

@@ -32,6 +32,8 @@ import type {
   RatioCalcRow,
   DocumentRow,
   DocumentRequestRow,
+  RequestReviewRow,
+  RequestDecisionRow,
   AuditEntry,
   OpenFlag,
   ConditionsDue,
@@ -270,6 +272,7 @@ const submissionDefaults = {
   targetLender: null as string | null, targetLenderSetAt: null as string | null,
   insuredStatus: null as DealDetail['insuredStatus'], insuredStatusSetAt: null as string | null,
   rateOverride: null as number | null, rateOverrideNote: null as string | null,
+  finmoDocsPulledAt: null as string | null,
 }
 
 const DETAIL_BY_ID: Record<string, DealDetail> = {
@@ -278,6 +281,7 @@ const DETAIL_BY_ID: Record<string, DealDetail> = {
     purchasePrice: 800000, mortgageAmount: 640000, closingDate: '2026-07-24', lender: 'Sample Bank',
     product: '5yr Fixed', zohoPotentialId: 'demo-z-1', finmoAppId: 'demo-finmo-1',
     ...submissionDefaults, targetLender: 'Sample Bank', targetLenderSetAt: '2026-07-09T13:00:00Z', insuredStatus: 'insured', insuredStatusSetAt: '2026-07-09T13:00:00Z',
+    finmoDocsPulledAt: '2026-07-09T13:18:00Z',
     createdAt: '2026-05-30T12:00:00Z', updatedAt: '2026-07-09T13:20:00Z',
   },
   'demo-deal-2': {
@@ -526,24 +530,60 @@ export function demoDealDocumentRequests(dealId: string): DocumentRequestRow[] {
   if (dealId === 'demo-deal-1') {
     return [
       // General (account-level, no borrower).
-      { finmoRequestId: 'fin-req-psa', borrowerFinmoId: null, borrowerName: null, documentName: 'Purchase and Sale Agreement', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-02T12:00:00Z' },
-      { finmoRequestId: 'fin-req-ptax', borrowerFinmoId: null, borrowerName: null, documentName: 'Property Tax Bill', status: 'for_review', numberOfFiles: 1, hasSrc: false, filename: 'tax-bill-2026.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-06T09:30:00Z' },
+      { finmoRequestId: 'fin-req-psa', borrowerFinmoId: null, borrowerName: null, documentName: 'Purchase and Sale Agreement', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-02T12:00:00Z', withdrawnAt: null },
+      // Received, no bridging condition — an AI request verdict of `passed`.
+      { finmoRequestId: 'fin-req-ptax', borrowerFinmoId: null, borrowerName: null, documentName: 'Property Tax Bill', status: 'for_review', numberOfFiles: 1, hasSrc: false, filename: 'tax-bill-2026.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-06T09:30:00Z', withdrawnAt: null },
       // Marty (primary).
-      { finmoRequestId: 'fin-req-pay', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Pay Stub(s) — most recent', status: 'approved', numberOfFiles: 2, hasSrc: false, filename: 'paystub-jun.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-05T10:00:00Z' },
+      { finmoRequestId: 'fin-req-pay', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Pay Stub(s) — most recent', status: 'approved', numberOfFiles: 2, hasSrc: false, filename: 'paystub-jun.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-05T10:00:00Z', withdrawnAt: null },
       // Duplicate versions (5 files); bridged by a stale-dated verdict -> AI flagged.
-      { finmoRequestId: 'fin-req-loe', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Letter of Employment', status: 'for_review', numberOfFiles: 5, hasSrc: true, filename: 'loe-v5.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-06T14:00:00Z' },
-      { finmoRequestId: 'fin-req-void', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Void Cheque', status: 'approved', numberOfFiles: 1, hasSrc: false, filename: 'void.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-04T11:00:00Z' },
+      { finmoRequestId: 'fin-req-loe', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Letter of Employment', status: 'for_review', numberOfFiles: 5, hasSrc: true, filename: 'loe-v5.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-06T14:00:00Z', withdrawnAt: null },
+      { finmoRequestId: 'fin-req-void', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Void Cheque', status: 'approved', numberOfFiles: 1, hasSrc: false, filename: 'void.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-04T11:00:00Z', withdrawnAt: null },
+      // Received NOA with a soft annual-cycle verdict (stale_cycle): a newer cycle
+      // should be available now; never amber, never demotes.
+      { finmoRequestId: 'fin-req-noa2', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Notice of Assessment (2 years)', status: 'for_review', numberOfFiles: 1, hasSrc: true, filename: 'noa-2024.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-06T11:00:00Z', withdrawnAt: null },
       // Sample (co-applicant).
-      { finmoRequestId: 'fin-req-id', borrowerFinmoId: 'fin-b-2', borrowerName: 'Sample Borrower', documentName: '2 Main Forms of Identification', status: 'approved', numberOfFiles: 4, hasSrc: false, filename: 'id-front.jpg', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-05T16:00:00Z' },
+      // Received image ID, no readable text -> an AI request verdict of `questions`.
+      { finmoRequestId: 'fin-req-id', borrowerFinmoId: 'fin-b-2', borrowerName: 'Sample Borrower', documentName: '2 Main Forms of Identification', status: 'for_review', numberOfFiles: 4, hasSrc: false, filename: 'id-front.jpg', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-05T16:00:00Z', withdrawnAt: null },
       // Missing requested date (degenerate).
-      { finmoRequestId: 'fin-req-noa', borrowerFinmoId: 'fin-b-2', borrowerName: 'Sample Borrower', documentName: 'Notice of Assessment (2 years)', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: null, finmoUpdatedAt: null },
+      { finmoRequestId: 'fin-req-noa', borrowerFinmoId: 'fin-b-2', borrowerName: 'Sample Borrower', documentName: 'Notice of Assessment (2 years)', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: null, finmoUpdatedAt: null, withdrawnAt: null },
       // Jordan (guarantor); bridged by a passing verdict -> AI passed.
-      { finmoRequestId: 'fin-req-gift', borrowerFinmoId: 'fin-b-3', borrowerName: 'Jordan Wells', documentName: 'Gift Letter', status: 'for_review', numberOfFiles: 1, hasSrc: false, filename: 'gift.pdf', requestedAt: '2026-07-03T12:00:00Z', finmoUpdatedAt: '2026-07-07T09:00:00Z' },
-      // Approved in Finmo AND past its freshness window — both truths render, and
-      // it counts into Needs your look (uploaded well over the 60-day bank window).
-      { finmoRequestId: 'fin-req-bank', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Bank Statement (90 days)', status: 'approved', numberOfFiles: 1, hasSrc: false, filename: 'bank-apr.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-04-20T10:00:00Z' },
+      { finmoRequestId: 'fin-req-gift', borrowerFinmoId: 'fin-b-3', borrowerName: 'Jordan Wells', documentName: 'Gift Letter', status: 'for_review', numberOfFiles: 1, hasSrc: false, filename: 'gift.pdf', requestedAt: '2026-07-03T12:00:00Z', finmoUpdatedAt: '2026-07-07T09:00:00Z', withdrawnAt: null },
+      // Approved in Finmo, flagged by the AI review (stale), AND approved by you —
+      // all three truths render side by side (Task 5 fixture).
+      { finmoRequestId: 'fin-req-bank', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Bank Statement (90 days)', status: 'approved', numberOfFiles: 1, hasSrc: false, filename: 'bank-apr.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-04-20T10:00:00Z', withdrawnAt: null },
       // The second "Jordan" — disambiguates the section header by relationship.
-      { finmoRequestId: 'fin-req-jw2', borrowerFinmoId: 'fin-b-4', borrowerName: 'Jordan Anand', documentName: 'Notice of Assessment (2 years)', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: '2026-07-03T12:00:00Z', finmoUpdatedAt: null },
+      { finmoRequestId: 'fin-req-jw2', borrowerFinmoId: 'fin-b-4', borrowerName: 'Jordan Anand', documentName: 'Notice of Assessment (2 years)', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: '2026-07-03T12:00:00Z', finmoUpdatedAt: null, withdrawnAt: null },
+      // Withdrawn pair (Task 2): deleted in Finmo, retained but hidden from the
+      // active groups; shown under a per-borrower "Withdrawn (N)" expandable.
+      { finmoRequestId: 'fin-req-sale', borrowerFinmoId: null, borrowerName: null, documentName: 'Sale Agreement (Accepted Offer)', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-02T12:00:00Z', withdrawnAt: '2026-07-09T13:18:00Z' },
+      { finmoRequestId: 'fin-req-cms', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Current Mortgage Statement', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-02T12:00:00Z', withdrawnAt: '2026-07-09T13:18:00Z' },
+    ]
+  }
+  return []
+}
+
+// The AI request verdicts (document_request_reviews) for the demo file. Only the
+// received requests WITHOUT a bridging commitment condition earn a review-sourced
+// verdict here (the desk prefers the condition verdict where one exists); all four
+// verdict states are represented. One row per document; the desk groups by request.
+export function demoDealRequestReviews(dealId: string): RequestReviewRow[] {
+  if (dealId === 'demo-deal-1') {
+    return [
+      { documentId: 'demo-rev-ptax', finmoRequestId: 'fin-req-ptax', docKind: 'property_tax', borrowerId: null, verdict: 'passed', reasons: [], contentDate: '2026-01-15', contentDates: { issued: '2026-01-15' }, analyzedAt: '2026-07-06T09:35:00Z' },
+      { documentId: 'demo-rev-id', finmoRequestId: 'fin-req-id', docKind: 'id', borrowerId: 'demo-b-2', verdict: 'questions', reasons: [{ code: 'illegible', severity: 'question', message: 'almost no text could be read from this file (it may be a scan needing a manual look)', citation: null }], contentDate: null, contentDates: null, analyzedAt: '2026-07-05T16:05:00Z' },
+      { documentId: 'demo-rev-noa', finmoRequestId: 'fin-req-noa2', docKind: 't4_noa', borrowerId: 'demo-b-1', verdict: 'stale_cycle', reasons: [{ code: 'newer_cycle_available', severity: 'advisory', message: 'a newer Notice of Assessment should be available now (this one was issued 2024-05-09). Usable at lender discretion.', citation: { page: 1, snippet: 'Tax year 2023 Date issued May 9, 2024 Notice of assessment' } }], contentDate: '2024-05-09', contentDates: { issued: '2024-05-09' }, analyzedAt: '2026-07-06T11:05:00Z' },
+      { documentId: 'demo-rev-bank', finmoRequestId: 'fin-req-bank', docKind: 'bank_statement', borrowerId: 'demo-b-1', verdict: 'flagged', reasons: [{ code: 'stale', severity: 'high', message: 'this bank statement is dated 2026-04-18 (89 days old); a document within 60 days is expected', citation: { page: 1, snippet: 'Statement period ending 04 18 2026 Closing balance $12,840.10' } }], contentDate: '2026-04-18', contentDates: { issued: '2026-04-18' }, analyzedAt: '2026-07-06T09:40:00Z' },
+    ]
+  }
+  return []
+}
+
+// Michael's human review of a request (document_request_decisions). The
+// Finmo-approved, AI-flagged bank statement is ALSO approved by him — three truths.
+export function demoDealRequestDecisions(dealId: string): RequestDecisionRow[] {
+  if (dealId === 'demo-deal-1') {
+    return [
+      { finmoRequestId: 'fin-req-bank', verdict: 'approved', note: null, decidedByEmail: 'michael@app.foxmortgage.ca', decidedAt: '2026-07-09T13:15:00Z' },
     ]
   }
   return []
@@ -581,11 +621,14 @@ export function demoDealLenderNotes(_dealId: string): LenderNotesRow | null {
 export function demoDealDocuments(dealId: string): DocumentRow[] {
   if (dealId === 'demo-deal-1') {
     return [
-      { id: 'demo-d-1', docType: 'pay_stub', source: 'upload', receivedAt: '2026-07-04T09:00:00Z', reviewStatus: 'reviewed', createdAt: '2026-07-04T09:00:00Z', provenance: 'real', borrowerId: 'demo-b-1' },
-      { id: 'demo-d-2', docType: 'void_cheque', source: 'finmo', receivedAt: '2026-07-04T09:05:00Z', reviewStatus: 'pending', createdAt: '2026-07-04T09:05:00Z', provenance: 'real', borrowerId: null },
-      // A received income document whose draft analysis is a gap (demo-cond-4,
-      // joined by document_id) — the documents desk's amber "Needs attention".
-      { id: 'demo-d-3', docType: 't4_noa', source: 'upload', receivedAt: '2026-07-05T14:20:00Z', reviewStatus: 'pending', createdAt: '2026-07-05T14:20:00Z', provenance: 'real', borrowerId: 'demo-b-1' },
+      { id: 'demo-d-1', docType: 'pay_stub', source: 'upload', receivedAt: '2026-07-04T09:00:00Z', reviewStatus: 'reviewed', createdAt: '2026-07-04T09:00:00Z', provenance: 'real', borrowerId: 'demo-b-1', finmoRequestId: 'fin-req-pay' },
+      { id: 'demo-d-2', docType: 'void_cheque', source: 'finmo', receivedAt: '2026-07-04T09:05:00Z', reviewStatus: 'pending', createdAt: '2026-07-04T09:05:00Z', provenance: 'real', borrowerId: null, finmoRequestId: 'fin-req-void' },
+      { id: 'demo-d-3', docType: 't4_noa', source: 'upload', receivedAt: '2026-07-05T14:20:00Z', reviewStatus: 'pending', createdAt: '2026-07-05T14:20:00Z', provenance: 'real', borrowerId: 'demo-b-1', finmoRequestId: 'fin-req-noa2' },
+      // Request-less documents (Task 3): collected but not tied to any Finmo
+      // request (an older pull, a consent) — the desk's "Not tied to a request"
+      // residual block, so nothing collected becomes invisible.
+      { id: 'demo-d-4', docType: 'credit_report', source: 'finmo', receivedAt: '2026-06-28T08:00:00Z', reviewStatus: 'reviewed', createdAt: '2026-06-28T08:00:00Z', provenance: 'real', borrowerId: 'demo-b-1', finmoRequestId: null },
+      { id: 'demo-d-5', docType: 'consent_form', source: 'upload', receivedAt: '2026-06-29T10:30:00Z', reviewStatus: 'reviewed', createdAt: '2026-06-29T10:30:00Z', provenance: 'real', borrowerId: null, finmoRequestId: null },
     ]
   }
   return []

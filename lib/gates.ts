@@ -585,6 +585,52 @@ export function recomputePresence(
   return gateCall(`/api/gates/deals/${dealId}/recompute-presence`, {}, token)
 }
 
+// ─── The documents desk (B6.4) ──────────────────────────────────────────────
+// The idempotent "Check Finmo now" nudge (migration 0049, Task 8): forces a pull
+// now, syncs the request inventory (marking deleted requests withdrawn),
+// recomputes presence, and re-runs both analyses. Read-only to Finmo, a machine
+// refresh a viewer triggers (conditions.recompute), not a human decision.
+export interface CheckFinmoResponse {
+  dealId?: string
+  pulledAt?: string
+  requests?: number
+  withdrawn?: number
+  reviewed?: number
+  changed?: number
+  auditId?: string
+}
+
+export function checkFinmoNow(dealId: string, token: string | null): Promise<GateResult<CheckFinmoResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('checkFinmoNow'))
+  return gateCall(`/api/gates/deals/${dealId}/check-finmo`, {}, token)
+}
+
+// Michael's HUMAN review of a Finmo document request (migration 0049, Task 6):
+// approve, or send back with a >=5-char reason. Records HIS review in the
+// workbench (document_request_decisions) with his verified Clerk identity; the
+// gate refuses a machine actor before any write. It does NOT touch Finmo.
+export type DocumentRequestAction = 'approve' | 'send_back'
+export const DOCUMENT_REQUEST_ACTIONS: readonly DocumentRequestAction[] = ['approve', 'send_back']
+
+export interface DocumentRequestDecisionResponse {
+  finmoRequestId?: string
+  dealId?: string
+  verdict?: string
+  decidedByEmail?: string
+  decidedAt?: string
+  auditId?: string
+}
+
+export function decideDocumentRequest(
+  finmoRequestId: string,
+  action: DocumentRequestAction,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<DocumentRequestDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideDocumentRequest'))
+  return gateCall(`/api/gates/document-requests/${finmoRequestId}/decision`, withNote({ action }, note), token)
+}
+
 // ─── Manual condition control (2026-07-14) ──────────────────────────────────
 // Extraction is a draft Michael corrects, never an oracle. Add / edit /
 // re-assign / remove a condition by hand — each POST-only, each carrying a

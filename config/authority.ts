@@ -82,6 +82,11 @@ export const PERMISSIONS = {
   // admin only on both sides.
   'commitment.upload': ['admin'],
   'approvals.conditions.decide': ['admin'],
+  // B6.4: Michael's HUMAN review of a Finmo document request — approve, or send
+  // back with a reason. CONTRACT key with the fox-underwriting gates API (migration
+  // 0049); the gate refuses any non-human actor before any write. It records HIS
+  // review in OUR system and never touches Finmo. Admin only on both sides.
+  'approvals.document_request.decide': ['admin'],
   // General borrower-document upload to a deal room (document-pull session,
   // 2026-07-14). CONTRACT key with the workbench gates API. A machine PULLS
   // from Finmo as 'system'; an upload is Michael's, so admin only.
@@ -184,6 +189,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'submission.set': 'Set the target lender, insured status, or rate override on a deal',
   'notes.edit': 'Save an in-place edit of a lender submission-note draft',
   'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
+  'approvals.document_request.decide': 'Approve a Finmo document request, or send it back with a reason (records your review; never touches Finmo)',
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',
   'renewal.decide': 'Approve, edit, or skip renewal drip messages and manage drip enrollment',
