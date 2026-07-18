@@ -35,10 +35,12 @@ import {
   getAgentIdByEmail,
   getAuditEntries,
   getNumberLinks,
-  getDealDocuments,
+  getDealDocumentRequests,
   getApprovedConditions,
+  getDealBorrowers,
 } from '@/lib/underwriting'
-import { buildDocumentsDesk } from '@/lib/documents-desk'
+import { buildRequestsDesk } from '@/lib/documents-desk'
+import type { BorrowerInfo } from '@/lib/documents-desk'
 import { listCredentials, listComplaints, createComplaint } from '@/lib/compliance'
 import { updatePartner, getPartner } from '@/lib/zoho'
 import { getAgents } from '@/lib/underwriting'
@@ -101,22 +103,31 @@ describe('demo mode guards', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  it('the documents desk (B6) renders all three groups + the amber state from fixtures with zero real reads', async () => {
-    const docsR = await getDealDocuments(DEMO_AGENT_ID, 'demo-deal-1')
+  it('the documents desk (B6.2) builds the request-centric desk from fixtures with zero real reads', async () => {
+    const reqR = await getDealDocumentRequests(DEMO_AGENT_ID, 'demo-deal-1')
     const condsR = await getApprovedConditions(DEMO_AGENT_ID, 'demo-deal-1')
-    expect(docsR.configured && docsR.ok).toBe(true)
+    const borrR = await getDealBorrowers(DEMO_AGENT_ID, 'demo-deal-1')
+    expect(reqR.configured && reqR.ok).toBe(true)
     expect(condsR.configured && condsR.ok).toBe(true)
-    if (docsR.configured && docsR.ok && condsR.configured && condsR.ok) {
-      const desk = buildDocumentsDesk(docsR.data, condsR.data)
-      expect(desk.needsEyes.length).toBeGreaterThan(0)
-      expect(desk.waiting.length).toBeGreaterThan(0)
-      expect(desk.done.length).toBeGreaterThan(0)
-      // The amber "Needs attention" state — a received income document whose
-      // draft verdict is a gap, joined to the card by document_id.
-      const amber = desk.needsEyes.find(c => c.state.tone === 'amber')
-      expect(amber).toBeDefined()
-      expect(amber?.name).toBe('t4_noa')
-      expect(amber?.analysis?.tone).toBe('red')
+    if (reqR.configured && reqR.ok && condsR.configured && condsR.ok && borrR.configured && borrR.ok) {
+      const info = new Map<string, BorrowerInfo>(
+        borrR.data.map(b => [b.id, { finmoBorrowerId: b.finmoBorrowerId, fullName: b.fullName }]),
+      )
+      const desk = buildRequestsDesk(reqR.data, condsR.data, info)
+      const cards = desk.sections.flatMap(s => s.cards)
+      // Three borrower sections + General.
+      expect(desk.sections.map(s => s.label)).toEqual(expect.arrayContaining(['General', 'Marty', 'Sample', 'Jordan']))
+      // Every lifecycle state renders.
+      const states = new Set(cards.map(c => c.state))
+      expect(states).toEqual(new Set(['waiting', 'received', 'ai_flagged', 'ai_passed', 'reviewed']))
+      // The AI-flagged item carries a plain-words reason.
+      const flagged = cards.find(c => c.state === 'ai_flagged')!
+      expect(flagged.analysis?.reason).toBe('Dated over 30 days ago')
+      // A commitment-derived request renders (Task 3).
+      expect(cards.some(c => c.origin === 'commitment')).toBe(true)
+      // Progress + filter partition.
+      expect(desk.progress.total).toBe(cards.length)
+      expect(desk.filterCounts.all).toBe(cards.length)
     }
     expect(fetchSpy).not.toHaveBeenCalled()
   })

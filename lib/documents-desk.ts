@@ -1,103 +1,111 @@
-// The documents desk (B6): the pure model that turns the deal room's two
-// existing reads — received documents (getDealDocuments) and the approved
-// checklist (getApprovedConditions) — into three at-a-glance groups:
+// The documents desk (B6.2): the UNIT is the Finmo document REQUEST, not the
+// received file. The practice runs on requests — what Finmo asked the client
+// for, what has arrived, what is still outstanding — so the desk reads the
+// synced Finmo request list (document_index) as its rows and enriches each with
+// our own read: whether files have arrived, and, where a commitment condition
+// bridges to it, the AI verdict and the human-confirmed state.
 //
-//   Needs your eyes   received documents awaiting Michael's review
-//   Waiting on the client   documents requested but not yet received
-//   Done   documents Michael has reviewed (approved / reviewed / rejected)
+// Findings that shape this model (docs/documents-desk-b62-2026-07-18.md):
+//   - There is NO direct DB link from a request (finmo_request_id) to a stored
+//     file (documents.id). The only bridge is a commitment condition whose
+//     presence_detail carries matched_request_id (= the request) AND analysis
+//     (verdict + document_id). Many files have no commitment conditions at all
+//     (F053107: 21 requests, 0 conditions), so a request often stands on
+//     document_index alone.
+//   - "Received" is derived from number_of_files / has_src, NOT a status token
+//     (Finmo's status is requested | for_review | approved | … verbatim).
+//   - No human-approval is stored per request; document_index.status='approved'
+//     is Finmo's approval, verified is per-condition. Both are rendered honestly.
 //
-// This is PRESENTATION over reads the deal page already makes: no fetcher, no
-// gate, no write. The document-intelligence VERDICT (pass / short / needs
-// review) lives on the CONDITION, in `presenceDetail.analysis`, keyed by
-// `document_id` — so a received document's card can carry its verdict, named
-// as a draft. When the analysis carries no document_id (the workbench does not
-// always stamp one yet — B5 deferred item), the verdict is attributed by
-// (doc kind, borrower) ONLY when that pairing is unambiguous; never guessed.
-//
-// No arithmetic here — every number the analysis shows was computed on the
-// workbench (guardrail 1); this reads the stored verdict. Never lime: a chip
-// states, it never queues.
+// Presentation over reads the page already makes (plus the newly-granted
+// document_index). No writes. Never lime: an AI flag is amber; reviewing is
+// work, not a queued platform decision.
 
-import type { DocumentRow, DealConditionRow } from './underwriting'
+import type { DealConditionRow } from './underwriting'
 
-export type DeskGroup = 'needs_eyes' | 'waiting' | 'done'
-
-// The card's top-level STATE chip. 'navy-outline' is the received-pending-review
-// treatment the brief calls for (navy outline, not a filled tone); the other
-// four map onto the ds StatusChip tones.
-export type StateTone = 'green' | 'amber' | 'red' | 'gray' | 'navy-outline'
-
-export interface StateChip {
-  tone: StateTone
-  label: string
+export interface DocumentRequestRow {
+  finmoRequestId: string
+  borrowerFinmoId: string | null
+  borrowerName: string | null
+  documentName: string
+  // Finmo's own status, stored verbatim: requested | for_review | approved | …
+  status: string
+  numberOfFiles: number | null
+  hasSrc: boolean
+  filename: string | null
+  requestedAt: string | null
+  finmoUpdatedAt: string | null
 }
 
-// The analysis (verdict) chip. green = meets, red = a genuine gap, amber =
-// awaiting judgment. Mirrors the ConditionsChecklist VERDICT_TONE so the two
-// surfaces speak one vocabulary. `source` is always named so the card never
-// presents a draft as a settled fact.
-export interface DeskAnalysis {
+export type RequestState = 'waiting' | 'received' | 'ai_passed' | 'ai_flagged' | 'reviewed'
+// The filter pill a card belongs to.
+export type RequestFilterKey = 'waiting' | 'look' | 'done'
+
+export interface RequestAnalysis {
   tone: 'green' | 'amber' | 'red'
-  label: string
+  verdictLabel: string
+  reason: string | null
+  documentId: string | null
   asOf: string | null
-  source: string
 }
 
-export interface DeskDate {
-  kind: 'received' | 'due' | 'requested'
-  // ISO string for received/due; null for a bare "requested" with no due date.
-  value: string | null
+export interface ReceivedInfo {
+  count: number
+  filename: string | null
+  updatedAt: string | null
+  // We pulled the file bytes into our own store (document_index.has_src).
+  pulled: boolean
 }
 
-export interface DocumentCard {
+export interface RequestCard {
   key: string
   name: string
-  borrowerId: string | null
-  // 'upload' | 'finmo' | 'generated' | 'commitment' … for a received document;
-  // null for a requested (not-yet-received) card.
-  source: string | null
-  synthetic: boolean
-  state: StateChip
-  analysis: DeskAnalysis | null
-  date: DeskDate | null
-  group: DeskGroup
-  origin: 'document' | 'condition'
+  origin: 'finmo' | 'commitment'
+  state: RequestState
+  filter: RequestFilterKey
+  finmoStatus: string | null
+  received: ReceivedInfo | null
+  analysis: RequestAnalysis | null
+  reviewedAt: string | null
+  reviewedKind: 'finmo_approved' | 'confirmed' | null
+  requestedAt: string | null
+  // The stored document this request's verdict analysed (for the evidence
+  // reparent). Only set when a bridging condition carried analysis.document_id.
+  documentId: string | null
+  borrowerKey: string
+  borrowerLabel: string
 }
 
-export interface DocumentsDesk {
-  needsEyes: DocumentCard[]
-  waiting: DocumentCard[]
-  done: DocumentCard[]
-  counts: { needsEyes: number; waiting: number; done: number; total: number }
+export interface BorrowerSection {
+  key: string
+  label: string
+  cards: RequestCard[]
+  done: number
+  total: number
+}
+
+export interface RequestsDesk {
+  sections: BorrowerSection[]
+  progress: { done: number; total: number }
+  filterCounts: { all: number; waiting: number; look: number; done: number }
   isEmpty: boolean
 }
 
-// A received document is at rest (Done) once Michael has reviewed it. The
-// observed review_status vocabulary is approved | reviewed | pending |
-// rejected (workbench-owned; an unknown value is surfaced for a look, never
-// silently filed as done).
-const DONE_POSITIVE = new Set(['approved', 'reviewed', 'accepted'])
-const DONE_NEGATIVE = new Set(['rejected'])
-
-// The requested-but-not-received presence states (the collection axis before a
-// document arrives). 'obtained'/'verified' mean it is in — those surface as
-// received document cards, not waiting cards.
-const AWAITING_PRESENCE = new Set(['needs_input', 'requested'])
-
-// A condition is a document request only when it names a document kind AND is
-// still open (not satisfied/waived).
-function isOpenDocumentRequest(c: DealConditionRow): boolean {
-  return (
-    !!c.docKind &&
-    c.status !== 'satisfied' &&
-    c.status !== 'waived' &&
-    !!c.presence &&
-    AWAITING_PRESENCE.has(c.presence)
-  )
+export interface BorrowerInfo {
+  finmoBorrowerId: string | null
+  fullName: string
 }
 
-// verdict -> the analysis chip's tone + short label. Kept in lockstep with
-// ConditionsChecklist's VERDICT_TONE (same words Michael reads there).
+const GENERAL = '__general__'
+
+const givenName = (full: string | null | undefined): string | null => {
+  const t = (full ?? '').trim()
+  if (!t) return null
+  return t.split(/\s+/)[0]!
+}
+
+const humanize = (s: string) => s.replace(/_/g, ' ')
+
 const VERDICT: Record<string, { tone: 'green' | 'amber' | 'red'; label: string }> = {
   meets: { tone: 'green', label: 'Meets the requirement' },
   short: { tone: 'red', label: 'Short of the requirement' },
@@ -109,225 +117,204 @@ const VERDICT: Record<string, { tone: 'green' | 'amber' | 'red'; label: string }
 
 interface RawAnalysis {
   verdict?: unknown
+  reasoning?: unknown
+  rule_note?: unknown
   document_id?: unknown
   as_of?: unknown
 }
 
-// Defensively read a condition's analysis blob (presenceDetail is
-// Record<string, unknown> | null; the analysis is a nested object).
-function analysisOf(c: DealConditionRow): RawAnalysis | null {
-  const a = c.presenceDetail?.analysis
-  return a && typeof a === 'object' ? (a as RawAnalysis) : null
-}
-
-function toDeskAnalysis(a: RawAnalysis): DeskAnalysis {
+function analysisOf(c: DealConditionRow): RequestAnalysis | null {
+  const raw = c.presenceDetail?.analysis
+  if (!raw || typeof raw !== 'object') return null
+  const a = raw as RawAnalysis
   const key = typeof a.verdict === 'string' ? a.verdict : ''
   const v = VERDICT[key] ?? VERDICT.needs_review
+  const reason =
+    typeof a.rule_note === 'string' && a.rule_note.trim()
+      ? a.rule_note
+      : typeof a.reasoning === 'string' && a.reasoning.trim()
+        ? a.reasoning
+        : null
   return {
     tone: v.tone,
-    label: v.label,
+    verdictLabel: v.label,
+    reason,
+    documentId: typeof a.document_id === 'string' ? a.document_id : null,
     asOf: typeof a.as_of === 'string' ? a.as_of : null,
-    source: 'Analysis (draft)',
   }
 }
 
-const kbKey = (docType: string | null, borrowerId: string | null) => `${docType ?? ''}|${borrowerId ?? ''}`
+const matchedRequestIdOf = (c: DealConditionRow): string | null => {
+  const m = c.presenceDetail?.matched_request_id
+  return typeof m === 'string' && m ? m : null
+}
+
+// The lifecycle state of a card, from what arrived + the (optional) verdict +
+// the (optional) human/Finmo approval. Order of precedence: a concerning verdict
+// is always the loudest; then a confirmed/approved resting state; then waiting;
+// then received (passed vs plain).
+function deriveState(opts: {
+  received: boolean
+  analysis: RequestAnalysis | null
+  verified: boolean
+  finmoApproved: boolean
+}): RequestState {
+  const { received, analysis, verified, finmoApproved } = opts
+  // A human confirmation (verified) is the terminal state and wins over a draft
+  // AI flag — Michael looked and decided. A Finmo approval, by contrast, does NOT
+  // silence our own flag: a stale document Finmo accepted is still worth flagging.
+  if (verified) return 'reviewed'
+  if (analysis && analysis.tone !== 'green') return 'ai_flagged'
+  if (finmoApproved) return 'reviewed'
+  if (!received) return 'waiting'
+  if (analysis && analysis.tone === 'green') return 'ai_passed'
+  return 'received'
+}
+
+const filterOf = (s: RequestState): RequestFilterKey =>
+  s === 'waiting' ? 'waiting' : s === 'reviewed' ? 'done' : 'look'
+
+const STATE_RANK: Record<RequestState, number> = {
+  ai_flagged: 0,
+  received: 1,
+  ai_passed: 2,
+  waiting: 3,
+  reviewed: 4,
+}
 
 /**
- * Build the documents desk from the deal room's existing reads.
- *
- * @param documents received documents (getDealDocuments)
- * @param conditions the approved checklist (getApprovedConditions) — the source
- *   of both the "waiting" requests and the per-document verdicts.
+ * Build the request-centric desk. `requests` are document_index rows; `conditions`
+ * are the approved checklist (the bridge to verdicts + the source of
+ * commitment-only requests); `borrowerInfoById` maps a condition's workbench
+ * borrower id to its Finmo id + full name for section grouping.
  */
-export function buildDocumentsDesk(
-  documents: DocumentRow[],
+export function buildRequestsDesk(
+  requests: DocumentRequestRow[],
   conditions: DealConditionRow[],
-): DocumentsDesk {
-  // 1. Analysis join tables. Hard join first: analysis.document_id -> analysis.
-  //    Fallback: for analyses that carry NO document_id, index by (kind,
-  //    borrower); only usable when that pairing is unique on both sides.
-  const byDocId = new Map<string, RawAnalysis>()
-  const byKindBorrowerCandidates = new Map<string, RawAnalysis[]>()
+  borrowerInfoById: Map<string, BorrowerInfo> = new Map(),
+): RequestsDesk {
+  // Bridge: a condition that names a Finmo request is that request's overlay
+  // (verdict + human-confirmed state), not a separate card.
+  const condByReq = new Map<string, DealConditionRow>()
   for (const c of conditions) {
-    const a = analysisOf(c)
-    if (!a) continue
-    if (typeof a.document_id === 'string' && a.document_id) {
-      byDocId.set(a.document_id, a)
-    } else {
-      const k = kbKey(c.docKind, c.borrowerId)
-      const list = byKindBorrowerCandidates.get(k) ?? []
-      list.push(a)
-      byKindBorrowerCandidates.set(k, list)
-    }
+    const rid = matchedRequestIdOf(c)
+    if (rid) condByReq.set(rid, c)
   }
-  // How many received documents share each (kind, borrower) — an ambiguous
-  // fallback (2+ documents, or 2+ candidate analyses) attributes to none.
-  const docCountByKb = new Map<string, number>()
-  for (const d of documents) {
-    const k = kbKey(d.docType, d.borrowerId)
-    docCountByKb.set(k, (docCountByKb.get(k) ?? 0) + 1)
-  }
+  const requestIds = new Set(requests.map(r => r.finmoRequestId))
 
-  const analysisForDoc = (d: DocumentRow): DeskAnalysis | null => {
-    const hard = byDocId.get(d.id)
-    if (hard) return toDeskAnalysis(hard)
-    const k = kbKey(d.docType, d.borrowerId)
-    const candidates = byKindBorrowerCandidates.get(k)
-    if (candidates && candidates.length === 1 && (docCountByKb.get(k) ?? 0) === 1) {
-      return toDeskAnalysis(candidates[0]!)
-    }
-    return null
-  }
+  const cards: RequestCard[] = []
 
-  const needsEyes: DocumentCard[] = []
-  const waiting: DocumentCard[] = []
-  const done: DocumentCard[] = []
-
-  // Received documents (the documents table).
-  const receivedKb = new Set<string>()
-  for (const d of documents) {
-    // Only a REAL, non-rejected document counts as "arrived" for the waiting
-    // dedup below. A synthetic stand-in has not arrived (the client still owes
-    // the real document, guardrail 20), and a rejected document leaves the
-    // request open — neither should suppress a Waiting card.
-    if (d.provenance === 'real' && d.reviewStatus !== 'rejected') {
-      receivedKb.add(kbKey(d.docType, d.borrowerId))
-    }
-    const analysis = analysisForDoc(d)
-    const date: DeskDate = { kind: 'received', value: d.receivedAt }
-
-    if (d.provenance === 'synthetic') {
-      // A synthetic stand-in is never a lender document and can never be
-      // approved — it needs replacing, so it stays under Needs your eyes, loud.
-      needsEyes.push({
-        key: `doc:${d.id}`,
-        name: d.docType,
-        borrowerId: d.borrowerId,
-        source: d.source,
-        synthetic: true,
-        state: { tone: 'red', label: 'Synthetic' },
-        analysis: null,
-        date,
-        group: 'needs_eyes',
-        origin: 'document',
-      })
-      continue
-    }
-
-    if (DONE_POSITIVE.has(d.reviewStatus)) {
-      done.push({
-        key: `doc:${d.id}`,
-        name: d.docType,
-        borrowerId: d.borrowerId,
-        source: d.source,
-        synthetic: false,
-        state: { tone: 'green', label: chipLabel(d.reviewStatus) },
-        analysis,
-        date,
-        group: 'done',
-        origin: 'document',
-      })
-    } else if (DONE_NEGATIVE.has(d.reviewStatus)) {
-      done.push({
-        key: `doc:${d.id}`,
-        name: d.docType,
-        borrowerId: d.borrowerId,
-        source: d.source,
-        synthetic: false,
-        state: { tone: 'red', label: 'Rejected' },
-        analysis,
-        date,
-        group: 'done',
-        origin: 'document',
-      })
-    } else {
-      // Received, not yet reviewed (pending or an unknown status) — the first
-      // group's whole purpose. A concerning draft verdict (a gap or a
-      // needs-review) raises the state chip to amber "Needs attention"; a clean
-      // or absent verdict is a calm navy-outline "In review".
-      const concerning = !!analysis && analysis.tone !== 'green'
-      needsEyes.push({
-        key: `doc:${d.id}`,
-        name: d.docType,
-        borrowerId: d.borrowerId,
-        source: d.source,
-        synthetic: false,
-        state: concerning
-          ? { tone: 'amber', label: 'Needs attention' }
-          : { tone: 'navy-outline', label: 'In review' },
-        analysis,
-        date,
-        group: 'needs_eyes',
-        origin: 'document',
-      })
-    }
-  }
-
-  // Requested documents (open document-conditions not yet received). Suppress a
-  // request whose document has in fact arrived (same kind + borrower present in
-  // the documents table) — a not-yet-recomputed condition never double-shows.
-  for (const c of conditions) {
-    if (!isOpenDocumentRequest(c)) continue
-    if (receivedKb.has(kbKey(c.docKind, c.borrowerId))) continue
-    waiting.push({
-      key: `req:${c.id}`,
-      name: c.docKind!,
-      borrowerId: c.borrowerId,
-      source: null,
-      synthetic: false,
-      state: { tone: 'gray', label: 'Requested' },
-      analysis: null,
-      date: c.dueDate ? { kind: 'due', value: c.dueDate } : { kind: 'requested', value: null },
-      group: 'waiting',
-      origin: 'condition',
+  // 1. Finmo requests (the unit).
+  for (const r of requests) {
+    const cond = condByReq.get(r.finmoRequestId) ?? null
+    const analysis = cond ? analysisOf(cond) : null
+    const received = (r.numberOfFiles ?? 0) > 0 || r.hasSrc
+    const verified = cond?.presence === 'verified'
+    const finmoApproved = r.status === 'approved'
+    const state = deriveState({ received, analysis, verified, finmoApproved })
+    // The reviewed line renders ONLY when the state is actually reviewed — a
+    // Finmo-approved-but-flagged request stays 'ai_flagged' and must NOT also
+    // claim "Approved <date>" (its Finmo status still shows in the expansion).
+    const isReviewed = state === 'reviewed'
+    const borrowerKey = r.borrowerFinmoId ?? (r.borrowerName ? `name:${r.borrowerName}` : GENERAL)
+    cards.push({
+      key: `req:${r.finmoRequestId}`,
+      name: r.documentName,
+      origin: 'finmo',
+      state,
+      filter: filterOf(state),
+      finmoStatus: r.status,
+      received: received
+        ? {
+            count: (r.numberOfFiles ?? 0) > 0 ? (r.numberOfFiles as number) : 1,
+            filename: r.filename,
+            updatedAt: r.finmoUpdatedAt,
+            pulled: r.hasSrc,
+          }
+        : null,
+      analysis,
+      reviewedAt: isReviewed ? (verified ? (cond?.verifiedAt ?? null) : finmoApproved ? r.finmoUpdatedAt : null) : null,
+      reviewedKind: isReviewed ? (verified ? 'confirmed' : finmoApproved ? 'finmo_approved' : null) : null,
+      requestedAt: r.requestedAt,
+      documentId: analysis?.documentId ?? null,
+      borrowerKey,
+      borrowerLabel: givenName(r.borrowerName) ?? 'General',
     })
   }
 
-  // Sort: Needs eyes — synthetic first, then gaps (red), then amber, then plain,
-  // newest received first within a tier. Waiting — soonest due first. Done —
-  // newest first.
-  needsEyes.sort((a, b) => needsEyesRank(a) - needsEyesRank(b) || byReceivedDesc(a, b))
-  waiting.sort(byDueAsc)
-  done.sort(byReceivedDesc)
-
-  const counts = {
-    needsEyes: needsEyes.length,
-    waiting: waiting.length,
-    done: done.length,
-    total: needsEyes.length + waiting.length + done.length,
+  // 2. Commitment-derived requests with NO Finmo request row (Task 3): the
+  // checklist's own document-chase conditions. A condition that bridged a Finmo
+  // request (its matched_request_id is in the request set) is already that
+  // request's overlay above and is NOT re-shown.
+  for (const c of conditions) {
+    if (!c.docKind) continue
+    if (c.presence === 'not_applicable') continue // an underwriting constraint, not a doc chase
+    const rid = matchedRequestIdOf(c)
+    if (rid && requestIds.has(rid)) continue // merged as a request overlay
+    if (c.status === 'waived') continue
+    const analysis = analysisOf(c)
+    const received = c.presence === 'obtained' || c.presence === 'verified'
+    const verified = c.presence === 'verified'
+    const state = deriveState({ received, analysis, verified, finmoApproved: false })
+    const info = c.borrowerId ? borrowerInfoById.get(c.borrowerId) : undefined
+    const borrowerKey = info?.finmoBorrowerId ?? (info?.fullName ? `name:${info.fullName}` : GENERAL)
+    cards.push({
+      key: `cond:${c.id}`,
+      name: humanize(c.docKind),
+      origin: 'commitment',
+      state,
+      filter: filterOf(state),
+      finmoStatus: null,
+      received: received ? { count: 1, filename: null, updatedAt: null, pulled: false } : null,
+      analysis,
+      reviewedAt: state === 'reviewed' && verified ? c.verifiedAt : null,
+      reviewedKind: state === 'reviewed' && verified ? 'confirmed' : null,
+      requestedAt: c.dueDate,
+      documentId: analysis?.documentId ?? null,
+      borrowerKey,
+      borrowerLabel: info ? (givenName(info.fullName) ?? 'General') : 'General',
+    })
   }
-  return { needsEyes, waiting, done, counts, isEmpty: counts.total === 0 }
-}
 
-function chipLabel(reviewStatus: string): string {
-  if (reviewStatus === 'approved') return 'Approved'
-  if (reviewStatus === 'reviewed') return 'Reviewed'
-  if (reviewStatus === 'accepted') return 'Accepted'
-  return reviewStatus.replace(/_/g, ' ')
-}
+  // 3. Section by borrower — General first, then borrowers in first-appearance
+  // order (Finmo's own categorization). Sort cards within a section by urgency
+  // (AI-flagged first), then oldest request first, then name.
+  const order: string[] = []
+  const byKey = new Map<string, RequestCard[]>()
+  for (const card of cards) {
+    const k = card.borrowerKey
+    if (!byKey.has(k)) {
+      byKey.set(k, [])
+      order.push(k)
+    }
+    byKey.get(k)!.push(card)
+  }
+  const sortKeys = order
+    .filter(k => k !== GENERAL)
+    .sort() // deterministic; General is prepended below
+  const orderedKeys = order.includes(GENERAL) ? [GENERAL, ...sortKeys] : sortKeys
 
-function needsEyesRank(c: DocumentCard): number {
-  if (c.synthetic) return 0
-  if (c.analysis?.tone === 'red') return 1
-  if (c.analysis?.tone === 'amber') return 2
-  return 3
-}
+  const sections: BorrowerSection[] = orderedKeys.map(k => {
+    const list = byKey.get(k)!
+    list.sort(
+      (a, b) =>
+        STATE_RANK[a.state] - STATE_RANK[b.state] ||
+        (a.requestedAt ?? '').localeCompare(b.requestedAt ?? '') ||
+        a.name.localeCompare(b.name),
+    )
+    const label = k === GENERAL ? 'General' : list[0]!.borrowerLabel
+    const done = list.filter(c => c.state === 'reviewed').length
+    return { key: k, label, cards: list, done, total: list.length }
+  })
 
-function byReceivedDesc(a: DocumentCard, b: DocumentCard): number {
-  const av = a.date?.kind === 'received' ? a.date.value : null
-  const bv = b.date?.kind === 'received' ? b.date.value : null
-  if (av && bv) return bv.localeCompare(av)
-  if (av) return -1
-  if (bv) return 1
-  return 0
-}
-
-function byDueAsc(a: DocumentCard, b: DocumentCard): number {
-  const av = a.date?.value ?? null
-  const bv = b.date?.value ?? null
-  if (av && bv) return av.localeCompare(bv)
-  if (av) return -1
-  if (bv) return 1
-  return 0
+  const total = cards.length
+  const done = cards.filter(c => c.state === 'reviewed').length
+  const waiting = cards.filter(c => c.filter === 'waiting').length
+  const look = cards.filter(c => c.filter === 'look').length
+  return {
+    sections,
+    progress: { done, total },
+    filterCounts: { all: total, waiting, look, done },
+    isEmpty: total === 0,
+  }
 }

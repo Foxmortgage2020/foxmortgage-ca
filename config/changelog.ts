@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-18',
+    title: 'The documents desk is built around what Finmo asked for, and two live fixes',
+    detail:
+      'The deal file\'s documents area is now built around the right thing: the document REQUEST. It reads the list of what Finmo asked the client for and reports back, grouped by borrower and by state — what we are still waiting on, what has arrived and needs your look, and what is done. Where our reader has already formed a view on a document it says so on the card, and a flagged item (say a letter of employment dated too long ago) is called out in plain words and sorted to the top. Open a request to see its detail and, where we have it, the read-out of the document with its source. Two things Michael flagged on the live site are fixed alongside: a refinance file no longer shows a purchase price it does not have (it shows the property\'s estimated value from the current application, or nothing, never a stale number), and the ratio and income calculations now show the current figure full-size with older recomputes tucked behind a small "History" toggle, so a superseded number never sits next to the live one. One thing for Michael: renaming the file in Zoho to the main applicant flows straight through to the portal.',
+  },
+  {
     date: '2026-07-17',
     title: 'A deal file shows its documents at a glance, grouped by what needs you',
     detail:

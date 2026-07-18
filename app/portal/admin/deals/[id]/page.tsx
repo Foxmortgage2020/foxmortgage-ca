@@ -31,6 +31,7 @@ import {
   getDealBorrowers,
   getDealDetail,
   getDealDocuments,
+  getDealDocumentRequests,
   getDealFlags,
   getDealIncomeCalcs,
   getDealLenderNotes,
@@ -59,7 +60,8 @@ import StepList from '@/components/admin/deals/StepList'
 import CloseoutPanel from '@/components/admin/deals/CloseoutPanel'
 import StatusChip from '@/components/admin/ds/StatusChip'
 import DocumentsDesk from '@/components/admin/deals/DocumentsDesk'
-import { buildDocumentsDesk } from '@/lib/documents-desk'
+import { buildRequestsDesk } from '@/lib/documents-desk'
+import type { BorrowerInfo } from '@/lib/documents-desk'
 import { scenarioFromParams, scenarioParamsFromDeal, scenarioVerdict } from '@/lib/scenario'
 import { activeConstraints } from '@/lib/constraints'
 import { constraintsFor } from '@/lib/constraints-store'
@@ -68,7 +70,9 @@ import { closingHeaderAmber } from '@/lib/conditions-status'
 import { daysUntil } from '@/lib/compliance-logic'
 import { lenderDisplayName } from '@/config/lenders'
 import { fmtDateTime, fmtMoney, fmtShortDate, torontoTodayYMD } from '@/lib/dates'
-import { dealGoalDisplay } from '@/lib/deal-goal'
+import { dealGoalDisplay, resolveShape, headerValue } from '@/lib/deal-goal'
+import { currentAndHistory } from '@/lib/calc-history'
+import type { RatioCalcRow, IncomeCalcRow } from '@/lib/underwriting'
 import {
   journeyForStage,
   stepShapeFor,
@@ -173,6 +177,53 @@ function CalcProvenance({ version, hash, at }: { version: string; hash: string; 
   )
 }
 
+// A single ratio calc row (Task 5). `muted` renders a folded history entry.
+function RatioCard({ r, muted }: { r: RatioCalcRow; muted?: boolean }) {
+  return (
+    <div className={`border rounded-lg p-3 ${muted ? 'border-cool-100 bg-cool-50/60' : 'border-cool-100'}`}>
+      <div className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm font-ui tabular-nums ${muted ? 'opacity-70' : ''}`}>
+        {r.lenderSlug && <Chip tone="gray">{r.lenderSlug}</Chip>}
+        <span className="text-cool-600">GDS <span className="text-navy font-semibold">{r.gds ?? 'n/a'}</span></span>
+        <span className="text-cool-600">TDS <span className="text-navy font-semibold">{r.tds ?? 'n/a'}</span></span>
+        <span className="text-cool-600">LTV <span className="text-navy font-semibold">{r.ltv ?? 'n/a'}</span></span>
+        <span className="text-cool-600">Qual rate <span className="text-navy font-semibold">{r.qualRate ?? 'n/a'}</span></span>
+        <span className="text-cool-600">
+          Pmt <span className="text-navy font-semibold">{r.pmtContract !== null ? fmtMoney(r.pmtContract) : 'n/a'}</span>
+          {r.pmtStress !== null ? ` (stress ${fmtMoney(r.pmtStress)})` : ''}
+        </span>
+      </div>
+      <CalcProvenance version={r.calcVersion} hash={r.inputsHash} at={r.createdAt} />
+    </div>
+  )
+}
+
+// A single income calc row (Task 5).
+function IncomeCard({ c, muted }: { c: IncomeCalcRow; muted?: boolean }) {
+  return (
+    <div className={`border rounded-lg p-3 ${muted ? 'border-cool-100 bg-cool-50/60' : 'border-cool-100'}`}>
+      <div className={`flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm font-ui tabular-nums ${muted ? 'opacity-70' : ''}`}>
+        <span className="text-navy font-semibold">{fmtMoney(c.resultAnnual)}/yr</span>
+        <span className="text-cool-600 capitalize">{label(c.basis)}</span>
+        {c.lenderSlug && <Chip tone="gray">{c.lenderSlug}</Chip>}
+      </div>
+      <CalcProvenance version={c.calcVersion} hash={c.inputsHash} at={c.createdAt} />
+    </div>
+  )
+}
+
+// The current calc + a folded "History (N)" of prior recomputes (Task 5).
+function CalcHistory({ count, children }: { count: number; children: React.ReactNode }) {
+  if (count === 0) return null
+  return (
+    <details className="mt-1.5">
+      <summary className="cursor-pointer font-ui text-[11px] font-semibold text-cool-500 hover:text-navy">
+        History ({count})
+      </summary>
+      <div className="mt-1.5 space-y-1.5">{children}</div>
+    </details>
+  )
+}
+
 // Navy band stat (Direction 2).
 function BandStat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -215,7 +266,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     )
   }
 
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, lenderNotesR, finmoSnapR, contextCountsR, closeoutR, clientLinksR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, lenderNotesR, finmoSnapR, contextCountsR, closeoutR, clientLinksR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -230,6 +281,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       getDealIncomeCalcs(agentId, deal.id),
       getDealRatioCalcs(agentId, deal.id),
       getDealDocuments(agentId, deal.id),
+      getDealDocumentRequests(agentId, deal.id),
       getDealLenderNotes(agentId, deal.id),
       getDealFinmoSnapshot(agentId, deal.id),
       getDealContextCounts(agentId, deal.id, deal.zohoPotentialId, deal.createdAt),
@@ -265,6 +317,30 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const finmoRequested = (finmoSnap?.mapped?.requested ?? null) as { rate?: number | null } | null
   const borrowerList = borrowers.kind === 'ok' ? borrowers.data.map(b => ({ id: b.id, fullName: b.fullName })) : []
   const borrowerNameById = new Map(borrowerList.map(b => [b.id, b.fullName]))
+
+  // The documents desk (B6.2): the REQUEST is the unit. Build the desk from the
+  // Finmo request list + the checklist (the bridge to verdicts + commitment-only
+  // requests), grouping conditions into the right borrower section via the Finmo
+  // id. Statement evidence reparents into each request's expansion by the analysis
+  // document_id; anything unlinked stays in a residual block.
+  const requests = val(requestsR) ?? []
+  const borrowerInfoById = new Map<string, BorrowerInfo>(
+    (borrowers.kind === 'ok' ? borrowers.data : []).map(b => [
+      b.id,
+      { finmoBorrowerId: b.finmoBorrowerId, fullName: b.fullName },
+    ]),
+  )
+  const requestsDesk = buildRequestsDesk(requests, conds, borrowerInfoById)
+  const requestsRefused = isPermissionRefusal(requestsR)
+  const linkedDocIds = new Set(
+    requestsDesk.sections.flatMap(s => s.cards.map(c => c.documentId).filter((x): x is string => !!x)),
+  )
+  const evidenceByDocId: Record<string, (typeof stmtDocs)[number]> = {}
+  const unlinkedEvidence: typeof stmtDocs = []
+  for (const d of stmtDocs) {
+    if (linkedDocIds.has(d.documentId)) evidenceByDocId[d.documentId] = d
+    else unlinkedEvidence.push(d)
+  }
 
   const today = torontoTodayYMD()
   const openConds = conds.filter(c => c.status !== 'satisfied' && c.status !== 'waived')
@@ -534,25 +610,34 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                     />
                   </div>
                 )}
-                {documents.kind === 'ok' ? (
-                  <>
-                    {documents.data.some(d => d.provenance === 'synthetic') && (
-                      <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
-                        <span className="font-semibold">Synthetic (stand-in) document on this file.</span>{' '}
-                        One or more cards below are marked <span className="font-mono">synthetic</span>. They are NOT lender
-                        documents, cannot be approved, and do not feed the checklist. A real commitment upload replaces them.
-                      </div>
-                    )}
-                    <DocumentsDesk
-                      desk={buildDocumentsDesk(documents.data, conds)}
-                      borrowerNameById={borrowerNameById}
-                    />
-                  </>
-                ) : (
-                  <SectionFallback
-                    state={documents}
-                    notGrantedCopy="Document metadata is not granted to the portal read-only role. When the grant lands, the documents desk renders here (metadata only, never file content)."
-                  />
+                {/* A synthetic (stand-in) commitment document on the documents
+                    table is loud (guardrail 20); the desk itself reads the Finmo
+                    request list. */}
+                {documents.kind === 'ok' && documents.data.some(d => d.provenance === 'synthetic') && (
+                  <div className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                    <span className="font-semibold">Synthetic (stand-in) commitment on this file.</span>{' '}
+                    A stand-in commitment is on file. It is NOT a lender document, cannot be approved, and does not feed the
+                    checklist. A real commitment upload replaces it.
+                  </div>
+                )}
+                {requestsRefused && (
+                  <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-ui text-amber-800">
+                    The Finmo request list did not load. Commitment-checklist requests are shown where available.
+                  </div>
+                )}
+                <DocumentsDesk
+                  desk={requestsDesk}
+                  evidenceByDocId={evidenceByDocId}
+                  unlinkedEvidence={unlinkedEvidence}
+                />
+                {pendingStmtDocs.length > 0 && (
+                  <p className="mt-3 font-ui text-xs text-cool-500">
+                    {pendingStmtDocs.length} statement extraction{pendingStmtDocs.length === 1 ? '' : 's'} pending in{' '}
+                    <Link href="/portal/admin/approvals" className="font-semibold text-navy hover:underline">
+                      Approvals
+                    </Link>
+                    .
+                  </p>
                 )}
               </Sub>
 
@@ -560,50 +645,36 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                 {ratios.kind === 'ok' || income.kind === 'ok' ? (
                   <div className="space-y-4">
                     {ratios.kind === 'ok' &&
-                      (ratios.data.length === 0 ? (
+                      (ratioGroups.length === 0 ? (
                         <Muted>No ratio calcs recorded on this file yet.</Muted>
                       ) : (
                         <div className="space-y-2">
-                          {ratios.data.map(r => (
-                            <div key={r.id} className="border border-cool-100 rounded-lg p-3">
-                              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm font-ui tabular-nums">
-                                {r.lenderSlug && <Chip tone="gray">{r.lenderSlug}</Chip>}
-                                <span className="text-cool-600">
-                                  GDS <span className="text-navy font-semibold">{r.gds ?? 'n/a'}</span>
-                                </span>
-                                <span className="text-cool-600">
-                                  TDS <span className="text-navy font-semibold">{r.tds ?? 'n/a'}</span>
-                                </span>
-                                <span className="text-cool-600">
-                                  LTV <span className="text-navy font-semibold">{r.ltv ?? 'n/a'}</span>
-                                </span>
-                                <span className="text-cool-600">
-                                  Qual rate <span className="text-navy font-semibold">{r.qualRate ?? 'n/a'}</span>
-                                </span>
-                                <span className="text-cool-600">
-                                  Pmt <span className="text-navy font-semibold">{r.pmtContract !== null ? fmtMoney(r.pmtContract) : 'n/a'}</span>
-                                  {r.pmtStress !== null ? ` (stress ${fmtMoney(r.pmtStress)})` : ''}
-                                </span>
-                              </div>
-                              <CalcProvenance version={r.calcVersion} hash={r.inputsHash} at={r.createdAt} />
+                          {ratioGroups.map(g => (
+                            <div key={g.key}>
+                              <RatioCard r={g.current} />
+                              <CalcHistory count={g.history.length}>
+                                {g.history.map(r => (
+                                  <RatioCard key={r.id} r={r} muted />
+                                ))}
+                              </CalcHistory>
                             </div>
                           ))}
                         </div>
                       ))}
                     {income.kind === 'ok' &&
-                      (income.data.length === 0 ? (
+                      (incomeGroups.length === 0 ? (
                         <Muted>No income calcs recorded on this file yet.</Muted>
                       ) : (
                         <div className="space-y-2">
                           <h4 className="font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600">Income calcs</h4>
-                          {income.data.map(c => (
-                            <div key={c.id} className="border border-cool-100 rounded-lg p-3">
-                              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm font-ui tabular-nums">
-                                <span className="text-navy font-semibold">{fmtMoney(c.resultAnnual)}/yr</span>
-                                <span className="text-cool-600 capitalize">{label(c.basis)}</span>
-                                {c.lenderSlug && <Chip tone="gray">{c.lenderSlug}</Chip>}
-                              </div>
-                              <CalcProvenance version={c.calcVersion} hash={c.inputsHash} at={c.createdAt} />
+                          {incomeGroups.map(g => (
+                            <div key={g.key}>
+                              <IncomeCard c={g.current} />
+                              <CalcHistory count={g.history.length}>
+                                {g.history.map(c => (
+                                  <IncomeCard key={c.id} c={c} muted />
+                                ))}
+                              </CalcHistory>
                             </div>
                           ))}
                         </div>
@@ -623,74 +694,10 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                 )}
               </Sub>
 
-              <Sub
-                title="Statement evidence"
-                action={
-                  pendingStmtDocs.length > 0 ? (
-                    <Link href="/portal/admin/approvals" className="text-xs font-semibold text-navy hover:underline">
-                      {pendingStmtDocs.length} pending in Approvals &rarr;
-                    </Link>
-                  ) : undefined
-                }
-              >
-                {stmtDocs.length === 0 ? (
-                  <Muted>No statement extractions on this file.</Muted>
-                ) : (
-                  <div className="space-y-4">
-                    {stmtDocs.map(doc => (
-                      <div key={doc.documentId} className="border border-cool-100 rounded-lg p-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-ui font-semibold text-navy capitalize">{label(doc.docClass)}</span>
-                          {doc.review ? (
-                            <Chip tone={doc.review.decision === 'approved' ? 'green' : 'red'}>
-                              {doc.review.decision} by {doc.review.decidedBy} {fmtDateTime(doc.review.decidedAt)}
-                            </Chip>
-                          ) : doc.fields.some(f => f.status === 'extracted') ? (
-                            <Chip tone="amber">review pending</Chip>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 divide-y divide-cool-100">
-                          {doc.fields.map(f => (
-                            <div key={f.id} className="py-1.5">
-                              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm font-ui tabular-nums">
-                                <span className="text-cool-700">{label(f.fieldName)}</span>
-                                <span className="text-navy font-semibold">
-                                  {f.valueNumeric !== null ? f.valueNumeric : f.valueText}
-                                  {f.unit ? ` ${f.unit}` : ''}
-                                </span>
-                                <Chip
-                                  tone={
-                                    f.status === 'approved'
-                                      ? 'green'
-                                      : f.status === 'rejected'
-                                        ? 'red'
-                                        : f.status === 'extracted'
-                                          ? 'amber'
-                                          : 'gray'
-                                  }
-                                >
-                                  {f.status}
-                                </Chip>
-                                {f.heldReason && <Chip tone="amber">{f.heldReason}</Chip>}
-                              </div>
-                              <p className="text-[11px] text-cool-600 font-ui mt-0.5 break-words">
-                                p{f.sourcePage}: &ldquo;{f.sourceSnippet}&rdquo; (conf {f.confidence})
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-[11px] text-cool-500 font-ui mt-3">
-                  Rate sheet reviews are practice-level, not per deal; their history lives on the{' '}
-                  <Link href="/portal/admin/approvals" className="underline">
-                    Approvals
-                  </Link>{' '}
-                  desk and in the audit log.
-                </p>
-              </Sub>
+              {/* Statement evidence (B6.2 Task 2): reparented INTO the request
+                  cards above (each request's expansion shows its analysed
+                  document's evidence, linked by analysis.document_id); anything
+                  not linked to a request renders in the desk's residual block. */}
 
               <Sub title="Shadow scores">
                 {shadow.length === 0 ? (
@@ -844,6 +851,29 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     : orderedPhases
 
   const gd = dealGoalDisplay(deal.dealType, finmoGoal)
+  // Header value stat (Task 4): the freshest reachable property "worth" from the
+  // Finmo application snapshot backs the refi/renewal "Estimated value"; a stale
+  // purchase price on the deals row must never render on a non-purchase file.
+  const subjectProperty = (finmoSnap?.mapped?.subject_property ?? null) as
+    | { worth?: number | null; appraised_value?: number | null }
+    | null
+  const estimatedValue =
+    typeof subjectProperty?.worth === 'number'
+      ? subjectProperty.worth
+      : typeof subjectProperty?.appraised_value === 'number'
+        ? subjectProperty.appraised_value
+        : null
+  const headerVal = headerValue(resolveShape(deal.dealType, finmoGoal), deal.purchasePrice, estimatedValue)
+
+  // Calc stacks (Task 5): one current row per natural identity (a ratio is keyed
+  // by its lender; an income by borrower + lender + basis), prior recomputes
+  // folded into History. Rows are read newest-first already; grouping is display.
+  const ratioGroups =
+    ratios.kind === 'ok' ? currentAndHistory(ratios.data, r => r.lenderSlug ?? 'file', r => r.createdAt) : []
+  const incomeGroups =
+    income.kind === 'ok'
+      ? currentAndHistory(income.data, c => `${c.borrowerId ?? ''}|${c.lenderSlug ?? ''}|${c.basis}`, c => c.createdAt)
+      : []
 
   return (
     <div className="max-w-4xl">
@@ -941,14 +971,22 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
               'none set'
             )}
           </BandStat>
-          {deal.purchasePrice !== null && (
-            <BandStat label="Purchase price">{fmtMoney(deal.purchasePrice)}</BandStat>
+          {headerVal && (
+            <BandStat label={headerVal.label}>{fmtMoney(headerVal.amount)}</BandStat>
           )}
           <BandStat label="Lender">
-            <span className="capitalize">
-              {deal.lender ?? 'not set'}
-              {deal.product ? `, ${deal.product}` : ''}
-            </span>
+            {deal.lender ? (
+              <span className="capitalize">
+                {deal.lender}
+                {deal.product ? `, ${deal.product}` : ''}
+              </span>
+            ) : deal.targetLender ? (
+              <span className="capitalize">
+                {deal.targetLender} <span className="font-normal opacity-70">(target)</span>
+              </span>
+            ) : (
+              'not set'
+            )}
           </BandStat>
         </div>
         <div className="mt-4 flex flex-wrap gap-4 border-t border-white/10 pt-3 font-ui text-xs text-white/60">

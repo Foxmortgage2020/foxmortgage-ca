@@ -31,6 +31,7 @@ import type {
   IncomeCalcRow,
   RatioCalcRow,
   DocumentRow,
+  DocumentRequestRow,
   AuditEntry,
   OpenFlag,
   ConditionsDue,
@@ -300,19 +301,35 @@ export function demoDealDetail(dealId: string): DealDetail | null {
 }
 
 export function demoDealFinmoSnapshot(dealId: string): FinmoSnapshotRow | null {
-  // demo-deal-1 has a "pulled" Finmo snapshot; the others do not (so the strip
-  // shows "not pulled"). All synthetic.
-  if (dealId !== 'demo-deal-1') return null
-  return {
-    pulledAt: '2026-07-09T13:05:00Z',
-    mapped: {
-      goal: 'purchase', province: 'ON',
-      requested: { amount: 640000, rate: 4.79, interest_type: 'fixed', product_label: '5-yr Fixed', term_months: 60, amortization_months: 300, payment_frequency: 'monthly', lender_name: null, gds: null, tds: null, ltv: null },
-      existing_mortgages: [],
-      subject_property: { type: 'detached', use: 'owner_occupied', worth: 800000, annual_taxes: 5200 },
-      incomes: [{ borrower: 'Marty McFixture', title: 'Analyst', employer: 'Sample Corp', income_annual: 140000, active: true, bonuses: false }],
-    },
+  // demo-deal-1 (purchase) and demo-deal-2 (refinance) have a "pulled" Finmo
+  // snapshot; demo-deal-3 does not. All synthetic.
+  if (dealId === 'demo-deal-1') {
+    return {
+      pulledAt: '2026-07-09T13:05:00Z',
+      mapped: {
+        goal: 'purchase', province: 'ON',
+        requested: { amount: 640000, rate: 4.79, interest_type: 'fixed', product_label: '5-yr Fixed', term_months: 60, amortization_months: 300, payment_frequency: 'monthly', lender_name: null, gds: null, tds: null, ltv: null },
+        existing_mortgages: [],
+        subject_property: { type: 'detached', use: 'owner_occupied', worth: 800000, annual_taxes: 5200 },
+        incomes: [{ borrower: 'Marty McFixture', title: 'Analyst', employer: 'Sample Corp', income_annual: 140000, active: true, bonuses: false }],
+      },
+    }
   }
+  if (dealId === 'demo-deal-2') {
+    // A refinance: the deals row carries a stale purchase price (620,000); the
+    // fresh application worth is what the header shows as "Estimated value".
+    return {
+      pulledAt: '2026-07-08T10:15:00Z',
+      mapped: {
+        goal: 'refinance', province: 'ON',
+        requested: { amount: 415000, rate: 5.14, interest_type: 'fixed', product_label: '5-yr Fixed', term_months: 60, amortization_months: 300, payment_frequency: 'monthly', lender_name: null, gds: null, tds: null, ltv: null },
+        existing_mortgages: [{ balance: 360000, lender: 'Existing Bank' }],
+        subject_property: { type: 'detached', use: 'owner_occupied', worth: 705000, appraised_value: null, purchase_price: null, annual_taxes: 4800 },
+        incomes: [],
+      },
+    }
+  }
+  return null
 }
 
 export function demoDealContextCounts(dealId: string): DealContextCounts {
@@ -354,40 +371,63 @@ export function demoDealConditions(dealId: string): DealConditionRow[] {
   if (dealId === 'demo-deal-1') {
     return [
       {
-        ...condBase, id: 'demo-cond-1', text: 'Confirm down payment source (90-day history)', owner: 'borrower',
+        // Bridges the Finmo Pay Stub request (matched_request_id) and carries the
+        // paystub statement evidence (analysis.document_id -> demo-doc-1), which
+        // reparents into that request's expansion.
+        ...condBase, id: 'demo-cond-pay', text: 'Confirm employment income from the most recent pay stubs', owner: 'broker',
         status: 'open', dueDate: '2026-07-08', condNumber: '1', source: 'commitment', evidenceRefCount: 1,
         category: 'general_verification', kind: 'document_chase', precheckStatus: 'pass',
-        presence: 'obtained', presenceDetail: { matched_finmo_name: 'TD chequing — 90 day history', finmo_status: 'accepted', recomputed_at: '2026-07-09T13:20:00Z' },
-        docKind: 'void_cheque', borrowerId: 'demo-b-1', sourcePage: 2,
-        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 96,
+        presence: 'obtained', presenceDetail: { matched_finmo_name: 'Pay Stub(s) — most recent', matched_request_id: 'fin-req-pay', finmo_status: 'approved', recomputed_at: '2026-07-09T13:20:00Z', analysis: { verdict: 'meets', reasoning: 'Gross pay annualises to $78,000, at or above the requirement.', rule_note: 'Two most recent stubs on file; income confirmed.', document_id: 'demo-doc-1', as_of: '2026-07-05', confidence: 95, analyzed_at: '2026-07-09T13:20:00Z' } },
+        docKind: 'pay_stub', borrowerId: 'demo-b-1', sourcePage: 1,
+        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 95,
       },
       {
-        ...condBase, id: 'demo-cond-2', text: 'Solicitor to confirm title insurance', owner: 'solicitor',
-        status: 'open', dueDate: '2026-07-20', condNumber: '2', source: 'commitment', evidenceRefCount: 0,
+        // Bridges the Finmo Letter of Employment request; a stale-dated verdict
+        // makes that request AI-flagged with a plain-words reason.
+        ...condBase, id: 'demo-cond-loe', text: 'Letter of employment for the primary applicant dated within 30 days', owner: 'broker',
+        status: 'open', dueDate: '2026-07-15', condNumber: '2', source: 'commitment', evidenceRefCount: 1,
+        category: 'general_verification', kind: 'document_chase', precheckStatus: 'pass',
+        presence: 'obtained', presenceDetail: { matched_finmo_name: 'Letter of Employment', matched_request_id: 'fin-req-loe', finmo_status: 'for_review', recomputed_at: '2026-07-09T13:20:00Z', analysis: { verdict: 'stale', reasoning: 'The letter is dated 2026-05-20, more than 30 days before the application.', rule_note: 'Dated over 30 days ago', document_id: null, as_of: '2026-05-20', recency: { days: 30, doc_age_days: 51, ok: false }, confidence: 90, analyzed_at: '2026-07-09T13:20:00Z' } },
+        docKind: 'letter_of_employment', borrowerId: 'demo-b-1', sourcePage: 1,
+        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 90,
+        humanEditedFields: ['owner'],
+      },
+      {
+        // Bridges the Finmo Gift Letter request; a passing verdict makes it AI-passed.
+        ...condBase, id: 'demo-cond-gift', text: 'Gift letter from the guarantor', owner: 'broker',
+        status: 'open', dueDate: '2026-07-16', condNumber: '3', source: 'commitment', evidenceRefCount: 1,
+        category: 'general_verification', kind: 'document_chase', precheckStatus: 'pass',
+        presence: 'obtained', presenceDetail: { matched_finmo_name: 'Gift Letter', matched_request_id: 'fin-req-gift', finmo_status: 'for_review', recomputed_at: '2026-07-09T13:20:00Z', analysis: { verdict: 'meets', reasoning: 'Signed gift letter naming the guarantor and amount.', rule_note: 'Signed and complete.', document_id: null, as_of: '2026-07-06', confidence: 92, analyzed_at: '2026-07-09T13:20:00Z' } },
+        docKind: 'gift_letter', borrowerId: 'demo-b-3', sourcePage: 1,
+        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 92,
+      },
+      {
+        // Commitment-only request (no Finmo request row): still waiting.
+        ...condBase, id: 'demo-cond-fire', text: 'Fire insurance binder naming the lender as first loss payee', owner: 'borrower',
+        status: 'open', dueDate: '2026-07-18', condNumber: 'M-1a2b3c', source: 'manual', evidenceRefCount: 0,
+        category: 'property_valuation', kind: 'document_chase', precheckStatus: null,
+        presence: 'needs_input', presenceDetail: { manual: true },
+        docKind: 'fire_insurance_binder', borrowerId: null, sourcePage: null,
+        sourceSnippet: null, confidence: null,
+      },
+      {
+        // Commitment-only request satisfied by an in-hand document (Task 3).
+        ...condBase, id: 'demo-cond-disc', text: 'Broker disclosure signed by the co-applicant', owner: 'borrower',
+        status: 'open', dueDate: '2026-07-12', condNumber: '4', source: 'commitment', evidenceRefCount: 1,
+        category: 'general_verification', kind: 'document_chase', precheckStatus: 'pass',
+        presence: 'obtained', presenceDetail: { matched_finmo_name: 'Signed disclosure — co-applicant', finmo_status: 'accepted', recomputed_at: '2026-07-09T13:20:00Z' },
+        docKind: 'disclosure', borrowerId: 'demo-b-2', sourcePage: 1,
+        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 94,
+      },
+      {
+        // A non-document condition (docKind null) — stays on the checklist, never
+        // a documents-desk card.
+        ...condBase, id: 'demo-cond-title', text: 'Solicitor to confirm title insurance', owner: 'solicitor',
+        status: 'open', dueDate: '2026-07-20', condNumber: '5', source: 'commitment', evidenceRefCount: 0,
         category: 'solicitor', kind: null, precheckStatus: null,
         presence: 'needs_input', presenceDetail: { reason: 'no matching document in Finmo' },
         docKind: null, borrowerId: null, sourcePage: 3,
         sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 90,
-      },
-      {
-        // A broker condition Michael re-assigned by hand (shows the "edited" chip).
-        ...condBase, id: 'demo-cond-4', text: 'Broker to confirm annual income of $150,000 for the primary applicant', owner: 'broker',
-        status: 'open', dueDate: '2026-07-15', condNumber: '3', source: 'commitment', evidenceRefCount: 1,
-        category: 'general_verification', kind: 'document_chase', precheckStatus: 'pass',
-        presence: 'obtained', presenceDetail: { matched_finmo_name: 'T4 2025 — primary applicant', finmo_status: 'accepted', recomputed_at: '2026-07-09T13:20:00Z', analysis: { verdict: 'short', reasoning: '$145,000 vs $150,000 requirement, short by $5,000', rule_note: 'the document shows $145,000, the requirement is $150,000, short by $5,000', delta: -5000, extracted: 145000, requirement: 150000, requirement_kind: 'income_min', requirement_source: 'parsed', recency: { days: 60, doc_age_days: 8, ok: true }, value_citation: { page: 1, snippet: 'Box 14 Employment income 145,000.00' }, document_id: 'demo-d-3', as_of: '2026-07-01', confidence: 88, analyzed_at: '2026-07-09T13:20:00Z' } },
-        docKind: 't4_noa', borrowerId: 'demo-b-1', sourcePage: 1,
-        sourceSnippet: 'Demo commitment — synthetic condition, not a real document.', confidence: 93,
-        humanEditedFields: ['owner'],
-        requirement: { kind: 'income_min', target: 150000, source: 'parsed' },
-      },
-      {
-        // A broker condition Michael added by hand (shows the "added by hand" chip).
-        ...condBase, id: 'demo-cond-5', text: 'Broker to confirm the strata insurance certificate names the lender', owner: 'broker',
-        status: 'open', dueDate: '2026-07-18', condNumber: 'M-1a2b3c', source: 'manual', evidenceRefCount: 0,
-        category: 'broker_deliverable', kind: null, precheckStatus: null,
-        presence: 'needs_input', presenceDetail: { manual: true },
-        docKind: 'fire_insurance_binder', borrowerId: null, sourcePage: null,
-        sourceSnippet: null, confidence: null,
       },
     ]
   }
@@ -466,8 +506,36 @@ export function demoDealShadowHistory(dealId: string): DealShadowScore[] {
 export function demoDealBorrowers(dealId: string): BorrowerRow[] {
   if (dealId === 'demo-deal-1') {
     return [
-      { id: 'demo-b-1', role: 'primary', fullName: 'Marty McFixture', dob: '1988-04-12', maritalStatus: 'married', employment: { employer: 'Fixture Manufacturing Ltd', type: 'salaried' } },
-      { id: 'demo-b-2', role: 'co-applicant', fullName: 'Sample Borrower', dob: '1990-09-30', maritalStatus: 'married', employment: { employer: 'Testwell Clinic', type: 'salaried' } },
+      { id: 'demo-b-1', role: 'primary', fullName: 'Marty McFixture', dob: '1988-04-12', maritalStatus: 'married', employment: { employer: 'Fixture Manufacturing Ltd', type: 'salaried' }, finmoBorrowerId: 'fin-b-1' },
+      { id: 'demo-b-2', role: 'co-applicant', fullName: 'Sample Borrower', dob: '1990-09-30', maritalStatus: 'married', employment: { employer: 'Testwell Clinic', type: 'salaried' }, finmoBorrowerId: 'fin-b-2' },
+      { id: 'demo-b-3', role: 'guarantor', fullName: 'Jordan Wells', dob: '1962-02-08', maritalStatus: 'single', employment: { employer: 'Retired', type: 'other' }, finmoBorrowerId: 'fin-b-3' },
+    ]
+  }
+  return []
+}
+
+// The Finmo document REQUEST inventory (document_index) for the demo file — the
+// unit the documents desk renders. Shaped like a real degenerate file: a
+// three-borrower deal with General + per-borrower requests, every state
+// (waiting / received / AI-flagged / AI-passed / reviewed), a duplicate-versions
+// request (5 files), and a missing requested date.
+export function demoDealDocumentRequests(dealId: string): DocumentRequestRow[] {
+  if (dealId === 'demo-deal-1') {
+    return [
+      // General (account-level, no borrower).
+      { finmoRequestId: 'fin-req-psa', borrowerFinmoId: null, borrowerName: null, documentName: 'Purchase and Sale Agreement', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-02T12:00:00Z' },
+      { finmoRequestId: 'fin-req-ptax', borrowerFinmoId: null, borrowerName: null, documentName: 'Property Tax Bill', status: 'for_review', numberOfFiles: 1, hasSrc: false, filename: 'tax-bill-2026.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-06T09:30:00Z' },
+      // Marty (primary).
+      { finmoRequestId: 'fin-req-pay', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Pay Stub(s) — most recent', status: 'approved', numberOfFiles: 2, hasSrc: false, filename: 'paystub-jun.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-05T10:00:00Z' },
+      // Duplicate versions (5 files); bridged by a stale-dated verdict -> AI flagged.
+      { finmoRequestId: 'fin-req-loe', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Letter of Employment', status: 'for_review', numberOfFiles: 5, hasSrc: true, filename: 'loe-v5.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-06T14:00:00Z' },
+      { finmoRequestId: 'fin-req-void', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', documentName: 'Void Cheque', status: 'approved', numberOfFiles: 1, hasSrc: false, filename: 'void.pdf', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-04T11:00:00Z' },
+      // Sample (co-applicant).
+      { finmoRequestId: 'fin-req-id', borrowerFinmoId: 'fin-b-2', borrowerName: 'Sample Borrower', documentName: '2 Main Forms of Identification', status: 'approved', numberOfFiles: 4, hasSrc: false, filename: 'id-front.jpg', requestedAt: '2026-07-02T12:00:00Z', finmoUpdatedAt: '2026-07-05T16:00:00Z' },
+      // Missing requested date (degenerate).
+      { finmoRequestId: 'fin-req-noa', borrowerFinmoId: 'fin-b-2', borrowerName: 'Sample Borrower', documentName: 'Notice of Assessment (2 years)', status: 'requested', numberOfFiles: 0, hasSrc: false, filename: null, requestedAt: null, finmoUpdatedAt: null },
+      // Jordan (guarantor); bridged by a passing verdict -> AI passed.
+      { finmoRequestId: 'fin-req-gift', borrowerFinmoId: 'fin-b-3', borrowerName: 'Jordan Wells', documentName: 'Gift Letter', status: 'for_review', numberOfFiles: 1, hasSrc: false, filename: 'gift.pdf', requestedAt: '2026-07-03T12:00:00Z', finmoUpdatedAt: '2026-07-07T09:00:00Z' },
     ]
   }
   return []
@@ -476,6 +544,8 @@ export function demoDealBorrowers(dealId: string): BorrowerRow[] {
 export function demoDealIncomeCalcs(dealId: string): IncomeCalcRow[] {
   if (dealId === 'demo-deal-1') {
     return [
+      // A superseded first pass folds into History; the current row leads.
+      { id: 'demo-ic-0', borrowerId: 'demo-b-1', lenderSlug: 'sample-bank', basis: 'salaried', resultAnnual: 61000, calcVersion: 'v2', inputsHash: 'demohash0', createdAt: '2026-07-04T11:00:00Z' },
       { id: 'demo-ic-1', borrowerId: 'demo-b-1', lenderSlug: 'sample-bank', basis: 'salaried', resultAnnual: 78000, calcVersion: 'v3', inputsHash: 'demohash1', createdAt: '2026-07-06T15:10:00Z' },
     ]
   }
@@ -485,6 +555,9 @@ export function demoDealIncomeCalcs(dealId: string): IncomeCalcRow[] {
 export function demoDealRatioCalcs(dealId: string): RatioCalcRow[] {
   if (dealId === 'demo-deal-1') {
     return [
+      // A superseded recompute with an implausible LTV — folds into History, never
+      // beside the current row.
+      { id: 'demo-rc-0', lenderSlug: 'sample-bank', qualRate: 6.59, pmtContract: 3550, pmtStress: 4100, gds: 0.44, tds: 0.61, ltv: 1.42, calcVersion: 'v2', inputsHash: 'demohash-old', createdAt: '2026-07-04T10:00:00Z' },
       { id: 'demo-rc-1', lenderSlug: 'sample-bank', qualRate: 6.59, pmtContract: 3550, pmtStress: 4100, gds: 0.31, tds: 0.38, ltv: 0.80, calcVersion: 'v3', inputsHash: 'demohash2', createdAt: '2026-07-06T15:12:00Z' },
     ]
   }

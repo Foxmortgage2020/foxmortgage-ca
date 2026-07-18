@@ -1,22 +1,26 @@
-// The documents desk model (B6): grouping, the analysis (verdict) join, and the
-// waiting-request derivation. Pure — no I/O, no demo — so every branch the desk
-// can render is asserted here.
+// The documents desk model (B6.2): the REQUEST is the unit. States derive from
+// what Finmo asked for + what arrived + the (optional) bridging condition's
+// verdict and human-confirmed state. Borrower-sectioned; commitment-only
+// requests render too.
 
 import { describe, it, expect } from 'vitest'
-import { buildDocumentsDesk } from '@/lib/documents-desk'
-import type { DocumentRow, DealConditionRow } from '@/lib/underwriting'
+import { buildRequestsDesk } from '@/lib/documents-desk'
+import type { DocumentRequestRow, BorrowerInfo } from '@/lib/documents-desk'
+import type { DealConditionRow } from '@/lib/underwriting'
 
 let n = 0
-function doc(p: Partial<DocumentRow> = {}): DocumentRow {
+function req(p: Partial<DocumentRequestRow> = {}): DocumentRequestRow {
   return {
-    id: p.id ?? `d-${++n}`,
-    docType: p.docType ?? 'pay_stub',
-    source: p.source ?? 'upload',
-    receivedAt: p.receivedAt ?? '2026-07-04T09:00:00Z',
-    reviewStatus: p.reviewStatus ?? 'pending',
-    createdAt: p.createdAt ?? '2026-07-04T09:00:00Z',
-    provenance: p.provenance ?? 'real',
-    borrowerId: p.borrowerId ?? null,
+    finmoRequestId: p.finmoRequestId ?? `fr-${++n}`,
+    borrowerFinmoId: p.borrowerFinmoId ?? null,
+    borrowerName: p.borrowerName ?? null,
+    documentName: p.documentName ?? 'Some Document',
+    status: p.status ?? 'requested',
+    numberOfFiles: p.numberOfFiles ?? 0,
+    hasSrc: p.hasSrc ?? false,
+    filename: p.filename ?? null,
+    requestedAt: p.requestedAt ?? '2026-07-02T00:00:00Z',
+    finmoUpdatedAt: p.finmoUpdatedAt ?? null,
   }
 }
 
@@ -50,244 +54,208 @@ function cond(p: Partial<DealConditionRow> = {}): DealConditionRow {
   }
 }
 
-// A condition carrying an analysis verdict for a document.
-function analysisCond(verdict: string, opts: { documentId?: string | null; docKind?: string; borrowerId?: string | null; asOf?: string } = {}): DealConditionRow {
+// A condition that bridges a request and carries a verdict.
+function bridge(requestId: string, verdict: string, opts: { documentId?: string | null; docKind?: string; borrowerId?: string | null; presence?: DealConditionRow['presence'] } = {}): DealConditionRow {
   return cond({
-    docKind: opts.docKind ?? 't4_noa',
-    borrowerId: opts.borrowerId ?? 'b-1',
-    presence: 'obtained',
+    docKind: opts.docKind ?? 'letter_of_employment',
+    borrowerId: opts.borrowerId ?? null,
+    presence: opts.presence ?? 'obtained',
     presenceDetail: {
-      matched_finmo_name: 'x',
-      analysis: { verdict, document_id: opts.documentId ?? null, as_of: opts.asOf ?? '2026-07-01' },
+      matched_request_id: requestId,
+      analysis: { verdict, document_id: opts.documentId ?? null, rule_note: 'a plain reason', as_of: '2026-07-01' },
     },
   })
 }
 
-describe('buildDocumentsDesk — empty + basic states', () => {
+const allCards = (desk: ReturnType<typeof buildRequestsDesk>) => desk.sections.flatMap(s => s.cards)
+const cardFor = (desk: ReturnType<typeof buildRequestsDesk>, key: string) => allCards(desk).find(c => c.key === key)
+
+describe('buildRequestsDesk — Finmo request states', () => {
   it('empty inputs yield an empty desk', () => {
-    const desk = buildDocumentsDesk([], [])
+    const desk = buildRequestsDesk([], [])
     expect(desk.isEmpty).toBe(true)
-    expect(desk.counts.total).toBe(0)
+    expect(desk.progress).toEqual({ done: 0, total: 0 })
   })
 
-  it('approved and reviewed documents are Done (green); rejected is Done (red)', () => {
-    const desk = buildDocumentsDesk(
-      [
-        doc({ id: 'a', reviewStatus: 'approved' }),
-        doc({ id: 'b', reviewStatus: 'reviewed' }),
-        doc({ id: 'c', reviewStatus: 'rejected' }),
-      ],
-      [],
-    )
-    expect(desk.done).toHaveLength(3)
-    expect(desk.needsEyes).toHaveLength(0)
-    const byKey = Object.fromEntries(desk.done.map(c => [c.key, c]))
-    expect(byKey['doc:a']!.state.tone).toBe('green')
-    expect(byKey['doc:b']!.state.tone).toBe('green')
-    expect(byKey['doc:c']!.state.tone).toBe('red')
-    expect(byKey['doc:c']!.state.label).toBe('Rejected')
+  it('a requested request with nothing received is waiting', () => {
+    const desk = buildRequestsDesk([req({ finmoRequestId: 'r1', status: 'requested', numberOfFiles: 0 })], [])
+    expect(cardFor(desk, 'req:r1')!.state).toBe('waiting')
+    expect(cardFor(desk, 'req:r1')!.filter).toBe('waiting')
   })
 
-  it('a received-pending document with no verdict is Needs your eyes (navy outline)', () => {
-    const desk = buildDocumentsDesk([doc({ id: 'a', reviewStatus: 'pending' })], [])
-    expect(desk.needsEyes).toHaveLength(1)
-    expect(desk.needsEyes[0]!.state.tone).toBe('navy-outline')
-    expect(desk.needsEyes[0]!.state.label).toBe('In review')
+  it('files received with no verdict is "received" (ready for your look)', () => {
+    const desk = buildRequestsDesk([req({ finmoRequestId: 'r1', status: 'for_review', numberOfFiles: 2 })], [])
+    expect(cardFor(desk, 'req:r1')!.state).toBe('received')
+    expect(cardFor(desk, 'req:r1')!.received).toMatchObject({ count: 2 })
   })
 
-  it('an unknown review status surfaces under Needs your eyes, never silently Done', () => {
-    const desk = buildDocumentsDesk([doc({ id: 'a', reviewStatus: 'quarantined' })], [])
-    expect(desk.needsEyes).toHaveLength(1)
-    expect(desk.done).toHaveLength(0)
+  it('has_src alone (0 files) still counts as received', () => {
+    const desk = buildRequestsDesk([req({ finmoRequestId: 'r1', status: 'for_review', numberOfFiles: 0, hasSrc: true })], [])
+    expect(cardFor(desk, 'req:r1')!.state).toBe('received')
+    expect(cardFor(desk, 'req:r1')!.received!.count).toBe(1)
   })
 
-  it('a synthetic document is a loud red card under Needs your eyes and never Done', () => {
-    const desk = buildDocumentsDesk([doc({ id: 'a', reviewStatus: 'approved', provenance: 'synthetic' })], [])
-    expect(desk.done).toHaveLength(0)
-    expect(desk.needsEyes).toHaveLength(1)
-    expect(desk.needsEyes[0]!.synthetic).toBe(true)
-    expect(desk.needsEyes[0]!.state.tone).toBe('red')
-    expect(desk.needsEyes[0]!.analysis).toBeNull()
+  it('a Finmo-approved request is reviewed (approved), counted done', () => {
+    const desk = buildRequestsDesk([req({ finmoRequestId: 'r1', status: 'approved', numberOfFiles: 1, finmoUpdatedAt: '2026-07-05T00:00:00Z' })], [])
+    const c = cardFor(desk, 'req:r1')!
+    expect(c.state).toBe('reviewed')
+    expect(c.reviewedKind).toBe('finmo_approved')
+    expect(c.reviewedAt).toBe('2026-07-05T00:00:00Z')
+    expect(desk.progress.done).toBe(1)
   })
 })
 
-describe('buildDocumentsDesk — the analysis (verdict) join', () => {
-  it('attaches a gap verdict by document_id (hard join) and raises the state to amber', () => {
-    const desk = buildDocumentsDesk(
-      [doc({ id: 'd1', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' })],
-      [analysisCond('short', { documentId: 'd1' })],
-    )
-    const card = desk.needsEyes.find(c => c.key === 'doc:d1')!
-    expect(card.state.tone).toBe('amber')
-    expect(card.state.label).toBe('Needs attention')
-    expect(card.analysis?.tone).toBe('red')
-    expect(card.analysis?.label).toBe('Short of the requirement')
-    expect(card.analysis?.source).toBe('Analysis (draft)')
-    expect(card.analysis?.asOf).toBe('2026-07-01')
-  })
-
-  it('a meets verdict is green and keeps the state calm (navy outline, not amber)', () => {
-    const desk = buildDocumentsDesk(
-      [doc({ id: 'd1', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' })],
-      [analysisCond('meets', { documentId: 'd1' })],
-    )
-    const card = desk.needsEyes.find(c => c.key === 'doc:d1')!
-    expect(card.analysis?.tone).toBe('green')
-    expect(card.state.tone).toBe('navy-outline')
-  })
-
-  it('a needs_review verdict is amber on both the state chip and the analysis chip', () => {
-    const desk = buildDocumentsDesk(
-      [doc({ id: 'd1', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' })],
-      [analysisCond('needs_review', { documentId: 'd1' })],
-    )
-    const card = desk.needsEyes.find(c => c.key === 'doc:d1')!
-    expect(card.state.tone).toBe('amber')
-    expect(card.analysis?.tone).toBe('amber')
-  })
-
-  it('an unknown verdict falls to needs_review (amber), never green', () => {
-    const desk = buildDocumentsDesk(
-      [doc({ id: 'd1', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' })],
-      [analysisCond('some_future_verdict', { documentId: 'd1' })],
-    )
-    expect(desk.needsEyes[0]!.analysis?.tone).toBe('amber')
-  })
-
-  it('falls back to a (kind, borrower) match when the analysis carries no document_id and the pairing is unique', () => {
-    const desk = buildDocumentsDesk(
-      [doc({ id: 'd1', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' })],
-      [analysisCond('short', { documentId: null, docKind: 't4_noa', borrowerId: 'b-1' })],
-    )
-    expect(desk.needsEyes[0]!.analysis?.label).toBe('Short of the requirement')
-  })
-
-  it('does NOT attribute an unstamped verdict when two documents share the (kind, borrower) pairing', () => {
-    const desk = buildDocumentsDesk(
+describe('buildRequestsDesk — the verdict bridge', () => {
+  it('a stale verdict flags the request (amber) with a plain reason, sorted first', () => {
+    const desk = buildRequestsDesk(
       [
-        doc({ id: 'd1', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' }),
-        doc({ id: 'd2', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' }),
+        req({ finmoRequestId: 'ok', status: 'approved', numberOfFiles: 1 }),
+        req({ finmoRequestId: 'bad', status: 'for_review', numberOfFiles: 1 }),
       ],
-      [analysisCond('short', { documentId: null, docKind: 't4_noa', borrowerId: 'b-1' })],
+      [bridge('bad', 'stale', { docKind: 'letter_of_employment' })],
     )
-    expect(desk.needsEyes.every(c => c.analysis === null)).toBe(true)
+    const c = cardFor(desk, 'req:bad')!
+    expect(c.state).toBe('ai_flagged')
+    expect(c.analysis?.tone).toBe('red')
+    expect(c.analysis?.reason).toBe('a plain reason')
+    // Flagged sorts before the approved one within its section.
+    expect(desk.sections[0]!.cards[0]!.key).toBe('req:bad')
   })
 
-  it('a verdict stamped for one document never leaks onto a different document of the same kind', () => {
-    const desk = buildDocumentsDesk(
-      [
-        doc({ id: 'd1', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' }),
-        doc({ id: 'd2', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' }),
-      ],
-      [analysisCond('short', { documentId: 'd1' })],
+  it('a Finmo-approved request with a non-green verdict stays flagged and does NOT claim reviewed', () => {
+    // Finmo accepted it, but our reader flagged it stale — it needs a look, so it
+    // is NOT counted done and never shows a contradictory "Approved" line.
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', status: 'approved', numberOfFiles: 1, finmoUpdatedAt: '2026-07-05T00:00:00Z' })],
+      [bridge('r1', 'stale')],
     )
-    expect(desk.needsEyes.find(c => c.key === 'doc:d1')!.analysis).not.toBeNull()
-    expect(desk.needsEyes.find(c => c.key === 'doc:d2')!.analysis).toBeNull()
+    const c = cardFor(desk, 'req:r1')!
+    expect(c.state).toBe('ai_flagged')
+    expect(c.reviewedKind).toBeNull()
+    expect(c.reviewedAt).toBeNull()
+    expect(c.finmoStatus).toBe('approved') // still visible in the expansion
+    expect(desk.progress.done).toBe(0)
+  })
+
+  it('a meets verdict on a not-yet-approved request is AI passed', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', status: 'for_review', numberOfFiles: 1 })],
+      [bridge('r1', 'meets')],
+    )
+    expect(cardFor(desk, 'req:r1')!.state).toBe('ai_passed')
+  })
+
+  it('a verified bridging condition marks the request confirmed (done)', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', status: 'for_review', numberOfFiles: 1 })],
+      [bridge('r1', 'meets', { presence: 'verified' })],
+    )
+    const c = cardFor(desk, 'req:r1')!
+    // A verified condition also carries verifiedAt via the factory default (null),
+    // but the kind is 'confirmed'.
+    expect(c.state).toBe('reviewed')
+    expect(c.reviewedKind).toBe('confirmed')
+  })
+
+  it('a human confirmation (verified) wins over a non-green verdict — it is terminal', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', status: 'for_review', numberOfFiles: 1 })],
+      [bridge('r1', 'stale', { presence: 'verified' })],
+    )
+    // Michael verified it despite the draft flag; the card reads Confirmed, not Flagged.
+    expect(cardFor(desk, 'req:r1')!.state).toBe('reviewed')
+    expect(cardFor(desk, 'req:r1')!.reviewedKind).toBe('confirmed')
+  })
+
+  it('the bridging condition is NOT re-shown as its own card', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', status: 'for_review', numberOfFiles: 1 })],
+      [bridge('r1', 'meets')],
+    )
+    expect(allCards(desk)).toHaveLength(1)
+    expect(cardFor(desk, 'req:r1')!.documentId).toBeNull()
+  })
+
+  it('carries analysis.document_id through for the evidence reparent', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', status: 'for_review', numberOfFiles: 1 })],
+      [bridge('r1', 'meets', { documentId: 'doc-9' })],
+    )
+    expect(cardFor(desk, 'req:r1')!.documentId).toBe('doc-9')
   })
 })
 
-describe('buildDocumentsDesk — waiting on the client (requested documents)', () => {
-  it('an open document-condition awaiting input is a gray Requested card', () => {
-    const desk = buildDocumentsDesk(
-      [],
-      [cond({ id: 'c1', docKind: 'letter_of_employment', presence: 'needs_input', status: 'open', dueDate: '2026-07-20' })],
-    )
-    expect(desk.waiting).toHaveLength(1)
-    expect(desk.waiting[0]!.state.tone).toBe('gray')
-    expect(desk.waiting[0]!.name).toBe('letter_of_employment')
-    expect(desk.waiting[0]!.date).toEqual({ kind: 'due', value: '2026-07-20' })
+describe('buildRequestsDesk — commitment-only requests (Task 3)', () => {
+  it('an open document-condition with no Finmo request is a waiting commitment card', () => {
+    const desk = buildRequestsDesk([], [cond({ id: 'c1', docKind: 'fire_insurance_binder', presence: 'needs_input' })])
+    const c = cardFor(desk, 'cond:c1')!
+    expect(c.origin).toBe('commitment')
+    expect(c.state).toBe('waiting')
+    expect(c.name).toBe('fire insurance binder')
   })
 
-  it('a condition with no doc kind is never a waiting card (it is not a document request)', () => {
-    const desk = buildDocumentsDesk([], [cond({ docKind: null, presence: 'needs_input', status: 'open' })])
-    expect(desk.waiting).toHaveLength(0)
+  it('a commitment condition satisfied by an in-hand document renders satisfied (received)', () => {
+    const desk = buildRequestsDesk([], [cond({ id: 'c1', docKind: 'disclosure', presence: 'obtained' })])
+    expect(cardFor(desk, 'cond:c1')!.state).toBe('received')
+  })
+
+  it('a condition with no doc kind is never a card', () => {
+    const desk = buildRequestsDesk([], [cond({ docKind: null, presence: 'needs_input' })])
     expect(desk.isEmpty).toBe(true)
   })
 
-  it('obtained / verified / satisfied / waived conditions are not waiting cards', () => {
-    const desk = buildDocumentsDesk(
-      [],
-      [
-        cond({ docKind: 'aps', presence: 'obtained', status: 'open' }),
-        cond({ docKind: 'id', presence: 'verified', status: 'satisfied' }),
-        cond({ docKind: 'appraisal', presence: 'needs_input', status: 'waived' }),
-      ],
-    )
-    expect(desk.waiting).toHaveLength(0)
+  it('an underwriting constraint (not_applicable) is never a card', () => {
+    const desk = buildRequestsDesk([], [cond({ docKind: 'other', presence: 'not_applicable' })])
+    expect(desk.isEmpty).toBe(true)
   })
 
-  it('a request whose document has already arrived is suppressed (no double-show)', () => {
-    const desk = buildDocumentsDesk(
-      [doc({ id: 'd1', docType: 'void_cheque', borrowerId: 'b-1', reviewStatus: 'pending' })],
-      [cond({ docKind: 'void_cheque', borrowerId: 'b-1', presence: 'needs_input', status: 'open' })],
-    )
-    expect(desk.waiting).toHaveLength(0)
-    expect(desk.needsEyes).toHaveLength(1)
-  })
-
-  it('a SYNTHETIC document does NOT suppress an open request for the same kind — it has not truly arrived', () => {
-    const desk = buildDocumentsDesk(
-      [doc({ id: 'd1', docType: 'void_cheque', borrowerId: 'b-1', provenance: 'synthetic', reviewStatus: 'pending' })],
-      [cond({ docKind: 'void_cheque', borrowerId: 'b-1', presence: 'needs_input', status: 'open' })],
-    )
-    expect(desk.waiting).toHaveLength(1) // the client still owes the real document
-    expect(desk.needsEyes.some(c => c.synthetic)).toBe(true)
-  })
-
-  it('a REJECTED document does NOT suppress an open request for the same kind — the request stays open', () => {
-    const desk = buildDocumentsDesk(
-      [doc({ id: 'd1', docType: 'void_cheque', borrowerId: 'b-1', reviewStatus: 'rejected' })],
-      [cond({ docKind: 'void_cheque', borrowerId: 'b-1', presence: 'needs_input', status: 'open' })],
-    )
-    expect(desk.waiting).toHaveLength(1)
-    expect(desk.done.some(c => c.state.label === 'Rejected')).toBe(true)
-  })
-
-  it('waiting cards sort by soonest due date first', () => {
-    const desk = buildDocumentsDesk(
-      [],
-      [
-        cond({ id: 'late', docKind: 'aps', presence: 'requested', status: 'open', dueDate: '2026-08-01' }),
-        cond({ id: 'soon', docKind: 'id', presence: 'requested', status: 'open', dueDate: '2026-07-10' }),
-      ],
-    )
-    expect(desk.waiting.map(c => c.key)).toEqual(['req:soon', 'req:late'])
+  it('a waived document-condition is never a card', () => {
+    const desk = buildRequestsDesk([], [cond({ docKind: 'aps', presence: 'obtained', status: 'waived' })])
+    expect(desk.isEmpty).toBe(true)
   })
 })
 
-describe('buildDocumentsDesk — counts, ordering, and the whole picture', () => {
-  it('reports counts and populates all three groups', () => {
-    const desk = buildDocumentsDesk(
-      [
-        doc({ id: 'done1', reviewStatus: 'reviewed' }),
-        doc({ id: 'eyes1', reviewStatus: 'pending' }),
-      ],
-      [cond({ docKind: 'fire_insurance_binder', presence: 'needs_input', status: 'open' })],
-    )
-    expect(desk.counts).toEqual({ needsEyes: 1, waiting: 1, done: 1, total: 3 })
-    expect(desk.isEmpty).toBe(false)
-  })
+describe('buildRequestsDesk — borrower sections + progress', () => {
+  const info = new Map<string, BorrowerInfo>([
+    ['b-2', { finmoBorrowerId: 'fin-b-2', fullName: 'Sample Borrower' }],
+  ])
 
-  it('Needs your eyes orders synthetic first, then gaps, then plain', () => {
-    const desk = buildDocumentsDesk(
+  it('sections by borrower, General first, with per-section and overall progress', () => {
+    const desk = buildRequestsDesk(
       [
-        doc({ id: 'plain', docType: 'void_cheque', reviewStatus: 'pending' }),
-        doc({ id: 'gap', docType: 't4_noa', borrowerId: 'b-1', reviewStatus: 'pending' }),
-        doc({ id: 'synth', docType: 'aps', reviewStatus: 'pending', provenance: 'synthetic' }),
-      ],
-      [analysisCond('short', { documentId: 'gap' })],
-    )
-    expect(desk.needsEyes.map(c => c.key)).toEqual(['doc:synth', 'doc:gap', 'doc:plain'])
-  })
-
-  it('Done orders newest received first', () => {
-    const desk = buildDocumentsDesk(
-      [
-        doc({ id: 'old', reviewStatus: 'approved', receivedAt: '2026-07-01T00:00:00Z' }),
-        doc({ id: 'new', reviewStatus: 'approved', receivedAt: '2026-07-09T00:00:00Z' }),
+        req({ finmoRequestId: 'g1', borrowerFinmoId: null, status: 'requested' }),
+        req({ finmoRequestId: 'm1', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', status: 'approved', numberOfFiles: 1 }),
+        req({ finmoRequestId: 'm2', borrowerFinmoId: 'fin-b-1', borrowerName: 'Marty McFixture', status: 'for_review', numberOfFiles: 1 }),
       ],
       [],
     )
-    expect(desk.done.map(c => c.key)).toEqual(['doc:new', 'doc:old'])
+    expect(desk.sections[0]!.key).toBe('__general__')
+    expect(desk.sections[0]!.label).toBe('General')
+    const marty = desk.sections.find(s => s.label === 'Marty')!
+    expect(marty.total).toBe(2)
+    expect(marty.done).toBe(1)
+    expect(desk.progress).toEqual({ done: 1, total: 3 })
+  })
+
+  it('a commitment condition groups into the same section as its borrower Finmo requests', () => {
+    const desk = buildRequestsDesk(
+      [req({ finmoRequestId: 'r1', borrowerFinmoId: 'fin-b-2', borrowerName: 'Sample Borrower', status: 'approved', numberOfFiles: 1 })],
+      [cond({ id: 'c1', docKind: 'disclosure', presence: 'needs_input', borrowerId: 'b-2' })],
+      info,
+    )
+    const section = desk.sections.find(s => s.label === 'Sample')!
+    expect(section.cards.map(c => c.key).sort()).toEqual(['cond:c1', 'req:r1'])
+  })
+
+  it('filter counts partition the cards', () => {
+    const desk = buildRequestsDesk(
+      [
+        req({ finmoRequestId: 'w', status: 'requested' }),
+        req({ finmoRequestId: 'l', status: 'for_review', numberOfFiles: 1 }),
+        req({ finmoRequestId: 'd', status: 'approved', numberOfFiles: 1 }),
+      ],
+      [],
+    )
+    expect(desk.filterCounts).toEqual({ all: 3, waiting: 1, look: 1, done: 1 })
   })
 })

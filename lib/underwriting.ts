@@ -53,6 +53,7 @@ import {
   demoDealIncomeCalcs,
   demoDealRatioCalcs,
   demoDealDocuments,
+  demoDealDocumentRequests,
   demoDealLenderNotes,
   demoDealFinmoSnapshot,
   demoDealContextCounts,
@@ -1540,12 +1541,16 @@ export interface BorrowerRow {
   dob: string | null
   maritalStatus: string | null
   employment: unknown
+  // The stable Finmo borrower id (migration 0046). Lets the documents desk group
+  // a commitment condition's borrower into the same section as its Finmo document
+  // requests (which carry borrower_finmo_id).
+  finmoBorrowerId: string | null
 }
 
 export async function getDealBorrowers(agentId: string, dealId: string): Promise<UwResult<BorrowerRow[]>> {
   if (isDemoMode()) return demoResult(demoDealBorrowers(dealId))
   const res = await uwSelect<any>('borrowers', {
-    select: 'id,role,full_name,dob,marital_status,employment',
+    select: 'id,role,full_name,dob,marital_status,employment,finmo_borrower_id',
     agent_id: `eq.${agentId}`,
     deal_id: `eq.${dealId}`,
     order: 'role.asc',
@@ -1559,6 +1564,50 @@ export async function getDealBorrowers(agentId: string, dealId: string): Promise
       dob: r.dob ?? null,
       maritalStatus: r.marital_status ?? null,
       employment: r.employment ?? null,
+      finmoBorrowerId: r.finmo_borrower_id ?? null,
+    })),
+  )
+}
+
+// ─── Finmo document REQUEST inventory (document_index, granted 0048) ─────────
+// The per-deal Finmo document-request list — the UNIT the documents desk renders
+// (B6.2). One row per Finmo request: name, borrower, status verbatim, the
+// received-file count, and the requested/updated timestamps.
+export interface DocumentRequestRow {
+  finmoRequestId: string
+  borrowerFinmoId: string | null
+  borrowerName: string | null
+  documentName: string
+  status: string
+  numberOfFiles: number | null
+  hasSrc: boolean
+  filename: string | null
+  requestedAt: string | null
+  finmoUpdatedAt: string | null
+}
+
+export async function getDealDocumentRequests(agentId: string, dealId: string): Promise<UwResult<DocumentRequestRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealDocumentRequests(dealId))
+  const res = await uwSelect<any>('document_index', {
+    select:
+      'finmo_request_id,borrower_finmo_id,borrower_name,document_name,status,number_of_files,has_src,filename,requested_at,finmo_updated_at',
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    order: 'requested_at.asc.nullslast',
+    limit: '200',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      finmoRequestId: r.finmo_request_id,
+      borrowerFinmoId: r.borrower_finmo_id ?? null,
+      borrowerName: r.borrower_name ?? null,
+      documentName: r.document_name,
+      status: r.status,
+      numberOfFiles: r.number_of_files ?? null,
+      hasSrc: !!r.has_src,
+      filename: r.filename ?? null,
+      requestedAt: r.requested_at ?? null,
+      finmoUpdatedAt: r.finmo_updated_at ?? null,
     })),
   )
 }

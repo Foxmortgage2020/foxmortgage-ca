@@ -1,134 +1,277 @@
-// The documents desk (B6): the received-documents table becomes a desk of
-// compact per-document cards, grouped by state so Michael sees requested vs
-// received vs reviewed in one glance. Server component — pure presentation over
-// the model in lib/documents-desk.ts; the collection ACTIONS (the uploaders)
-// stay above this in the page, unchanged. Design language is the ds: StatusChip
-// tones, cool hairlines, Poppins headers, brand navy for emphasis. Never lime —
-// reviewing a document is work, not a queued platform decision.
+'use client'
 
+// The documents desk (B6.2): the reading room, keyed on the REQUEST. Finmo owns
+// collection; this surface reads the request list and reports — what is waiting
+// on the client, what has arrived and needs a look (AI-flagged first), and what
+// is done. Borrower-sectioned per Finmo's own categorisation, with a progress
+// line and status-filter pills. Each request expands to its detail and, where a
+// commitment condition bridges it to an analysed document, the reparented
+// evidence and verdict. Never lime — an AI flag is amber; reviewing is work, not
+// a queued platform decision.
+
+import { useMemo, useState } from 'react'
 import StatusChip from '@/components/admin/ds/StatusChip'
-import { fmtShortDate } from '@/lib/dates'
-import type { DocumentCard, DocumentsDesk as Desk, StateTone } from '@/lib/documents-desk'
+import { fmtShortDate, fmtDateTime } from '@/lib/dates'
+import type { RequestsDesk, RequestCard, RequestState } from '@/lib/documents-desk'
+import type { DealStatementDoc } from '@/lib/underwriting'
+
+type Filter = 'all' | 'waiting' | 'look' | 'done'
 
 const humanize = (s: string) => s.replace(/_/g, ' ')
 
-// The state chip. Four tones delegate to StatusChip; the received-pending
-// "In review" state is a navy OUTLINE (the brief's treatment) rendered inline.
-function StateChipView({ tone, label }: { tone: StateTone; label: string }) {
-  if (tone === 'navy-outline') {
+// The status chip for a card's lifecycle state. navy-outline is the
+// received-awaiting-review treatment (not a filled tone); the rest map to ds
+// StatusChip tones. Green states carry a quiet check.
+function StateChip({ card }: { card: RequestCard }) {
+  const s = card.state
+  if (s === 'waiting') return <StatusChip tone="gray">Waiting on the client</StatusChip>
+  if (s === 'received')
     return (
       <span className="inline-block rounded-full border border-navy px-2 py-0.5 text-[11px] font-semibold text-navy">
-        {label}
+        Ready for your look
       </span>
     )
-  }
-  const glyph = tone === 'green' ? '✓ ' : ''
+  if (s === 'ai_passed') return <StatusChip tone="green">✓ Looks right</StatusChip>
+  if (s === 'ai_flagged') return <StatusChip tone="amber">Flagged</StatusChip>
+  // reviewed
   return (
-    <StatusChip tone={tone}>
-      {glyph}
-      {label}
+    <StatusChip tone="green">
+      ✓ {card.reviewedKind === 'confirmed' ? 'Confirmed' : 'Approved'}
     </StatusChip>
   )
 }
 
-function GroupHeader({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="mb-2 flex items-baseline gap-2">
-      <h4 className="font-heading text-[12.5px] font-semibold tracking-[0.03em] text-navy">{label}</h4>
-      <span className="font-ui text-[11px] text-cool-500 tabular-nums">{count}</span>
-    </div>
-  )
+const STATE_HINT: Record<RequestState, string> = {
+  waiting: 'Waiting on the client',
+  received: 'Ready for your look',
+  ai_passed: 'Looks right, ready for your look',
+  ai_flagged: 'Needs your look',
+  reviewed: 'Done',
 }
 
-function DocCard({ card, borrowerName }: { card: DocumentCard; borrowerName: string }) {
-  const meta = [borrowerName, card.source ? humanize(card.source) : null].filter(Boolean).join(' · ')
-  const dateLine =
-    card.date == null
-      ? null
-      : card.date.kind === 'received'
-        ? `Received ${card.date.value ? fmtShortDate(card.date.value) : 'date not recorded'}`
-        : card.date.kind === 'due'
-          ? `Due ${card.date.value ? fmtShortDate(card.date.value) : ''}`.trim()
-          : 'Requested'
+function receivedLine(card: RequestCard): string | null {
+  if (!card.received) {
+    return card.requestedAt ? `Requested ${fmtShortDate(card.requestedAt)}` : 'Requested'
+  }
+  const r = card.received
+  const n = r.count > 1 ? `${r.count} files` : '1 file'
+  const when = r.updatedAt ? ` · uploaded ${fmtShortDate(r.updatedAt)}` : ''
+  return `${n}${when}`
+}
 
+function EvidenceBlock({ doc }: { doc: DealStatementDoc }) {
   return (
-    <div
-      className={`rounded-[9px] border bg-white p-3 ${
-        card.synthetic ? 'border-red-300 bg-red-50/50' : 'border-cool-200'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-heading text-[13px] font-semibold capitalize text-navy">{humanize(card.name)}</p>
-          {meta && <p className="mt-0.5 truncate font-ui text-[11px] text-cool-500">{meta}</p>}
-        </div>
-        <div className="shrink-0">
-          <StateChipView tone={card.state.tone} label={card.state.label} />
-        </div>
+    <div className="mt-2 rounded-md border border-cool-100 bg-cool-50/60 p-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-heading text-[11px] font-semibold capitalize text-navy">{humanize(doc.docClass)}</span>
+        {doc.review ? (
+          <StatusChip tone={doc.review.decision === 'approved' ? 'green' : 'red'}>
+            {doc.review.decision} by {doc.review.decidedBy} {fmtDateTime(doc.review.decidedAt)}
+          </StatusChip>
+        ) : doc.fields.some(f => f.status === 'extracted') ? (
+          <StatusChip tone="amber">review pending</StatusChip>
+        ) : null}
       </div>
-
-      {card.synthetic && (
-        <p className="mt-2 font-ui text-[11px] font-semibold text-red-700">
-          Stand-in, not a lender document. It cannot be approved and does not feed the checklist.
-        </p>
-      )}
-
-      {card.analysis && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <StatusChip tone={card.analysis.tone}>{card.analysis.label}</StatusChip>
-          <span className="font-ui text-[10.5px] text-cool-500">
-            {card.analysis.source}
-            {card.analysis.asOf ? ` · as of ${card.analysis.asOf}` : ''}
-          </span>
-        </div>
-      )}
-
-      {dateLine && <p className="mt-2 font-ui text-[11px] tabular-nums text-cool-500">{dateLine}</p>}
-    </div>
-  )
-}
-
-function Group({
-  label,
-  cards,
-  borrowerNameById,
-}: {
-  label: string
-  cards: DocumentCard[]
-  borrowerNameById: Map<string, string>
-}) {
-  if (cards.length === 0) return null
-  return (
-    <section>
-      <GroupHeader label={label} count={cards.length} />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map(card => (
-          <DocCard
-            key={card.key}
-            card={card}
-            borrowerName={card.borrowerId ? (borrowerNameById.get(card.borrowerId) ?? 'unknown') : 'General'}
-          />
+      <div className="mt-1.5 divide-y divide-cool-100">
+        {doc.fields.map(f => (
+          <div key={f.id} className="py-1.5">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[13px] font-ui tabular-nums">
+              <span className="text-cool-700">{humanize(f.fieldName)}</span>
+              <span className="font-semibold text-navy">
+                {f.valueNumeric !== null ? f.valueNumeric : f.valueText}
+                {f.unit ? ` ${f.unit}` : ''}
+              </span>
+              <StatusChip
+                tone={f.status === 'approved' ? 'green' : f.status === 'rejected' ? 'red' : f.status === 'extracted' ? 'amber' : 'gray'}
+              >
+                {f.status}
+              </StatusChip>
+              {f.heldReason && <StatusChip tone="amber">{f.heldReason}</StatusChip>}
+            </div>
+            <p className="mt-0.5 break-words font-ui text-[11px] text-cool-600">
+              p{f.sourcePage}: &ldquo;{f.sourceSnippet}&rdquo; (conf {f.confidence})
+            </p>
+          </div>
         ))}
       </div>
-    </section>
+    </div>
+  )
+}
+
+function RequestCardView({
+  card,
+  evidenceByDocId,
+}: {
+  card: RequestCard
+  evidenceByDocId: Record<string, DealStatementDoc>
+}) {
+  const evidence = card.documentId ? evidenceByDocId[card.documentId] : undefined
+  const flagged = card.state === 'ai_flagged'
+  return (
+    <details className={`group rounded-[9px] border bg-white ${flagged ? 'border-amber-300' : 'border-cool-200'}`}>
+      <summary className="cursor-pointer list-none p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-heading text-[13px] font-semibold capitalize text-navy">{humanize(card.name)}</p>
+            <p className="mt-0.5 truncate font-ui text-[11px] text-cool-500">
+              {card.origin === 'commitment' && <span className="text-cool-400">From the commitment · </span>}
+              {receivedLine(card)}
+            </p>
+          </div>
+          <div className="shrink-0">
+            <StateChip card={card} />
+          </div>
+        </div>
+        {flagged && card.analysis?.reason && (
+          <p className="mt-2 font-ui text-[11px] font-semibold text-amber-800">Flagged: {card.analysis.reason}</p>
+        )}
+      </summary>
+
+      <div className="border-t border-cool-100 px-3 pb-3 pt-2 font-ui text-[12px] text-cool-600">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+          {card.finmoStatus && (
+            <span>
+              Finmo status <span className="font-semibold capitalize text-navy">{humanize(card.finmoStatus)}</span>
+            </span>
+          )}
+          <span>
+            Requested{' '}
+            <span className="font-semibold text-navy">{card.requestedAt ? fmtShortDate(card.requestedAt) : 'not recorded'}</span>
+          </span>
+          {card.received?.filename && (
+            <span>
+              Latest file <span className="font-semibold text-navy">{card.received.filename}</span>
+            </span>
+          )}
+          {card.reviewedAt && (
+            <span>
+              {card.reviewedKind === 'confirmed' ? 'Confirmed' : 'Approved'}{' '}
+              <span className="font-semibold text-navy">{fmtShortDate(card.reviewedAt)}</span>
+            </span>
+          )}
+        </div>
+
+        {card.analysis && (
+          <div className={`mt-2 rounded-md border px-2.5 py-1.5 text-[12px] ${
+            card.analysis.tone === 'green'
+              ? 'border-green-200 bg-green-50 text-green-800'
+              : card.analysis.tone === 'amber'
+                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-red-200 bg-red-50 text-red-800'
+          }`}>
+            <span className="font-semibold">Analysis (draft)</span> · {card.analysis.verdictLabel}
+            {card.analysis.reason && <span className="opacity-90">: {card.analysis.reason}</span>}
+            {card.analysis.asOf && <span className="opacity-75"> · as of {card.analysis.asOf}</span>}
+          </div>
+        )}
+
+        {evidence && <EvidenceBlock doc={evidence} />}
+
+        {!card.analysis && !evidence && (
+          <p className="mt-2 text-[11px] text-cool-500">
+            {card.received ? STATE_HINT[card.state] : 'Nothing received yet.'}
+          </p>
+        )}
+      </div>
+    </details>
+  )
+}
+
+function Pill({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full px-3 py-1 font-ui text-[12px] font-semibold tabular-nums transition-colors ${
+        active ? 'bg-navy text-white' : 'border border-cool-200 bg-white text-cool-600 hover:border-navy hover:text-navy'
+      }`}
+    >
+      {label} <span className={active ? 'text-white/70' : 'text-cool-400'}>{count}</span>
+    </button>
   )
 }
 
 export default function DocumentsDesk({
   desk,
-  borrowerNameById,
+  evidenceByDocId = {},
+  unlinkedEvidence = [],
 }: {
-  desk: Desk
-  borrowerNameById: Map<string, string>
+  desk: RequestsDesk
+  evidenceByDocId?: Record<string, DealStatementDoc>
+  unlinkedEvidence?: DealStatementDoc[]
 }) {
-  if (desk.isEmpty) {
-    return <p className="font-ui text-sm text-cool-500">No documents recorded on this file yet.</p>
+  const [filter, setFilter] = useState<Filter>('all')
+
+  const sections = useMemo(
+    () =>
+      desk.sections
+        .map(s => ({ ...s, cards: filter === 'all' ? s.cards : s.cards.filter(c => c.filter === filter) }))
+        .filter(s => s.cards.length > 0),
+    [desk.sections, filter],
+  )
+
+  if (desk.isEmpty && unlinkedEvidence.length === 0) {
+    return <p className="font-ui text-sm text-cool-500">No document requests on this file yet.</p>
   }
+
+  const p = desk.progress
+  const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0
+
   return (
-    <div className="space-y-5">
-      <Group label="Needs your eyes" cards={desk.needsEyes} borrowerNameById={borrowerNameById} />
-      <Group label="Waiting on the client" cards={desk.waiting} borrowerNameById={borrowerNameById} />
-      <Group label="Done" cards={desk.done} borrowerNameById={borrowerNameById} />
+    <div className="space-y-4">
+      {/* Overall progress + filter pills. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="font-ui text-[13px] text-cool-600">
+          <span className="font-heading font-semibold tabular-nums text-navy">
+            {p.done} of {p.total}
+          </span>{' '}
+          complete
+          <span className="ml-2 inline-block h-1.5 w-24 overflow-hidden rounded-full bg-cool-100 align-middle">
+            <span className="block h-full rounded-full bg-navy" style={{ width: `${pct}%` }} />
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Pill label="All" count={desk.filterCounts.all} active={filter === 'all'} onClick={() => setFilter('all')} />
+          <Pill label="Waiting" count={desk.filterCounts.waiting} active={filter === 'waiting'} onClick={() => setFilter('waiting')} />
+          <Pill label="Needs your look" count={desk.filterCounts.look} active={filter === 'look'} onClick={() => setFilter('look')} />
+          <Pill label="Done" count={desk.filterCounts.done} active={filter === 'done'} onClick={() => setFilter('done')} />
+        </div>
+      </div>
+
+      {sections.length === 0 ? (
+        <p className="font-ui text-sm text-cool-500">Nothing in this view.</p>
+      ) : (
+        sections.map(s => (
+          <section key={s.key}>
+            <div className="mb-2 flex items-baseline gap-2">
+              <h4 className="font-heading text-[12.5px] font-semibold tracking-[0.03em] text-navy">{s.label}</h4>
+              <span className="font-ui text-[11px] text-cool-500 tabular-nums">
+                {s.done} of {s.total}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+              {s.cards.map(card => (
+                <RequestCardView key={card.key} card={card} evidenceByDocId={evidenceByDocId} />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+
+      {unlinkedEvidence.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-baseline gap-2">
+            <h4 className="font-heading text-[12.5px] font-semibold tracking-[0.03em] text-navy">Statement evidence</h4>
+            <span className="font-ui text-[11px] text-cool-500">not linked to a request</span>
+          </div>
+          <div className="space-y-2">
+            {unlinkedEvidence.map(doc => (
+              <EvidenceBlock key={doc.documentId} doc={doc} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

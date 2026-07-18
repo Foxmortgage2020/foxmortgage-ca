@@ -50,3 +50,39 @@ export function dealGoalDisplay(dealType: string | null | undefined, finmoGoal: 
   const conflict = !!goalLabel && ds !== 'other' && gs !== 'other' && ds !== gs
   return { conflict, primaryLabel: conflict ? goalLabel! : dealTypeLabel, dealTypeLabel, goalLabel }
 }
+
+/**
+ * The resolved deal shape for header logic: the Finmo goal wins when it maps to
+ * a known shape (it is the fresher truth), else the record's deal_type. Mirrors
+ * the conflict rule in dealGoalDisplay.
+ */
+export function resolveShape(dealType: string | null | undefined, finmoGoal: string | null | undefined): DealShape {
+  const gs = dealShapeOf(finmoGoal)
+  return gs !== 'other' ? gs : dealShapeOf(dealType)
+}
+
+export interface HeaderValue {
+  label: 'Purchase price' | 'Estimated value'
+  amount: number
+}
+
+/**
+ * The header's value stat, shape-aware. A PURCHASE shows the purchase price; a
+ * REFINANCE or RENEWAL has no purchase, so it shows the freshest reachable
+ * "Estimated value" (the Finmo application's property worth) — NEVER a stale
+ * purchase price (the F053107 defect: a refi carried a $1.1M purchase_price on
+ * the deals row). When the appropriate figure is absent the stat is omitted
+ * rather than showing a wrong one. An 'other'/unknown shape is treated like a
+ * refi (estimated value only) so a stray purchase price never leaks onto a
+ * non-purchase file.
+ */
+export function headerValue(
+  shape: DealShape,
+  purchasePrice: number | null | undefined,
+  estimatedValue: number | null | undefined,
+): HeaderValue | null {
+  if (shape === 'purchase') {
+    return typeof purchasePrice === 'number' ? { label: 'Purchase price', amount: purchasePrice } : null
+  }
+  return typeof estimatedValue === 'number' ? { label: 'Estimated value', amount: estimatedValue } : null
+}
