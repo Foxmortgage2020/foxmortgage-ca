@@ -125,6 +125,11 @@ export const PERMISSIONS = {
   // B5: minting a link that shows a client their own file is a PII disclosure
   // control, so it stays with Michael. Admin-only by the tested posture.
   'client.link.manage': ['admin'],
+  // B8b: composing and publishing the client presentation (scenarios, offers
+  // with the disclosed grade, the pre-approval letter). Publishing decides what
+  // a client sees on their own page, so it stays with Michael. Admin-only, and
+  // the operator secret is a second factor at the store.
+  'client.presentation.manage': ['admin'],
   // ── Additive view keys (Session 1) ─────────────────────────────────────
   // Nav and page gating for sections the original matrix carries no key
   // for. All seeded admin-only except where a broader default is safe.
@@ -199,6 +204,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'renewal.decide': 'Approve, edit, or skip renewal drip messages and manage drip enrollment',
   'comms.decide': 'Approve, edit, or hold outbound client comms and set the master switch, caps, and mailing address',
   'client.link.manage': 'Create and revoke the private link that shows a client their own file status',
+  'client.presentation.manage':
+    'Compose and publish the client presentation — scenarios, graded offers, and the pre-approval letter',
   'approvals.view': 'See the approval queues',
   'rates.view': 'See rates, scenarios, and the compare tray',
   'intel.view': 'See the lender intel feed',

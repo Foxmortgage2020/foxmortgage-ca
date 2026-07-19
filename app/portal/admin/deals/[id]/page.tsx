@@ -58,8 +58,11 @@ import LenderNotesCard from '@/components/admin/LenderNotesCard'
 import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
 import ClientPortalCard from '@/components/admin/ClientPortalCard'
+import ClientPresentationCard from '@/components/admin/ClientPresentationCard'
 import DealCommsCard from '@/components/admin/deals/DealCommsCard'
 import { clientLinksForDeal } from '@/lib/client-links-store'
+import { scenariosForDeal, offersForDeal, lettersForDeal } from '@/lib/client-presentation-store'
+import { buildOfferPickList } from '@/lib/client-presentation'
 import PhaseSection from '@/components/admin/deals/PhaseSection'
 import StepList from '@/components/admin/deals/StepList'
 import CloseoutPanel from '@/components/admin/deals/CloseoutPanel'
@@ -271,7 +274,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
     )
   }
 
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, commsTimelineR, closeoutR, clientLinksR] =
+  // B8b: the client presentation reads. In demo the stores return synthetic
+  // rows without a fetch; the offer pick list only loads for an admin who can
+  // author (never in demo), so a non-authoring room never pays the rate-book read.
+  const canPresent = can(user, 'client.presentation.manage') && !isDemoMode()
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, commsTimelineR, closeoutR, clientLinksR, scenariosR, offersR, lettersR, pickQuotesR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -307,6 +314,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       deal.zohoPotentialId
         ? clientLinksForDeal(deal.zohoPotentialId).catch(() => null)
         : Promise.resolve(null),
+      // B8b: the client presentation (scenarios, graded offers, the letter).
+      deal.zohoPotentialId ? scenariosForDeal(deal.zohoPotentialId).catch(() => null) : Promise.resolve(null),
+      deal.zohoPotentialId ? offersForDeal(deal.zohoPotentialId).catch(() => null) : Promise.resolve(null),
+      deal.zohoPotentialId ? lettersForDeal(deal.zohoPotentialId).catch(() => null) : Promise.resolve(null),
+      canPresent ? getRateQuotesFull(agentId).catch(() => null) : Promise.resolve(null),
     ])
   const conds = val(condsR) ?? []
   const pendingCommit = val(pendingCommitR) ?? []
@@ -325,6 +337,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const closeout = closeoutR
   const clientLinks =
     clientLinksR && clientLinksR.configured && clientLinksR.ok ? clientLinksR.data : []
+  const clientScenarios = scenariosR && scenariosR.configured && scenariosR.ok ? scenariosR.data : []
+  const clientOffers = offersR && offersR.configured && offersR.ok ? offersR.data : []
+  const clientLetters = lettersR && lettersR.configured && lettersR.ok ? lettersR.data : []
+  const offerPickList =
+    pickQuotesR && pickQuotesR.configured && pickQuotesR.ok ? buildOfferPickList(pickQuotesR.data) : []
   // The Finmo-carried requested rate (for the readiness "Rate" row), read from
   // the snapshot's mapped requested block when present.
   const finmoRequested = (finmoSnap?.mapped?.requested ?? null) as { rate?: number | null } | null
@@ -1133,6 +1150,23 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
             fileRef={deal.fileRef}
             initialLinks={clientLinks}
             canManage={can(user, 'client.link.manage') && !isDemoMode()}
+          />
+        </Section>
+
+        {/* Client presentation (B8b): scenarios, graded offers, and the
+            pre-approval letter. Composed here, published deliberately; only
+            published records reach the client's private page. Authoring needs
+            client.presentation.manage and is refused in demo (server-enforced). */}
+        <Section id="client-presentation" title="Client presentation">
+          <ClientPresentationCard
+            zohoDealId={deal.zohoPotentialId}
+            fileRef={deal.fileRef}
+            isPurchase={shape === 'purchase'}
+            canManage={can(user, 'client.presentation.manage') && !isDemoMode()}
+            scenarios={clientScenarios}
+            offers={clientOffers}
+            letters={clientLetters}
+            offerPickList={offerPickList}
           />
         </Section>
 

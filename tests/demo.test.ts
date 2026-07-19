@@ -443,3 +443,91 @@ describe('demo mode on the client portal (B5)', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+// ─── The client presentation (B8b) ──────────────────────────────────────────
+// Scenarios, graded offers, and the pre-approval letter are as PII-sensitive as
+// the status page: they show a real client their own figures. In demo the admin
+// lists resolve from fixtures with zero real reads, the demo client file carries
+// all three surfaces, and every write is refused.
+
+describe('demo mode on the client presentation (B8b)', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '',
+      headers: new Headers(),
+    } as unknown as Response)
+  })
+
+  it('the admin authoring lists resolve from fixtures with zero real reads', async () => {
+    const { scenariosForDeal, offersForDeal, lettersForDeal } = await import(
+      '@/lib/client-presentation-store'
+    )
+    const sc = await scenariosForDeal('demo-z-2') // the refi carries scenarios
+    const of = await offersForDeal('demo-z-1') // the purchase carries offers
+    const lt = await lettersForDeal('demo-z-1') // …and a letter
+    expect(sc.configured && sc.ok && sc.data.length).toBeGreaterThan(0)
+    expect(of.configured && of.ok && of.data.length).toBeGreaterThan(0)
+    expect(lt.configured && lt.ok && lt.data.length).toBeGreaterThan(0)
+    if (of.configured && of.ok) {
+      // A grade is materialised on the offer snapshot (the A offer is complete).
+      const graded = of.data.find(o => o.snapshot.grade.coverageComplete)
+      expect(graded?.snapshot.grade.letter).toBeTruthy()
+    }
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('the demo client file carries scenarios, offers, and a valid letter (zero real reads)', async () => {
+    const { demoClientFileView, DEMO_CLIENT_TOKEN } = await import('@/lib/demo-fixtures')
+    const purchase = demoClientFileView(DEMO_CLIENT_TOKEN)!
+    expect(purchase.offers.length).toBeGreaterThan(0)
+    expect(purchase.letter?.valid).toBe(true)
+    // One offer is grade-complete, one is "grading incomplete" — the brief's contrast.
+    expect(purchase.offers.some(o => o.grade.coverageComplete)).toBe(true)
+    expect(purchase.offers.some(o => !o.grade.coverageComplete)).toBe(true)
+    const refi = demoClientFileView('a1'.repeat(32))!
+    expect(refi.scenarios.length).toBe(2)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('every presentation write path rejects with DemoWriteBlocked and never calls fetch', async () => {
+    const {
+      upsertScenario,
+      setScenarioPublished,
+      deleteScenario,
+      createOffer,
+      setOfferPublished,
+      deleteOffer,
+      mintLetter,
+      supersedeLetter,
+    } = await import('@/lib/client-presentation-store')
+    await expect(
+      upsertScenario({
+        id: null,
+        zohoDealId: 'demo-z-1',
+        fileRef: null,
+        label: 'x',
+        inputs: { mortgageAmount: 400000, ratePct: 5, amortizationYears: 25 },
+        figures: { monthlyPayment: 1, totalInterest: 1 },
+        inputsHash: 'h',
+        calcVersion: 1,
+        createdBy: 'demo@example.com',
+      }),
+    ).rejects.toThrow(/Demo mode/)
+    await expect(setScenarioPublished('s1', true)).rejects.toThrow(/Demo mode/)
+    await expect(deleteScenario('s1')).rejects.toThrow(/Demo mode/)
+    await expect(
+      createOffer({ zohoDealId: 'demo-z-1', fileRef: null, quoteId: 'q1', snapshot: {} as any, createdBy: 'x' }),
+    ).rejects.toThrow(/Demo mode/)
+    await expect(setOfferPublished('o1', true)).rejects.toThrow(/Demo mode/)
+    await expect(deleteOffer('o1')).rejects.toThrow(/Demo mode/)
+    await expect(
+      mintLetter({ zohoDealId: 'demo-z-1', fileRef: null, snapshot: {} as any, rateHoldExpiry: '2027-01-01', createdBy: 'x' }),
+    ).rejects.toThrow(/Demo mode/)
+    await expect(supersedeLetter('l1')).rejects.toThrow(/Demo mode/)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})

@@ -18,6 +18,18 @@ import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail, getClientDealBrief, getDealDocumentRequests } from '@/lib/underwriting'
 import { buildClientChecklist, type ClientDocChecklist } from '@/lib/client-checklist'
 import { resolveClosingDate } from '@/lib/closing-date'
+import { torontoTodayYMD } from '@/lib/dates'
+import {
+  letterIsValid,
+  type OfferSnapshot,
+  type LetterSnapshot,
+  type PublishedScenario,
+} from '@/lib/client-presentation'
+import {
+  publishedScenariosForToken,
+  publishedOffersForToken,
+  currentLetterForToken,
+} from '@/lib/client-presentation-store'
 import {
   clientJourneyFor,
   journeyForStage,
@@ -36,6 +48,15 @@ const ZOHO_API = 'https://www.zohoapis.com/crm/v2'
 const CLIENT_FILE_FIELDS =
   'Deal_Name,Contact_Name,Stage,Closing_Date,Transaction_Type,Realtor,Seller_s_Realtor,Lawyer'
 
+// The current pre-approval letter as the client should see it: the frozen
+// snapshot plus whether the rate hold has passed. An expired-but-not-superseded
+// letter is still returned so the page can say so; the render decides.
+export interface ClientLetterView {
+  snapshot: LetterSnapshot
+  rateHoldExpiry: string
+  valid: boolean
+}
+
 export interface ClientFileView {
   fileRef: string | null
   firstName: string | null
@@ -46,6 +67,11 @@ export interface ClientFileView {
   // the workbench cannot be read) — the documents card then shows its guidance
   // text, never an error.
   documents: ClientDocChecklist | null
+  // The presentation layer (B8b), each rendered ONLY when Michael has published
+  // something. Empty is the norm; the sections simply do not appear.
+  scenarios: PublishedScenario[]
+  offers: OfferSnapshot[]
+  letter: ClientLetterView | null
 }
 
 function lookupId(v: unknown): string | null {
@@ -113,7 +139,10 @@ export type { TeamMember }
  * be read at all — the caller renders the same not-found page it renders for
  * a bad token, so a dead link and a dead deal look identical from outside.
  */
-export async function getClientFileView(zohoDealId: string): Promise<ClientFileView | null> {
+export async function getClientFileView(
+  zohoDealId: string,
+  tokenHash: string,
+): Promise<ClientFileView | null> {
   const token = await getZohoToken()
   const res = await fetch(`${ZOHO_API}/Potentials/${zohoDealId}?fields=${CLIENT_FILE_FIELDS}`, {
     headers: { Authorization: `Zoho-oauthtoken ${token}` },
@@ -191,6 +220,12 @@ export async function getClientFileView(zohoDealId: string): Promise<ClientFileV
     console.error(`[client-file] workbench read failed, showing Zoho closing + guidance docs: ${String(err)}`)
   }
 
+  // The presentation layer (B8b): published scenarios, offers, and the current
+  // letter, read from FOXCA by the LINK TOKEN HASH (not the deal id, so the
+  // public anon key cannot enumerate). Each is a bonus, never a blocker — a
+  // failure or an unconfigured store leaves the section absent, never an error.
+  const { scenarios, offers, letter } = await readPresentation(tokenHash)
+
   return {
     fileRef: fileRefOf(d.Deal_Name),
     firstName,
@@ -198,6 +233,38 @@ export async function getClientFileView(zohoDealId: string): Promise<ClientFileV
     closingDate,
     team,
     documents,
+    scenarios,
+    offers,
+    letter,
+  }
+}
+
+async function readPresentation(tokenHash: string): Promise<{
+  scenarios: PublishedScenario[]
+  offers: OfferSnapshot[]
+  letter: ClientLetterView | null
+}> {
+  const today = torontoTodayYMD()
+  try {
+    const [sc, of, lt] = await Promise.all([
+      publishedScenariosForToken(tokenHash),
+      publishedOffersForToken(tokenHash),
+      currentLetterForToken(tokenHash),
+    ])
+    const scenarios = sc.configured && sc.ok ? sc.data : []
+    const offers = of.configured && of.ok ? of.data : []
+    const current = lt.configured && lt.ok ? lt.data : null
+    const letter: ClientLetterView | null = current
+      ? {
+          snapshot: current.snapshot,
+          rateHoldExpiry: current.rateHoldExpiry,
+          valid: letterIsValid(current.snapshot, today),
+        }
+      : null
+    return { scenarios, offers, letter }
+  } catch (err) {
+    console.error(`[client-file] presentation read failed, showing status only: ${String(err)}`)
+    return { scenarios: [], offers: [], letter: null }
   }
 }
 

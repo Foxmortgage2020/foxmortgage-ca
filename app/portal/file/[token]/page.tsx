@@ -38,7 +38,9 @@ export const metadata: Metadata = {
 export default async function ClientTokenPage({ params }: { params: { token: string } }) {
   const view = await loadView(params.token)
   if (!view) return <NotFoundCard />
-  return <ClientFilePage view={view} />
+  // The token is passed so the page can build the letter-download sub-path
+  // (/portal/file/<token>/letter) — same token, same auth, no new secret.
+  return <ClientFilePage view={view} token={params.token} />
 }
 
 async function loadView(token: string): Promise<ClientFileView | null> {
@@ -50,10 +52,14 @@ async function loadView(token: string): Promise<ClientFileView | null> {
   // can be shown without a real client's link ever being opened.
   if (isDemoMode()) return demoClientFileView(token)
 
-  const resolved = await resolveClientLink(hashClientToken(token))
+  const tokenHash = hashClientToken(token)
+  const resolved = await resolveClientLink(tokenHash)
   if (!resolved.configured || !resolved.ok || !resolved.data) return null
 
-  const view = await getClientFileView(resolved.data.zohoDealId)
+  // The token hash is threaded into the view assembly so the published
+  // presentation (scenarios / offers / letter) is read by hash, not by deal id —
+  // no enumeration surface off the public anon key (B8b).
+  const view = await getClientFileView(resolved.data.zohoDealId, tokenHash)
   if (!view) return null
 
   // Best effort, after the read: a failed stamp never costs the client their

@@ -19,6 +19,21 @@ import { clientJourneyFor, journeyForStage } from '@/config/lifecycle'
 // header rule at the top), or it cycles back through lib/zoho.
 import { AGENT_MEMBER } from '@/lib/client-team'
 import type { ClientFileView } from '@/lib/client-file'
+// The presentation model + rubric are PURE (no fetchers, no cycle back to
+// here), so demo scenarios/offers carry REAL engine-computed figures and REAL
+// rubric grades — a faithful demo, not hand-waved numbers.
+import {
+  buildScenarioSnapshot,
+  presentationHash,
+  type OfferSnapshot,
+  type LetterSnapshot,
+  type PublishedScenario,
+  type ScenarioInputs,
+  type ScenarioRow,
+  type OfferRow,
+  type LetterRow,
+} from '@/lib/client-presentation'
+import { gradeOffer, type RubricClaim } from '@/config/offer-rubric'
 import type {
   UwResult,
   WorkbenchDeal,
@@ -1014,6 +1029,10 @@ const demoPurchaseFile: ClientFileView = {
       phone: '519-555-0142',
     },
   ],
+  // Presentation defaults; DEMO_CLIENT_FILES overrides these per file.
+  scenarios: [],
+  offers: [],
+  letter: null,
 }
 
 // A refinance clearing conditions: the lender said yes, a lawyer is on, and
@@ -1036,6 +1055,9 @@ const demoRefiFile: ClientFileView = {
       phone: '519-555-0177',
     },
   ],
+  scenarios: [],
+  offers: [],
+  letter: null,
 }
 
 // A funded file: beyond funding, no closing date (the dateless proof), and
@@ -1049,10 +1071,154 @@ const demoFundedFile: ClientFileView = {
   closingDate: null,
   documents: { total: 5, done: 5, received: 0, waiting: 0, groups: [] },
   team: [AGENT_MEMBER],
+  scenarios: [],
+  offers: [],
+  letter: null,
 }
 
+// ─── B8b presentation demo fixtures ─────────────────────────────────────────
+
+function demoScenario(label: string, inputs: ScenarioInputs): PublishedScenario {
+  const r = buildScenarioSnapshot(label, inputs)
+  if (!r.ok) throw new Error('demo scenario fixture is invalid') // fixtures are always valid
+  return { label: r.snapshot.label, inputs: r.snapshot.inputs, figures: r.snapshot.figures }
+}
+
+function demoOffer(args: {
+  quoteId: string
+  lenderSlug: string
+  lenderName: string
+  termMonths: number
+  ratePct: number
+  asOfDate: string
+  cashbackPct?: number | null
+  claims: RubricClaim[]
+}): OfferSnapshot {
+  const grade = gradeOffer({ effectiveRatePct: args.ratePct, claims: args.claims })
+  const base = {
+    quoteId: args.quoteId,
+    lenderSlug: args.lenderSlug,
+    lenderName: args.lenderName,
+    termMonths: args.termMonths,
+    rateType: 'fixed' as const,
+    ratePct: args.ratePct,
+    effectiveRatePct: args.ratePct,
+    primeUsed: null,
+    rateDisplay: `${args.ratePct.toFixed(2)}%`,
+    cashbackPct: args.cashbackPct ?? null,
+    productClass: 'conventional',
+    asOfDate: args.asOfDate,
+    grade,
+  }
+  return { ...base, snapshotHash: presentationHash(base) }
+}
+
+// A lender whose knowledge base is fully populated (grade-complete) vs. one
+// with only its rate on file (grading incomplete) — the exact contrast the
+// brief asks the demo to show.
+const DEMO_CLAIMS_FULL: RubricClaim[] = [
+  { topic: 'penalty_methodology', claimKey: 'ird_comparison_basis', claimValue: { basis: 'three_month_interest' }, asOfDate: '2026-07-01', sourcePage: 8, sourceDocumentId: 'demo-doc-a' },
+  { topic: 'prepayment_privileges', claimKey: 'annual', claimValue: { annual_prepay_pct: 20, payment_increase_pct: 20 }, asOfDate: '2026-07-01', sourcePage: 9, sourceDocumentId: 'demo-doc-a' },
+  { topic: 'portability', claimKey: 'portable', claimValue: { portable: true, blend_and_extend: true }, asOfDate: '2026-07-01', sourcePage: 10, sourceDocumentId: 'demo-doc-a' },
+  { topic: 'lender_fees', claimKey: 'fees', claimValue: { level: 'none' }, asOfDate: '2026-07-01', sourcePage: 11, sourceDocumentId: 'demo-doc-a' },
+]
+const DEMO_CLAIMS_PARTIAL: RubricClaim[] = [
+  { topic: 'penalty_methodology', claimKey: 'ird_comparison_basis', claimValue: { basis: 'discounted_rate' }, asOfDate: '2026-06-15', sourcePage: 5, sourceDocumentId: 'demo-doc-b' },
+  { topic: 'prepayment_privileges', claimKey: 'annual', claimValue: { annual_prepay_pct: 15, payment_increase_pct: 15 }, asOfDate: '2026-06-15', sourcePage: 6, sourceDocumentId: 'demo-doc-b' },
+  { topic: 'portability', claimKey: 'portable', claimValue: { portable: true, blend_and_extend: false }, asOfDate: '2026-06-15', sourcePage: 7, sourceDocumentId: 'demo-doc-b' },
+]
+
+const demoPurchaseOffers: OfferSnapshot[] = [
+  demoOffer({ quoteId: 'demo-q-1', lenderSlug: 'first-national', lenderName: 'First National', termMonths: 60, ratePct: 4.0, asOfDate: '2026-07-14', claims: DEMO_CLAIMS_FULL }),
+  demoOffer({ quoteId: 'demo-q-2', lenderSlug: 'mcap', lenderName: 'MCAP', termMonths: 60, ratePct: 4.64, asOfDate: '2026-07-14', claims: DEMO_CLAIMS_PARTIAL }),
+  demoOffer({ quoteId: 'demo-q-3', lenderSlug: 'rmg', lenderName: 'RMG', termMonths: 36, ratePct: 5.34, asOfDate: '2026-07-12', cashbackPct: 1, claims: [] }),
+]
+
+const demoRefiScenarios: PublishedScenario[] = [
+  demoScenario('Refinance and pay off the car loan', { mortgageAmount: 465000, ratePct: 4.79, amortizationYears: 25 }),
+  demoScenario('Refinance, keep the car loan', { mortgageAmount: 440000, ratePct: 4.79, amortizationYears: 25 }),
+]
+
+function demoLetterSnapshot(): LetterSnapshot {
+  const base = {
+    inputs: {
+      maxPurchasePrice: 720000,
+      ratePct: 4.59,
+      rateHoldExpiry: '2027-06-30',
+      conditions: 'Confirmation of down payment and income, and a satisfactory property appraisal.',
+    },
+    clientFirstName: 'Sofia',
+    fileRef: 'FOX-1004',
+    mintedBy: 'Michael Fox',
+    mintedAt: '2026-07-15T14:00:00Z',
+  }
+  return { ...base, snapshotHash: presentationHash(base) }
+}
+const DEMO_LETTER = demoLetterSnapshot()
+
 const DEMO_CLIENT_FILES: Record<string, ClientFileView> = {
-  [DEMO_CLIENT_TOKEN]: demoPurchaseFile,
-  ['a1'.repeat(32)]: demoRefiFile,
+  [DEMO_CLIENT_TOKEN]: {
+    ...demoPurchaseFile,
+    offers: demoPurchaseOffers,
+    letter: { snapshot: DEMO_LETTER, rateHoldExpiry: DEMO_LETTER.inputs.rateHoldExpiry, valid: true },
+  },
+  ['a1'.repeat(32)]: { ...demoRefiFile, scenarios: demoRefiScenarios },
   ['b2'.repeat(32)]: demoFundedFile,
+}
+
+// ── Admin authoring rows (the deal-room cards, keyed by Zoho deal id) ────────
+// demo-z-1 (purchase) carries offers + a letter; demo-z-2 (refi) carries
+// scenarios. Everything else is empty. Reads return these WITHOUT a fetch, so
+// the "zero real reads" test holds while the authoring cards still show content.
+
+export function demoClientScenarioRows(zohoDealId: string): ScenarioRow[] {
+  if (zohoDealId !== 'demo-z-2') return []
+  return demoRefiScenarios.map((s, i) => {
+    const r = buildScenarioSnapshot(s.label, s.inputs)
+    const hash = r.ok ? r.snapshot.inputsHash : ''
+    return {
+      id: `demo-scenario-${i + 1}`,
+      zohoDealId,
+      fileRef: 'DEMO-F0002',
+      label: s.label,
+      inputs: s.inputs,
+      figures: s.figures,
+      inputsHash: hash,
+      calcVersion: 1,
+      published: i === 0, // the first is published, the second still a draft
+      createdBy: 'michael@foxmortgage.ca',
+      createdAt: '2026-07-16T10:00:00Z',
+      updatedAt: '2026-07-16T10:00:00Z',
+    }
+  })
+}
+
+export function demoClientOfferRows(zohoDealId: string): OfferRow[] {
+  if (zohoDealId !== 'demo-z-1') return []
+  return demoPurchaseOffers.map((snapshot, i) => ({
+    id: `demo-offer-${i + 1}`,
+    zohoDealId,
+    fileRef: 'DEMO-F0001',
+    quoteId: snapshot.quoteId,
+    snapshot,
+    published: i < 2, // the first two are published, the third is a draft
+    createdBy: 'michael@foxmortgage.ca',
+    createdAt: '2026-07-16T11:00:00Z',
+  }))
+}
+
+export function demoClientLetterRows(zohoDealId: string): LetterRow[] {
+  if (zohoDealId !== 'demo-z-1') return []
+  return [
+    {
+      id: 'demo-letter-1',
+      zohoDealId,
+      fileRef: 'DEMO-F0001',
+      snapshot: DEMO_LETTER,
+      rateHoldExpiry: DEMO_LETTER.inputs.rateHoldExpiry,
+      supersededAt: null,
+      createdBy: 'michael@foxmortgage.ca',
+      createdAt: '2026-07-15T14:00:00Z',
+    },
+  ]
 }
