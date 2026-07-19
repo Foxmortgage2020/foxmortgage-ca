@@ -562,8 +562,8 @@ describe('demo mode on the qualification explorer (B9)', () => {
       computeQualification(b, { price, downPayment, propertyTaxMonthly, condoMonthly: 0 }).band.key
     const bands = new Set([
       bandAt(545000, 109000, 200),
-      bandAt(611000, 61100, 300),
-      bandAt(768000, 76800, 400),
+      bandAt(565000, 56500, 300),
+      bandAt(690000, 69000, 400),
       bandAt(1127000, 225400, 500),
     ])
     expect(bands).toEqual(new Set(['fits', 'options', 'alternatives', 'conversation']))

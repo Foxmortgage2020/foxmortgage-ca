@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-18',
+    title: 'The affordability tool’s bands now read from the client’s whole debt picture (TDS)',
+    detail:
+      'A small accuracy tweak to the “Can I afford it?” explorer. The three stretch bands (good options / still paths that fit / let us talk this through) now key on the client’s total debt service — the ratio that includes their consumer debts and is the one that actually gates a deal — rather than just the housing ratio. The green “fits comfortably” band still requires both ratios to be inside the standard limits. So a client whose home costs alone look fine but whose overall debt load is high now sees the honest band, and the warmth is unchanged: it still never tells anyone no.',
+  },
+  {
+    date: '2026-07-18',
     title: 'A client’s page can now carry a “Can I afford it?” tool, and it never tells anyone no',
     detail:
       'A new affordability explorer you compose in the deal room and publish to a client’s private page. The client moves four things — the home price, the down payment, the property taxes, and the condo fees — and watches their numbers move in real time, all computed by the same calculator the site’s tools use, never guessed. Below 20 percent down it folds in the default mortgage insurance automatically, and a down payment under the legal minimum shows the number to aim for rather than an error. The result is always one of four warm bands: it fits comfortably, there are good options, there are still paths that fit, or let us talk this one through — because your practice reaches alternative, private, and equity and net-worth lenders that no ratio form can see, so a flat “you do not qualify” would be both wrong and unkind. It never renders a decline, and the words are drafted for your sign-off. On your side, the deal room proposes a baseline from the file (income from the current calculations, the requested rate, the price), you edit any value, and it only shows to the client once you publish it. Unpublishing removes the section. Everything is a frozen snapshot, so a later change to the file never rewrites the panel a client already saw.',

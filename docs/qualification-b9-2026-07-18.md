@@ -89,9 +89,18 @@ contractions, no em dash, no exclamation, no semicolon, no decline word.
 | Band | Trigger | Tone | Headline | Blurb |
 |---|---|---|---|---|
 | fits | GDS ≤ 39 and TDS ≤ 44 | green | This one fits comfortably. | These numbers sit right inside what most lenders look for. A strong place to start. |
-| options | either ratio ≤ 48 | amber | There are good options here. | This is a little above the usual mark, and there is room to work with. Worth a quick chat with Michael. |
-| alternatives | either ratio ≤ 60 | amber | There are still paths that fit. | This one takes a closer look. Michael works with lenders whose options a standard form never shows. |
-| conversation | beyond 60 | navy | Let us talk this one through. | Numbers like these need a real conversation. Some options, like equity and net-worth lending, never show up on a form. Michael can walk you through what fits. |
+| options | TDS ≤ 48 (not fits) | amber | There are good options here. | This is a little above the usual mark, and there is room to work with. Worth a quick chat with Michael. |
+| alternatives | TDS ≤ 60 | amber | There are still paths that fit. | This one takes a closer look. Michael works with lenders whose options a standard form never shows. |
+| conversation | TDS beyond 60 | navy | Let us talk this one through. | Numbers like these need a real conversation. Some options, like equity and net-worth lending, never show up on a form. Michael can walk you through what fits. |
+
+> **Patch, 2026-07-18:** the stretch bands (options / alternatives / conversation) now drive on
+> **TDS**, not GDS. B9 first shipped the generous GDS reading (finding 4 below); Michael decided
+> the band a client sees should reflect their whole obligation picture (TDS carries consumer debt
+> and is the ratio that actually gates a deal). Green still requires BOTH ratios inside standard
+> limits. Config + test only, one edit to `bandKeyForRatios`. The never-says-no law and the band
+> copy are unchanged — this shifts accuracy, not warmth. A low-GDS / high-TDS file (e.g. GDS 44.7,
+> TDS 49.7) now shows *alternatives* where the GDS reading said *options*, proven at both widths.
+> Suite 859 → 860, tsc clean, build green.
 
 Footer (always): **For guidance only, not a mortgage commitment or a rate offer.**
 

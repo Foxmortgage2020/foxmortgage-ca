@@ -24,11 +24,15 @@ export interface QualificationBand {
 }
 
 // The boundaries, as percentages of income. GDS is home costs over income; TDS
-// adds the borrower's other debts, so TDS is always >= GDS. Band 1 checks both
-// (GDS within 39 AND TDS within 44). The stretch bands check "either ratio" as
-// the brief words it: since TDS >= GDS, "either ratio within X" binds on GDS
-// (the lower one), while the 44 binds TDS only in the green band. This is the
-// deliberately generous reading a never-says-no surface should take.
+// adds the borrower's other debts, so TDS is always >= GDS. Band 1 (green)
+// requires BOTH ratios inside standard limits (GDS <= 39 AND TDS <= 44) — green
+// should mean genuinely comfortable on both. The stretch bands (options /
+// alternatives / conversation) drive on TDS: it carries the client's whole
+// obligation picture, consumer debt included, and is the ratio that actually
+// gates a deal, so the band a client sees reflects their full situation. A file
+// with a low GDS but a high TDS lands in the honest stretch band, not an
+// over-generous one. (2026-07-18, Michael's decision; B9 first shipped this
+// driving on GDS.)
 export const BAND1_GDS_MAX = 39
 export const BAND1_TDS_MAX = 44
 export const BAND2_MAX = 48
@@ -63,14 +67,14 @@ export const QUALIFICATION_BANDS: Record<BandKey, QualificationBand> = {
 
 /**
  * The one band for a pair of ratios (percentages), evaluated as a cascade in
- * band order. First match wins. Because TDS >= GDS always, the "either ratio"
- * bands bind on GDS; the test suite pins each boundary.
+ * band order. First match wins. Green requires BOTH ratios within standard
+ * limits; the stretch bands drive on TDS, the binding whole-picture ratio. The
+ * test suite pins each boundary.
  */
 export function bandKeyForRatios(gdsPct: number, tdsPct: number): BandKey {
   if (gdsPct <= BAND1_GDS_MAX && tdsPct <= BAND1_TDS_MAX) return 'fits'
-  // "Either ratio within 48" — literally gds <= 48 || tds <= 48.
-  if (gdsPct <= BAND2_MAX || tdsPct <= BAND2_MAX) return 'options'
-  if (gdsPct <= BAND3_MAX || tdsPct <= BAND3_MAX) return 'alternatives'
+  if (tdsPct <= BAND2_MAX) return 'options'
+  if (tdsPct <= BAND3_MAX) return 'alternatives'
   return 'conversation'
 }
 

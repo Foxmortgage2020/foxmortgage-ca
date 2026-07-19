@@ -152,23 +152,28 @@ describe('band boundaries (evaluated as a cascade, first match wins)', () => {
     expect(bandKeyForRatios(0, 0)).toBe('fits')
   })
 
-  it('the moment either the 39 or the 44 is passed, it leaves green', () => {
-    expect(bandKeyForRatios(39.01, 44)).toBe('options') // GDS just over
-    expect(bandKeyForRatios(39, 44.01)).toBe('options') // TDS just over
+  it('the moment either the 39 or the 44 is passed, it leaves green (TDS still within 48 keeps it options)', () => {
+    expect(bandKeyForRatios(39.01, 44)).toBe('options') // GDS just over, TDS 44 <= 48
+    expect(bandKeyForRatios(39, 44.01)).toBe('options') // TDS just over 44, still <= 48
   })
 
-  it('the 48 edge: within 48 is options, just past is alternatives', () => {
-    expect(bandKeyForRatios(48, 48)).toBe('options')
-    expect(bandKeyForRatios(48.01, 48.01)).toBe('alternatives')
-    // "Either ratio within 48" is generous: a low GDS keeps it in options even
-    // with a high TDS (TDS is always >= GDS, so this binds on GDS).
-    expect(bandKeyForRatios(30, 70)).toBe('options')
+  it('the stretch bands drive on TDS, not GDS (the case the GDS reading got wrong)', () => {
+    // A low GDS with a high TDS lands on the TDS band. TDS carries the whole
+    // obligation picture, so the band reflects the client's full situation.
+    expect(bandKeyForRatios(30, 45)).toBe('options') // TDS 45 <= 48
+    expect(bandKeyForRatios(30, 55)).toBe('alternatives') // TDS 55 in (48, 60]
+    expect(bandKeyForRatios(30, 70)).toBe('conversation') // TDS 70 > 60 (was 'options' when GDS drove it)
   })
 
-  it('the 60 edge: within 60 is alternatives, beyond is a conversation', () => {
-    expect(bandKeyForRatios(60, 60)).toBe('alternatives')
-    expect(bandKeyForRatios(60.01, 60.01)).toBe('conversation')
-    expect(bandKeyForRatios(100, 100)).toBe('conversation')
+  it('the 48 edge is on TDS: within 48 is options, just past is alternatives', () => {
+    expect(bandKeyForRatios(45, 48)).toBe('options')
+    expect(bandKeyForRatios(45, 48.01)).toBe('alternatives')
+  })
+
+  it('the 60 edge is on TDS: within 60 is alternatives, beyond is a conversation', () => {
+    expect(bandKeyForRatios(50, 60)).toBe('alternatives')
+    expect(bandKeyForRatios(50, 60.01)).toBe('conversation')
+    expect(bandKeyForRatios(65, 100)).toBe('conversation')
   })
 })
 
@@ -178,10 +183,10 @@ describe('the whole explorer reaches all four bands (the client moving the contr
     expect(computeQualification(b, { price: 545000, downPayment: 109000, propertyTaxMonthly: 200, condoMonthly: 0 }).band.key).toBe('fits')
   })
   it('a modest stretch shows options', () => {
-    expect(computeQualification(b, { price: 611000, downPayment: 61100, propertyTaxMonthly: 300, condoMonthly: 0 }).band.key).toBe('options')
+    expect(computeQualification(b, { price: 565000, downPayment: 56500, propertyTaxMonthly: 300, condoMonthly: 0 }).band.key).toBe('options')
   })
   it('a bigger stretch shows alternative paths', () => {
-    expect(computeQualification(b, { price: 768000, downPayment: 76800, propertyTaxMonthly: 400, condoMonthly: 0 }).band.key).toBe('alternatives')
+    expect(computeQualification(b, { price: 690000, downPayment: 69000, propertyTaxMonthly: 400, condoMonthly: 0 }).band.key).toBe('alternatives')
   })
   it('a large stretch asks for a conversation', () => {
     expect(computeQualification(b, { price: 1127000, downPayment: 225400, propertyTaxMonthly: 500, condoMonthly: 0 }).band.key).toBe('conversation')
