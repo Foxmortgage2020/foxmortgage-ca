@@ -22,6 +22,7 @@ import type { ClientDocChecklist } from '@/lib/client-checklist'
 import type { OfferSnapshot, PublishedScenario } from '@/lib/client-presentation'
 import type { OfferGrade } from '@/config/offer-rubric'
 import ClientFooter from './ClientFooter'
+import QualificationExplorer from './QualificationExplorer'
 
 // Plain money, no cents on the big numbers a client scans. Local so the client
 // render takes no dependency on the admin-side formatters.
@@ -166,6 +167,10 @@ export default function ClientFilePage({ view, token }: { view: ClientFileView; 
 
         {/* ── Offers ── the disclosed grade, renders only when published */}
         {view.offers.length > 0 && <OffersSection offers={view.offers} />}
+
+        {/* ── Can I afford it? ── the interactive explorer, renders only when
+            Michael has published a baseline for this file (B9). */}
+        {view.qualification && <QualificationExplorer baseline={view.qualification} />}
 
         {/* ── Documents and team, side by side where the width allows ── */}
         <div className="mt-4 space-y-4 md:mt-4 md:grid md:grid-cols-2 md:gap-5 md:space-y-0">

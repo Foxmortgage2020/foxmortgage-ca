@@ -59,6 +59,9 @@ import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
 import ClientPortalCard from '@/components/admin/ClientPortalCard'
 import ClientPresentationCard from '@/components/admin/ClientPresentationCard'
+import QualificationBaselineCard from '@/components/admin/QualificationBaselineCard'
+import { qualificationForDeal } from '@/lib/qualification-store'
+import { proposeQualificationBaseline } from '@/lib/qualification'
 import DealCommsCard from '@/components/admin/deals/DealCommsCard'
 import { clientLinksForDeal } from '@/lib/client-links-store'
 import { scenariosForDeal, offersForDeal, lettersForDeal } from '@/lib/client-presentation-store'
@@ -278,7 +281,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // rows without a fetch; the offer pick list only loads for an admin who can
   // author (never in demo), so a non-authoring room never pays the rate-book read.
   const canPresent = can(user, 'client.presentation.manage') && !isDemoMode()
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, commsTimelineR, closeoutR, clientLinksR, scenariosR, offersR, lettersR, pickQuotesR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, commsTimelineR, closeoutR, clientLinksR, scenariosR, offersR, lettersR, pickQuotesR, qualificationR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -319,6 +322,8 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       deal.zohoPotentialId ? offersForDeal(deal.zohoPotentialId).catch(() => null) : Promise.resolve(null),
       deal.zohoPotentialId ? lettersForDeal(deal.zohoPotentialId).catch(() => null) : Promise.resolve(null),
       canPresent ? getRateQuotesFull(agentId).catch(() => null) : Promise.resolve(null),
+      // B9: the qualification baseline (published or draft) for the deal room card.
+      deal.zohoPotentialId ? qualificationForDeal(deal.zohoPotentialId).catch(() => null) : Promise.resolve(null),
     ])
   const conds = val(condsR) ?? []
   const pendingCommit = val(pendingCommitR) ?? []
@@ -342,9 +347,18 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const clientLetters = lettersR && lettersR.configured && lettersR.ok ? lettersR.data : []
   const offerPickList =
     pickQuotesR && pickQuotesR.configured && pickQuotesR.ok ? buildOfferPickList(pickQuotesR.data) : []
+  const qualificationRows = qualificationR && qualificationR.configured && qualificationR.ok ? qualificationR.data : []
   // The Finmo-carried requested rate (for the readiness "Rate" row), read from
   // the snapshot's mapped requested block when present.
   const finmoRequested = (finmoSnap?.mapped?.requested ?? null) as { rate?: number | null } | null
+  // B9: the starting baseline the platform proposes from the file's truth (income
+  // from the current calc rows, the Finmo-requested rate, the deal's price),
+  // defaulting the rest. Michael reviews and edits any value before publishing.
+  const qualificationProposal = proposeQualificationBaseline({
+    incomeCalcs: income.kind === 'ok' ? income.data : [],
+    finmoRatePct: finmoRequested?.rate ?? null,
+    dealPrice: deal.purchasePrice,
+  })
   const borrowerList = borrowers.kind === 'ok' ? borrowers.data.map(b => ({ id: b.id, fullName: b.fullName })) : []
   const borrowerNameById = new Map(borrowerList.map(b => [b.id, b.fullName]))
 
@@ -1167,6 +1181,19 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
             offers={clientOffers}
             letters={clientLetters}
             offerPickList={offerPickList}
+          />
+        </Section>
+
+        {/* Qualification explorer (B9): the "Can I afford it?" baseline Michael
+            reviews, edits, and publishes to the client's page. Same gate as the
+            presentation card; the operator secret is a second factor at the store. */}
+        <Section id="client-qualification" title="Qualification explorer">
+          <QualificationBaselineCard
+            zohoDealId={deal.zohoPotentialId}
+            fileRef={deal.fileRef}
+            canManage={can(user, 'client.presentation.manage') && !isDemoMode()}
+            rows={qualificationRows}
+            proposed={qualificationProposal}
           />
         </Section>
 

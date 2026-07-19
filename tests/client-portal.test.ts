@@ -239,6 +239,11 @@ const CLIENT_FACING_SOURCES = [
   'app/portal/file/[token]/ClientFilePage.tsx',
   'app/portal/file/[token]/NotFoundCard.tsx',
   'app/portal/file/[token]/ClientFooter.tsx',
+  // B9: the interactive qualification explorer is a client component, so it does
+  // not inline into ClientFilePage; its rendered strings are swept here instead
+  // (its band + control copy lives in config/qualification.ts, swept by
+  // tests/qualification.test.ts).
+  'app/portal/file/[token]/QualificationExplorer.tsx',
 ]
 
 // Words that mean something to us and nothing (or the wrong thing) to a
@@ -341,6 +346,40 @@ describe('no internal vocabulary reaches the client', () => {
       .toLowerCase()
     for (const word of [...BANNED, ...BANNED_VERDICTS]) {
       expect(blob.includes(word.toLowerCase()), `demo checklist leaks the word "${word}"`).toBe(false)
+    }
+  })
+
+  it('never tells a client no, in the rendered sources too (not just the config)', () => {
+    // The brief's B9 law: no decline word on this surface, in any state, ever.
+    // The config band copy is swept in tests/qualification.test.ts; this closes
+    // the same rule over the component sources (a decline word hardcoded in a
+    // .tsx would otherwise slip the internal-word-only source sweep).
+    const NO_WORDS = ['declined', 'denied', 'rejected', 'not approved', 'unfortunately', 'qualify for', 'do not qualify', "don't qualify", 'ineligible']
+    for (const file of CLIENT_FACING_SOURCES) {
+      const strings = renderedStrings(readFileSync(file, 'utf8'))
+      for (const s of strings) {
+        for (const w of NO_WORDS) {
+          expect(s.toLowerCase().includes(w), `${file} tells a client no: ${JSON.stringify(s)} (${w})`).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('no client-facing source renders an em dash (the copy rule, over rendered strings)', () => {
+    // renderedStrings requires 4+ chars, so a one-character em-dash fallback
+    // slips it (B9 review found exactly that). This extracts quoted strings and
+    // JSX text of ANY length from the comment-stripped source and bans the em
+    // dash on the render path. Comments (which may carry an em dash) are stripped.
+    for (const file of CLIENT_FACING_SOURCES) {
+      const src = readFileSync(file, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '')
+      const strings: string[] = []
+      for (const m of Array.from(src.matchAll(/'([^'\\]*)'|"([^"\\]*)"/g))) strings.push(m[1] ?? m[2] ?? '')
+      for (const m of Array.from(src.matchAll(/>([^<>{}]+)</g))) strings.push(m[1])
+      for (const s of strings) {
+        expect(s.includes('—'), `${file} renders an em dash in client copy: ${JSON.stringify(s)}`).toBe(false)
+      }
     }
   })
 

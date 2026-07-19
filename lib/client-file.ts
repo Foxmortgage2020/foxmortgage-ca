@@ -30,6 +30,8 @@ import {
   publishedOffersForToken,
   currentLetterForToken,
 } from '@/lib/client-presentation-store'
+import type { QualificationBaseline } from '@/lib/qualification'
+import { publishedQualificationForToken } from '@/lib/qualification-store'
 import {
   clientJourneyFor,
   journeyForStage,
@@ -72,6 +74,9 @@ export interface ClientFileView {
   scenarios: PublishedScenario[]
   offers: OfferSnapshot[]
   letter: ClientLetterView | null
+  // The qualification explorer's frozen baseline (B9), published only when
+  // Michael has enabled it. null = the "Can I afford it?" section does not appear.
+  qualification: QualificationBaseline | null
 }
 
 function lookupId(v: unknown): string | null {
@@ -220,11 +225,12 @@ export async function getClientFileView(
     console.error(`[client-file] workbench read failed, showing Zoho closing + guidance docs: ${String(err)}`)
   }
 
-  // The presentation layer (B8b): published scenarios, offers, and the current
-  // letter, read from FOXCA by the LINK TOKEN HASH (not the deal id, so the
-  // public anon key cannot enumerate). Each is a bonus, never a blocker — a
-  // failure or an unconfigured store leaves the section absent, never an error.
-  const { scenarios, offers, letter } = await readPresentation(tokenHash)
+  // The presentation layer (B8b) + the qualification baseline (B9): published
+  // scenarios, offers, the current letter, and the affordability baseline, read
+  // from FOXCA by the LINK TOKEN HASH (not the deal id, so the public anon key
+  // cannot enumerate). Each is a bonus, never a blocker — a failure or an
+  // unconfigured store leaves the section absent, never an error.
+  const { scenarios, offers, letter, qualification } = await readPresentation(tokenHash)
 
   return {
     fileRef: fileRefOf(d.Deal_Name),
@@ -236,6 +242,7 @@ export async function getClientFileView(
     scenarios,
     offers,
     letter,
+    qualification,
   }
 }
 
@@ -243,17 +250,20 @@ async function readPresentation(tokenHash: string): Promise<{
   scenarios: PublishedScenario[]
   offers: OfferSnapshot[]
   letter: ClientLetterView | null
+  qualification: QualificationBaseline | null
 }> {
   const today = torontoTodayYMD()
   try {
-    const [sc, of, lt] = await Promise.all([
+    const [sc, of, lt, qu] = await Promise.all([
       publishedScenariosForToken(tokenHash),
       publishedOffersForToken(tokenHash),
       currentLetterForToken(tokenHash),
+      publishedQualificationForToken(tokenHash),
     ])
     const scenarios = sc.configured && sc.ok ? sc.data : []
     const offers = of.configured && of.ok ? of.data : []
     const current = lt.configured && lt.ok ? lt.data : null
+    const qualification = qu.configured && qu.ok ? qu.data : null
     const letter: ClientLetterView | null = current
       ? {
           snapshot: current.snapshot,
@@ -261,10 +271,10 @@ async function readPresentation(tokenHash: string): Promise<{
           valid: letterIsValid(current.snapshot, today),
         }
       : null
-    return { scenarios, offers, letter }
+    return { scenarios, offers, letter, qualification }
   } catch (err) {
     console.error(`[client-file] presentation read failed, showing status only: ${String(err)}`)
-    return { scenarios: [], offers: [], letter: null }
+    return { scenarios: [], offers: [], letter: null, qualification: null }
   }
 }
 

@@ -531,3 +531,63 @@ describe('demo mode on the client presentation (B8b)', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
+
+describe('demo mode on the qualification explorer (B9)', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '',
+      headers: new Headers(),
+    } as unknown as Response)
+  })
+
+  it('the admin list resolves from a fixture and the client file carries a baseline, with zero real reads', async () => {
+    const { qualificationForDeal } = await import('@/lib/qualification-store')
+    const q = await qualificationForDeal('demo-z-1')
+    expect(q.configured && q.ok && q.data.length).toBeGreaterThan(0)
+    if (q.configured && q.ok) expect(q.data[0].published).toBe(true)
+    const { demoClientFileView, DEMO_CLIENT_TOKEN } = await import('@/lib/demo-fixtures')
+    expect(demoClientFileView(DEMO_CLIENT_TOKEN)!.qualification).toBeTruthy()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('the demo baseline reaches all four bands as the client moves the controls (zero real reads)', async () => {
+    const { demoClientFileView, DEMO_CLIENT_TOKEN } = await import('@/lib/demo-fixtures')
+    const { computeQualification } = await import('@/lib/qualification')
+    const b = demoClientFileView(DEMO_CLIENT_TOKEN)!.qualification!
+    const bandAt = (price: number, downPayment: number, propertyTaxMonthly: number) =>
+      computeQualification(b, { price, downPayment, propertyTaxMonthly, condoMonthly: 0 }).band.key
+    const bands = new Set([
+      bandAt(545000, 109000, 200),
+      bandAt(611000, 61100, 300),
+      bandAt(768000, 76800, 400),
+      bandAt(1127000, 225400, 500),
+    ])
+    expect(bands).toEqual(new Set(['fits', 'options', 'alternatives', 'conversation']))
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('every qualification write rejects with DemoWriteBlocked and never calls fetch', async () => {
+    const { upsertQualificationBaseline, setQualificationPublished, deleteQualificationBaseline } = await import(
+      '@/lib/qualification-store'
+    )
+    await expect(
+      upsertQualificationBaseline({
+        id: null,
+        zohoDealId: 'demo-z-1',
+        fileRef: null,
+        baseline: {} as any,
+        sources: {},
+        baselineHash: 'h',
+        calcVersion: 1,
+        createdBy: 'demo@example.com',
+      }),
+    ).rejects.toThrow(/Demo mode/)
+    await expect(setQualificationPublished('q1', true)).rejects.toThrow(/Demo mode/)
+    await expect(deleteQualificationBaseline('q1')).rejects.toThrow(/Demo mode/)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})

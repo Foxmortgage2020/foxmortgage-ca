@@ -33,6 +33,11 @@ import {
   type OfferRow,
   type LetterRow,
 } from '@/lib/client-presentation'
+import {
+  QUALIFICATION_CALC_VERSION,
+  type QualificationBaseline,
+  type QualificationBaselineRow,
+} from '@/lib/qualification'
 import { gradeOffer, type RubricClaim } from '@/config/offer-rubric'
 import type {
   UwResult,
@@ -1033,6 +1038,7 @@ const demoPurchaseFile: ClientFileView = {
   scenarios: [],
   offers: [],
   letter: null,
+  qualification: null,
 }
 
 // A refinance clearing conditions: the lender said yes, a lawyer is on, and
@@ -1058,6 +1064,7 @@ const demoRefiFile: ClientFileView = {
   scenarios: [],
   offers: [],
   letter: null,
+  qualification: null,
 }
 
 // A funded file: beyond funding, no closing date (the dateless proof), and
@@ -1074,6 +1081,7 @@ const demoFundedFile: ClientFileView = {
   scenarios: [],
   offers: [],
   letter: null,
+  qualification: null,
 }
 
 // ─── B8b presentation demo fixtures ─────────────────────────────────────────
@@ -1156,11 +1164,32 @@ function demoLetterSnapshot(): LetterSnapshot {
 }
 const DEMO_LETTER = demoLetterSnapshot()
 
+// The qualification explorer's baseline (B9). Michael's numbers; the client
+// moves the four controls and, across the range, walks through all four bands
+// (tests/qualification.test.ts proves the four are reachable with this baseline).
+const demoQualificationBaseline: QualificationBaseline = {
+  annualIncome: 120000,
+  monthlyDebts: 500,
+  heatMonthly: 100,
+  contractRatePct: 4.79,
+  stressMode: 'b20',
+  amortizationMonths: 300,
+  condoInclusionRate: 0.5,
+  gdsLimit: 0.39,
+  tdsLimit: 0.44,
+  compounding: 'semi-annual',
+  defaultPrice: 600000,
+  defaultDownPayment: 120000,
+  defaultPropertyTaxMonthly: 400,
+  defaultCondoMonthly: 0,
+}
+
 const DEMO_CLIENT_FILES: Record<string, ClientFileView> = {
   [DEMO_CLIENT_TOKEN]: {
     ...demoPurchaseFile,
     offers: demoPurchaseOffers,
     letter: { snapshot: DEMO_LETTER, rateHoldExpiry: DEMO_LETTER.inputs.rateHoldExpiry, valid: true },
+    qualification: demoQualificationBaseline,
   },
   ['a1'.repeat(32)]: { ...demoRefiFile, scenarios: demoRefiScenarios },
   ['b2'.repeat(32)]: demoFundedFile,
@@ -1219,6 +1248,34 @@ export function demoClientLetterRows(zohoDealId: string): LetterRow[] {
       supersededAt: null,
       createdBy: 'michael@foxmortgage.ca',
       createdAt: '2026-07-15T14:00:00Z',
+    },
+  ]
+}
+
+// The qualification baseline authoring row (B9), fired on demo-z-1 (the purchase
+// deal that already carries offers + letter), so the demo deal room shows the
+// baseline card populated and published, with zero real reads.
+export function demoQualificationRows(zohoDealId: string): QualificationBaselineRow[] {
+  if (zohoDealId !== 'demo-z-1') return []
+  return [
+    {
+      id: 'demo-qualification-1',
+      zohoDealId,
+      fileRef: 'DEMO-F0001',
+      baseline: demoQualificationBaseline,
+      sources: {
+        annualIncome: 'file',
+        contractRatePct: 'file',
+        defaultPrice: 'file',
+        heatMonthly: 'default',
+        monthlyDebts: 'edited',
+      },
+      baselineHash: presentationHash({ v: QUALIFICATION_CALC_VERSION, baseline: demoQualificationBaseline }),
+      calcVersion: QUALIFICATION_CALC_VERSION,
+      published: true,
+      createdBy: 'michael@foxmortgage.ca',
+      createdAt: '2026-07-18T12:00:00Z',
+      updatedAt: '2026-07-18T12:00:00Z',
     },
   ]
 }
