@@ -7,6 +7,7 @@ import {
   KNOWN_N8N_WORKFLOWS,
 } from '@/config/n8n-workflows'
 import { listDryRunEntries, type DryRunEntry } from '@/lib/bookkeeping-dry-run-store'
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
 
 // ─── n8n ────────────────────────────────────────────────────────────────────
 
@@ -255,7 +256,10 @@ export async function getFormIntakeStatus(): Promise<FormIntakeStatus> {
   if (!env) return none
   try {
     const res = await fetch(`${env.base}/rest/v1/rpc/form_submission_stats`, {
-      headers: { apikey: env.key, Authorization: `Bearer ${env.key}` },
+      method: 'POST',
+      headers: { apikey: env.key, Authorization: `Bearer ${env.key}`, 'Content-Type': 'application/json' },
+      // POST (not GET): the operator secret must never ride a URL query string.
+      body: JSON.stringify({ p_operator_secret: foxcaOperatorSecret() }),
       cache: 'no-store',
       signal: AbortSignal.timeout(6000),
     })
@@ -286,7 +290,9 @@ export async function getFormIntakeFailures(): Promise<FormIntakeFailureRow[]> {
   if (!env) return []
   try {
     const res = await fetch(`${env.base}/rest/v1/rpc/form_submission_failures`, {
-      headers: { apikey: env.key, Authorization: `Bearer ${env.key}` },
+      method: 'POST',
+      headers: { apikey: env.key, Authorization: `Bearer ${env.key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_operator_secret: foxcaOperatorSecret() }),
       cache: 'no-store',
       signal: AbortSignal.timeout(6000),
     })
@@ -314,7 +320,7 @@ export async function acknowledgeFormSubmission(id: string, by: string): Promise
         Authorization: `Bearer ${env.key}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ p_id: id, p_by: by }),
+      body: JSON.stringify({ p_id: id, p_by: by, p_operator_secret: foxcaOperatorSecret() }),
       cache: 'no-store',
       signal: AbortSignal.timeout(6000),
     })

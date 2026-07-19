@@ -5,6 +5,7 @@
 // a constraint retires. Logs function + status only, never row payloads.
 
 import { isDemoMode } from '@/lib/demo'
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
 import type { Constraint, ConstraintType } from '@/lib/constraints'
 
 export type StoreResult<T> =
@@ -66,7 +67,7 @@ function mapConstraint(r: any): Constraint {
 
 export async function constraintsFor(clientKey: string): Promise<StoreResult<Constraint[]>> {
   if (isDemoMode()) return { configured: true, ok: true, data: [] }
-  const res = await rpc<any[]>('client_constraints_for', { p_client: clientKey })
+  const res = await rpc<any[]>('client_constraints_for', { p_client: clientKey, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as StoreResult<Constraint[]>
   return { configured: true, ok: true, data: (Array.isArray(res.data) ? res.data : []).map(mapConstraint) }
 }
@@ -87,12 +88,13 @@ export async function addConstraint(input: {
     p_type: input.type,
     p_reason: input.reason,
     p_email: input.actingEmail,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
 export async function retireConstraint(id: string, actingEmail: string): Promise<StoreResult<null>> {
   if (isDemoMode()) return { configured: true, ok: false, error: 'Demo mode is read-only.' }
-  return rpc<null>('client_constraint_retire', { p_id: id, p_email: actingEmail })
+  return rpc<null>('client_constraint_retire', { p_id: id, p_email: actingEmail, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export interface PinConfirmation {
@@ -108,7 +110,7 @@ export interface PinConfirmation {
 
 export async function pinConfirmationsFor(clientKey: string): Promise<StoreResult<PinConfirmation[]>> {
   if (isDemoMode()) return { configured: true, ok: true, data: [] }
-  const res = await rpc<any[]>('pin_confirmations_for', { p_client: clientKey })
+  const res = await rpc<any[]>('pin_confirmations_for', { p_client: clientKey, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as StoreResult<PinConfirmation[]>
   return {
     configured: true,
@@ -142,5 +144,6 @@ export async function addPinConfirmation(input: {
     p_requirement: input.requirement,
     p_requirement_text: input.requirementText,
     p_email: input.actingEmail,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }

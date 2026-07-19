@@ -8,6 +8,8 @@
 // Nothing deletes: view-as sessions end, provisioning records append,
 // offboarding checklists update in place with updated_by stamped.
 
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
+
 export type PeopleStoreResult<T> =
   | { configured: false }
   | { configured: true; ok: true; data: T }
@@ -118,15 +120,16 @@ export async function viewAsStart(input: {
     p_partner_zoho_id: input.partnerZohoId,
     p_partner_name: input.partnerName,
     p_portal_role: input.portalRole,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
 export async function viewAsEnd(id: string): Promise<PeopleStoreResult<boolean>> {
-  return rpc<boolean>('view_as_end', { p_id: id })
+  return rpc<boolean>('view_as_end', { p_id: id, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export async function viewAsList(limit = 100): Promise<PeopleStoreResult<ViewAsSession[]>> {
-  return rpc<ViewAsSession[]>('view_as_list', { p_limit: limit })
+  return rpc<ViewAsSession[]>('view_as_list', { p_limit: limit, p_operator_secret: foxcaOperatorSecret() })
 }
 
 // ─── Provisioning records ────────────────────────────────────────────────────
@@ -154,11 +157,12 @@ export async function recordProvisioning(input: {
     p_workbench_agent_id: input.workbenchAgentId ?? null,
     p_setup_remaining: input.setupRemaining ?? null,
     p_invite_sent: input.inviteSent,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
 export async function listProvisioningRecords(): Promise<PeopleStoreResult<ProvisioningRecord[]>> {
-  return rpc<ProvisioningRecord[]>('people_provision_list', {})
+  return rpc<ProvisioningRecord[]>('people_provision_list', { p_operator_secret: foxcaOperatorSecret() })
 }
 
 // ─── Offboarding records ─────────────────────────────────────────────────────
@@ -178,17 +182,18 @@ export async function recordOffboarding(input: {
     p_name: input.name,
     p_roles: input.roles,
     p_checklist: input.checklist,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
 export async function listOffboardingRecords(): Promise<PeopleStoreResult<OffboardingRecord[]>> {
-  return rpc<OffboardingRecord[]>('people_offboard_list', {})
+  return rpc<OffboardingRecord[]>('people_offboard_list', { p_operator_secret: foxcaOperatorSecret() })
 }
 
 export async function getOffboardingRecord(
   id: string,
 ): Promise<PeopleStoreResult<OffboardingRecord | null>> {
-  const res = await rpc<OffboardingRecord[]>('people_offboard_get', { p_id: id })
+  const res = await rpc<OffboardingRecord[]>('people_offboard_get', { p_id: id, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as PeopleStoreResult<OffboardingRecord | null>
   return { configured: true, ok: true, data: res.data?.[0] ?? null }
 }
@@ -204,5 +209,6 @@ export async function checkOffboardingItem(input: {
     p_item_key: input.itemKey,
     p_done: input.done,
     p_actor: input.actor,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }

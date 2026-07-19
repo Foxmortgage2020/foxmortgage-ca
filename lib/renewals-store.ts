@@ -4,6 +4,8 @@
 // grants revoked). Twin of lib/notifications-store.ts. Records who/when for
 // every renewal status action; nothing deletes.
 
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
+
 export type RenewalStoreResult<T> =
   | { configured: false }
   | { configured: true; ok: true; data: T }
@@ -79,6 +81,7 @@ export async function recordRenewalEvent(input: {
     p_fields: input.fields,
     p_prev_status: input.prevStatus,
     p_result: input.result,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -97,13 +100,13 @@ function mapRow(r: any): RenewalEvent {
 }
 
 export async function renewalEventsForDeal(dealId: string): Promise<RenewalStoreResult<RenewalEvent[]>> {
-  const res = await rpc<any[]>('renewal_events_for_deal', { p_deal_id: dealId })
+  const res = await rpc<any[]>('renewal_events_for_deal', { p_deal_id: dealId, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as RenewalStoreResult<RenewalEvent[]>
   return { configured: true, ok: true, data: (Array.isArray(res.data) ? res.data : []).map(mapRow) }
 }
 
 export async function recentRenewalEvents(limit = 50): Promise<RenewalStoreResult<RenewalEvent[]>> {
-  const res = await rpc<any[]>('renewal_events_recent', { p_limit: limit })
+  const res = await rpc<any[]>('renewal_events_recent', { p_limit: limit, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as RenewalStoreResult<RenewalEvent[]>
   return { configured: true, ok: true, data: (Array.isArray(res.data) ? res.data : []).map(mapRow) }
 }

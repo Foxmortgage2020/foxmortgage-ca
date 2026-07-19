@@ -6,6 +6,7 @@
 // reads append, prefs upsert in place.
 
 import type { NotificationCategory, NotificationInput } from '@/lib/notifications'
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
 
 export type NotificationStoreResult<T> =
   | { configured: false }
@@ -86,6 +87,7 @@ export async function upsertNotification(
     p_title: input.title,
     p_body: input.body,
     p_href: input.href,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -119,13 +121,20 @@ export async function markRead(
   id: string,
   clerkUserId: string,
 ): Promise<NotificationStoreResult<boolean>> {
-  return rpc<boolean>('notification_mark_read', { p_id: id, p_clerk_user_id: clerkUserId })
+  return rpc<boolean>('notification_mark_read', {
+    p_id: id,
+    p_clerk_user_id: clerkUserId,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
 }
 
 export async function markAllRead(
   clerkUserId: string,
 ): Promise<NotificationStoreResult<number>> {
-  return rpc<number>('notification_mark_all_read', { p_clerk_user_id: clerkUserId })
+  return rpc<number>('notification_mark_all_read', {
+    p_clerk_user_id: clerkUserId,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
 }
 
 // ─── Preferences ─────────────────────────────────────────────────────────────
@@ -156,5 +165,6 @@ export async function setPref(
     p_clerk_user_id: clerkUserId,
     p_category: category,
     p_enabled: enabled,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }

@@ -204,6 +204,8 @@ export async function recordClientLinkEvent(input: {
     p_action: input.action,
     p_acting_email: input.actingEmail,
     p_result: input.result ?? 'ok',
+    // Hardened FOXCA-wide 2026-07-18: closes the B7-P residual (anon could forge audit rows).
+    p_operator_secret: foxcaOperatorSecret(),
   }).catch(() => undefined)
 }
 

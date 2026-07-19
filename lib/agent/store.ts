@@ -5,6 +5,8 @@
 // call, and confirm-card outcome persists here: a reviewable trail is the
 // point. Nothing deletes.
 
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
+
 export type StoreResult<T> =
   | { configured: false }
   | { configured: true; ok: true; data: T }
@@ -97,21 +99,21 @@ export function createConversation(
   actor: string,
   clerkId: string | null,
 ): Promise<StoreResult<string>> {
-  return rpc('agent_conversation_create', { p_title: title, p_actor: actor, p_clerk_id: clerkId })
+  return rpc('agent_conversation_create', { p_title: title, p_actor: actor, p_clerk_id: clerkId, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export function listConversations(): Promise<StoreResult<AgentConversationRow[]>> {
-  return rpc('agent_conversations_list', {})
+  return rpc('agent_conversations_list', { p_operator_secret: foxcaOperatorSecret() })
 }
 
 export async function getConversation(id: string): Promise<StoreResult<AgentConversationRow | null>> {
-  const res = await rpc<AgentConversationRow[]>('agent_conversation_get', { p_id: id })
+  const res = await rpc<AgentConversationRow[]>('agent_conversation_get', { p_id: id, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res
   return { configured: true, ok: true, data: res.data[0] ?? null }
 }
 
 export function listMessages(conversationId: string): Promise<StoreResult<AgentMessageRow[]>> {
-  return rpc('agent_messages_list', { p_conversation_id: conversationId })
+  return rpc('agent_messages_list', { p_conversation_id: conversationId, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export function appendMessage(input: {
@@ -127,6 +129,7 @@ export function appendMessage(input: {
     p_content: input.content,
     p_tool_calls: input.toolCalls,
     p_actor: input.actor,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -135,7 +138,7 @@ export function setConversationStatus(
   status: 'open' | 'capped',
   actor: string,
 ): Promise<StoreResult<boolean>> {
-  return rpc('agent_conversation_set_status', { p_id: id, p_status: status, p_actor: actor })
+  return rpc('agent_conversation_set_status', { p_id: id, p_status: status, p_actor: actor, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export function createCard(input: {
@@ -153,15 +156,16 @@ export function createCard(input: {
     p_payload: input.payload,
     p_reason: input.reason,
     p_actor: input.actor,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
 export function listCards(conversationId: string): Promise<StoreResult<AgentCardRow[]>> {
-  return rpc('agent_cards_list', { p_conversation_id: conversationId })
+  return rpc('agent_cards_list', { p_conversation_id: conversationId, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export async function getCard(id: string): Promise<StoreResult<AgentCardRow | null>> {
-  const res = await rpc<AgentCardRow[]>('agent_card_get', { p_id: id })
+  const res = await rpc<AgentCardRow[]>('agent_card_get', { p_id: id, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res
   return { configured: true, ok: true, data: res.data[0] ?? null }
 }
@@ -174,5 +178,5 @@ export function decideCard(
   result: Record<string, unknown> | null,
   actor: string,
 ): Promise<StoreResult<boolean>> {
-  return rpc('agent_card_decide', { p_id: id, p_status: status, p_result: result, p_actor: actor })
+  return rpc('agent_card_decide', { p_id: id, p_status: status, p_result: result, p_actor: actor, p_operator_secret: foxcaOperatorSecret() })
 }

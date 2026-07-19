@@ -5,6 +5,8 @@
 // Per-user, keyed by the Clerk user id. Nothing hard-deletes: a scenario
 // retires.
 
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
+
 export type SavedScenarioStoreResult<T> =
   | { configured: false }
   | { configured: true; ok: true; data: T }
@@ -73,6 +75,7 @@ export async function createSavedScenario(
     p_name: name,
     p_params: params,
     p_from_file: fromFile,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -99,5 +102,5 @@ export async function retireSavedScenario(
   id: string,
   clerkUserId: string,
 ): Promise<SavedScenarioStoreResult<boolean>> {
-  return rpc<boolean>('saved_scenario_retire', { p_id: id, p_clerk_user_id: clerkUserId })
+  return rpc<boolean>('saved_scenario_retire', { p_id: id, p_clerk_user_id: clerkUserId, p_operator_secret: foxcaOperatorSecret() })
 }

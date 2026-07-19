@@ -17,6 +17,7 @@
 // mutated in a demo).
 import { isDemoMode, DemoWriteBlocked } from '@/lib/demo'
 import { demoResult, demoCredentials } from '@/lib/demo-fixtures'
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
 
 // Empty read result used for the compliance registers in demo mode.
 function demoEmpty<T>(): ComplianceResult<T[]> {
@@ -149,7 +150,7 @@ export interface ComplianceEvent {
 
 export function listCredentials(): Promise<ComplianceResult<ComplianceCredential[]>> {
   if (isDemoMode()) return Promise.resolve(demoResult(demoCredentials))
-  return rpc('compliance_credentials_list', {})
+  return rpc('compliance_credentials_list', { p_operator_secret: foxcaOperatorSecret() })
 }
 
 export function saveCredential(input: {
@@ -170,19 +171,20 @@ export function saveCredential(input: {
     p_date_confirmed: input.dateConfirmed,
     p_notes: input.notes,
     p_actor: input.actor,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
 export function retireCredential(id: string, note: string | null, actor: string): Promise<ComplianceResult<boolean>> {
   if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('retireCredential'))
-  return rpc('compliance_credential_retire', { p_id: id, p_note: note, p_actor: actor })
+  return rpc('compliance_credential_retire', { p_id: id, p_note: note, p_actor: actor, p_operator_secret: foxcaOperatorSecret() })
 }
 
 // ─── Complaints and incidents ───────────────────────────────────────────────
 
 export function listComplaints(): Promise<ComplianceResult<ComplianceComplaint[]>> {
   if (isDemoMode()) return Promise.resolve(demoEmpty<ComplianceComplaint>())
-  return rpc('compliance_complaints_list', {})
+  return rpc('compliance_complaints_list', { p_operator_secret: foxcaOperatorSecret() })
 }
 
 export function createComplaint(input: {
@@ -199,6 +201,7 @@ export function createComplaint(input: {
     p_summary: input.summary,
     p_reference: input.reference,
     p_actor: input.actor,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -209,24 +212,24 @@ export function setComplaintStatus(
   actor: string,
 ): Promise<ComplianceResult<boolean>> {
   if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('setComplaintStatus'))
-  return rpc('compliance_complaint_set_status', { p_id: id, p_status: status, p_note: note, p_actor: actor })
+  return rpc('compliance_complaint_set_status', { p_id: id, p_status: status, p_note: note, p_actor: actor, p_operator_secret: foxcaOperatorSecret() })
 }
 
 // ─── Policies and acknowledgments ───────────────────────────────────────────
 
 export function listPolicies(): Promise<ComplianceResult<CompliancePolicy[]>> {
   if (isDemoMode()) return Promise.resolve(demoEmpty<CompliancePolicy>())
-  return rpc('compliance_policies_list', {})
+  return rpc('compliance_policies_list', { p_operator_secret: foxcaOperatorSecret() })
 }
 
 export function listPolicyVersions(policyId: string): Promise<ComplianceResult<CompliancePolicyVersion[]>> {
   if (isDemoMode()) return Promise.resolve(demoEmpty<CompliancePolicyVersion>())
-  return rpc('compliance_policy_versions_list', { p_policy_id: policyId })
+  return rpc('compliance_policy_versions_list', { p_policy_id: policyId, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export function listPolicyAcks(): Promise<ComplianceResult<CompliancePolicyAck[]>> {
   if (isDemoMode()) return Promise.resolve(demoEmpty<CompliancePolicyAck>())
-  return rpc('compliance_policy_acks_list', {})
+  return rpc('compliance_policy_acks_list', { p_operator_secret: foxcaOperatorSecret() })
 }
 
 export function createPolicy(input: {
@@ -241,6 +244,7 @@ export function createPolicy(input: {
     p_body_md: input.bodyMd,
     p_effective_on: input.effectiveOn,
     p_actor: input.actor,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -260,6 +264,7 @@ export function updatePolicy(input: {
     p_effective_on: input.effectiveOn,
     p_status: input.status,
     p_actor: input.actor,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -275,6 +280,7 @@ export function ackPolicy(
     p_version: version,
     p_actor: actor,
     p_clerk_id: clerkId,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -285,5 +291,5 @@ export function listEvents(
   recordId: string,
 ): Promise<ComplianceResult<ComplianceEvent[]>> {
   if (isDemoMode()) return Promise.resolve(demoEmpty<ComplianceEvent>())
-  return rpc('compliance_events_list', { p_record_type: recordType, p_record_id: recordId })
+  return rpc('compliance_events_list', { p_record_type: recordType, p_record_id: recordId, p_operator_secret: foxcaOperatorSecret() })
 }

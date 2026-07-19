@@ -5,6 +5,7 @@
 // are inserted before parsing; nothing deletes.
 
 import { isDemoMode } from '@/lib/demo'
+import { foxcaOperatorSecret } from '@/lib/foxca-secret'
 
 export type SmmStoreResult<T> =
   | { configured: false }
@@ -95,11 +96,11 @@ function mapUpload(r: any): SmmUpload {
 
 export async function createUpload(filename: string, uploadedBy: string): Promise<SmmStoreResult<string>> {
   if (isDemoMode()) return demoWriteRefused<string>()
-  return rpc<string>('smm_upload_create', { p_filename: filename, p_uploaded_by: uploadedBy })
+  return rpc<string>('smm_upload_create', { p_filename: filename, p_uploaded_by: uploadedBy, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export async function insertRawRows(uploadId: string, rows: Record<string, string>[]): Promise<SmmStoreResult<number>> {
-  return rpc<number>('smm_rows_insert', { p_upload_id: uploadId, p_rows: rows })
+  return rpc<number>('smm_rows_insert', { p_upload_id: uploadId, p_rows: rows, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export async function finalizeUpload(
@@ -115,19 +116,20 @@ export async function finalizeUpload(
     p_mortgages: mortgages,
     p_collapsed: collapsed,
     p_notes: notes,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
 export async function recentUploads(limit = 24): Promise<SmmStoreResult<SmmUpload[]>> {
   if (isDemoMode()) return demoEmpty<SmmUpload[]>([])
-  const res = await rpc<any[]>('smm_uploads_recent', { p_limit: limit })
+  const res = await rpc<any[]>('smm_uploads_recent', { p_limit: limit, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as SmmStoreResult<SmmUpload[]>
   return { configured: true, ok: true, data: (Array.isArray(res.data) ? res.data : []).map(mapUpload) }
 }
 
 export async function rawRowsForUpload(uploadId: string): Promise<SmmStoreResult<Record<string, string>[]>> {
   if (isDemoMode()) return demoEmpty<Record<string, string>[]>([])
-  const res = await rpc<any[]>('smm_rows_for_upload', { p_upload_id: uploadId })
+  const res = await rpc<any[]>('smm_rows_for_upload', { p_upload_id: uploadId, p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as SmmStoreResult<Record<string, string>[]>
   return { configured: true, ok: true, data: (Array.isArray(res.data) ? res.data : []).map(r => r.raw as Record<string, string>) }
 }
@@ -146,6 +148,7 @@ export async function setOpportunityStatus(
     p_status: status,
     p_email: actingEmail,
     p_note: note,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -170,6 +173,7 @@ export async function recordBackfillEvent(input: {
     p_fields: input.fields,
     p_email: input.actingEmail,
     p_result: input.result,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
@@ -183,13 +187,13 @@ export async function recordSavingsAnalysis(
   dedupe: boolean,
 ): Promise<SmmStoreResult<string | null>> {
   if (isDemoMode()) return demoWriteRefused<string | null>()
-  return rpc<string | null>('savings_analysis_record', { p_entry: entry, p_dedupe: dedupe })
+  return rpc<string | null>('savings_analysis_record', { p_entry: entry, p_dedupe: dedupe, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export async function recordSavingsAnalysisBatch(entries: Record<string, unknown>[]): Promise<SmmStoreResult<number>> {
   if (isDemoMode()) return demoWriteRefused<number>()
   if (entries.length === 0) return { configured: true, ok: true, data: 0 }
-  return rpc<number>('savings_analysis_record_batch', { p_entries: entries })
+  return rpc<number>('savings_analysis_record_batch', { p_entries: entries, p_operator_secret: foxcaOperatorSecret() })
 }
 
 // ─── Manual comparable overrides (migration 20260713200000) ─────────────────
@@ -240,17 +244,18 @@ export async function setOverride(input: {
     p_source_note: input.sourceNote,
     p_reason: input.reason,
     p_email: input.actingEmail,
+    p_operator_secret: foxcaOperatorSecret(),
   })
 }
 
 export async function retireOverride(id: string, actingEmail: string): Promise<SmmStoreResult<boolean>> {
   if (isDemoMode()) return demoWriteRefused<boolean>()
-  return rpc<boolean>('smm_override_retire', { p_id: id, p_email: actingEmail })
+  return rpc<boolean>('smm_override_retire', { p_id: id, p_email: actingEmail, p_operator_secret: foxcaOperatorSecret() })
 }
 
 export async function activeOverrides(): Promise<SmmStoreResult<OverrideRow[]>> {
   if (isDemoMode()) return demoEmpty<OverrideRow[]>([])
-  const res = await rpc<any[]>('smm_overrides_active', {})
+  const res = await rpc<any[]>('smm_overrides_active', { p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as SmmStoreResult<OverrideRow[]>
   return { configured: true, ok: true, data: (Array.isArray(res.data) ? res.data : []).map(mapOverride) }
 }
@@ -265,7 +270,7 @@ export interface OpportunityStatusRow {
 
 export async function latestOpportunityStatuses(): Promise<SmmStoreResult<OpportunityStatusRow[]>> {
   if (isDemoMode()) return demoEmpty<OpportunityStatusRow[]>([])
-  const res = await rpc<any[]>('smm_opportunity_status_latest', {})
+  const res = await rpc<any[]>('smm_opportunity_status_latest', { p_operator_secret: foxcaOperatorSecret() })
   if (!res.configured || !res.ok) return res as SmmStoreResult<OpportunityStatusRow[]>
   return {
     configured: true,
