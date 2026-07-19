@@ -1631,6 +1631,34 @@ export async function getDealDocumentRequests(agentId: string, dealId: string): 
   )
 }
 
+// ─── The client page's deal brief (B8a) ──────────────────────────────────────
+// The client status page reads by ZOHO deal id, but the closing date and the
+// document-request list live in the workbench. This resolves the workbench deal
+// by its zoho_potential_id and hands back its id + Finmo-synced closing date.
+// The Finmo close date is the truth: Zoho's Closing_Date is often empty on a
+// refinance (F053107), so the client page prefers this and falls back to Zoho.
+export interface ClientDealBrief {
+  dealId: string
+  closingDate: string | null
+}
+
+export async function getClientDealBrief(
+  agentId: string,
+  zohoPotentialId: string,
+): Promise<UwResult<ClientDealBrief | null>> {
+  if (isDemoMode()) return demoResult(null)
+  const res = await uwSelect<any>('deals', {
+    select: 'id,closing_date',
+    agent_id: `eq.${agentId}`,
+    zoho_potential_id: `eq.${zohoPotentialId}`,
+    limit: '1',
+  })
+  return mapResult(res, rows => {
+    const r = rows[0]
+    return r ? { dealId: r.id as string, closingDate: (r.closing_date as string) ?? null } : null
+  })
+}
+
 // ─── The AI request verdict + Michael's decision (migration 0049, B6.4) ──────
 // The document analysis meets the document AT THE DOOR: for every stored document
 // that resolves to a Finmo request, the workbench writes a cited verdict into

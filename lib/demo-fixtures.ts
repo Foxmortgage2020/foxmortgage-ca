@@ -980,7 +980,8 @@ export function demoClientFileView(token: string): ClientFileView | null {
   return DEMO_CLIENT_FILES[token] ?? null
 }
 
-// A mid-underwriting purchase: documents outstanding, a realtor on the team.
+// A mid-underwriting purchase: documents in all three states across two
+// borrowers, a closing date, a realtor on the team. The full page, for proofs.
 const demoPurchaseFile: ClientFileView = {
   fileRef: 'FOX-1004',
   firstName: 'Sofia',
@@ -988,6 +989,16 @@ const demoPurchaseFile: ClientFileView = {
     journeyForStage({ stage: 'Collecting Documentation', shape: 'purchase', space: 'display' }),
   ),
   closingDate: '2026-09-18',
+  documents: {
+    total: 12,
+    done: 4,
+    received: 3,
+    waiting: 5,
+    groups: [
+      { borrower: 'Sofia', names: ['Photo ID', 'Most recent pay stub', 'Void cheque'] },
+      { borrower: 'Marco', names: ['Notice of Assessment for 2025', 'Property tax bill'] },
+    ],
+  },
   team: [
     AGENT_MEMBER,
     {
@@ -1000,7 +1011,8 @@ const demoPurchaseFile: ClientFileView = {
   ],
 }
 
-// A refinance clearing conditions: the lender said yes, a lawyer is on.
+// A refinance clearing conditions: the lender said yes, a lawyer is on, and
+// everything is in with a couple still being looked over (nothing waiting).
 const demoRefiFile: ClientFileView = {
   fileRef: 'FOX-1011',
   firstName: 'Jordan',
@@ -1008,6 +1020,7 @@ const demoRefiFile: ClientFileView = {
     journeyForStage({ stage: 'Conditionally Approved', shape: 'refi', space: 'display' }),
   ),
   closingDate: '2026-08-04',
+  documents: { total: 8, done: 6, received: 2, waiting: 0, groups: [] },
   team: [
     AGENT_MEMBER,
     {
@@ -1020,7 +1033,8 @@ const demoRefiFile: ClientFileView = {
   ],
 }
 
-// A funded file: beyond funding, no closing countdown, monitoring words.
+// A funded file: beyond funding, no closing date (the dateless proof), and
+// every document done.
 const demoFundedFile: ClientFileView = {
   fileRef: 'FOX-0994',
   firstName: 'Ava',
@@ -1028,6 +1042,7 @@ const demoFundedFile: ClientFileView = {
     journeyForStage({ stage: 'Mortgage Funded', shape: 'renewal', space: 'display' }),
   ),
   closingDate: null,
+  documents: { total: 5, done: 5, received: 0, waiting: 0, groups: [] },
   team: [AGENT_MEMBER],
 }
 

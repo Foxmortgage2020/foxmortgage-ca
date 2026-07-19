@@ -14,6 +14,9 @@
 import { getPartner, getZohoToken } from '@/lib/zoho'
 import { AGENT_MEMBER, type TeamMember } from '@/lib/client-team'
 import { normalizeDisplayStage } from '@/config/pipeline'
+import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
+import { getAgentIdByEmail, getClientDealBrief, getDealDocumentRequests } from '@/lib/underwriting'
+import { buildClientChecklist, type ClientDocChecklist } from '@/lib/client-checklist'
 import {
   clientJourneyFor,
   journeyForStage,
@@ -38,6 +41,10 @@ export interface ClientFileView {
   journey: ClientJourney
   closingDate: string | null
   team: TeamMember[]
+  // The Finmo document checklist, or null when there are no active requests (or
+  // the workbench cannot be read) — the documents card then shows its guidance
+  // text, never an error.
+  documents: ClientDocChecklist | null
 }
 
 function lookupId(v: unknown): string | null {
@@ -157,12 +164,37 @@ export async function getClientFileView(zohoDealId: string): Promise<ClientFileV
     if (m) team.push(m)
   }
 
+  // The closing date and the document checklist live in the workbench (Finmo
+  // truth). This is a bonus, never a blocker: any failure leaves the Zoho
+  // closing date (often empty on a refinance) and the guidance-only documents
+  // card. The demo client page never reaches this — page.tsx serves the demo
+  // fixture before getClientFileView runs — so there are no real reads in demo.
+  const zohoClosing = typeof d.Closing_Date === 'string' ? d.Closing_Date : null
+  let closingDate = zohoClosing
+  let documents: ClientDocChecklist | null = null
+  try {
+    const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
+    const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
+    if (agentId) {
+      const briefRes = await getClientDealBrief(agentId, zohoDealId)
+      const brief = briefRes.configured && briefRes.ok ? briefRes.data : null
+      if (brief) {
+        closingDate = brief.closingDate ?? zohoClosing
+        const reqRes = await getDealDocumentRequests(agentId, brief.dealId)
+        if (reqRes.configured && reqRes.ok) documents = buildClientChecklist(reqRes.data)
+      }
+    }
+  } catch (err) {
+    console.error(`[client-file] workbench read failed, showing Zoho closing + guidance docs: ${String(err)}`)
+  }
+
   return {
     fileRef: fileRefOf(d.Deal_Name),
     firstName,
     journey: clientJourneyFor(journey),
-    closingDate: typeof d.Closing_Date === 'string' ? d.Closing_Date : null,
+    closingDate,
     team,
+    documents,
   }
 }
 

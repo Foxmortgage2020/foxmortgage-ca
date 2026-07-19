@@ -258,6 +258,26 @@ const BANNED = [
   'pipeline',
 ]
 
+// The document-checklist verdict vocabulary (B8a). The desk reads AI verdicts,
+// flags, freshness advisories, stale-cycle notes, and review reasons — every
+// one of these is an INTERNAL draft and must never reach a client's markup. The
+// client checklist reads only the raw Finmo request state, so this list can
+// never appear by construction; the assertion locks that in the way the stage
+// ban above locks internal stage names.
+const BANNED_VERDICTS = [
+  'flagged',
+  'stale',
+  'illegible',
+  'verdict',
+  'needs review',
+  'for_review',
+  'stale_cycle',
+  'needs_input',
+  'looks right',
+  'worth a glance',
+  'requirement',
+]
+
 /** The words a client actually reads: JSX text and quoted strings. */
 function renderedStrings(src: string): string[] {
   const withoutComments = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
@@ -287,6 +307,40 @@ describe('no internal vocabulary reaches the client', () => {
           ).toBe(false)
         }
       }
+    }
+  })
+
+  it('no verdict vocabulary reaches the client (AI flags, freshness, review reasons)', () => {
+    for (const file of CLIENT_FACING_SOURCES) {
+      const strings = renderedStrings(readFileSync(file, 'utf8'))
+      for (const s of strings) {
+        if (/^[a-z0-9:_\- [\]/.#()%]+$/i.test(s) && /\b(text|bg|border|rounded|font|flex|grid|mt|mx|px|py|gap)-/.test(s)) continue
+        for (const word of BANNED_VERDICTS) {
+          expect(
+            new RegExp(`\\b${word}\\b`, 'i').test(s),
+            `${file} shows a client the verdict word "${word}": ${JSON.stringify(s)}`,
+          ).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('the demo document checklist exercises all three states and carries no internal words', async () => {
+    const { demoClientFileView, DEMO_CLIENT_TOKEN } = await import('../lib/demo-fixtures')
+    const view = demoClientFileView(DEMO_CLIENT_TOKEN)!
+    expect(view.documents, 'the demo purchase file must carry a checklist for the proofs').toBeTruthy()
+    const c = view.documents!
+    // All three states populated, so a render proof shows the full card.
+    expect(c.done).toBeGreaterThan(0)
+    expect(c.received).toBeGreaterThan(0)
+    expect(c.waiting).toBeGreaterThan(0)
+    // The runtime request NAMES + borrower headers carry no internal or verdict word.
+    const blob = c.groups
+      .flatMap(g => [g.borrower ?? '', ...g.names])
+      .join(' ')
+      .toLowerCase()
+    for (const word of [...BANNED, ...BANNED_VERDICTS]) {
+      expect(blob.includes(word.toLowerCase()), `demo checklist leaks the word "${word}"`).toBe(false)
     }
   })
 
