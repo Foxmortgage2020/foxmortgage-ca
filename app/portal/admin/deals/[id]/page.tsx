@@ -50,6 +50,7 @@ import {
   getDealCommsTimeline,
 } from '@/lib/underwriting'
 import { getDealCloseout } from '@/lib/zoho-admin'
+import { resolveClosingDate } from '@/lib/closing-date'
 import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
 import CommitmentUploader from '@/components/admin/CommitmentUploader'
 import DocumentUploader from '@/components/admin/DocumentUploader'
@@ -408,7 +409,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       d.reviewStatus !== 'rejected',
   )
 
-  const closeDays = deal.closingDate ? daysUntil(deal.closingDate, today) : null
+  // One closing-date rule (B8b Task 0): workbench first, Zoho (closeout) fallback.
+  // The header read the workbench date alone; a file with only a Zoho date now
+  // renders dated here too, matching the client's own page.
+  const closingDate = resolveClosingDate(deal.closingDate, closeout?.closingDate ?? null)
+  const closeDays = closingDate ? daysUntil(closingDate, today) : null
   const closingAmber = closingHeaderAmber(closeDays)
 
   // The journey (B1, room space — B2a left the room positioned by its own
@@ -984,9 +989,9 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
             {deal.mortgageAmount !== null ? fmtMoney(deal.mortgageAmount) : 'not recorded'}
           </BandStat>
           <BandStat label="Closes">
-            {deal.closingDate ? (
+            {closingDate ? (
               <>
-                {fmtShortDate(deal.closingDate)}
+                {fmtShortDate(closingDate)}
                 {closeDays !== null && (
                   <span className={`ml-1.5 font-normal ${closingAmber ? '' : 'text-white/65'}`}>
                     {closingAmber ? (

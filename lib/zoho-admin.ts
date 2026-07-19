@@ -615,10 +615,14 @@ export interface DealCloseout {
   complianceRead: boolean
   // Total_Commission when recorded (> 0), else null.
   totalCommission: number | null
+  // The Zoho Closing_Date, the FALLBACK source for the deal-room header. The
+  // workbench date wins (lib/closing-date.ts); this fills in only when the
+  // workbench has none.
+  closingDate: string | null
 }
 
-const CLOSEOUT_FIELDS = 'Deal_Name,Compliance_Status,Total_Commission'
-const CLOSEOUT_FIELDS_FALLBACK = 'Deal_Name,Total_Commission'
+const CLOSEOUT_FIELDS = 'Deal_Name,Compliance_Status,Total_Commission,Closing_Date'
+const CLOSEOUT_FIELDS_FALLBACK = 'Deal_Name,Total_Commission,Closing_Date'
 
 export async function getDealCloseout(zohoDealId: string): Promise<DealCloseout | null> {
   if (isDemoMode()) return demoDealCloseout(zohoDealId)
@@ -650,6 +654,7 @@ export async function getDealCloseout(zohoDealId: string): Promise<DealCloseout 
     complianceStatus: rawStatus && rawStatus !== '-None-' ? rawStatus : null,
     complianceRead,
     totalCommission: commission !== null && commission > 0 ? commission : null,
+    closingDate: typeof d.Closing_Date === 'string' && d.Closing_Date.trim() ? d.Closing_Date : null,
   }
 }
 

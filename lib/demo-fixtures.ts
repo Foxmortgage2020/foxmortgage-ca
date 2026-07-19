@@ -137,18 +137,23 @@ const DEMO_CLOSEOUTS: Record<string, DealCloseout> = {
     complianceStatus: null,
     complianceRead: true,
     totalCommission: null,
+    closingDate: null,
   },
   'demo-z-2': {
     dealName: 'Ada Testwell — Refinance',
     complianceStatus: 'In Review',
     complianceRead: true,
     totalCommission: null,
+    // A refi where Zoho carries a date the workbench may not: the closing-date
+    // helper (B8b Task 0) falls back to this when the workbench has none.
+    closingDate: '2026-09-15',
   },
   'demo-z-10': {
     dealName: 'Prototype Partners — Purchase',
     complianceStatus: 'Approved',
     complianceRead: true,
     totalCommission: 7140,
+    closingDate: null,
   },
 }
 

@@ -17,6 +17,7 @@ import { normalizeDisplayStage } from '@/config/pipeline'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail, getClientDealBrief, getDealDocumentRequests } from '@/lib/underwriting'
 import { buildClientChecklist, type ClientDocChecklist } from '@/lib/client-checklist'
+import { resolveClosingDate } from '@/lib/closing-date'
 import {
   clientJourneyFor,
   journeyForStage,
@@ -170,7 +171,9 @@ export async function getClientFileView(zohoDealId: string): Promise<ClientFileV
   // card. The demo client page never reaches this — page.tsx serves the demo
   // fixture before getClientFileView runs — so there are no real reads in demo.
   const zohoClosing = typeof d.Closing_Date === 'string' ? d.Closing_Date : null
-  let closingDate = zohoClosing
+  // The one closing-date rule (lib/closing-date.ts): workbench first, Zoho
+  // fallback. Same helper the admin list, board, and deal-room header use.
+  let closingDate = resolveClosingDate(null, zohoClosing)
   let documents: ClientDocChecklist | null = null
   try {
     const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
@@ -179,7 +182,7 @@ export async function getClientFileView(zohoDealId: string): Promise<ClientFileV
       const briefRes = await getClientDealBrief(agentId, zohoDealId)
       const brief = briefRes.configured && briefRes.ok ? briefRes.data : null
       if (brief) {
-        closingDate = brief.closingDate ?? zohoClosing
+        closingDate = resolveClosingDate(brief.closingDate, zohoClosing)
         const reqRes = await getDealDocumentRequests(agentId, brief.dealId)
         if (reqRes.configured && reqRes.ok) documents = buildClientChecklist(reqRes.data)
       }

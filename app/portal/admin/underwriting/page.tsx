@@ -29,6 +29,7 @@ import {
 } from '@/lib/underwriting-bridge'
 import { columnForDisplayStage } from '@/config/lifecycle'
 import { buildDealRows, countLine, type DealSurfaceInput } from '@/lib/deals-surface'
+import { resolveClosingDate } from '@/lib/closing-date'
 import type { ConditionCount } from '@/lib/conditions-status'
 import { daysUntil } from '@/lib/compliance-logic'
 import { runBridgeSweep } from '@/lib/underwriting-sweep'
@@ -92,7 +93,10 @@ export default async function DealsPage({
     const zohoColumn = z ? columnForDisplayStage(z.stage) : null
     const roomPosition = boardColumnFor(r.stage)
     const positionFromRoom = zohoColumn === null
-    const closing = z?.closingDate ?? r.closingDate
+    // One closing-date rule (B8b Task 0): workbench first, Zoho fallback. This
+    // was Zoho-FIRST, so a stale Zoho date could win over the fresh
+    // Finmo-synced workbench date and disagree with the client's own page.
+    const closing = resolveClosingDate(r.closingDate, z?.closingDate ?? null)
     return {
       roomId: r.id,
       fileRef: r.fileRef,
