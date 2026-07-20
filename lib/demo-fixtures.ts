@@ -233,9 +233,9 @@ export const demoRevenueDeals: RevenueDeal[] = [
 // ─── Zoho: tasks due ────────────────────────────────────────────────────────
 
 export const demoOpenTasks: OpenTask[] = [
-  { id: 'demo-t-1', subject: 'Collect T4 from Marty McFixture', dueDate: '2026-07-08', priority: 'High', status: 'Not Started', overdue: true },
-  { id: 'demo-t-2', subject: 'Send commitment to Ada Testwell', dueDate: '2026-07-10', priority: 'High', status: 'In Progress', overdue: false },
-  { id: 'demo-t-3', subject: 'Follow up on appraisal — Example Estates', dueDate: '2026-07-10', priority: 'Normal', status: 'Not Started', overdue: false },
+  { id: 'demo-t-1', subject: 'Collect T4 from Marty McFixture (DEMO-F0001)', dueDate: '2026-07-15', priority: 'High', status: 'Not Started', overdue: true },
+  { id: 'demo-t-2', subject: 'Send commitment to Ada Testwell (DEMO-F0002)', dueDate: '2026-07-20', priority: 'High', status: 'In Progress', overdue: false },
+  { id: 'demo-t-3', subject: 'Follow up on the appraisal for Example Estates', dueDate: '2026-07-20', priority: 'Normal', status: 'Not Started', overdue: false },
 ]
 
 // ─── Zoho: leads ────────────────────────────────────────────────────────────

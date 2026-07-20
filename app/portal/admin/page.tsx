@@ -1,17 +1,20 @@
-// Home: the daily command center. Exception-first: the top of the page is
-// what needs Michael, not vanity metrics. Server component; every data pull
-// degrades independently to an honest unavailable state.
+// Today — the morning operating page (Today v1). It answers three questions in
+// order: what needs me (the Waiting-on-you region), what is moving (the
+// lifecycle table), what is at risk (the exceptions block + closings + the
+// leak). Every story is told once. Server component; every data pull degrades
+// independently to an honest unavailable state.
 //
-// Replaced the previous KPI dashboard (client component fetching
-// /api/admin/dashboard) in Session 1. What was dropped and why is recorded
-// in docs/portal-audit-2026-07.md.
+// Counts reconcile with their owning pages by construction (the Desk pattern):
+// this page re-derives nothing a loader already computes, it only reshapes.
+// The band model lives in lib/today.ts (pure, tested); the bands render in
+// components/admin/today/*. The three decision cards stay inline here because
+// the decision (lime) token is enumerated to this file for that role only.
 
 import Link from 'next/link'
 import { can, requirePermission } from '@/lib/authz'
 import {
   ANNUAL_FUNDED_TARGET,
-  CLOSINGS_ATTENTION_DAYS,
-  CLOSINGS_STRIP_DAYS,
+  CLOSINGS_BLOCK_DAYS,
   CONDITIONS_DUE_SOON_DAYS,
   INTAKE_STALE_HOURS,
   WORKBENCH_AGENT_EMAIL,
@@ -29,7 +32,7 @@ import {
   type OpenTask,
   type SlimDeal,
 } from '@/lib/zoho-admin'
-import { appearsRenewedPending, bucketRenewals, renewalBook } from '@/lib/renewals'
+import { appearsRenewedPending, bucketRenewals } from '@/lib/renewals'
 import {
   getAgentIdByEmail,
   getConditionsDue,
@@ -37,8 +40,8 @@ import {
   getIntakeFreshness,
   getOpenConditionCounts,
   getOpenFlags,
-  getRateQuoteStats,
   getRateQuotesFull,
+  getRenewalSequenceStates,
   type UwResult,
 } from '@/lib/underwriting'
 import { getApprovalsData } from '@/lib/approvals-data'
@@ -47,144 +50,45 @@ import { recentRenewalEvents } from '@/lib/renewals-store'
 import { collapseCoBorrowers, parseSmmRow, type SmmMortgage } from '@/lib/smm'
 import { analyzeMortgage, bookQuoteFromRow } from '@/lib/smm-analysis'
 import { indexMortgagesByName, type BookQuote } from '@/lib/smm-match'
-import { deskFragments, nextStepForStage, type DeskCounts } from '@/lib/desk'
+import { deskFragments, type DeskCounts } from '@/lib/desk'
 import { groupByPhase } from '@/config/lifecycle'
+import {
+  buildClosingRows,
+  buildExceptions,
+  prioritizeTasks,
+  renewalNurtureBuckets,
+} from '@/lib/today'
 import DeskStrip from '@/components/admin/DeskStrip'
-import StatusChip from '@/components/admin/ds/StatusChip'
-import { CELL_MONEY } from '@/components/admin/ds/table'
+import YourDay from '@/components/admin/today/YourDay'
+import Exceptions from '@/components/admin/today/Exceptions'
+import RenewalNurture from '@/components/admin/today/RenewalNurture'
+import WhatsMoving from '@/components/admin/today/WhatsMoving'
+import Closings from '@/components/admin/today/Closings'
+import TheYear from '@/components/admin/today/TheYear'
 import { isDemoMode } from '@/lib/demo'
 import { listCredentials } from '@/lib/compliance'
 import { credentialTone } from '@/lib/compliance-logic'
-import {
-  fmtMoney,
-  fmtMoneyCompact,
-  fmtShortDate,
-  hoursSince,
-  torontoAsOfDate,
-  torontoTodayYMD,
-} from '@/lib/dates'
+import { fmtMoneyCompact, hoursSince, torontoAsOfDate, torontoTodayYMD } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
-
-const zohoTaskUrl = (id: string) => `https://crm.zoho.com/crm/org906105026/tab/Tasks/${id}`
 
 function val<T>(r: UwResult<T> | null): T | null {
   return r && r.configured && r.ok ? r.data : null
 }
 
-// ─── Small presentational pieces (server-rendered) ──────────────────────────
-
-type Tone = 'red' | 'amber' | 'gray'
-
-const TONE_STYLES: Record<Tone, string> = {
-  red: 'bg-red-50 border-red-200',
-  amber: 'bg-amber-50 border-amber-200',
-  gray: 'bg-white border-cool-200',
-}
-
-function AttentionCard({
-  tone,
-  title,
-  count,
-  href,
-  children,
-}: {
-  tone: Tone
-  title: string
-  count?: number
-  href: string
-  children?: React.ReactNode
-}) {
-  return (
-    <Link
-      href={href}
-      className={`block border rounded-[9px] px-4 py-3 transition-colors hover:border-navy/40 ${TONE_STYLES[tone]}`}
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className={`w-2 h-2 rounded-full shrink-0 ${
-            tone === 'red' ? 'bg-red-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-cool-300'
-          }`}
-        />
-        <span className="font-heading font-bold text-navy text-sm">{title}</span>
-        {typeof count === 'number' && <StatusChip tone={tone}>{count}</StatusChip>}
-      </div>
-      {children ? <div className="mt-2 space-y-1">{children}</div> : null}
-    </Link>
-  )
-}
-
-function AttentionRow({ left, right }: { left: React.ReactNode; right?: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 text-xs font-ui text-cool-700">
-      <span className="truncate">{left}</span>
-      {right ? <span className="shrink-0 text-cool-500">{right}</span> : null}
-    </div>
-  )
-}
-
-function SectionCard({
-  title,
-  action,
-  children,
-}: {
-  title: string
-  action?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <div className="bg-white border border-cool-200 rounded-[9px] p-5">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-heading text-navy font-bold text-base">{title}</h2>
-        {action}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function QuietNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-cool-500 font-ui py-2">{children}</p>
-}
-
-function KpiCell({
-  label,
-  value,
-  sub,
-  href,
-  tone,
-}: {
-  label: string
-  value: string
-  sub?: string
-  href: string
-  tone?: 'good' | 'bad'
-}) {
-  return (
-    <Link
-      href={href}
-      className="block border border-cool-200 rounded-[9px] px-3 py-2 bg-white hover:border-navy/40 transition-colors"
-    >
-      <p className="font-heading text-[10px] font-semibold tracking-[0.05em] text-cool-500 truncate">{label}</p>
-      <p
-        className={`font-heading font-bold text-base tabular-nums ${
-          tone === 'good' ? 'text-green-600' : tone === 'bad' ? 'text-red-600' : 'text-navy'
-        }`}
-      >
-        {value}
-      </p>
-      {sub && <p className="text-[10px] font-ui text-cool-500 truncate">{sub}</p>}
-    </Link>
-  )
-}
-
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default async function AdminHome() {
-  // Session 8: Home is permission-composed. Every section gates on the
-  // same key as its destination page, so an ops or agent home shows
-  // exactly what their nav can reach — nothing more.
+  // Home is permission-composed: every band gates on the same key as its
+  // destination page, so an ops or agent home shows exactly what their nav can
+  // reach — nothing more.
   const user = await requirePermission('deals.view')
+  const canApprovals = can(user, 'approvals.view')
+  const canRenewals = can(user, 'renewals.view')
+  const canOpps = can(user, 'opportunities.view')
+  const canRevenue = can(user, 'revenue.view')
+  const canCompliance = can(user, 'compliance.view')
+  const canStatus = can(user, 'status.view')
 
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
@@ -193,8 +97,8 @@ export default async function AdminHome() {
 
   // The approvals queues arrive through the SAME shared loader the desk page
   // and the Desk count layer use (getApprovalsData), so the Waiting-on-you
-  // strip, the rail, and the Approvals page reconcile by construction.
-  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, approvalsData, wbDealsR, ratesR, freshR, credsR, renewalsRes] =
+  // strip, the decision cards, and the Approvals page reconcile by construction.
+  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, approvalsData, wbDealsR, freshR, credsR, renewalsRes, seqStatesR] =
     await Promise.all([
       getAllDealsSlim()
         .then(d => ({ ok: true as const, data: d }))
@@ -207,12 +111,12 @@ export default async function AdminHome() {
       agentId ? getOpenConditionCounts(agentId) : null,
       agentId ? getApprovalsData(agentId) : null,
       agentId ? getDealsSummary(agentId) : null,
-      agentId ? getRateQuoteStats(agentId) : null,
       agentId ? getIntakeFreshness(agentId) : null,
       listCredentials(),
       getRenewalDeals()
         .then(r => ({ ok: true as const, data: r }))
         .catch(() => ({ ok: false as const, data: null })),
+      canRenewals && agentId ? getRenewalSequenceStates(agentId) : null,
     ])
 
   const deals: SlimDeal[] | null = dealsRes.ok ? dealsRes.data : null
@@ -226,7 +130,6 @@ export default async function AdminHome() {
   const weighted = pipeline
     ? weightedPipelineVolume(pipelineStageVolumes(pipeline), STAGE_WEIGHTS)
     : null
-  // Loud, never silent: active stages the weight map does not know.
   const unmappedStages = pipeline
     ? unmappedPipelineStages(pipelineStageVolumes(pipeline), STAGE_WEIGHTS)
     : []
@@ -240,23 +143,17 @@ export default async function AdminHome() {
         })
       : null
 
-  const closingsAttention = deals ? computeClosings(deals, CLOSINGS_ATTENTION_DAYS) : []
-  const closingsStrip = deals ? computeClosings(deals, CLOSINGS_STRIP_DAYS) : []
+  const closings30 = deals ? computeClosings(deals, CLOSINGS_BLOCK_DAYS) : []
 
-  // Renewals: the rail alarm and the KPI-strip numbers (renewals.view only).
+  // Renewals: the leak-line figures and the nurture band.
   const renewals = renewalsRes.ok ? renewalsRes.data : null
   const renewalBuckets = renewals ? bucketRenewals(renewals.withMaturity, todayYMD) : null
-  const renewalBookData = renewals ? renewalBook(renewals.withMaturity, todayYMD) : null
-  const missingMaturityCount = renewals ? renewals.missingMaturity.length : 0
-  const missingMaturityVol = renewals
-    ? renewals.missingMaturity.reduce((s, d) => s + d.amount, 0)
-    : 0
-  const canRenewals = can(user, 'renewals.view')
+  const seqStates = canRenewals ? val(seqStatesR) : null
+  const nurtureBuckets = seqStates ? renewalNurtureBuckets(seqStates) : null
 
-  // The latest monitoring export, loaded once: it powers the act-now rail
-  // line, the Desk's files-in-review count (opportunities.view), and the
+  // The latest monitoring export, loaded once: it powers the act-now leak
+  // figure, the Desk's files-in-review count (opportunities.view), and the
   // renewals-to-confirm count (renewals.view). Read-only; degrades silently.
-  const canOpps = can(user, 'opportunities.view')
   let oppActNow: { count: number; netBenefit: number } | null = null
   let reviewFiles: number | null = null
   let exportMortgages: SmmMortgage[] | null = null
@@ -277,7 +174,7 @@ export default async function AdminHome() {
   }
   if (canOpps && exportMortgages) {
     try {
-      const quotesR = agentId ? await getRateQuotesFull(agentId) : null
+      const quotesR = agentId && !isDemoMode() ? await getRateQuotesFull(agentId) : null
       const book: BookQuote[] =
         quotesR && quotesR.configured && quotesR.ok ? quotesR.data.map(bookQuoteFromRow) : []
       let count = 0
@@ -331,19 +228,17 @@ export default async function AdminHome() {
   const flags = val(flagsR) ?? []
   const conds = val(condsR)
   const condCounts = val(condCountsR) ?? {}
-  // Actionable queues from the shared approvals loader: sheets exclude the
-  // parked province-excluded shelf, exactly as the Approvals page counts.
+  // Whether the condition reads succeeded — a failed read must never paint a
+  // bridged closing "0 open conditions" (a false green); it reads neutral.
+  const condsReadOk = val(condCountsR) !== null && conds !== null
   const stmts = approvalsData?.statements ?? []
   const sheets = approvalsData?.sheets ?? []
   const offers = approvalsData?.offers ?? []
-  const pendingOffers = offers.length
   const shadow = approvalsData?.shadow ?? null
   const wbDeals = val(wbDealsR) ?? []
-  const rates = val(ratesR)
   const fresh = val(freshR)
 
-  // ── The Desk: everything waiting on a human, one sentence ────────────────
-  const canApprovals = can(user, 'approvals.view')
+  // ── The Desk: everything waiting on a human, one plain sentence ───────────
   const deskCounts: DeskCounts = {
     sheets: canApprovals && approvalsData ? approvalsData.sheets.length : null,
     statements: canApprovals && approvalsData ? approvalsData.statements.length : null,
@@ -352,68 +247,86 @@ export default async function AdminHome() {
     shadow: canApprovals && approvalsData ? approvalsData.shadow.length : null,
     renewalsToConfirm,
     reviewFiles,
-    // No passive source exists for manual matches in Phase A: the backfill
-    // scan is on-demand and priced in Zoho searches (recorded deviation).
+    // No passive source exists for manual matches in Phase A (recorded
+    // deviation): the backfill scan is on-demand, priced in Zoho searches.
     manualMatches: null,
   }
   const desk = deskFragments(deskCounts)
 
-  // Zoho deal id → workbench deal (for the closings join).
+  // Zoho deal id → workbench deal (closings join); file ref → workbench deal
+  // (task links + overdue join).
   const wbByZohoId = new Map<string, (typeof wbDeals)[number]>()
-  for (const d of wbDeals) if (d.zohoPotentialId) wbByZohoId.set(d.zohoPotentialId, d)
-
-  const closingRows = closingsAttention.map(c => {
-    const wb = wbByZohoId.get(c.id)
-    return {
-      ...c,
-      wbMatch: Boolean(wb),
-      openConds: wb ? (condCounts[wb.id] ?? 0) : null,
-    }
-  })
-  const closingsNeedingAttention = closingRows.filter(
-    r => !r.wbMatch || (r.openConds ?? 0) > 0,
-  )
+  const wbByFileRef = new Map<string, (typeof wbDeals)[number]>()
+  for (const d of wbDeals) {
+    if (d.zohoPotentialId) wbByZohoId.set(d.zohoPotentialId, d)
+    if (d.fileRef) wbByFileRef.set(d.fileRef, d)
+  }
+  const overdueByRef = new Map<string, number>()
+  for (const c of conds?.overdue ?? []) {
+    if (c.dealRef) overdueByRef.set(c.dealRef, (overdueByRef.get(c.dealRef) ?? 0) + 1)
+  }
 
   const highFlags = flags.filter(f => f.severity === 'high')
   const warnFlags = flags.filter(f => f.severity === 'warning')
   const infoFlags = flags.filter(f => f.severity === 'info')
-
-  // Same definition as the Approvals shadow tab: active deals with at
-  // least one of the four dimensions not yet scored.
-  const shadowDue = shadow ? shadow.length : 0
-  const pendingApprovals = stmts.length + sheets.length + shadowDue
 
   const staleHours = fresh?.lastActivity ? hoursSince(fresh.lastActivity) : null
   const intakeStale =
     Boolean(agentId && fresh) && (staleHours === null || staleHours > INTAKE_STALE_HOURS)
   const zohoDown = deals === null
 
-  const headerDate = new Date().toLocaleDateString('en-CA', {
-    timeZone: 'America/Toronto',
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
-  const torontoHour = Number(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Toronto',
-      hour: 'numeric',
-      hour12: false,
-    }).format(new Date()),
-  )
-  const greeting =
-    torontoHour < 12 ? 'Good morning' : torontoHour < 17 ? 'Good afternoon' : 'Good evening'
-  const firstName = user.name.split(' ')[0] || 'there'
+  // Credential renewals within 60 days amber / 14 red (compliance.view only).
+  const credentials = credsR.configured && credsR.ok ? credsR.data.filter(c => c.status === 'active') : []
+  const credRows = credentials
+    .map(c => ({ c, tone: credentialTone(c.expires_on, todayYMD) }))
+    .filter(x => x.tone === 'red' || x.tone === 'amber')
 
-  // Up to three decision cards under the strip: decisions carry the lime
-  // top border, review carries amber. No filler; fewer queues, fewer cards.
-  const approvalsTotal =
-    (deskCounts.sheets ?? 0) +
-    (deskCounts.statements ?? 0) +
-    (deskCounts.offers ?? 0) +
-    (deskCounts.flags ?? 0) +
-    (deskCounts.shadow ?? 0)
+  const closingRows = buildClosingRows(
+    closings30,
+    todayYMD,
+    wbByZohoId,
+    condCounts,
+    overdueByRef,
+    condsReadOk,
+  )
+
+  const exceptions = buildExceptions({
+    closings: closingRows,
+    todayYMD,
+    overdue: conds?.overdue ?? [],
+    dueSoon: conds?.dueSoon.length ?? 0,
+    flags: {
+      total: flags.length,
+      high: highFlags.length,
+      warning: warnFlags.length,
+      info: infoFlags.length,
+    },
+    // Funded deals with no maturity date (renewals.view): the old rail's amber
+    // alarm, folded into the one at-risk block rather than dropped.
+    missingMaturity:
+      canRenewals && renewals
+        ? {
+            count: renewals.missingMaturity.length,
+            volume: renewals.missingMaturity.reduce((s, d) => s + d.amount, 0),
+          }
+        : null,
+    credentials: canCompliance
+      ? { count: credRows.length, anyRed: credRows.some(x => x.tone === 'red') }
+      : { count: 0, anyRed: false },
+    // Sync links to Status, so only surface it to a role that can reach it —
+    // never a dead link for an agent.
+    sync: canStatus
+      ? { zohoDown, intakeStale, staleHours }
+      : { zohoDown: false, intakeStale: false, staleHours: null },
+  })
+  const syncHealthy =
+    canStatus && agentId && fresh && !zohoDown && !intakeStale && staleHours !== null
+      ? { hoursAgo: staleHours }
+      : null
+
+  const prioritizedTasks = tasks ? prioritizeTasks(tasks, wbByFileRef, todayYMD, 5) : null
+
+  // ── Decision cards (inline: the decision token is enumerated to this file) ─
   const decisionCards: {
     key: string
     kind: 'decide' | 'review'
@@ -423,13 +336,21 @@ export default async function AdminHome() {
     cta: string
     href: string
   }[] = []
+  const approvalsTotal =
+    (deskCounts.sheets ?? 0) +
+    (deskCounts.statements ?? 0) +
+    (deskCounts.offers ?? 0) +
+    (deskCounts.flags ?? 0) +
+    (deskCounts.shadow ?? 0)
   if (approvalsTotal > 0) {
+    const plur = (n: number | null, one: string, many: string) =>
+      `${n ?? 0} ${(n ?? 0) === 1 ? one : many}`
     decisionCards.push({
       key: 'approvals',
       kind: 'decide',
       count: approvalsTotal,
       title: 'Approvals waiting',
-      body: `${deskCounts.sheets ?? 0} sheets, ${deskCounts.statements ?? 0} statements, ${deskCounts.offers ?? 0} offers, ${deskCounts.flags ?? 0} flags, ${deskCounts.shadow ?? 0} to score.`,
+      body: `${plur(deskCounts.sheets, 'sheet', 'sheets')}, ${plur(deskCounts.statements, 'statement', 'statements')}, ${plur(deskCounts.offers, 'offer', 'offers')}, ${plur(deskCounts.flags, 'flag', 'flags')}, ${deskCounts.shadow ?? 0} to score.`,
       cta: 'Review the queue',
       href: '/portal/admin/approvals',
     })
@@ -458,12 +379,7 @@ export default async function AdminHome() {
   }
   const topDecisionCards = decisionCards.slice(0, 3)
 
-  // Compact pipeline: the active files with a plain-words next step, grouped
-  // by lifecycle phase (B1). Group rows beat a per-row chip at these counts:
-  // a chip would put a second pill on every row and repeat the same phase
-  // word eight times; four quiet group rows say it once each, in the same
-  // words as the board. Closing-date order holds within each group. A stage
-  // with no phase lands in the loud trailing group, never forced in.
+  // ── What's moving: active files by lifecycle phase, closing-date order ─────
   const compactPipeline = pipeline
     ? [...pipeline.activeDeals].sort((a, b) =>
         (a.closingDate ?? '9999').localeCompare(b.closingDate ?? '9999'),
@@ -471,711 +387,148 @@ export default async function AdminHome() {
     : []
   const compactPipelineGroups = groupByPhase(compactPipeline, d => d.stage)
 
-  const attentionCards: React.ReactNode[] = []
+  const leak =
+    canRenewals || canOpps
+      ? {
+          lapsedVolume: canRenewals && renewalBuckets ? renewalBuckets.lapsed.volume : null,
+          windowVolume: canRenewals && renewalBuckets ? renewalBuckets.action.volume : null,
+          actNowBenefit: canOpps && oppActNow ? oppActNow.netBenefit : null,
+          actNowCount: canOpps && oppActNow ? oppActNow.count : null,
+        }
+      : null
+  const groom = pipeline ? { count: pipeline.staleCount, volume: pipeline.staleVolume } : null
 
-  // Renewals rank near the top: they cost money when missed.
-  if (canRenewals && renewalBuckets && renewalBuckets.lapsed.count > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="renewals-lapsed"
-        tone="red"
-        title="Lapsed renewals"
-        count={renewalBuckets.lapsed.count}
-        href="/portal/admin/beyond?tab=renewals"
-      >
-        <AttentionRow
-          left={`${fmtMoney(renewalBuckets.lapsed.volume)} matured with no recorded outcome`}
-          right="the leak"
-        />
-      </AttentionCard>,
-    )
-  }
-  if (canRenewals && renewalBuckets && renewalBuckets.action.count > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="renewals-action"
-        tone="amber"
-        title="Renewals in the action window"
-        count={renewalBuckets.action.count}
-        href="/portal/admin/beyond?tab=renewals"
-      >
-        <AttentionRow
-          left={`${fmtMoney(renewalBuckets.action.volume)} maturing within 130 days`}
-          right="engage now"
-        />
-      </AttentionCard>,
-    )
-  }
-  if (canRenewals && missingMaturityCount > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="renewals-missing"
-        tone="amber"
-        title="Funded deals with no maturity date"
-        count={missingMaturityCount}
-        href="/portal/admin/beyond?tab=renewals"
-      >
-        <AttentionRow
-          left={`${fmtMoney(missingMaturityVol)} invisible to the renewal system until backfilled`}
-          right="untracked"
-        />
-      </AttentionCard>,
-    )
-  }
-
-  // Monitoring opportunities worth a call: positive Fox net benefit after the
-  // early-break penalty, from the latest export.
-  if (oppActNow) {
-    attentionCards.push(
-      <AttentionCard
-        key="opps-act-now"
-        tone="amber"
-        title="Monitoring opportunities to call"
-        count={oppActNow.count}
-        href="/portal/admin/beyond?tab=opportunities"
-      >
-        <AttentionRow
-          left={`${fmtMoney(oppActNow.netBenefit)} estimated net benefit across act-now files`}
-          right="call them"
-        />
-      </AttentionCard>,
-    )
-  }
-
-  if (conds && conds.overdue.length > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="overdue"
-        tone="red"
-        title="Overdue conditions"
-        count={conds.overdue.length}
-        href="/portal/admin/underwriting"
-      >
-        {conds.overdue.slice(0, 5).map(c => (
-          <AttentionRow
-            key={c.id}
-            left={`${c.dealRef ?? 'file'}: ${c.text}`}
-            right={`due ${fmtShortDate(c.dueDate)} (${c.owner})`}
-          />
-        ))}
-        {conds.overdue.length > 5 && (
-          <p className="text-xs text-cool-500">and {conds.overdue.length - 5} more</p>
-        )}
-      </AttentionCard>,
-    )
-  }
-
-  if (conds && conds.dueSoon.length > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="duesoon"
-        tone="amber"
-        title={`Conditions due within ${CONDITIONS_DUE_SOON_DAYS} days`}
-        count={conds.dueSoon.length}
-        href="/portal/admin/underwriting"
-      >
-        {conds.dueSoon.slice(0, 5).map(c => (
-          <AttentionRow
-            key={c.id}
-            left={`${c.dealRef ?? 'file'}: ${c.text}`}
-            right={`due ${fmtShortDate(c.dueDate)} (${c.owner})`}
-          />
-        ))}
-      </AttentionCard>,
-    )
-  }
-
-  if (closingsNeedingAttention.length > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="closings"
-        tone="amber"
-        title={`Closings within ${CLOSINGS_ATTENTION_DAYS} days needing eyes`}
-        count={closingsNeedingAttention.length}
-        href="/portal/admin/underwriting"
-      >
-        {closingsNeedingAttention.slice(0, 5).map(r => (
-          <AttentionRow
-            key={r.id}
-            left={r.dealName}
-            right={
-              r.wbMatch
-                ? `${fmtShortDate(r.closingDate)}, ${r.openConds} open condition${r.openConds === 1 ? '' : 's'}`
-                : `${fmtShortDate(r.closingDate)}, no workbench file`
-            }
-          />
-        ))}
-      </AttentionCard>,
-    )
-  }
-
-  if (flags.length > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="flags"
-        tone={highFlags.length > 0 ? 'red' : 'amber'}
-        title="Open workbench flags"
-        count={flags.length}
-        href="/portal/admin/underwriting"
-      >
-        <AttentionRow
-          left={`${highFlags.length} high, ${warnFlags.length} warning, ${infoFlags.length} info`}
-        />
-        {[...highFlags, ...warnFlags].slice(0, 4).map(f => (
-          <AttentionRow
-            key={f.id}
-            left={`${f.severity}: ${f.kind.replace(/_/g, ' ')}`}
-            right={f.dealRef ?? undefined}
-          />
-        ))}
-      </AttentionCard>,
-    )
-  }
-
-  if (can(user, 'approvals.view') && pendingApprovals > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="approvals"
-        tone="amber"
-        title="Pending approvals"
-        count={pendingApprovals}
-        href="/portal/admin/approvals"
-      >
-        <AttentionRow
-          left={`${stmts.length} statement review${stmts.length === 1 ? '' : 's'}, ${sheets.length} rate sheet review${sheets.length === 1 ? '' : 's'}, ${shadowDue} shadow score${shadowDue === 1 ? '' : 's'} due`}
-        />
-      </AttentionCard>,
-    )
-  }
-
-  if (can(user, 'approvals.view') && pendingOffers > 0) {
-    const noExpiry = offers.filter(o => !o.expiry).length
-    attentionCards.push(
-      <AttentionCard
-        key="offers"
-        tone="amber"
-        title="Offers to review"
-        count={pendingOffers}
-        href="/portal/admin/approvals?tab=offers"
-      >
-        <AttentionRow
-          left={`${pendingOffers} promotional offer${pendingOffers === 1 ? '' : 's'} extracted${
-            noExpiry > 0 ? `, ${noExpiry} with no stated end date` : ''
-          }. Approve or reject on the desk.`}
-        />
-      </AttentionCard>,
-    )
-  }
-
-  // Credential renewals (Session 6): within 60 days amber, within 14 days
-  // red, from the FOXCA compliance register. Unconfirmed placeholder
-  // dates say so. No date recorded means no alarm.
-  const credentials = credsR.configured && credsR.ok ? credsR.data.filter(c => c.status === 'active') : []
-  const credRows = credentials
-    .map(c => ({ c, tone: credentialTone(c.expires_on, todayYMD) }))
-    .filter(x => x.tone === 'red' || x.tone === 'amber')
-  if (can(user, 'compliance.view') && credRows.length > 0) {
-    attentionCards.push(
-      <AttentionCard
-        key="credentials"
-        tone={credRows.some(x => x.tone === 'red') ? 'red' : 'amber'}
-        title="Credential renewals"
-        count={credRows.length}
-        href="/portal/admin/compliance"
-      >
-        {credRows.slice(0, 4).map(({ c }) => (
-          <AttentionRow
-            key={c.id}
-            left={c.name}
-            right={`${fmtShortDate(c.expires_on!)}${c.date_confirmed ? '' : ' (confirm date)'}`}
-          />
-        ))}
-      </AttentionCard>,
-    )
-  }
-
-  if (zohoDown || intakeStale) {
-    attentionCards.push(
-      <AttentionCard
-        key="sync"
-        tone="red"
-        title="Sync freshness"
-        href="/portal/admin/status"
-      >
-        {zohoDown && <AttentionRow left="Zoho CRM is unreachable right now." />}
-        {intakeStale && (
-          <AttentionRow
-            left={
-              staleHours === null
-                ? 'Workbench has no recorded intake activity yet.'
-                : `Workbench intake has been quiet for ${Math.round(staleHours)}h (threshold ${INTAKE_STALE_HOURS}h).`
-            }
-          />
-        )}
-      </AttentionCard>,
-    )
-  }
+  // ── Greeting ──────────────────────────────────────────────────────────────
+  const headerDate = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Toronto',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  const torontoHour = Number(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Toronto',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date()),
+  )
+  const greeting =
+    torontoHour < 12 ? 'Good morning' : torontoHour < 17 ? 'Good afternoon' : 'Good evening'
+  const firstName = user.name.split(' ')[0] || 'there'
 
   return (
-    <div className="max-w-6xl">
-      {/* Greeting — the one serif moment (Fraunces), the same face clients
-          see on Fox Mortgage documents. The sub-line carries funded YTD. */}
-      <div className="mb-5">
+    <div className="max-w-5xl space-y-6">
+      {/* a. Greeting + pulse — the one serif moment (Fraunces). */}
+      <div>
         <h1 className="font-greeting text-ink-navy text-[26px] sm:text-[30px] font-semibold leading-tight">
           {greeting}, {firstName}.
         </h1>
         <p className="text-muted font-ui text-sm mt-1">
           {headerDate}
-          {can(user, 'revenue.view') && funded
-            ? ` · ${fmtMoneyCompact(funded.volume)} funded this year across ${funded.count} ${funded.count === 1 ? 'file' : 'files'}`
-            : ''}
+          {canRevenue && funded ? (
+            <>
+              {' · '}
+              {fmtMoneyCompact(funded.volume)} funded this year across {funded.count}{' '}
+              {funded.count === 1 ? 'file' : 'files'}
+            </>
+          ) : null}
+          {canRevenue && pacing ? (
+            <>
+              {' · '}
+              <span className={pacing.onPace ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                {(pacing.onPace ? '+' : '-') + fmtMoneyCompact(Math.abs(pacing.delta))}
+              </span>{' '}
+              {pacing.onPace ? 'ahead of pace' : 'behind pace'}
+            </>
+          ) : null}
+          {pipeline ? (
+            <>
+              {' · '}
+              {pipeline.openCount} open {pipeline.openCount === 1 ? 'file' : 'files'}
+            </>
+          ) : null}
         </p>
       </div>
 
-      {/* The Desk: everything waiting on a human, one plain sentence. */}
-      <div className="mb-5">
-        <DeskStrip fragments={desk} />
-      </div>
+      {/* b. Your day — calendar (teaching empty state) + live Zoho tasks. */}
+      <YourDay tasks={prioritizedTasks} todayYMD={todayYMD} />
 
-      {/* Decision cards: lime top border = decide, amber = review. */}
-      {topDecisionCards.length > 0 && (
-        <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {topDecisionCards.map(c => (
-            <Link
-              key={c.key}
-              href={c.href}
-              className={`block rounded-[10px] bg-white border border-hairline border-t-4 shadow-card px-4 py-3.5 hover:border-ink-navy/30 motion-safe:transition-colors ${
-                c.kind === 'decide' ? 'border-t-decision' : 'border-t-caution'
-              }`}
-            >
-              <div className="flex items-baseline gap-2">
-                <span className="font-ui font-bold text-2xl text-ink tabular-nums">{c.count}</span>
-                <span className="font-ui font-semibold text-sm text-ink">{c.title}</span>
-              </div>
-              <p className="mt-1 font-ui text-xs text-muted leading-snug">{c.body}</p>
-              <p
-                className={`mt-2 font-ui text-[13px] font-semibold text-ink underline decoration-2 underline-offset-4 ${
-                  c.kind === 'decide' ? 'decoration-decision' : 'decoration-caution'
+      {/* c. Waiting on you — the navy strip, three decision cards, one
+          exceptions block, and a quiet healthy-sync line at the bottom. */}
+      <div className="space-y-4">
+        <DeskStrip fragments={desk} />
+
+        {topDecisionCards.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {topDecisionCards.map(c => (
+              <Link
+                key={c.key}
+                href={c.href}
+                className={`block rounded-[10px] bg-white border border-hairline border-t-4 shadow-card px-4 py-3.5 hover:border-ink-navy/30 motion-safe:transition-colors ${
+                  c.kind === 'decide' ? 'border-t-decision' : 'border-t-caution'
                 }`}
               >
-                {c.cta}
-              </p>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Compact pipeline: every active file, its stage, and the next step
-          in plain words. Stage names render display values (the display/
-          actual indirection is documented in config/pipeline.ts). */}
-      {compactPipeline.length > 0 && (
-        <div className="mb-8 rounded-[10px] bg-white border border-hairline shadow-card overflow-x-auto">
-          <table className="w-full text-sm font-ui">
-            <thead>
-              <tr className="bg-[#FAFBFC] text-left text-[11px] text-muted uppercase tracking-wide">
-                <th className="py-2.5 px-4 font-semibold">Client</th>
-                <th className="py-2.5 px-3 font-semibold">Stage</th>
-                <th className="py-2.5 px-3 font-semibold text-right">Amount</th>
-                <th className="py-2.5 px-3 font-semibold">Closes</th>
-                <th className="py-2.5 px-3 font-semibold">Next step</th>
-                <th className="py-2.5 px-4 font-semibold text-right"></th>
-              </tr>
-            </thead>
-            {compactPipelineGroups.map(group => (
-              <tbody key={group.key}>
-                <tr className="border-t border-hairline">
-                  <td colSpan={6} className="pt-2.5 pb-1 px-4">
-                    <span
-                      className={`font-ui text-[10px] font-bold uppercase tracking-[1.6px] ${
-                        group.key === 'unmapped' ? 'text-caution' : 'text-ink-navy'
-                      }`}
-                    >
-                      {group.label}
-                    </span>
-                  </td>
-                </tr>
-                {group.items.map(d => {
-                  const wb = wbByZohoId.get(d.id)
-                  return (
-                    <tr key={d.id} className="border-t border-hairline hover:bg-[#FAFCF5]">
-                      <td className="py-2.5 px-4 text-ink font-medium truncate max-w-[240px]">
-                        {d.dealName}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span className="inline-block rounded-full bg-fog px-2 py-0.5 text-[11px] font-semibold text-muted">
-                          {d.stage}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-ink tabular-nums">
-                        {fmtMoneyCompact(d.amount)}
-                      </td>
-                      <td className="py-2.5 px-3 text-muted tabular-nums">
-                        {d.closingDate ? fmtShortDate(d.closingDate) : 'not set'}
-                      </td>
-                      <td className="py-2.5 px-3 text-muted">{nextStepForStage(d.stage)}</td>
-                      <td className="py-2.5 px-4 text-right">
-                        <Link
-                          href={wb ? `/portal/admin/deals/${wb.id}` : '/portal/admin/underwriting#not-yet-bridged'}
-                          className="font-semibold text-ink text-[13px] underline decoration-hairline underline-offset-4 hover:decoration-ink-navy"
-                        >
-                          Open
-                        </Link>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-ui font-bold text-2xl text-ink tabular-nums">{c.count}</span>
+                  <span className="font-ui font-semibold text-sm text-ink">{c.title}</span>
+                </div>
+                <p className="mt-1 font-ui text-xs text-muted leading-snug">{c.body}</p>
+                <p
+                  className={`mt-2 font-ui text-[13px] font-semibold text-ink underline decoration-2 underline-offset-4 ${
+                    c.kind === 'decide' ? 'decoration-decision' : 'decoration-caution'
+                  }`}
+                >
+                  {c.cta}
+                </p>
+              </Link>
             ))}
-          </table>
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Needs Attention rail */}
-      <div className="mb-8">
-        {workbenchOff && (
-          <div className="border border-cool-200 bg-white rounded-[9px] px-4 py-3 mb-3">
-            <p className="text-sm text-cool-500 font-ui">
+        {workbenchOff ? (
+          <div className="border border-hairline bg-white rounded-[10px] px-4 py-3">
+            <p className="text-sm text-muted font-ui">
               Workbench not connected. Conditions, flags, and approvals appear here once
               UW_SUPABASE_URL, UW_SUPABASE_READONLY_KEY, and UW_SUPABASE_PUBLISHABLE_KEY are set.
             </p>
           </div>
-        )}
-        {workbenchErr && (
-          <div className="border border-amber-200 bg-amber-50 rounded-[9px] px-4 py-3 mb-3">
-            <p className="text-sm text-amber-800 font-ui">Workbench: {workbenchErr}</p>
+        ) : null}
+        {workbenchErr ? (
+          <div className="border border-amber-200 bg-amber-50 rounded-[10px] px-4 py-3">
+            <p className="text-sm text-amber-900 font-ui">Workbench read failed: {workbenchErr}</p>
           </div>
-        )}
-        {attentionCards.length > 0 ? (
-          <div className="space-y-3">{attentionCards}</div>
-        ) : (
-          !workbenchOff &&
-          !workbenchErr && (
-            <div className="border border-cool-200 bg-white rounded-[9px] px-4 py-3">
-              <p className="text-sm text-cool-500 font-ui">
-                Nothing needs attention right now. Conditions, flags, approvals, and sync
-                are all clear.
-              </p>
-            </div>
-          )
-        )}
+        ) : null}
+        {/* The at-risk block draws on FOXCA credentials too, so it renders even
+            when the workbench is unconfigured — an expiring licence still shows. */}
+        <Exceptions exceptions={exceptions} syncHealthy={syncHealthy} />
       </div>
 
-      {/* Compact KPI strip: a glance, not a dashboard. Each number links out. */}
-      {(can(user, 'revenue.view') || canRenewals) && (
-        <div className="mb-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {can(user, 'revenue.view') && funded && (
-            <KpiCell label="Funded YTD" value={fmtMoneyCompact(funded.volume)} sub={`${funded.count} files`} href="/portal/admin/revenue" />
-          )}
-          {can(user, 'revenue.view') && pacing && (
-            <KpiCell
-              label={`Pace vs ${fmtMoneyCompact(pacing.annualTarget)}`}
-              value={`${pacing.onPace ? '+' : '-'}${fmtMoneyCompact(Math.abs(pacing.delta))}`}
-              sub={pacing.onPace ? 'ahead' : 'behind'}
-              tone={pacing.onPace ? 'good' : 'bad'}
-              href="/portal/admin/revenue"
-            />
-          )}
-          {pipeline && (
-            <KpiCell label="Active pipeline" value={`${pipeline.openCount} files`} sub={fmtMoneyCompact(pipeline.openVolume)} href="/portal/admin/underwriting" />
-          )}
-          {canRenewals && renewalBuckets && (
-            <KpiCell
-              label="Renewals to action"
-              value={`${renewalBuckets.action.count} files`}
-              sub={fmtMoneyCompact(renewalBuckets.action.volume)}
-              href="/portal/admin/beyond?tab=renewals"
-            />
-          )}
-          {canRenewals && renewalBuckets && (
-            <KpiCell
-              label="Lapsed renewals"
-              value={`${renewalBuckets.lapsed.count} files`}
-              sub={fmtMoneyCompact(renewalBuckets.lapsed.volume)}
-              tone={renewalBuckets.lapsed.count > 0 ? 'bad' : undefined}
-              href="/portal/admin/beyond?tab=renewals"
-            />
-          )}
-        </div>
-      )}
+      {/* d. Renewal nurture — the 150-day drip (renewals.view). */}
+      {canRenewals && nurtureBuckets ? <RenewalNurture buckets={nurtureBuckets} /> : null}
 
-      {/* Pipeline + Tasks */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2">
-          <SectionCard
-            title="Pipeline by stage"
-            action={
-              <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-navy hover:text-ink">
-                Deals &rarr;
-              </Link>
-            }
-          >
-            {pipeline ? (
-              <div>
-                <table className="w-full text-sm font-ui">
-                  <thead>
-                    <tr className="text-left font-heading text-[11px] font-semibold tracking-[0.05em] text-cool-600">
-                      <th className="py-1.5">Stage</th>
-                      <th className="py-1.5 text-right">Files</th>
-                      <th className="py-1.5 text-right">Volume</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...pipeline.ordered, ...pipeline.other].map(row => (
-                      <tr key={row.stage} className="border-t border-cool-100">
-                        <td className="py-2">
-                          <Link href="/portal/admin/underwriting" className="text-navy hover:text-ink">
-                            {row.stage}
-                          </Link>
-                        </td>
-                        <td className="py-2 text-right text-navy font-semibold tabular-nums">{row.count}</td>
-                        <td className={`py-2 text-right ${CELL_MONEY}`}>{fmtMoneyCompact(row.volume)}</td>
-                      </tr>
-                    ))}
-                    <tr className="border-t border-cool-200">
-                      <td className="py-2 font-semibold text-navy">Open total</td>
-                      <td className="py-2 text-right font-semibold text-navy tabular-nums">{pipeline.openCount}</td>
-                      <td className={`py-2 text-right ${CELL_MONEY}`}>
-                        {fmtMoneyCompact(pipeline.openVolume)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                {pipeline.summary.map(s => (
-                  <p key={s.stage} className="text-xs text-cool-500 font-ui mt-2">
-                    {s.stage}: {s.count} tracked records (not counted as pipeline)
-                  </p>
-                ))}
-                {pipeline.staleCount > 0 && (
-                  <p className="text-xs text-amber-700 font-ui mt-2">
-                    {pipeline.staleCount} stale file{pipeline.staleCount === 1 ? '' : 's'} (
-                    {fmtMoneyCompact(pipeline.staleVolume)}) held out of pipeline.{' '}
-                    <Link href="/portal/admin/revenue" className="underline hover:text-navy">
-                      Groom on Revenue
-                    </Link>
-                  </p>
-                )}
-              </div>
-            ) : (
-              <QuietNote>Zoho pipeline data is unavailable right now. Check Status.</QuietNote>
-            )}
-          </SectionCard>
-        </div>
+      {/* e. What's moving — the single lifecycle table. */}
+      <WhatsMoving
+        groups={compactPipelineGroups}
+        wbByZohoId={wbByZohoId}
+        todayYMD={todayYMD}
+        activeCount={pipeline?.openCount ?? 0}
+        activeVolume={pipeline?.openVolume ?? 0}
+      />
 
-        <SectionCard title="Tasks due today">
-          {tasks === null ? (
-            <QuietNote>Zoho tasks are unavailable right now.</QuietNote>
-          ) : tasks.length === 0 ? (
-            <QuietNote>No tasks due today.</QuietNote>
-          ) : (
-            <div className="space-y-2">
-              {tasks.slice(0, 8).map(t => (
-                <a
-                  key={t.id}
-                  href={zohoTaskUrl(t.id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block group"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-ui text-navy group-hover:text-ink leading-snug">
-                      {t.subject}
-                    </span>
-                    <span
-                      className={`shrink-0 inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums ${
-                        t.overdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {t.overdue ? `overdue ${fmtShortDate(t.dueDate)}` : 'today'}
-                    </span>
-                  </div>
-                  {t.priority && (
-                    <p className="text-[11px] font-ui text-cool-500 mt-0.5">{t.priority} priority</p>
-                  )}
-                </a>
-              ))}
-              {tasks.length > 8 && (
-                <p className="text-xs font-ui text-cool-500">and {tasks.length - 8} more in Zoho</p>
-              )}
-            </div>
-          )}
-        </SectionCard>
-      </div>
+      {/* f. Closings in the next 30 days. */}
+      <Closings rows={closingRows} todayYMD={todayYMD} windowDays={CLOSINGS_BLOCK_DAYS} />
 
-      {/* Goal pacing + Rates — each behind its destination page's key */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {can(user, 'revenue.view') && (
-        <div className="lg:col-span-2">
-          <SectionCard
-            title={`Goal pacing ${year}`}
-            action={
-              <Link href="/portal/admin/revenue" className="text-xs font-semibold text-navy hover:text-ink">
-                Revenue &rarr;
-              </Link>
-            }
-          >
-            {pacing ? (
-              <div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div>
-                    <p className="font-heading text-xl text-navy font-bold tabular-nums">
-                      {fmtMoneyCompact(pacing.fundedYTD)}
-                    </p>
-                    <p className="text-xs text-cool-500 font-ui mt-0.5">
-                      Funded YTD ({funded?.count ?? 0} deals)
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-heading text-xl text-navy font-bold tabular-nums">
-                      {fmtMoneyCompact(pacing.weightedPipeline)}
-                    </p>
-                    <p className="text-xs text-cool-500 font-ui mt-0.5">Weighted pipeline</p>
-                  </div>
-                  <div>
-                    <p className="font-heading text-xl text-navy font-bold tabular-nums">
-                      {fmtMoneyCompact(pacing.combined)}
-                    </p>
-                    <p className="text-xs text-cool-500 font-ui mt-0.5">Combined</p>
-                  </div>
-                  <div>
-                    <p
-                      className={`font-heading text-xl font-bold tabular-nums ${pacing.onPace ? 'text-green-600' : 'text-red-600'}`}
-                    >
-                      {(pacing.onPace ? '+' : '-') + fmtMoneyCompact(Math.abs(pacing.delta))}
-                    </p>
-                    <p className="text-xs text-cool-500 font-ui mt-0.5">
-                      {pacing.onPace ? 'Ahead of' : 'Behind'} straight-line
-                    </p>
-                  </div>
-                </div>
-
-                {unmappedStages.length > 0 && (
-                  <p className="mt-3 rounded bg-amber-50 border border-amber-300 px-2.5 py-1.5 text-[11px] font-ui text-amber-900">
-                    <span className="font-semibold">Unmapped stage{unmappedStages.length > 1 ? 's' : ''}:</span>{' '}
-                    {unmappedStages.map(s => `${s.stage} (${fmtMoneyCompact(s.volume)})`).join(', ')} counted at
-                    zero weight until mapped in config/pipeline.ts.
-                  </p>
-                )}
-
-                {/* Progress vs the straight-line marker */}
-                <div className="mt-5">
-                  <div className="relative h-2.5 bg-cool-100 rounded-full overflow-hidden">
-                    <div
-                      className="absolute left-0 top-0 bottom-0 bg-navy"
-                      style={{
-                        width: `${Math.min(100, (pacing.combined / pacing.annualTarget) * 100)}%`,
-                      }}
-                    />
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-navy"
-                      style={{ left: `${Math.min(100, pacing.pctYearElapsed * 100)}%` }}
-                      title="Straight-line position for today"
-                    />
-                  </div>
-                  <div className="flex justify-between text-[11px] text-cool-500 font-ui mt-1.5 tabular-nums">
-                    <span>
-                      Target {fmtMoneyCompact(pacing.annualTarget)} &middot; day {pacing.dayOfYear} of{' '}
-                      {pacing.daysInYear}
-                    </span>
-                    <span>
-                      Straight-line today: {fmtMoney(pacing.straightLineTarget)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <QuietNote>Pacing needs the Zoho deal pull, which is unavailable right now.</QuietNote>
-            )}
-          </SectionCard>
-        </div>
-        )}
-
-        {can(user, 'rates.view') && (
-        <SectionCard
-          title="Rates"
-          action={
-            <Link href="/portal/admin/lenders?tab=rates" className="text-xs font-semibold text-navy hover:text-ink">
-              Rates &rarr;
-            </Link>
-          }
-        >
-          {workbenchOff ? (
-            <QuietNote>Workbench not connected.</QuietNote>
-          ) : rates ? (
-            <div className="space-y-2.5 font-ui text-sm">
-              <div className="flex justify-between">
-                <span className="text-cool-500">Approved current quotes</span>
-                <span className="text-navy font-semibold tabular-nums">{rates.approvedCurrent}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-cool-500">Superseded</span>
-                <span className="text-navy font-semibold tabular-nums">{rates.superseded}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-cool-500">Newest approved sheet</span>
-                <span className="text-navy font-semibold tabular-nums">
-                  {rates.newestApprovedAsOf ? fmtShortDate(rates.newestApprovedAsOf) : 'none'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-cool-500">Pending sheet reviews</span>
-                <Link href="/portal/admin/approvals" className="text-navy font-semibold tabular-nums hover:text-ink">
-                  {sheets.length}
-                </Link>
-              </div>
-              <p className="text-[11px] text-cool-500 pt-1">
-                Promo countdowns and the full browser live on the Rates page.
-              </p>
-            </div>
-          ) : (
-            <QuietNote>Workbench rates data is unavailable right now.</QuietNote>
-          )}
-        </SectionCard>
-        )}
-      </div>
-
-      {/* Closings this week */}
-      <SectionCard
-        title={`Closings in the next ${CLOSINGS_STRIP_DAYS} days`}
-        action={
-          <Link href="/portal/admin/underwriting" className="text-xs font-semibold text-navy hover:text-ink">
-            Deals &rarr;
-          </Link>
-        }
-      >
-        {deals === null ? (
-          <QuietNote>Zoho closings are unavailable right now.</QuietNote>
-        ) : closingsStrip.length === 0 ? (
-          <QuietNote>No closings scheduled in the next {CLOSINGS_STRIP_DAYS} days.</QuietNote>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {closingsStrip.map(c => {
-              const wb = wbByZohoId.get(c.id)
-              const openConds = wb ? (condCounts[wb.id] ?? 0) : null
-              return (
-                <Link
-                  key={c.id}
-                  href="/portal/admin/underwriting"
-                  className="border border-cool-200 rounded-[9px] px-3 py-2.5 hover:border-navy transition-colors"
-                >
-                  <p className="text-sm font-ui font-semibold text-navy truncate">{c.dealName}</p>
-                  <p className="text-xs font-ui text-cool-500 mt-0.5 tabular-nums">
-                    {fmtShortDate(c.closingDate)} &middot; {c.stage}
-                  </p>
-                  <p className="text-[11px] font-ui mt-1">
-                    {wb ? (
-                      <span className={openConds ? 'text-amber-700' : 'text-green-700'}>
-                        {openConds} open condition{openConds === 1 ? '' : 's'}
-                      </span>
-                    ) : (
-                      <span className="text-cool-500">no workbench file</span>
-                    )}
-                  </p>
-                </Link>
-              )
-            })}
-          </div>
-        )}
-      </SectionCard>
+      {/* g. The year — pacing, the leak line, the groom line (revenue.view). */}
+      {canRevenue && pacing ? (
+        <TheYear
+          pacing={pacing}
+          fundedCount={funded?.count ?? 0}
+          unmappedStages={unmappedStages}
+          leak={leak}
+          groom={groom}
+        />
+      ) : null}
     </div>
   )
 }

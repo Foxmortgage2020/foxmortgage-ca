@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-20',
+    title: 'Today is now the page you work out of every morning',
+    detail:
+      'The Home page was rebuilt around one idea: answer three questions in order, what needs me, what is moving, what is at risk. Up top is your day, a live task list beside a spot for your calendar once it is connected. Below it the Waiting-on-you strip, your decision cards, and a single at-risk block that leads with the loudest thing on the page, a file closing this week that still has an overdue condition. Then the renewal nurture progress, one clean table of every deal that is moving with a plain-words next step and how soon it closes, the next thirty days of closings each with a readiness check, and the year with your pace and where money is leaking. Dates now read in plain words everywhere, due today or five days overdue, tinted so the urgent ones stand out, and every file number links straight to its deal room. The old duplicate pipeline table and the stat-tile clutter are gone, so each thing is said once.',
+  },
+  {
     date: '2026-07-18',
     title: 'The rates scenario stops re-searching on every keystroke',
     detail:

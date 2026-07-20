@@ -22,5 +22,9 @@ export const INTAKE_STALE_HOURS = 24
 // Closings strip window on the Home page.
 export const CLOSINGS_STRIP_DAYS = 7
 
+// Today v1 widens the closings band to a full month so the morning page shows
+// the whole runway, not just this week.
+export const CLOSINGS_BLOCK_DAYS = 30
+
 // Audit viewer CSV export row cap (stated in the UI next to the button).
 export const AUDIT_EXPORT_CAP = 5000

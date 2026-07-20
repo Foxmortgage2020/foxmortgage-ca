@@ -32,6 +32,61 @@ export function hoursSince(iso: string, now: Date = new Date()): number {
   return (now.getTime() - new Date(iso).getTime()) / 3_600_000
 }
 
+// Whole days from today to a YYYY-MM-DD target (negative = past), computed at
+// UTC midnight over the two calendar dates. The portal-wide replacement for
+// the per-surface day-diff helpers scattered across the app (compliance's
+// daysUntil, the deals-surface inline math). Callers pass todayYMD so the
+// function stays pure and testable.
+export function daysUntilYMD(targetYMD: string, todayYMD: string): number {
+  const t = Date.parse(`${targetYMD}T00:00:00Z`)
+  const n = Date.parse(`${todayYMD}T00:00:00Z`)
+  if (Number.isNaN(t) || Number.isNaN(n)) return 0
+  return Math.round((t - n) / 86_400_000)
+}
+
+// The urgency tone a relative date carries. NEVER maps to the decision (lime)
+// token — that token is reserved for queued human decisions. Components map
+// these to red/amber/green/gray.
+export type RelativeTone = 'danger' | 'caution' | 'neutral' | 'success'
+
+export interface RelativeDay {
+  days: number
+  tone: RelativeTone
+  // Plain-words phrases. `label` is neutral ("today", "in 3 days", "5 days
+  // ago"); `dueLabel` frames a deadline ("due today", "5 days overdue").
+  label: string
+  dueLabel: string
+}
+
+// A relative-date phrase plus its urgency tone, for portal-wide reuse (the
+// Today tasks and closings chips today; any surface tomorrow). `soonDays` is
+// the caution threshold: days < 0 → danger, 0..soonDays → caution, beyond →
+// neutral. Never emits the lime/decision token.
+export function relativeDay(targetYMD: string, todayYMD: string, soonDays = 7): RelativeDay {
+  const days = daysUntilYMD(targetYMD, todayYMD)
+  const tone: RelativeTone = days < 0 ? 'danger' : days <= soonDays ? 'caution' : 'neutral'
+  const abs = Math.abs(days)
+  let label: string
+  let dueLabel: string
+  if (days === 0) {
+    label = 'today'
+    dueLabel = 'due today'
+  } else if (days === 1) {
+    label = 'tomorrow'
+    dueLabel = 'due tomorrow'
+  } else if (days === -1) {
+    label = 'yesterday'
+    dueLabel = '1 day overdue'
+  } else if (days > 1) {
+    label = `in ${days} days`
+    dueLabel = `due in ${days} days`
+  } else {
+    label = `${abs} days ago`
+    dueLabel = `${abs} days overdue`
+  }
+  return { days, tone, label, dueLabel }
+}
+
 // Offset of the practice timezone at a given instant, in minutes (EDT -240,
 // EST -300). Probed at noon UTC of the target day so the DST boundary
 // itself cannot flip the probe.

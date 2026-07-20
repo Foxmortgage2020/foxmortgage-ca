@@ -18,6 +18,20 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Today v1',
+    title: 'Today, the morning operating page',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'Home rebuilt to answer three questions in order: what needs me, what is moving, what is at risk',
+      'Your day: a live Zoho task list (closing-soon files first, deal-room links, catch-up sweep) beside a teaching calendar state until the Microsoft build lands',
+      'Waiting on you as one region: the navy Desk strip, the decision cards, and a single at-risk block that leads with the loudest thing (a file closing this week with an overdue condition); a healthy sync reads as a quiet success line',
+      'What is moving: one lifecycle table (the duplicate pipeline-by-stage census deleted); Closings widened to 30 days with a readiness chip per file; The year absorbs pacing, the stat tiles, the leak line, and the groom line',
+      'A portal-wide relative-date helper (lib/dates relativeDay) with urgency tinting; every file ref on Today links to its deal room; teaching empty states across empty bands',
+      'Pure model in lib/today.ts, unit-tested; render-proven at 1280 and 375 in demo mode with zero real reads',
+    ],
+  },
+  {
     n: '1',
     title: 'Command center foundation',
     status: 'shipped',
