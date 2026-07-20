@@ -54,7 +54,14 @@ import type { BorrowerInfo } from '@/lib/documents-desk'
 import { listCredentials, listComplaints, createComplaint } from '@/lib/compliance'
 import { updatePartner, getPartner } from '@/lib/zoho'
 import { getAgents } from '@/lib/underwriting'
-import { decideStatement, decideDocumentRequest, checkFinmoNow } from '@/lib/gates'
+import {
+  decideStatement,
+  decideDocumentRequest,
+  checkFinmoNow,
+  getLenderContacts,
+  createLenderContact,
+  decideLenderContact,
+} from '@/lib/gates'
 import { DemoWriteBlocked, DEMO_AGENT_ID } from '@/lib/demo'
 import {
   demoSlimDeals,
@@ -256,6 +263,22 @@ describe('demo mode guards', () => {
   it('the workbench agents/staff table is fixtured empty in demo (no real staff PII)', async () => {
     const res = await getAgents()
     expect(res).toEqual({ configured: true, ok: true, data: [] })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('lender contacts read canned in demo (zero real reads) and every write rejects', async () => {
+    const read = await getLenderContacts('tok')
+    expect(read.ok).toBe(true)
+    if (read.ok) expect(read.data.contacts.length).toBeGreaterThan(0)
+    await expect(
+      createLenderContact('mcap', { name: 'Demo BDM', email: 'bdm@example.com' }, 'tok'),
+    ).rejects.toBeInstanceOf(DemoWriteBlocked)
+    await expect(
+      decideLenderContact('demo-contact-1', { action: 'supersede', name: 'Demo BDM', phone: '6475551234' }, 'tok'),
+    ).rejects.toBeInstanceOf(DemoWriteBlocked)
+    await expect(
+      decideLenderContact('demo-contact-1', { action: 'retire', reason: 'left the desk' }, 'tok'),
+    ).rejects.toBeInstanceOf(DemoWriteBlocked)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

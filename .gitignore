@@ -53,4 +53,7 @@ Terminal Saved Output.txt
 .claude/worktrees/
 supabase/.temp/
 Lender Logos/
-knowledge/
+# Root-only: the vendored lender-knowledge source dir. Anchored so it does NOT
+# also swallow nested app dirs named "knowledge" (e.g. the knowledge API route
+# proxies under app/api/portal/admin/knowledge/).
+/knowledge/

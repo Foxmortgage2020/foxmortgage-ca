@@ -34,6 +34,8 @@ import {
   type LenderSort,
 } from '@/lib/lender-browse'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
+import type { LenderContactCard } from '@/lib/lender-contacts'
+import LenderContacts from '@/components/admin/lenders/LenderContacts'
 import LenderMark from '@/components/admin/LenderMark'
 import { OfferWindowBadge } from '@/components/admin/offer-display'
 import {
@@ -58,12 +60,15 @@ export default function RatesLenders({
   coverage,
   todayYMD,
   unattributed = [],
+  canManageContacts = false,
 }: {
   quotes: RateQuoteFullRow[]
   coverage: LenderCoverage
   todayYMD: string
   /** Captured rates-class items the ingest could not name a lender for. */
   unattributed?: UnattributedSheet[]
+  /** Whether the user can add / edit / retire lender contacts (admin, not demo). */
+  canManageContacts?: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -77,9 +82,18 @@ export default function RatesLenders({
     '/api/portal/admin/knowledge/offers',
   )
   const referenceRes = useKnowledgeFetch<RatesReference>('/api/portal/admin/knowledge/rates-reference')
+  // One bulk contacts read for the whole book (never per-card), grouped by
+  // lender slug client-side. Demo returns a canned set; on the dev Clerk
+  // instance the gates token cannot mint, so this shows the honest "couldn't
+  // reach" state and only works in production (the knowledge precedent).
+  const contactsRes = useKnowledgeFetch<{ contacts: LenderContactCard[] }>(
+    '/api/portal/admin/knowledge/contacts',
+  )
   const knowledgeLenders = knowledge.data?.lenders ?? []
   const offers = offersRes.data?.offers ?? []
   const reference = referenceRes.data ?? null
+  const allContacts = contactsRes.data?.contacts ?? []
+  const contactsFor = (quoteSlug: string) => allContacts.filter(c => c.lender_slug === quoteSlug)
 
   const knowledgeFor = (quoteSlug: string) => matchKnowledge(knowledgeLenders, quoteSlug)
   const offersFor = (quoteSlug: string): KnowledgeOffer[] => {
@@ -110,6 +124,11 @@ export default function RatesLenders({
         knowledge={knowledgeFor(lenderParam)}
         offers={offersFor(lenderParam)}
         reference={reference}
+        contacts={contactsFor(lenderParam)}
+        contactsLoading={contactsRes.loading}
+        contactsError={contactsRes.error}
+        onContactsChanged={contactsRes.retry}
+        canManageContacts={canManageContacts}
         onBack={closeLender}
       />
     )
@@ -120,6 +139,7 @@ export default function RatesLenders({
       coverage={coverage}
       knowledgeFor={knowledgeFor}
       offersFor={offersFor}
+      contactCountFor={slug => contactsFor(slug).length}
       todayYMD={todayYMD}
       onOpen={openLender}
       unattributed={unattributed}
@@ -133,6 +153,7 @@ function BrowseGrid({
   coverage,
   knowledgeFor,
   offersFor,
+  contactCountFor,
   todayYMD,
   onOpen,
   unattributed,
@@ -140,6 +161,7 @@ function BrowseGrid({
   coverage: LenderCoverage
   knowledgeFor: (slug: string) => KnowledgeLenderEntry | null
   offersFor: (slug: string) => KnowledgeOffer[]
+  contactCountFor: (slug: string) => number
   todayYMD: string
   onOpen: (slug: string) => void
   unattributed: UnattributedSheet[]
@@ -183,6 +205,7 @@ function BrowseGrid({
               card={card}
               knowledge={knowledgeFor(card.slug)}
               offers={offersFor(card.slug)}
+              contactCount={contactCountFor(card.slug)}
               onOpen={() => onOpen(card.slug)}
             />
           ))}
@@ -316,11 +339,13 @@ function LenderBrowseCard({
   card,
   knowledge,
   offers,
+  contactCount,
   onOpen,
 }: {
   card: LenderCard
   knowledge: KnowledgeLenderEntry | null
   offers: KnowledgeOffer[]
+  contactCount: number
   onOpen: () => void
 }) {
   const chip = 'text-[11px] font-semibold px-2 py-0.5 rounded-full'
@@ -418,6 +443,12 @@ function LenderBrowseCard({
         )}
       </div>
 
+      {contactCount > 0 && (
+        <p className="text-xs text-cool-500 font-ui mt-2" data-testid={`lender-contact-count-${card.slug}`}>
+          {contactCount} contact{contactCount === 1 ? '' : 's'} on file
+        </p>
+      )}
+
       <div className="mt-3 flex items-center gap-1 text-xs font-ui font-semibold text-navy/70 group-hover:text-navy">
         View products
         <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
@@ -436,6 +467,11 @@ function LenderPage({
   knowledge,
   offers,
   reference,
+  contacts,
+  contactsLoading,
+  contactsError,
+  onContactsChanged,
+  canManageContacts,
   onBack,
 }: {
   slug: string
@@ -443,6 +479,11 @@ function LenderPage({
   knowledge: KnowledgeLenderEntry | null
   offers: KnowledgeOffer[]
   reference: RatesReference | null
+  contacts: LenderContactCard[]
+  contactsLoading: boolean
+  contactsError: string | null
+  onContactsChanged: () => void
+  canManageContacts: boolean
   onBack: () => void
 }) {
   const [term, setTerm] = useState<string>('')
@@ -515,6 +556,16 @@ function LenderPage({
           )}
         </div>
       </div>
+
+      {/* Contacts — the BDM / underwriter desk for this lender. */}
+      <LenderContacts
+        slug={slug}
+        contacts={contacts}
+        loading={contactsLoading}
+        error={contactsError}
+        canManage={canManageContacts}
+        onRefetch={onContactsChanged}
+      />
 
       {/* Active offers */}
       {offers.length > 0 && (

@@ -75,6 +75,11 @@ export const PERMISSIONS = {
   // CONTRACT with the fox-underwriting gates API; admin only on both sides.
   'knowledge.upload': ['admin'],
   'approvals.knowledge.decide': ['admin'],
+  // P1 (2026-07-20): add, edit (supersede), or retire a lender BDM / underwriter
+  // contact. CONTRACT key with the fox-underwriting gates API (W1, migrations
+  // 0051+0052); admin only on both sides, human-only on the workbench. Reads
+  // ride knowledge.view (the workbench serves contacts to every internal role).
+  'knowledge.contact.manage': ['admin'],
   // Phase B2: commitment conditions become the room's gated checklist. Both
   // key names are a CONTRACT with the fox-underwriting gates API. Uploading a
   // commitment mints PENDING conditions, and deciding the extracted list (or a
@@ -196,6 +201,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'underwriting.provision': 'Start an underwriting room before a file reaches Submitted',
   'knowledge.upload': 'Upload lender knowledge documents (claims stay pending until approved)',
   'approvals.knowledge.decide': 'Decide lender knowledge claims (approve / reject)',
+  'knowledge.contact.manage': 'Add, edit, or retire a lender BDM or underwriter contact',
   'commitment.upload': 'Upload a commitment or amendment (conditions stay pending until the list is approved)',
   'document.upload': 'Upload a borrower document to a deal room (indexed and matched against conditions)',
   'notes.generate': 'Generate a lender submission-note draft for a deal (draft only, nothing sent)',

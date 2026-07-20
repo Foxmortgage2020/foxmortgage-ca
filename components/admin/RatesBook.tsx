@@ -22,11 +22,13 @@ export default function RatesBook({
   coverage,
   todayYMD,
   unattributed = [],
+  canManageContacts = false,
 }: {
   quotes: RateQuoteFullRow[]
   coverage: LenderCoverage
   todayYMD: string
   unattributed?: { fileName: string | null; receivedAt: string | null }[]
+  canManageContacts?: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -81,6 +83,7 @@ export default function RatesBook({
             coverage={coverage}
             todayYMD={todayYMD}
             unattributed={unattributed}
+            canManageContacts={canManageContacts}
           />
         ) : (
           <AllQuotes quotes={quotes} initialLender={sp.get('lender')} />

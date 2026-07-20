@@ -39,6 +39,15 @@ export const LENDER_NAMES: Record<string, string> = {
   'home-trust': 'Home Trust',
   rmg: 'RMG Mortgages',
   kootenay: 'Kootenay Savings',
+  // Reconciled 2026-07-20 (P1): these two entered the approved book in the
+  // parser-coverage sessions but never got a curated name, so the cmd-K palette
+  // (which jumps from HAND_WRITTEN_LENDER_SLUGS) could not reach them and duca
+  // would have title-cased to "Duca". The book now holds 25 distinct approved
+  // slugs and this list matches it. This is the maintenance a book-derived
+  // palette would automate; deriving in the admin layout was rejected (a
+  // ~1,257-row read on every admin page, and it empties the palette in demo).
+  duca: 'DUCA',
+  meridian: 'Meridian Credit Union',
 }
 
 /** The slugs with a hand-written display name. Also the missing-knowledge-page

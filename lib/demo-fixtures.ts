@@ -82,6 +82,7 @@ import type {
   CommsSettingsRead,
 } from '@/lib/underwriting'
 import type { ConditionCount } from '@/lib/conditions-status'
+import type { LenderContactCard } from '@/lib/lender-contacts'
 import type { SlimDeal, OpenTask, SlimLead, DealCloseout } from '@/lib/zoho-admin'
 // The calendar band's slim event shape is a TYPE-ONLY import (erased at build),
 // so lib/ms-calendar can runtime-import demoCalendarLites below with no cycle.
@@ -901,6 +902,67 @@ export const demoKnowledgeClaims: KnowledgeClaimRow[] = [
 export const demoKnowledgePageHits: KnowledgePageHit[] = [
   { documentId: 'demo-kd-1', pageNo: 4, snippet: 'Demo guide text — synthetic passage matching the search term, kept short.' },
 ]
+
+// ─── Lender contacts (P1): the canned BDM / underwriter set ──────────────────
+// Synthetic design cast + example.com only. Demo mode returns this instead of
+// reading the workbench, so a demo lender page shows contacts with working
+// tap-to-call / tap-to-email (one with an extension), and a lender not listed
+// here (say rfa) shows the teaching empty state. Every write is DemoWriteBlocked.
+export function demoLenderContacts(): LenderContactCard[] {
+  return [
+    {
+      id: 'demo-contact-1',
+      lender_slug: 'mcap',
+      name: 'Jordan Wells',
+      title: 'Business Development Manager',
+      email: 'jordan.wells@example.com',
+      phone: '+16475550142',
+      phone_ext: '218',
+      tel: 'tel:+16475550142;ext=218',
+      phone_display: '+1 (647) 555-0142 x218',
+      note: 'Covers southwestern Ontario. Fast on a rush file.',
+      source: 'manual',
+      claim_text: 'Jordan Wells, Business Development Manager — jordan.wells@example.com — +1 (647) 555-0142 x218',
+      created_at: '2026-07-18T14:00:00Z',
+      updated_at: null,
+      last_confirmed: null,
+    },
+    {
+      id: 'demo-contact-2',
+      lender_slug: 'mcap',
+      name: 'Priya Anand',
+      title: 'Underwriter',
+      email: 'priya.anand@example.com',
+      phone: null,
+      phone_ext: null,
+      tel: null,
+      phone_display: null,
+      note: null,
+      source: 'manual',
+      claim_text: 'Priya Anand, Underwriter — priya.anand@example.com',
+      created_at: '2026-07-18T14:05:00Z',
+      updated_at: null,
+      last_confirmed: null,
+    },
+    {
+      id: 'demo-contact-3',
+      lender_slug: 'first-national',
+      name: 'Marcus Tran',
+      title: 'BDM',
+      email: null,
+      phone: '+19055550170',
+      phone_ext: null,
+      tel: 'tel:+19055550170',
+      phone_display: '+1 (905) 555-0170',
+      note: 'Prefers a text for a quick question.',
+      source: 'manual',
+      claim_text: 'Marcus Tran, BDM — +1 (905) 555-0170',
+      created_at: '2026-07-19T09:30:00Z',
+      updated_at: null,
+      last_confirmed: null,
+    },
+  ]
+}
 
 // ─── Renewal drip (2026-07-16): the canned approval queue ────────────────────
 // Synthetic clients only. Demo mode performs zero workbench reads and every

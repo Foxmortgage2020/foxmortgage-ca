@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-20',
+    title: 'Lender pages get a contacts list you can call or email in one tap',
+    detail:
+      'Open a lender in the by-lender view and you now see the people you work with there, the BDM and the underwriter, each with a tap-to-call number and a tap-to-email address. Add a new contact, edit one, or retire one who left the desk, all from the page. It is admin only and every change goes through the same audited gate as the rest of the workbench. A lender with nobody saved yet shows a plain prompt to add the first one. The palette also learned two more lenders that were in the rate book but not yet named, so cmd-K can jump to all of them.',
+  },
+  {
+    date: '2026-07-20',
     title: 'Get anywhere fast: search jumps to lenders and pages, and every file ref is a link',
     detail:
       'The search box (press the key with K, or just start typing) now finds more than deals and contacts. Type a lender name and jump straight to its rates. Type a tab name like promos, intel, or bookkeeping and land right on it. Deals were already searchable by file reference or client name, and still are. And everywhere a file reference shows up across the command centre, on the deals list, on the Today page, on the approvals desk, it is now a link straight to that deal room. Getting somewhere stopped being a menu you memorize and became a thing you type.',

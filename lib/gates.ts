@@ -25,6 +25,8 @@
 // rates-reference GETs stay real — they are reference material, not
 // borrower data — so a demo walkthrough still shows live lender knowledge.
 import { isDemoMode, DemoWriteBlocked } from '@/lib/demo'
+import { demoLenderContacts } from '@/lib/demo-fixtures'
+import type { LenderContactCard, ContactDraft } from '@/lib/lender-contacts'
 import { KNOWLEDGE_UPLOAD_KINDS, type KnowledgeUploadKind } from '@/lib/knowledge-claims'
 
 export type GateErrorKind =
@@ -951,6 +953,89 @@ export interface KnowledgeLenderSummary {
 
 export function getKnowledgeLenders(token: string | null): Promise<GateResult<{ lenders: KnowledgeLenderSummary[] }>> {
   return gateGet('/api/knowledge/lenders', token)
+}
+
+// ─── Lender contacts (P1; fox-underwriting W1, migrations 0051+0052) ─────────
+// BDM / underwriter contacts, served as an approved claim family (the read
+// returns only approved rows; superseded and retired ones simply disappear).
+// READ is behind knowledge.view (the workbench serves them to every internal
+// role). UNLIKE the reference-material knowledge GETs, a contacts read is
+// DEMO-CANNED: the brief mandates zero real reads in demo, so this getter
+// carries a demo guard the reference getters deliberately omit. WRITES are
+// admin-only (knowledge.contact.manage, a CONTRACT key) and human-only on the
+// workbench: a create auto-approves (no pending state), an edit SUPERSEDES (the
+// response's contactId is the NEW row, so the card refetches rather than
+// re-pointing), and a retire needs a reason. A 409 is a DUPLICATE (or a
+// concurrent edit), so surface409 passes the workbench's real reason through
+// instead of the generic "Already decided."
+
+export interface ContactWriteResult {
+  contactId: string
+  lender_slug: string
+  claim_key: string
+  action: 'created' | 'superseded' | 'retired'
+  supersededId: string | null
+  auditId: string
+}
+
+export function getLenderContacts(
+  token: string | null,
+): Promise<GateResult<{ contacts: LenderContactCard[] }>> {
+  if (isDemoMode()) return Promise.resolve({ ok: true, data: { contacts: demoLenderContacts() } })
+  return gateGet('/api/knowledge/contacts', token)
+}
+
+// Include an optional field only when it carries a trimmed value: the workbench
+// body schema is strict, and an empty string is not a valid email or phone.
+function contactFields(draft: ContactDraft): Record<string, unknown> {
+  const out: Record<string, unknown> = { name: draft.name.trim() }
+  const title = draft.title?.trim()
+  if (title) out.title = title
+  const email = draft.email?.trim()
+  if (email) out.email = email
+  const phone = draft.phone?.trim()
+  if (phone) out.phone = phone
+  const extension = draft.extension?.trim()
+  if (extension) out.extension = extension
+  const note = draft.note?.trim()
+  if (note) out.note = note
+  return out
+}
+
+export function createLenderContact(
+  lenderSlug: string,
+  draft: ContactDraft,
+  token: string | null,
+): Promise<GateResult<ContactWriteResult>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('createLenderContact'))
+  return gateCall(
+    '/api/gates/lender-contacts/create',
+    { lender_slug: lenderSlug, ...contactFields(draft) },
+    token,
+    { surface409: true },
+  )
+}
+
+export type LenderContactDecision =
+  | ({ action: 'supersede' } & ContactDraft)
+  | { action: 'retire'; reason: string }
+
+export function decideLenderContact(
+  contactId: string,
+  decision: LenderContactDecision,
+  token: string | null,
+): Promise<GateResult<ContactWriteResult>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideLenderContact'))
+  const body: Record<string, unknown> =
+    decision.action === 'retire'
+      ? { action: 'retire', reason: decision.reason.trim() }
+      : { action: 'supersede', ...contactFields(decision) }
+  return gateCall(
+    `/api/gates/lender-contacts/${encodeURIComponent(contactId)}/decision`,
+    body,
+    token,
+    { surface409: true },
+  )
 }
 
 export interface KnowledgeLenderDetail {

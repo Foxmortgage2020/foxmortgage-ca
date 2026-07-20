@@ -6,7 +6,8 @@
 // changing a scenario select re-renders without re-reading ~1,257 rows. Every
 // rate carries its sheet date; approved quotes only anywhere a rate is quotable.
 
-import { requirePermission } from '@/lib/authz'
+import { can, getSessionUser, requirePermission } from '@/lib/authz'
+import { isDemoMode } from '@/lib/demo'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import {
   getAgentIdByEmail,
@@ -111,11 +112,22 @@ export default async function RatesEngine({ tab }: { tab: 'scenario' | 'rates' |
     .filter(i => i.lenderSlugGuess == null && i.docClassGuess === 'rates')
     .map(i => ({ fileName: i.fileName, receivedAt: i.receivedAt }))
 
+  // Contacts write controls show only for an admin, and never in demo (demo is
+  // read-only; the write routes also refuse it). The read stays available.
+  const user = await getSessionUser()
+  const canManageContacts = !!user && can(user, 'knowledge.contact.manage') && !isDemoMode()
+
   return (
     <div>
       <Header />
       <div className="mt-5">
-        <RatesBook quotes={quotes} coverage={coverage} todayYMD={todayYMD} unattributed={unattributed} />
+        <RatesBook
+          quotes={quotes}
+          coverage={coverage}
+          todayYMD={todayYMD}
+          unattributed={unattributed}
+          canManageContacts={canManageContacts}
+        />
       </div>
     </div>
   )
