@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-20',
+    title: 'Your Microsoft calendar shows up on Today',
+    detail:
+      'The calendar spot in your day is now live. It reads your Microsoft calendar and lists today’s meetings in Toronto time, in order, with the time, the subject, and where it is or a note that it is online. A meeting that is happening now is marked, and ones that already finished read quietly. It is read only, so nothing here ever changes your calendar. If the calendar cannot be reached, that one card shows a short line and the rest of your page carries on as normal. Nothing else moved.',
+  },
+  {
+    date: '2026-07-20',
     title: 'Check off a task on Today and it completes in Zoho',
     detail:
       'The Tasks card on Today gains a checkbox. Check a task and it marks complete in Zoho, so you can clear your day from the page you already work out of instead of switching over. The tick is instant and settles once Zoho confirms, and for about ten seconds you get an Undo that reopens the task and puts back the status it had before. If Zoho ever does not take the change, the checkbox comes back and one plain line tells you, so nothing ever looks done that is not. Zoho stays the single source of truth for your tasks; the portal is just the remote control. Every complete and reopen is recorded with who did it and when. This is the portal writing to Zoho for the first time, so it is admin only and locked down to a real signed-in session.',

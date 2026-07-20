@@ -89,6 +89,19 @@ describe('demo mode guards', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
+  it('the calendar band (Microsoft) returns canned synthetic events with zero real reads', async () => {
+    const { getTodayCalendar } = await import('@/lib/ms-calendar')
+    const res = await getTodayCalendar(new Date('2026-07-20T14:00:00Z'))
+    expect(res.configured && res.ok).toBe(true)
+    if (res.configured && res.ok) {
+      expect(res.events.length).toBeGreaterThan(0)
+      // Obviously fictional, and an all-day event is always present.
+      expect(res.events.some(e => e.subject.includes('Marty McFixture'))).toBe(true)
+      expect(res.events.some(e => e.status === 'allday')).toBe(true)
+    }
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it('the Beyond funding and Lenders strips resolve from fixtures and empty stores with zero real reads (B3)', async () => {
     const { getRenewalDeals } = await import('@/lib/zoho-admin')
     const { recentUploads } = await import('@/lib/smm-store')

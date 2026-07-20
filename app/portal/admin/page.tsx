@@ -60,6 +60,7 @@ import {
 } from '@/lib/today'
 import DeskStrip from '@/components/admin/DeskStrip'
 import YourDay from '@/components/admin/today/YourDay'
+import { getTodayCalendar } from '@/lib/ms-calendar'
 import Exceptions from '@/components/admin/today/Exceptions'
 import RenewalNurture from '@/components/admin/today/RenewalNurture'
 import WhatsMoving from '@/components/admin/today/WhatsMoving'
@@ -98,7 +99,7 @@ export default async function AdminHome() {
   // The approvals queues arrive through the SAME shared loader the desk page
   // and the Desk count layer use (getApprovalsData), so the Waiting-on-you
   // strip, the decision cards, and the Approvals page reconcile by construction.
-  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, approvalsData, wbDealsR, freshR, credsR, renewalsRes, seqStatesR] =
+  const [dealsRes, tasksRes, flagsR, condsR, condCountsR, approvalsData, wbDealsR, freshR, credsR, renewalsRes, seqStatesR, calendarRes] =
     await Promise.all([
       getAllDealsSlim()
         .then(d => ({ ok: true as const, data: d }))
@@ -117,6 +118,9 @@ export default async function AdminHome() {
         .then(r => ({ ok: true as const, data: r }))
         .catch(() => ({ ok: false as const, data: null })),
       canRenewals && agentId ? getRenewalSequenceStates(agentId) : null,
+      // Today's Microsoft calendar. Fail-soft in the fetcher (never throws), so
+      // it is Promise.all-safe and never breaks the page.
+      getTodayCalendar(),
     ])
 
   const deals: SlimDeal[] | null = dealsRes.ok ? dealsRes.data : null
@@ -451,8 +455,8 @@ export default async function AdminHome() {
         </p>
       </div>
 
-      {/* b. Your day — calendar (teaching empty state) + live Zoho tasks. */}
-      <YourDay tasks={prioritizedTasks} todayYMD={todayYMD} />
+      {/* b. Your day — today's Microsoft calendar + live Zoho tasks. */}
+      <YourDay tasks={prioritizedTasks} calendar={calendarRes} todayYMD={todayYMD} />
 
       {/* c. Waiting on you — the navy strip, three decision cards, one
           exceptions block, and a quiet healthy-sync line at the bottom. */}

@@ -83,6 +83,10 @@ import type {
 } from '@/lib/underwriting'
 import type { ConditionCount } from '@/lib/conditions-status'
 import type { SlimDeal, OpenTask, SlimLead, DealCloseout } from '@/lib/zoho-admin'
+// The calendar band's slim event shape is a TYPE-ONLY import (erased at build),
+// so lib/ms-calendar can runtime-import demoCalendarLites below with no cycle.
+import type { GraphEventLite } from '@/lib/ms-calendar'
+import { ymdAddDays } from '@/lib/dates'
 import type { RevenueDeal } from '@/lib/revenue'
 import type { RenewalDeal } from '@/lib/renewals'
 import type { PartnerListItem, PartnerDocument } from '@/lib/zoho'
@@ -237,6 +241,49 @@ export const demoOpenTasks: OpenTask[] = [
   { id: 'demo-t-2', subject: 'Send commitment to Ada Testwell (DEMO-F0002)', dueDate: '2026-07-20', priority: 'High', status: 'In Progress', overdue: false },
   { id: 'demo-t-3', subject: 'Follow up on the appraisal for Example Estates', dueDate: '2026-07-20', priority: 'Normal', status: 'Not Started', overdue: false },
 ]
+
+// ─── Microsoft calendar: a synthetic day ────────────────────────────────────
+// Canned events for the "Your day" band in demo mode (getTodayCalendar's demo
+// branch runs these through the SAME pure mapper as real Graph data — zero
+// reads). Built on the passed todayYMD (Toronto wall-clock, naive) so the band
+// always shows a believable day; statuses (past/now/upcoming) derive from the
+// real clock, exactly as a real calendar would. Obviously fictional.
+export function demoCalendarLites(todayYMD: string): GraphEventLite[] {
+  const p2 = (n: number) => String(n).padStart(2, '0')
+  const at = (
+    sh: number,
+    sm: number,
+    eh: number,
+    em: number,
+    subject: string,
+    location: string | null,
+    isOnline: boolean,
+  ): GraphEventLite => ({
+    subject,
+    startLocal: `${todayYMD}T${p2(sh)}:${p2(sm)}:00`,
+    endLocal: `${todayYMD}T${p2(eh)}:${p2(em)}:00`,
+    isAllDay: false,
+    location,
+    isOnline,
+  })
+  return [
+    {
+      subject: 'Team offsite',
+      startLocal: `${todayYMD}T00:00:00`,
+      endLocal: `${ymdAddDays(todayYMD, 1)}T00:00:00`,
+      isAllDay: true,
+      location: null,
+      isOnline: false,
+    },
+    at(8, 30, 9, 0, 'Morning standup', null, true),
+    // A mid-morning block so the demo reliably shows an in-progress ("now")
+    // event during the workday.
+    at(9, 30, 11, 30, 'Underwriting sync', null, false),
+    at(12, 0, 12, 30, 'Lender check-in with First National', null, true),
+    at(14, 0, 14, 30, 'Rate sheet review', 'Office', false),
+    at(16, 0, 16, 30, 'Client call with Marty McFixture', 'Phone', false),
+  ]
+}
 
 // ─── Zoho: leads ────────────────────────────────────────────────────────────
 

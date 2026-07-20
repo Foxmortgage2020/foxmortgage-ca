@@ -1,18 +1,20 @@
-// Your day — the calendar (teaching empty state until the Microsoft build
-// lands) beside the live Zoho task list. Two cards side by side at desktop,
-// stacked at phone. The task rows are interactive (TaskList): completing a
-// task writes to Zoho through the gated route, Zoho stays the source of truth.
+// Your day — today's Microsoft calendar (read-only) beside the live Zoho task
+// list. Two cards side by side at desktop, stacked at phone. The task rows are
+// interactive (TaskList): completing a task writes to Zoho through the gated
+// route, Zoho stays the source of truth. The calendar is fail-soft: an outage
+// or missing env renders a quiet line or the connect state, never breaking the
+// page (see lib/ms-calendar.ts). No lime here (the shell audit walks this file).
 
-import { Band } from '@/components/admin/today/ui'
+import { Band, EmptyBand } from '@/components/admin/today/ui'
 import TaskList from '@/components/admin/today/TaskList'
 import type { PrioritizedTasks } from '@/lib/today'
+import type { CalendarResult, CalendarEvent } from '@/lib/ms-calendar'
 
 const ZOHO_TASKS_TAB = 'https://crm.zoho.com/crm/org906105026/tab/Tasks'
 
-function CalendarCard() {
-  // Teaching empty state. The button is the future entry point for the
-  // Microsoft calendar connection; it is inert until that build lands (out of
-  // scope this session). No fake events ever render here.
+// The teaching connect state, shown when the Microsoft calendar is not wired up
+// (env absent). No fake events ever render here.
+function CalendarConnectState() {
   return (
     <Band title="Your calendar">
       <p className="font-ui text-sm text-muted leading-relaxed">
@@ -27,8 +29,80 @@ function CalendarCard() {
         >
           Connect your Microsoft calendar
         </button>
-        <span className="font-ui text-[11px] text-muted-2">Coming soon</span>
+        <span className="font-ui text-[11px] text-muted-2">Ask your admin to set it up</span>
       </div>
+    </Band>
+  )
+}
+
+// One event row. Past events read muted; an in-progress event reads as now (an
+// ink-navy left accent and a small "now" marker); all-day and upcoming read
+// plainly. Never lime — status urgency is not a queued decision.
+function EventRow({ e }: { e: CalendarEvent }) {
+  const past = e.status === 'past'
+  const now = e.status === 'now'
+  const accent = now ? 'border-ink-navy' : 'border-hairline'
+  const timeColor = past ? 'text-muted-2' : now ? 'text-ink-navy' : 'text-ink'
+  const subjColor = past ? 'text-muted-2' : 'text-ink'
+  const sub = [e.location, e.isOnline ? 'Online' : null].filter(Boolean).join(' · ')
+  return (
+    <li className={`flex gap-3 border-l-2 pl-2.5 ${accent}`}>
+      <span
+        className={`w-[4.25rem] shrink-0 font-ui text-[12px] font-semibold tabular-nums leading-snug ${timeColor}`}
+        title={e.rangeLabel}
+      >
+        {e.timeLabel}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-1.5">
+          <span className={`font-ui text-sm leading-snug ${subjColor} ${past ? '' : 'font-medium'}`}>
+            {e.subject}
+          </span>
+          {now ? (
+            <span className="shrink-0 font-ui text-[10px] font-bold uppercase tracking-wide text-ink-navy">
+              now
+            </span>
+          ) : null}
+        </span>
+        {sub ? <span className="mt-0.5 block font-ui text-[11px] text-muted truncate">{sub}</span> : null}
+      </span>
+    </li>
+  )
+}
+
+function CalendarCard({ calendar }: { calendar: CalendarResult }) {
+  // Absent env: the teaching connect state.
+  if (!calendar.configured) return <CalendarConnectState />
+  // Runtime failure: one quiet line, and the rest of the page is unaffected.
+  if (!calendar.ok) {
+    return (
+      <Band title="Your calendar">
+        <EmptyBand>Calendar is not available right now.</EmptyBand>
+      </Band>
+    )
+  }
+  // Connected but nothing booked: a teaching empty state.
+  if (calendar.events.length === 0) {
+    return (
+      <Band title="Your calendar">
+        <EmptyBand>Nothing on your calendar today. New meetings show here as they are booked.</EmptyBand>
+      </Band>
+    )
+  }
+  return (
+    <Band
+      title="Your calendar"
+      action={
+        <span className="font-ui text-[11px] text-muted tabular-nums">
+          {calendar.events.length} today
+        </span>
+      }
+    >
+      <ul className="space-y-2">
+        {calendar.events.map(e => (
+          <EventRow key={e.key} e={e} />
+        ))}
+      </ul>
     </Band>
   )
 }
@@ -81,14 +155,16 @@ function TasksCard({ tasks, todayYMD }: { tasks: PrioritizedTasks; todayYMD: str
 
 export default function YourDay({
   tasks,
+  calendar,
   todayYMD,
 }: {
   tasks: PrioritizedTasks | null
+  calendar: CalendarResult
   todayYMD: string
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <CalendarCard />
+      <CalendarCard calendar={calendar} />
       {tasks === null ? (
         <Band title="Tasks">
           <p className="font-ui text-sm text-muted leading-relaxed">
