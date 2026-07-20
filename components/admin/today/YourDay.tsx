@@ -1,13 +1,13 @@
 // Your day — the calendar (teaching empty state until the Microsoft build
 // lands) beside the live Zoho task list. Two cards side by side at desktop,
-// stacked at phone. No writes to Zoho.
+// stacked at phone. The task rows are interactive (TaskList): completing a
+// task writes to Zoho through the gated route, Zoho stays the source of truth.
 
-import Link from 'next/link'
-import { Band, RelativeChip } from '@/components/admin/today/ui'
+import { Band } from '@/components/admin/today/ui'
+import TaskList from '@/components/admin/today/TaskList'
 import type { PrioritizedTasks } from '@/lib/today'
 
 const ZOHO_TASKS_TAB = 'https://crm.zoho.com/crm/org906105026/tab/Tasks'
-const zohoTaskUrl = (id: string) => `https://crm.zoho.com/crm/org906105026/tab/Tasks/${id}`
 
 function CalendarCard() {
   // Teaching empty state. The button is the future entry point for the
@@ -50,38 +50,7 @@ function TasksCard({ tasks, todayYMD }: { tasks: PrioritizedTasks; todayYMD: str
         </p>
       ) : (
         <>
-          <ul className="space-y-2.5">
-            {tasks.top.map(t => (
-              <li key={t.id} className="flex items-start justify-between gap-2.5">
-                <div className="min-w-0">
-                  <a
-                    href={zohoTaskUrl(t.id)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-ui text-sm text-ink hover:text-ink-navy leading-snug"
-                  >
-                    {t.subject}
-                  </a>
-                  <div className="mt-0.5 flex items-center gap-2 font-ui text-[11px] text-muted">
-                    {t.priority ? <span>{t.priority} priority</span> : null}
-                    {t.roomHref && t.dealRef ? (
-                      <Link
-                        href={t.roomHref}
-                        className="font-semibold text-ink-navy underline decoration-hairline underline-offset-2 hover:decoration-ink-navy tabular-nums"
-                      >
-                        {t.dealRef}
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-                {t.dueDate ? (
-                  <div className="shrink-0">
-                    <RelativeChip targetYMD={t.dueDate} todayYMD={todayYMD} verb="due" />
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <TaskList tasks={tasks.top} todayYMD={todayYMD} />
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-hairline pt-2.5">
             {tasks.overflow > 0 ? (
               <a

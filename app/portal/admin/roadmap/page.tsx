@@ -29,6 +29,7 @@ const SESSIONS: {
       'What is moving: one lifecycle table (the duplicate pipeline-by-stage census deleted); Closings widened to 30 days with a readiness chip per file; The year absorbs pacing, the stat tiles, the leak line, and the groom line',
       'A portal-wide relative-date helper (lib/dates relativeDay) with urgency tinting; every file ref on Today links to its deal room; teaching empty states across empty bands',
       'Pure model in lib/today.ts, unit-tested; render-proven at 1280 and 375 in demo mode with zero real reads',
+      'Task two-way (2026-07-20): the Tasks card gains a checkbox that completes the task in Zoho, with an optimistic tick, a ~10 second undo that restores the prior status, and an honest revert if Zoho does not take the write. The portal’s first Zoho write, admin only through a gated route, audited to FOXCA (task_action_events); Zoho stays the source of truth',
     ],
   },
   {

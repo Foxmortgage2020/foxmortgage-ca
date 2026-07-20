@@ -148,6 +148,11 @@ export const PERMISSIONS = {
   // keys), written through the confirmed-action Zoho write path.
   'renewals.view': ['admin'],
   'renewals.decide': ['admin'],
+  // Today: completing (and reopening) a Zoho task from the Tasks card is a
+  // write to Zoho on the acting human's behalf. Admin only, and there is NO
+  // machine path to this write — only a verified Clerk admin session reaches
+  // the gated route.
+  'tasks.complete': ['admin'],
   // Session (SMM Opportunities): the opportunities board carries client PII
   // (monitored mortgages), so it stays admin-only. opportunities.manage gates
   // the CSV upload, the Zoho backfill proposals/executes, and the portal-side
@@ -213,6 +218,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'revenue.view': 'See revenue, forecast, and the comp model',
   'renewals.view': 'See the Renewal Radar (funded deals by maturity window)',
   'renewals.decide': 'Record a renewal status action (writes to Zoho)',
+  'tasks.complete': 'Complete or reopen a Zoho task from Today (writes to Zoho)',
   'opportunities.view': 'See the Strategic Mortgage Monitoring opportunity board',
   'opportunities.manage': 'Upload the monitoring export, backfill Zoho, and set opportunity status',
   'constraints.manage': 'Record and retire per-client lender constraints and restricted-product pin confirmations',

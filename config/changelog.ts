@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-20',
+    title: 'Check off a task on Today and it completes in Zoho',
+    detail:
+      'The Tasks card on Today gains a checkbox. Check a task and it marks complete in Zoho, so you can clear your day from the page you already work out of instead of switching over. The tick is instant and settles once Zoho confirms, and for about ten seconds you get an Undo that reopens the task and puts back the status it had before. If Zoho ever does not take the change, the checkbox comes back and one plain line tells you, so nothing ever looks done that is not. Zoho stays the single source of truth for your tasks; the portal is just the remote control. Every complete and reopen is recorded with who did it and when. This is the portal writing to Zoho for the first time, so it is admin only and locked down to a real signed-in session.',
+  },
+  {
+    date: '2026-07-20',
     title: 'Today is now the page you work out of every morning',
     detail:
       'The Home page was rebuilt around one idea: answer three questions in order, what needs me, what is moving, what is at risk. Up top is your day, a live task list beside a spot for your calendar once it is connected. Below it the Waiting-on-you strip, your decision cards, and a single at-risk block that leads with the loudest thing on the page, a file closing this week that still has an overdue condition. Then the renewal nurture progress, one clean table of every deal that is moving with a plain-words next step and how soon it closes, the next thirty days of closings each with a readiness check, and the year with your pace and where money is leaking. Dates now read in plain words everywhere, due today or five days overdue, tinted so the urgent ones stand out, and every file number links straight to its deal room. The old duplicate pipeline table and the stat-tile clutter are gone, so each thing is said once.',

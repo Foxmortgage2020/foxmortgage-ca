@@ -835,10 +835,33 @@ export async function createZohoTask(input: CreateTaskInput): Promise<string> {
   return String(row.details.id)
 }
 
-// Used only by the live verification flow to close a TEST task it just
-// created (status update through the same write path).
-export async function completeZohoTask(taskId: string): Promise<void> {
-  if (isDemoMode()) blockInDemo('completeZohoTask')
+export interface ZohoTaskRow {
+  id: string
+  subject: string
+  status: string | null
+}
+
+// Read a single task's subject + status — used to record the prior status
+// before a complete/reopen write. Demo mode never reads Zoho (returns null).
+export async function getZohoTask(taskId: string): Promise<ZohoTaskRow | null> {
+  if (isDemoMode()) return null
+  const token = await getZohoToken()
+  const res = await fetch(`${ZOHO_API}/Tasks/${taskId}?fields=Subject,Status`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+    cache: 'no-store',
+  })
+  if (res.status === 204 || res.status === 404) return null
+  if (!res.ok) throw new Error(`Zoho task read failed with status ${res.status}`)
+  const data = await res.json().catch(() => null)
+  const row = data?.data?.[0]
+  if (!row?.id) return null
+  return { id: String(row.id), subject: row.Subject ?? '(untitled task)', status: row.Status ?? null }
+}
+
+// Set a task's Status through the single Tasks write path. Demo-blocked. A
+// Zoho PUT can return 200 with a per-row error, so the row status is checked.
+export async function setZohoTaskStatus(taskId: string, status: string): Promise<void> {
+  if (isDemoMode()) blockInDemo('setZohoTaskStatus')
   const token = await getZohoToken()
   const res = await fetch(`${ZOHO_API}/Tasks/${taskId}`, {
     method: 'PUT',
@@ -846,12 +869,25 @@ export async function completeZohoTask(taskId: string): Promise<void> {
       Authorization: `Zoho-oauthtoken ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ data: [{ id: taskId, Status: 'Completed' }] }),
+    body: JSON.stringify({ data: [{ id: taskId, Status: status }] }),
     cache: 'no-store',
   })
   if (!res.ok) {
-    throw new Error(`Zoho task complete failed with status ${res.status}`)
+    const text = await res.text().catch(() => '')
+    console.error('[zoho-admin] task status error:', res.status, text.substring(0, 300))
+    throw new Error(`Zoho task update failed with status ${res.status}`)
   }
+  const data = await res.json().catch(() => null)
+  const row = data?.data?.[0]
+  if (row?.status !== 'success') {
+    console.error('[zoho-admin] task status non-success:', JSON.stringify(row?.code ?? ''))
+    throw new Error(`Zoho task update was not accepted (${row?.code ?? 'unknown'})`)
+  }
+}
+
+// Convenience close, through the shared hardened setter.
+export async function completeZohoTask(taskId: string): Promise<void> {
+  await setZohoTaskStatus(taskId, 'Completed')
 }
 
 // ─── Health ping ────────────────────────────────────────────────────────────

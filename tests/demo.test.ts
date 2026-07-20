@@ -29,7 +29,15 @@ vi.mock('@/lib/demo', () => {
   }
 })
 
-import { getAllDealsSlim, createZohoTask, searchZohoContacts, getDealCloseout } from '@/lib/zoho-admin'
+import {
+  getAllDealsSlim,
+  createZohoTask,
+  searchZohoContacts,
+  getDealCloseout,
+  getZohoTask,
+  setZohoTaskStatus,
+  completeZohoTask,
+} from '@/lib/zoho-admin'
 import {
   getDealsSummary,
   getAgentIdByEmail,
@@ -193,6 +201,15 @@ describe('demo mode guards', () => {
 
   it('the Zoho write path throws DemoWriteBlocked and never calls fetch', async () => {
     await expect(createZohoTask({ subject: 'demo task' })).rejects.toBeInstanceOf(DemoWriteBlocked)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('the task complete/reopen write path is demo-blocked and reads nothing', async () => {
+    // The reads never touch Zoho...
+    await expect(getZohoTask('demo-t-1')).resolves.toBeNull()
+    // ...and every task Status write throws before any fetch.
+    await expect(setZohoTaskStatus('demo-t-1', 'Completed')).rejects.toBeInstanceOf(DemoWriteBlocked)
+    await expect(completeZohoTask('demo-t-1')).rejects.toBeInstanceOf(DemoWriteBlocked)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
