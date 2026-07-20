@@ -11,12 +11,15 @@
 //      never searches from.
 //
 // Sources render independently and honestly. "Go to" (navigation) is
-// filtered locally from the nav items the shell already permission-filtered,
-// so it is instant with zero fetch. Deals / Contacts / Partners come from
-// the server search route. Knowledge rides the browser-minted gates token,
-// so it is fetched client-side and filtered here. A source that could not be
-// reached says so; a source that returned nothing for a real query says "No
-// matches" rather than pretending to be empty-by-default.
+// filtered locally from the page catalogue the shell already
+// permission-filtered — the visible top-level pages plus the consolidated
+// sub-tabs — so it is instant with zero fetch and typing a tab name lands on
+// it. Lenders are a static, gated list (jump into the Rates by-lender view),
+// also client-side. Deals / Contacts / Partners come from the server search
+// route. Knowledge rides the browser-minted gates token, so it is fetched
+// client-side and filtered here. A source that could not be reached says so;
+// a source that returned nothing for a real query says "No matches" rather
+// than pretending to be empty-by-default.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -26,6 +29,7 @@ import {
   CornerDownLeft,
   FolderOpen,
   MessageSquareText,
+  Percent,
   Search,
   User,
   Users,
@@ -34,6 +38,8 @@ import {
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import {
   filterNav,
+  rankLenders,
+  type LenderTarget,
   type NavItemLike,
   type SearchGroup,
   type SearchResult,
@@ -57,6 +63,7 @@ const TYPE_ICON: Record<SearchResultType, typeof Search> = {
   deal: FolderOpen,
   contact: User,
   partner: Users,
+  lender: Percent,
   knowledge: BookOpen,
   askfox: MessageSquareText,
 }
@@ -107,9 +114,18 @@ interface Section {
 
 export default function CommandPalette({
   navItems,
+  pageTargets,
+  lenderTargets,
   askFoxHref = null,
 }: {
+  // The empty-query "Go to" list: the top-level nav the shell renders.
   navItems: NavItemLike[]
+  // The searchable page catalogue (top-level + sub-tabs). Falls back to
+  // navItems when absent. Used only to rank a non-empty query.
+  pageTargets?: NavItemLike[]
+  // Lenders to jump into the Rates by-lender view. Empty/absent = no group
+  // (the user lacks rates.view).
+  lenderTargets?: LenderTarget[]
   // When the user holds agent.use, anything the search cannot resolve hands
   // to Ask Fox as a question (one box, two talents). Null = row absent.
   askFoxHref?: string | null
@@ -166,7 +182,15 @@ export default function CommandPalette({
         </kbd>
       </button>
 
-      {open && <PaletteModal navItems={navItems} askFoxHref={askFoxHref} onClose={closePalette} />}
+      {open && (
+        <PaletteModal
+          navItems={navItems}
+          pageTargets={pageTargets}
+          lenderTargets={lenderTargets}
+          askFoxHref={askFoxHref}
+          onClose={closePalette}
+        />
+      )}
 
       <style jsx global>{`
         @keyframes foxPaletteFade {
@@ -194,10 +218,14 @@ export default function CommandPalette({
 
 function PaletteModal({
   navItems,
+  pageTargets,
+  lenderTargets,
   askFoxHref,
   onClose,
 }: {
   navItems: NavItemLike[]
+  pageTargets?: NavItemLike[]
+  lenderTargets?: LenderTarget[]
   askFoxHref: string | null
   onClose: () => void
 }) {
@@ -270,6 +298,12 @@ function PaletteModal({
     }
   }, [debounced])
 
+  // Lenders (client-filtered from the static, gated list the shell passes).
+  const lenderResults = useMemo<SearchResult[]>(
+    () => rankLenders(lenderTargets ?? [], debounced),
+    [debounced, lenderTargets],
+  )
+
   // Knowledge results (client-filtered).
   const knowledgeResults = useMemo<SearchResult[]>(() => {
     const q = debounced.trim().toLowerCase()
@@ -320,8 +354,9 @@ function PaletteModal({
       return out
     }
 
-    // Non-empty query.
-    const navResults = filterNav(navItems, q)
+    // Non-empty query. Search the full page catalogue (top-level + sub-tabs)
+    // so a tab name lands on it; fall back to the sidebar nav if no catalogue.
+    const navResults = filterNav(pageTargets ?? navItems, q)
     if (navResults.length > 0) out.push({ key: 'nav', label: 'Go to', results: navResults })
 
     const groupByType = new Map(serverGroups.map(g => [g.type, g]))
@@ -343,6 +378,18 @@ function PaletteModal({
       if (g.status === 'degraded') out.push({ key: type, label, results: [], message: `Couldn't reach ${label}.` })
       else if (g.status === 'empty') out.push({ key: type, label, results: [], message: 'No matches.' })
       else out.push({ key: type, label, results: g.results })
+    }
+
+    // Lenders (client-side, jump into Rates). Present only when the user
+    // holds rates.view — the shell passes an empty list otherwise, so the
+    // group is simply absent for a role that cannot see Rates (like Partners).
+    if ((lenderTargets?.length ?? 0) > 0) {
+      out.push({
+        key: 'lender',
+        label: 'Lenders',
+        results: lenderResults,
+        message: lenderResults.length === 0 ? 'No matches.' : undefined,
+      })
     }
 
     // Knowledge (client-side).
@@ -378,6 +425,9 @@ function PaletteModal({
     debounced,
     recent,
     navItems,
+    pageTargets,
+    lenderTargets,
+    lenderResults,
     serverGroups,
     serverLoading,
     serverErrored,
@@ -450,7 +500,7 @@ function PaletteModal({
               setHighlight(0)
             }}
             onKeyDown={onInputKeyDown}
-            placeholder="Search deals, contacts, partners, knowledge…"
+            placeholder="Search deals, lenders, contacts, pages…"
             className="h-14 flex-1 bg-transparent font-ui text-base text-navy outline-none placeholder:text-cool-400"
             autoComplete="off"
             spellCheck={false}

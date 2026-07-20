@@ -23,6 +23,7 @@ import CommandPalette from '@/components/admin/CommandPalette'
 import NotificationBell from '@/components/admin/NotificationBell'
 import DemoBanner from '@/components/admin/DemoBanner'
 import InstallHint from '@/components/InstallHint'
+import type { LenderTarget, NavItemLike } from '@/lib/search'
 import {
   Activity,
   BookOpen,
@@ -94,6 +95,11 @@ export interface ShellPortalLink {
 type Props = {
   groups: ShellNavGroup[]
   portalLinks: ShellPortalLink[]
+  // Searchable page catalogue for the command palette (top-level + sub-tabs),
+  // and the lender jump list (empty when the user lacks rates.view). Both are
+  // handed straight to CommandPalette; the shell never widens them.
+  pageTargets?: NavItemLike[]
+  lenderTargets?: LenderTarget[]
   userName: string
   // Rail state persists per user; the key carries the Clerk user id.
   userKey: string
@@ -137,6 +143,8 @@ const focusLight =
 export default function AdminShell({
   groups,
   portalLinks,
+  pageTargets,
+  lenderTargets,
   userName,
   userKey,
   roleLabel,
@@ -393,6 +401,8 @@ export default function AdminShell({
             <div className="flex-1" />
             <CommandPalette
               navItems={groups.flatMap(g => g.items)}
+              pageTargets={pageTargets}
+              lenderTargets={lenderTargets}
               askFoxHref={askFoxHref}
             />
             <NotificationBell />

@@ -125,7 +125,9 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
                 {r.client}
               </Link>
               <p className={`mt-0.5 ${CELL_REF}`}>
-                {r.fileRef}
+                <Link href={`/portal/admin/deals/${r.roomId}`} className="hover:text-navy hover:underline">
+                  {r.fileRef}
+                </Link>
                 {r.positionFromRoom && (
                   <span
                     className="ml-1.5 text-cool-500"
@@ -207,7 +209,11 @@ export default function DealsList({ rows }: { rows: DealRow[] }) {
                   {r.amount !== null ? fmtMoneyCompact(r.amount) : '—'}
                 </span>
               </div>
-              <p className="mt-0.5 font-ui text-[10px] tracking-[0.04em] text-cool-500 tabular-nums">{r.fileRef}</p>
+              <p className="mt-0.5 font-ui text-[10px] tracking-[0.04em] text-cool-500 tabular-nums">
+                <Link href={`/portal/admin/deals/${r.roomId}`} className="hover:text-navy hover:underline">
+                  {r.fileRef}
+                </Link>
+              </p>
               <p className="mt-2.5 font-ui text-[14px] font-medium text-cool-800">
                 {r.unmapped ? `Stage "${r.rawStage ?? 'none'}" is unmapped` : r.where}
               </p>

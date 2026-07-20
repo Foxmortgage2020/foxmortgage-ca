@@ -11,8 +11,9 @@ import type { WorkbenchDeal } from '@/lib/underwriting'
 import type { SlimDeal } from '@/lib/zoho-admin'
 
 // 'askfox' is the palette's hand-off row: anything unresolved goes to the
-// practice agent as a question (one box, two talents).
-export type SearchResultType = 'nav' | 'deal' | 'contact' | 'partner' | 'knowledge' | 'askfox'
+// practice agent as a question (one box, two talents). 'lender' jumps straight
+// into the Rates by-lender view for that lender.
+export type SearchResultType = 'nav' | 'deal' | 'contact' | 'partner' | 'lender' | 'knowledge' | 'askfox'
 
 export interface SearchResult {
   type: SearchResultType
@@ -70,6 +71,41 @@ export function filterNav(navItems: NavItemLike[], q: string): SearchResult[] {
     title: item.label,
     subtitle: item.description,
     href: item.href,
+  }))
+}
+
+// A lender the palette can jump to. The shell passes these already gated on
+// rates.view, so a role that cannot see Rates simply never receives any to
+// search (the group is then absent, like Partners for a role without access).
+export interface LenderTarget {
+  slug: string
+  name: string
+}
+
+// Rank lenders by display name / slug for the palette's "Lenders" group. A
+// match jumps into the Rates tab's by-lender view for that lender. Name
+// startsWith (0) beats a name-or-slug includes (1); ties break alphabetically.
+// Capped so a bare "a" does not flood the panel. Empty query returns nothing.
+export function rankLenders(lenders: LenderTarget[], q: string, limit = 8): SearchResult[] {
+  const nq = normalizeQuery(q)
+  if (!nq) return []
+  const scored: { rank: number; target: LenderTarget }[] = []
+  for (const t of lenders) {
+    const name = t.name.toLowerCase()
+    const slug = t.slug.toLowerCase()
+    let rank = -1
+    if (name.startsWith(nq)) rank = 0
+    else if (name.includes(nq) || slug.includes(nq)) rank = 1
+    if (rank < 0) continue
+    scored.push({ rank, target: t })
+  }
+  scored.sort((a, b) => a.rank - b.rank || a.target.name.localeCompare(b.target.name))
+  return scored.slice(0, limit).map(({ target }) => ({
+    type: 'lender',
+    id: `lender:${target.slug}`,
+    title: target.name,
+    subtitle: 'Rates · by lender',
+    href: `/portal/admin/lenders?tab=rates&view=lenders&lender=${encodeURIComponent(target.slug)}`,
   }))
 }
 

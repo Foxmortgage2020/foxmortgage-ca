@@ -80,9 +80,12 @@ export default function WhatsMoving({
                           {d.dealName}
                         </Link>
                         {ref ? (
-                          <span className="font-ui text-[10.5px] tracking-[0.04em] text-muted-2 tabular-nums">
+                          <Link
+                            href={room}
+                            className="font-ui text-[10.5px] tracking-[0.04em] text-muted-2 tabular-nums hover:text-ink-navy hover:underline"
+                          >
                             {ref}
-                          </span>
+                          </Link>
                         ) : null}
                       </td>
                       <td className="py-2.5 px-1 text-muted">{nextStepForStage(d.stage)}</td>

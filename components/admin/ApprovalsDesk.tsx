@@ -1118,7 +1118,11 @@ export default function ApprovalsDesk({
             data.shadow.map(card => (
               <div key={card.dealId} className="rounded-[9px] border border-cool-200 bg-white p-4 sm:p-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-heading font-bold text-navy text-base">{card.fileRef}</h3>
+                  <h3 className="font-heading font-bold text-navy text-base">
+                    <Link href={`/portal/admin/deals/${card.dealId}`} className="hover:text-ink hover:underline">
+                      {card.fileRef}
+                    </Link>
+                  </h3>
                   {card.stage && <Chip tone="gray">{card.stage}</Chip>}
                   {card.closingDate && <Chip tone="gray">closes {card.closingDate}</Chip>}
                   <Chip tone={card.scoredCount > 0 ? 'amber' : 'gray'}>{card.scoredCount}/4 scored</Chip>

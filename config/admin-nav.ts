@@ -169,6 +169,76 @@ export const ADMIN_NAV: AdminNavItem[] = [
   },
 ]
 
+// Sub-tab destinations inside the consolidated pages (the 2026-07-20
+// one-row Lenders row, plus Beyond funding's two tabs and Revenue's
+// Bookkeeping tab). The command palette searches these ALONGSIDE the
+// top-level nav so a user can type a tab name ("promos", "intel",
+// "bookkeeping") and land on it directly. Each carries its own tab
+// permission — the same key the tab enforces server-side — so a palette
+// result never points somewhere the user cannot go. Palette-only: these are
+// not sidebar items (the tab bar on each page is their home).
+export interface AdminSubPage {
+  label: string
+  href: string
+  permission: Permission
+  description: string
+}
+
+export const ADMIN_SUB_PAGES: AdminSubPage[] = [
+  // Lenders — the one-row consolidation (scenario / rates / promos / intel /
+  // knowledge). "Rates" and its by-lender view are the palette's lender jumps.
+  {
+    label: 'Scenario',
+    href: '/portal/admin/lenders?tab=scenario',
+    permission: 'rates.view',
+    description: 'Price a deal against the approved book.',
+  },
+  {
+    label: 'Rates',
+    href: '/portal/admin/lenders?tab=rates',
+    permission: 'rates.view',
+    description: 'The approved rate book, by lender or as one table.',
+  },
+  {
+    label: 'Promos',
+    href: '/portal/admin/lenders?tab=promos',
+    permission: 'rates.view',
+    description: 'Lender promotions and specials.',
+  },
+  {
+    label: 'Lender intel',
+    href: '/portal/admin/lenders?tab=intel',
+    permission: 'intel.view',
+    description: 'The rate sheet intel feed.',
+  },
+  {
+    label: 'Lender knowledge',
+    href: '/portal/admin/lenders?tab=knowledge',
+    permission: 'knowledge.view',
+    description: 'Lender knowledge profiles and penalty methodology.',
+  },
+  // Beyond funding — the Renewal Radar and the opportunity board.
+  {
+    label: 'Renewals',
+    href: '/portal/admin/beyond?tab=renewals',
+    permission: 'renewals.view',
+    description: 'The Renewal Radar, funded deals by maturity window.',
+  },
+  {
+    label: 'Opportunities',
+    href: '/portal/admin/beyond?tab=opportunities',
+    permission: 'opportunities.view',
+    description: 'The Strategic Mortgage Monitoring board.',
+  },
+  // Revenue — the bookkeeping tab.
+  {
+    label: 'Bookkeeping',
+    href: '/portal/admin/revenue?tab=bookkeeping',
+    permission: 'bookkeeping.view',
+    description: 'The bookkeeping review queue and projects.',
+  },
+]
+
 // Ask Fox is the persistent sidebar footer button, not a nav-list item.
 export const ASK_FOX = {
   label: 'Ask Fox',

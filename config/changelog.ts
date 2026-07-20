@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-20',
+    title: 'Get anywhere fast: search jumps to lenders and pages, and every file ref is a link',
+    detail:
+      'The search box (press the key with K, or just start typing) now finds more than deals and contacts. Type a lender name and jump straight to its rates. Type a tab name like promos, intel, or bookkeeping and land right on it. Deals were already searchable by file reference or client name, and still are. And everywhere a file reference shows up across the command centre, on the deals list, on the Today page, on the approvals desk, it is now a link straight to that deal room. Getting somewhere stopped being a menu you memorize and became a thing you type.',
+  },
+  {
+    date: '2026-07-20',
     title: 'The Scenario tab describes the deal in one bar, and tells you who it left out',
     detail:
       'The Scenario view no longer buries the answer behind a tall form. You describe the deal in one compact bar across the top, and the matched lenders fill the page below it as the main event. New underneath the matches is a collapsed Excluded list. Open it and every lender that did not make the cut gets one plain line for why, in plain words, like no conventional rate on file, or not available in Ontario, or needs a borrower profile this client does not have. A veteran gets the ranked list at a glance. Anyone newer gets the why. Nothing about how lenders are matched or ranked changed, and typing still only searches when you tab out or press Enter.',

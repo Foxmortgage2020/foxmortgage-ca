@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { filterNav, groupResults, rankDeals, normalizeQuery, type GroupInput, type NavItemLike } from '../lib/search'
+import {
+  filterNav,
+  groupResults,
+  rankDeals,
+  rankLenders,
+  normalizeQuery,
+  type GroupInput,
+  type LenderTarget,
+  type NavItemLike,
+} from '../lib/search'
 import type { WorkbenchDeal } from '../lib/underwriting'
 import type { SlimDeal } from '../lib/zoho-admin'
 
@@ -40,6 +49,55 @@ describe('filterNav', () => {
     const res = filterNav(items, 'deal')
     // Deals: label startsWith (0). Compliance: description includes (2).
     expect(res.map(r => r.title)).toEqual(['Deals', 'Compliance'])
+  })
+
+  it('finds a consolidated sub-tab by its label and carries the tab query', () => {
+    // The palette searches the sub-tab catalogue alongside the nav, so typing
+    // a tab name lands the user on that tab of the consolidated page.
+    const pages: NavItemLike[] = [
+      { label: 'Promos', href: '/portal/admin/lenders?tab=promos', description: 'Lender promotions.' },
+      { label: 'Lender intel', href: '/portal/admin/lenders?tab=intel', description: 'The intel feed.' },
+      { label: 'Bookkeeping', href: '/portal/admin/revenue?tab=bookkeeping', description: 'The review queue.' },
+    ]
+    const res = filterNav(pages, 'promo')
+    expect(res).toHaveLength(1)
+    expect(res[0].title).toBe('Promos')
+    expect(res[0].href).toBe('/portal/admin/lenders?tab=promos')
+  })
+})
+
+describe('rankLenders', () => {
+  const lenders: LenderTarget[] = [
+    { slug: 'mcap', name: 'MCAP' },
+    { slug: 'first-national', name: 'First National' },
+    { slug: 'first-national-excalibur', name: 'First National Excalibur' },
+    { slug: 'scotia', name: 'Scotiabank' },
+  ]
+
+  it('returns nothing for an empty query', () => {
+    expect(rankLenders(lenders, '  ')).toEqual([])
+  })
+
+  it('ranks a name startsWith ahead of an includes and jumps into the Rates by-lender view', () => {
+    const res = rankLenders(lenders, 'first')
+    // Both start with "first"; alphabetical tiebreak keeps the shorter first.
+    expect(res.map(r => r.title)).toEqual(['First National', 'First National Excalibur'])
+    expect(res[0].type).toBe('lender')
+    expect(res[0].href).toBe('/portal/admin/lenders?tab=rates&view=lenders&lender=first-national')
+  })
+
+  it('matches on the slug as well as the display name', () => {
+    // A user could type either the slug or the spoken name.
+    expect(rankLenders(lenders, 'scotia').map(r => r.title)).toEqual(['Scotiabank'])
+    expect(rankLenders([{ slug: 'nbc-optimum', name: 'NBC Optimum' }], 'nbc-optimum')).toHaveLength(1)
+  })
+
+  it('caps the number of results', () => {
+    const many: LenderTarget[] = Array.from({ length: 20 }, (_, i) => ({
+      slug: `lender-${i}`,
+      name: `Lender ${i}`,
+    }))
+    expect(rankLenders(many, 'lender', 8)).toHaveLength(8)
   })
 })
 
@@ -89,6 +147,19 @@ describe('rankDeals', () => {
     expect(res[0].title).toBe('IFMS-F001515')
     expect(res[0].subtitle).toContain('IFMS-F001515')
     expect(res[0].href).toBe('/portal/admin/deals/wb-2')
+  })
+
+  it('finds a deal by its BRXM file ref OR its client name (both reach the same room)', () => {
+    // Locks the finding that deals are already searchable both ways: the
+    // brief asked for it and it was already true.
+    const workbench = [wb({ id: 'wb-7', fileRef: 'BRXM-F053107', zohoPotentialId: 'z-7' })]
+    const zoho = [zd({ id: 'z-7', dealName: 'Sofia Ricci Refinance' })]
+    const byRef = rankDeals(workbench, zoho, 'BRXM-F053107')
+    expect(byRef).toHaveLength(1)
+    expect(byRef[0].href).toBe('/portal/admin/deals/wb-7')
+    const byName = rankDeals(workbench, zoho, 'ricci')
+    expect(byName[0].id).toBe('wb-7')
+    expect(byName[0].href).toBe('/portal/admin/deals/wb-7')
   })
 
   it('includes a Zoho-only match with a list href when no workbench row exists', () => {
