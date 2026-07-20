@@ -25,6 +25,8 @@ import {
   matchQuote,
   structuralMatch,
   scenarioExclusions,
+  quoteBlockReason,
+  lenderExclusions,
   mechanismForLender,
   mechanismPending,
   offerFitsScenario,
@@ -648,5 +650,97 @@ describe('scenario URL round-trip', () => {
     expect(s.amortizationYears).toBe(25)
     expect(s.rateType).toBeNull()
     expect(s.cashback).toBe('any')
+  })
+})
+
+// ─── Per-lender exclusion reasons (the teaching layer) ───────────────────────
+
+describe('quoteBlockReason: the first decisive filter one quote fails', () => {
+  it('skips non-candidates (superseded, the test lender)', () => {
+    expect(quoteBlockReason(quote({ status: 'superseded' }), scenario({}))).toBe('skip')
+    expect(quoteBlockReason(quote({ lenderSlug: 'test-portal' }), scenario({}))).toBe('skip')
+  })
+
+  it('returns null for a fully-matching, eligible quote', () => {
+    expect(quoteBlockReason(quote({}), scenario({}))).toBeNull()
+  })
+
+  it('names the structural filter in order: class, then term, then rate type', () => {
+    expect(quoteBlockReason(quote({ productClass: 'insured' }), scenario({}))).toBe('class')
+    expect(quoteBlockReason(quote({ termMonths: 36 }), scenario({ termMonths: 60 }))).toBe('term')
+    expect(quoteBlockReason(quote({ rateType: 'variable', rate: null, primeVariance: -0.5 }), scenario({ rateType: 'adjustable' }))).toBe('rate_type')
+  })
+
+  it('names the eligibility reason once a quote structurally matches (province)', () => {
+    // coast-capital is a BC credit union; the default scenario province is ON.
+    expect(quoteBlockReason(quote({ lenderSlug: 'coast-capital' }), scenario({}))).toBe('province')
+  })
+})
+
+describe('lenderExclusions: one decisive reason per excluded lender', () => {
+  it('excludes a lender whose only quotes are the wrong class, reason class', () => {
+    const quotes = [
+      quote({ id: 'a', lenderSlug: 'alpha', productClass: 'insured' }),
+      quote({ id: 'b', lenderSlug: 'alpha', productClass: 'b_side' }),
+    ]
+    const ex = lenderExclusions(quotes, scenario({})) // scenario class is insurable
+    expect(ex).toEqual([{ slug: 'alpha', kind: 'class', detail: null }])
+  })
+
+  it('does not exclude a lender that has any matching quote', () => {
+    const quotes = [
+      quote({ id: 'a', lenderSlug: 'alpha', productClass: 'insured' }),
+      quote({ id: 'b', lenderSlug: 'alpha' }), // matches (insurable/60)
+    ]
+    expect(lenderExclusions(quotes, scenario({}))).toEqual([])
+  })
+
+  it('the furthest-progressing quote decides: province (structural pass) beats class', () => {
+    const quotes = [
+      // one quote fails on class (rank 1), another structurally matches but is
+      // province-ineligible (rank 8) — the province reason wins.
+      quote({ id: 'a', lenderSlug: 'coast-capital', productClass: 'insured' }),
+      quote({ id: 'b', lenderSlug: 'coast-capital' }),
+    ]
+    const ex = lenderExclusions(quotes, scenario({}))
+    expect(ex).toHaveLength(1)
+    expect(ex[0].slug).toBe('coast-capital')
+    expect(ex[0].kind).toBe('province')
+    expect(ex[0].detail).toContain('BC')
+  })
+
+  it('sorts structural reasons before eligibility reasons, then by slug', () => {
+    const quotes = [
+      quote({ id: 'p', lenderSlug: 'coast-capital' }), // province (rank 8)
+      quote({ id: 'c', lenderSlug: 'zeta', productClass: 'insured' }), // class (rank 1)
+    ]
+    const ex = lenderExclusions(quotes, scenario({}))
+    expect(ex.map(e => e.kind)).toEqual(['class', 'province'])
+  })
+
+  it('ignores the test lender and superseded rows', () => {
+    const quotes = [
+      quote({ id: 't', lenderSlug: 'test-portal', productClass: 'insured' }),
+      quote({ id: 's', lenderSlug: 'sup', productClass: 'insured', status: 'superseded' }),
+    ]
+    expect(lenderExclusions(quotes, scenario({}))).toEqual([])
+  })
+
+  it('a named restriction (borrower profile) is kind restricted', () => {
+    const quotes = [quote({ lenderSlug: 'named', borrowerRequirement: 'physician' })]
+    // no physician profile on, show-restricted off
+    expect(lenderExclusions(quotes, scenario({}))).toEqual([{ slug: 'named', kind: 'restricted', detail: null }])
+  })
+
+  it('an undisclosed restriction (eligibility unknown) is its OWN kind, never a borrower-profile line', () => {
+    const quotes = [quote({ lenderSlug: 'mystery', eligibilityUnknown: true })]
+    expect(lenderExclusions(quotes, scenario({}))).toEqual([
+      { slug: 'mystery', kind: 'restricted_undisclosed', detail: null },
+    ])
+  })
+
+  it('show-restricted puts a restricted quote back in the ranking (not excluded)', () => {
+    const quotes = [quote({ lenderSlug: 'named', borrowerRequirement: 'physician' })]
+    expect(lenderExclusions(quotes, scenario({ showRestricted: true }))).toEqual([])
   })
 })

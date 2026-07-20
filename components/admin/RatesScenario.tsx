@@ -43,6 +43,7 @@ import {
   quoteEffectiveRate,
   quoteRateDisplay,
   scenarioExclusions,
+  lenderExclusions,
   scenarioFromParams,
   scenarioMonthlyPayment,
   scenarioToParams,
@@ -52,11 +53,9 @@ import {
   type OfferShape,
   type RatesReference,
   type Scenario,
-  type ScenarioExclusions,
+  type LenderExclusion,
 } from '@/lib/scenario'
 import type { BorrowerRequirement, ClientCommitment } from '@/lib/eligibility'
-import { HAND_WRITTEN_LENDER_SLUGS } from '@/config/lenders'
-import { unconfirmedTierCount } from '@/config/lender-tiers'
 import type { RateQuoteFullRow, SheetProvenance } from '@/lib/underwriting'
 import type { KnowledgeOffer } from '@/lib/gates'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
@@ -196,6 +195,9 @@ export default function RatesScenario({
   // eligibility rules out (or flags), bucketed by reason. Independent of the
   // rates-reference, so it stands even when prime is unavailable.
   const exclusions = useMemo(() => scenarioExclusions(quotes, scenario), [quotes, scenario])
+  // The teaching layer: every lender with real quotes but none in the ranking,
+  // with its one decisive reason (a READ over the loaded book, no new matching).
+  const excludedLenders = useMemo(() => lenderExclusions(quotes, scenario), [quotes, scenario])
   const nameFor = (slug: string) => knowledgeFor(slug)?.name ?? lenderDisplayName(slug)
   const pinnedQuotes = useMemo(
     () => pins.map(id => quotes.find(q => q.id === id)).filter((q): q is RateQuoteFullRow => Boolean(q)),
@@ -334,12 +336,11 @@ export default function RatesScenario({
         )}
       </div>
 
-      <div className="lg:grid lg:grid-cols-[290px_1fr] lg:gap-5">
-          {/* Scenario rail */}
-          <ScenarioRail scenario={scenario} setScenario={setScenario} pct={pct} selectCls={selectCls} />
+      {/* The deal bar: describe the deal in one compact row across the top. */}
+      <DealBar scenario={scenario} setScenario={setScenario} pct={pct} selectCls={selectCls} />
 
-          {/* Results column */}
-          <div className="mt-5 lg:mt-0 min-w-0">
+      {/* Results own the page, full width below the bar. */}
+      <div className="mt-5 min-w-0">
             <p className="text-sm font-ui font-semibold text-navy bg-cool-100 border border-cool-200 rounded-lg px-3 py-2" data-testid="scenario-summary">
               {summaryLine(scenario)}
             </p>
@@ -512,11 +513,11 @@ export default function RatesScenario({
                   )
                 })}
               </div>
-              <ExclusionNotes
-                exclusions={exclusions}
+              <ExcludedLenders
+                excluded={excludedLenders}
+                provinceUnknown={exclusions.provinceUnknown}
                 nameFor={nameFor}
-                province={scenario.subjectProvince}
-                showRestricted={scenario.showRestricted}
+                scenario={scenario}
                 onToggleRestricted={() => setScenario({ ...scenario, showRestricted: !scenario.showRestricted })}
               />
               </>
@@ -550,8 +551,7 @@ export default function RatesScenario({
                 onBack={() => navigate({ product: null }, true)}
               />
             )}
-          </div>
-        </div>
+      </div>
 
       {(pinnedQuotes.length > 0 || pinnedOffers.length > 0) && (
         <CompareTray
@@ -745,9 +745,14 @@ function SavedScenariosBar({
   )
 }
 
-// ─── Scenario rail ───────────────────────────────────────────────────────────
+// ─── The deal bar ────────────────────────────────────────────────────────────
+// Describe the deal in one compact horizontal row that wraps at narrow widths.
+// Every input is the same control, handler, and test id as before — only the
+// container reflows from a vertical rail to a top bar. The multi-item qualifier
+// groups (borrower profile, commitments, show restricted) tuck into a "More
+// filters" disclosure so the bar stays compact. No new inputs, no new matching.
 
-function ScenarioRail({
+function DealBar({
   scenario,
   setScenario,
   pct,
@@ -758,19 +763,12 @@ function ScenarioRail({
   pct: number | null
   selectCls: string
 }) {
-  const [open, setOpen] = useState(true)
   const terms = [12, 24, 36, 48, 60, 84, 120]
   return (
-    <div className="bg-white border border-cool-200 rounded-xl lg:self-start" data-testid="scenario-panel">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 lg:cursor-default"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-      >
-        <span className="font-heading font-bold text-navy">Describe the deal</span>
-        <span className="text-cool-400 text-sm lg:hidden">{open ? 'hide' : 'show'}</span>
-      </button>
-      <div className={`${open ? 'block' : 'hidden'} lg:block px-4 pb-4 space-y-3`}>
+    <div className="bg-white border border-cool-200 rounded-xl p-4" data-testid="scenario-panel">
+      <span className="font-heading font-bold text-navy">Describe the deal</span>
+      {/* Primary inputs: one compact row, wrapping to more at narrow widths. */}
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-x-4 gap-y-3">
         <Field label="Purpose" tip="Rate sheets do not carry a transaction type; purpose drives promo eligibility and the summary line, never the quote filter.">
           <select
             className={selectCls}
@@ -895,21 +893,6 @@ function ScenarioRail({
             aria-label="Property value"
           />
         </Field>
-        <div>
-          <p className="text-xs font-ui font-semibold text-cool-500 mb-1">LTV (computed, locked)</p>
-          <div
-            className="border border-cool-100 bg-cool-50 rounded-lg px-2.5 py-2 text-sm font-ui text-navy font-semibold flex items-center justify-between"
-            data-testid="scenario-ltv"
-          >
-            <span>{pct === null ? 'enter amount and value' : `${pct}%`}</span>
-            <span aria-hidden className="text-cool-400">&#128274;</span>
-          </div>
-          {pct !== null && pct > 80 && scenario.productClass !== 'insured' && (
-            <p className="text-[11px] text-amber-700 font-ui mt-1">
-              LTV above 80 typically means default insured.
-            </p>
-          )}
-        </div>
         <Field label="Amortization">
           <select
             className={selectCls}
@@ -925,75 +908,97 @@ function ScenarioRail({
             ))}
           </select>
         </Field>
-
-        {/* Qualifiers (Part 2 / 3): default OFF. A borrower profile or a client
-            commitment the client actually fits unlocks the lender programs
-            restricted to it; show-restricted reveals those rows without a
-            commitment so Michael finds how far off a program a client is. */}
-        <div className="pt-3 border-t border-cool-100">
-          <p className="text-xs font-ui font-semibold text-cool-500 mb-1 flex items-center gap-1">
-            Borrower profile
-            <span
-              title="Turn on a profile the client genuinely fits to unlock lender programs restricted to it. Off by default, so the ranking shows only what any client can have."
-              aria-label="Borrower profile help"
-              className="text-cool-300 cursor-help select-none"
-            >
-              &#9432;
-            </span>
-          </p>
-          <div className="space-y-0.5" data-testid="borrower-profiles">
-            {BORROWER_PROFILE_OPTIONS.map(([code, label]) => (
-              <CheckRow
-                key={code}
-                label={label}
-                checked={scenario.borrowerProfiles.includes(code)}
-                onChange={() =>
-                  setScenario({ ...scenario, borrowerProfiles: toggleMembership(scenario.borrowerProfiles, code) })
-                }
-                testid={`bp-${code}`}
-              />
-            ))}
+        <div>
+          <p className="text-xs font-ui font-semibold text-cool-500 mb-1">LTV (computed, locked)</p>
+          <div
+            className="border border-cool-100 bg-cool-50 rounded-lg px-2.5 py-2 text-sm font-ui text-navy font-semibold flex items-center justify-between"
+            data-testid="scenario-ltv"
+          >
+            <span>{pct === null ? 'enter amount and value' : `${pct}%`}</span>
+            <span aria-hidden className="text-cool-400">&#128274;</span>
           </div>
-        </div>
-
-        <div className="pt-3 border-t border-cool-100">
-          <p className="text-xs font-ui font-semibold text-cool-500 mb-1 flex items-center gap-1">
-            Client commitments
-            <span
-              title="A commitment the client will make unlocks the rates that require it. Each window is its own unlock, so check every one the client can commit to."
-              aria-label="Client commitments help"
-              className="text-cool-300 cursor-help select-none"
-            >
-              &#9432;
-            </span>
-          </p>
-          <div className="space-y-0.5" data-testid="client-commitments">
-            {COMMITMENT_OPTIONS.map(([code, label]) => (
-              <CheckRow
-                key={code}
-                label={label}
-                checked={scenario.commitments.includes(code)}
-                onChange={() =>
-                  setScenario({ ...scenario, commitments: toggleMembership(scenario.commitments, code) })
-                }
-                testid={`cc-${code}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="pt-3 border-t border-cool-100">
-          <CheckRow
-            label="Show restricted programs"
-            checked={scenario.showRestricted}
-            onChange={() => setScenario({ ...scenario, showRestricted: !scenario.showRestricted })}
-            testid="show-restricted-toggle"
-          />
-          <p className="text-[11px] text-cool-400 font-ui mt-0.5 pl-6">
-            Reveals rates a client would have to qualify for, marked in amber with their requirement.
-          </p>
+          {pct !== null && pct > 80 && scenario.productClass !== 'insured' && (
+            <p className="text-[11px] text-amber-700 font-ui mt-1">
+              LTV above 80 typically means default insured.
+            </p>
+          )}
         </div>
       </div>
+
+      {/* Qualifiers (Part 2 / 3): default OFF, tucked into a disclosure so the
+          bar stays compact. A borrower profile or a client commitment the
+          client actually fits unlocks the lender programs restricted to it;
+          show-restricted reveals those rows without a commitment. */}
+      <details className="mt-3 border-t border-cool-100 pt-3" data-testid="more-filters">
+        <summary className="cursor-pointer select-none font-ui text-xs font-semibold text-cool-600 hover:text-navy">
+          More filters &mdash; borrower profile, commitments, restricted programs
+        </summary>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-4">
+          <div>
+            <p className="text-xs font-ui font-semibold text-cool-500 mb-1 flex items-center gap-1">
+              Borrower profile
+              <span
+                title="Turn on a profile the client genuinely fits to unlock lender programs restricted to it. Off by default, so the ranking shows only what any client can have."
+                aria-label="Borrower profile help"
+                className="text-cool-300 cursor-help select-none"
+              >
+                &#9432;
+              </span>
+            </p>
+            <div className="space-y-0.5" data-testid="borrower-profiles">
+              {BORROWER_PROFILE_OPTIONS.map(([code, label]) => (
+                <CheckRow
+                  key={code}
+                  label={label}
+                  checked={scenario.borrowerProfiles.includes(code)}
+                  onChange={() =>
+                    setScenario({ ...scenario, borrowerProfiles: toggleMembership(scenario.borrowerProfiles, code) })
+                  }
+                  testid={`bp-${code}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-ui font-semibold text-cool-500 mb-1 flex items-center gap-1">
+              Client commitments
+              <span
+                title="A commitment the client will make unlocks the rates that require it. Each window is its own unlock, so check every one the client can commit to."
+                aria-label="Client commitments help"
+                className="text-cool-300 cursor-help select-none"
+              >
+                &#9432;
+              </span>
+            </p>
+            <div className="space-y-0.5" data-testid="client-commitments">
+              {COMMITMENT_OPTIONS.map(([code, label]) => (
+                <CheckRow
+                  key={code}
+                  label={label}
+                  checked={scenario.commitments.includes(code)}
+                  onChange={() =>
+                    setScenario({ ...scenario, commitments: toggleMembership(scenario.commitments, code) })
+                  }
+                  testid={`cc-${code}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <CheckRow
+              label="Show restricted programs"
+              checked={scenario.showRestricted}
+              onChange={() => setScenario({ ...scenario, showRestricted: !scenario.showRestricted })}
+              testid="show-restricted-toggle"
+            />
+            <p className="text-[11px] text-cool-400 font-ui mt-0.5 pl-6">
+              Reveals rates a client would have to qualify for, marked in amber with their requirement.
+            </p>
+          </div>
+        </div>
+      </details>
     </div>
   )
 }
@@ -1039,79 +1044,95 @@ function Field({ label, tip, children }: { label: string; tip?: string; children
   )
 }
 
-// ─── Exclusion notes ─────────────────────────────────────────────────────────
-// Part 1 / acceptance #2: every filtered surface names its exclusions. Below the
-// lender results, a quiet collapsible line per reason, so the ranking never
-// hides who it left out. Province-unknown is a flag, not an exclusion, and is
-// framed honestly. Restricted programs name their requirement SENTENCE and offer
-// the reveal toggle inline.
+// ─── Excluded lenders (the teaching layer) ───────────────────────────────────
+// A collapsed "Excluded (N)" section under the matches: every lender with real
+// quotes but none in the ranking, each with ONE plain-words reason (the first
+// decisive filter, from lib/scenario lenderExclusions). Grade 6, sentence case,
+// no internal vocabulary. Province-unknown is a flag, not an exclusion, kept as
+// a separate honest note. Reasons say "no X rate on file" — the book only knows
+// what is on file, never a lender's full policy.
 
-function ExclusionNotes({
-  exclusions,
+// One plain-words reason per excluded lender. Two shapes, both honest:
+//   - LENDER-WIDE truths: no quote of this class exists on file ('class'), and
+//     the lender is not licensed here ('province'). These describe the whole
+//     book and are always true.
+//   - CLOSEST-RATE facts: for a lender that HAS a class-matching quote which
+//     fails a later filter, the reason describes that furthest-progressing
+//     quote ("the closest rate ..."), never a whole-book universal — a lender
+//     can also carry a rate of this kind in a different class, so "only ... on
+//     file" would overstate (the review caught this).
+function exclusionReason(kind: LenderExclusion['kind'], s: Scenario): string {
+  switch (kind) {
+    case 'class':
+      return `No ${productClassLabel(s.productClass).toLowerCase()} rate on file.`
+    case 'term':
+      return 'The closest rate is a different term.'
+    case 'rate_type':
+      return 'The closest rate is a different rate type.'
+    case 'cashback':
+      return s.cashback === 'only'
+        ? 'The closest rate has no cash back tier.'
+        : 'The closest rate is a cash back tier.'
+    case 'ltv':
+      return 'The closest rate does not cover this loan to value.'
+    case 'amortization':
+      return 'The closest rate is a different amortization.'
+    case 'occupancy':
+      return 'The closest rate is priced for rentals.'
+    case 'province':
+      return `Not available in ${provinceName(s.subjectProvince)}.`
+    case 'channel':
+      return 'The closest rate needs a lender channel Fox does not hold.'
+    case 'transaction':
+      return `The closest rate is not offered for a ${s.purpose}.`
+    case 'restricted':
+      return 'Needs a borrower profile or commitment this client does not have.'
+    case 'restricted_undisclosed':
+      return 'The closest rate carries a restriction the rate sheet does not name. Confirm with the lender.'
+  }
+}
+
+function ExcludedLenders({
+  excluded,
+  provinceUnknown,
   nameFor,
-  province,
-  showRestricted,
+  scenario,
   onToggleRestricted,
 }: {
-  exclusions: ScenarioExclusions
+  excluded: LenderExclusion[]
+  provinceUnknown: string[]
   nameFor: (slug: string) => string
-  province: string
-  showRestricted: boolean
+  scenario: Scenario
   onToggleRestricted: () => void
 }) {
-  const { provinceIneligible, provinceUnknown, channelUnavailable, transactionMismatch, programRestricted } =
-    exclusions
-  const excludedCount =
-    provinceIneligible.length + channelUnavailable.length + transactionMismatch.length + programRestricted.length
-  if (excludedCount === 0 && provinceUnknown.length === 0) return null
-
+  if (excluded.length === 0 && provinceUnknown.length === 0) return null
   const summaryCls = 'cursor-pointer select-none py-1 font-semibold text-cool-600 hover:text-navy'
-  const listCls = 'mt-1 mb-1 space-y-0.5 list-disc pl-5 text-cool-500'
-  const plural = (n: number) => (n === 1 ? '' : 's')
+  const anyRestricted = excluded.some(
+    e => e.kind === 'restricted' || e.kind === 'restricted_undisclosed',
+  )
 
   return (
-    <div className="mt-5 border-t border-cool-100 pt-3 space-y-1.5 text-xs font-ui" data-testid="exclusion-notes">
-      <p className="text-[11px] uppercase tracking-wide text-cool-400 font-semibold">Who is not in these results</p>
-
-      {provinceIneligible.length > 0 && (
-        <details data-testid="exclusion-province-ineligible">
+    <div className="mt-5 border-t border-cool-100 pt-3 text-xs font-ui" data-testid="exclusion-notes">
+      {excluded.length > 0 && (
+        <details data-testid="excluded-lenders">
           <summary className={summaryCls}>
-            {provinceIneligible.length} lender{plural(provinceIneligible.length)} excluded: not licensed in{' '}
-            {provinceName(province)}
+            Excluded ({excluded.length}) &mdash; why each lender is not in these results
           </summary>
-          <ul className={listCls}>
-            {provinceIneligible.map(e => (
-              <li key={e.slug}>
-                <span className="text-cool-600">{nameFor(e.slug)}</span>{' '}
-                <span className="text-cool-400">(licensed in {e.provinces})</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {programRestricted.length > 0 && (
-        <details data-testid="exclusion-restricted">
-          <summary className={summaryCls}>
-            {programRestricted.length} restricted program{plural(programRestricted.length)}{' '}
-            {showRestricted ? 'shown below in amber' : 'a client would have to qualify for'}
-          </summary>
-          <ul className={listCls}>
-            {programRestricted.map(e => (
-              <li key={e.slug}>
+          <ul className="mt-2 space-y-1">
+            {excluded.map(e => (
+              <li key={e.slug} className="flex flex-wrap items-baseline gap-x-2" data-testid={`excluded-${e.slug}`}>
                 <span className="font-semibold text-cool-600">{nameFor(e.slug)}</span>
-                {e.requirementSentences.map((s, i) => (
-                  <span key={i} className="block text-cool-500">
-                    {s}
-                  </span>
-                ))}
+                <span className="text-cool-500">{exclusionReason(e.kind, scenario)}</span>
+                {e.kind === 'province' && e.detail && (
+                  <span className="text-cool-400">Licensed in {e.detail}.</span>
+                )}
               </li>
             ))}
           </ul>
-          {!showRestricted && (
+          {anyRestricted && !scenario.showRestricted && (
             <button
               onClick={onToggleRestricted}
-              className="text-xs font-semibold text-navy underline hover:text-ink cursor-pointer"
+              className="mt-2 text-xs font-semibold text-navy underline hover:text-ink cursor-pointer"
               data-testid="reveal-restricted"
             >
               Show restricted programs
@@ -1120,50 +1141,17 @@ function ExclusionNotes({
         </details>
       )}
 
-      {channelUnavailable.length > 0 && (
-        <details data-testid="exclusion-channel">
-          <summary className={summaryCls}>
-            {channelUnavailable.length} lender{plural(channelUnavailable.length)} excluded: Fox does not hold the
-            required channel
-          </summary>
-          <ul className={listCls}>
-            {channelUnavailable.map(slug => (
-              <li key={slug}>{nameFor(slug)}</li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {transactionMismatch.length > 0 && (
-        <details data-testid="exclusion-transaction">
-          <summary className={summaryCls}>
-            {transactionMismatch.length} lender{plural(transactionMismatch.length)} excluded: not offered for this
-            transaction
-          </summary>
-          <ul className={listCls}>
-            {transactionMismatch.map(slug => (
-              <li key={slug}>{nameFor(slug)}</li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      <p className="text-cool-500" data-testid="tier-unconfirmed-count">
-        {unconfirmedTierCount(HAND_WRITTEN_LENDER_SLUGS)} of {HAND_WRITTEN_LENDER_SLUGS.length} book lenders: paper
-        grade (tier) not yet confirmed. Michael confirms tiers in the same pass as provinces; monitored mortgages on
-        unknown-tier paper route to review, never priced.
-      </p>
-
       {provinceUnknown.length > 0 && (
-        <details data-testid="exclusion-province-unknown">
+        <details className="mt-2" data-testid="exclusion-province-unknown">
           <summary className={summaryCls}>
-            {provinceUnknown.length} lender{plural(provinceUnknown.length)}: provincial availability not confirmed
+            {provinceUnknown.length} lender{provinceUnknown.length === 1 ? '' : 's'} ranked but availability not
+            confirmed
           </summary>
-          <div className="mt-1 mb-1 pl-5 text-cool-500 space-y-1">
+          <div className="mt-1 mb-1 pl-1 text-cool-500 space-y-1">
             <p>
-              These lenders are still ranked and flagged, not excluded. Their licensing in {provinceName(province)} is
-              not confirmed in the knowledge base yet, so confirm availability with the lender before quoting. They are
-              held back from client documents until confirmed.
+              These lenders are still ranked and flagged, not excluded. Their licensing in{' '}
+              {provinceName(scenario.subjectProvince)} is not confirmed yet, so confirm availability with the lender
+              before quoting. They are held back from client documents until confirmed.
             </p>
             <ul className="list-disc pl-5 space-y-0.5">
               {provinceUnknown.map(slug => (

@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-20',
+    title: 'The Scenario tab describes the deal in one bar, and tells you who it left out',
+    detail:
+      'The Scenario view no longer buries the answer behind a tall form. You describe the deal in one compact bar across the top, and the matched lenders fill the page below it as the main event. New underneath the matches is a collapsed Excluded list. Open it and every lender that did not make the cut gets one plain line for why, in plain words, like no conventional rate on file, or not available in Ontario, or needs a borrower profile this client does not have. A veteran gets the ranked list at a glance. Anyone newer gets the why. Nothing about how lenders are matched or ranked changed, and typing still only searches when you tab out or press Enter.',
+  },
+  {
+    date: '2026-07-20',
     title: 'Ask Fox stops crashing on a big lender profile, and its errors are honest',
     detail:
       'A lender with a large knowledge profile could crash a whole Ask Fox answer, and the message you got back wrongly said it could not reach the model. The real cause was the profile being cut in the middle and then re-read. That is fixed at the source, the profile is now capped safely, and any single tool that fails can no longer take down the whole answer. The error wording is honest now, in three plain cases: it could not reach the model, the answer was cut off, or the reply could not be read. In every failure case nothing is written, and a reply that could not be read is never shown or saved as a partial answer.',

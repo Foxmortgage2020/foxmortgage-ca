@@ -492,6 +492,148 @@ export function scenarioExclusions(
   }
 }
 
+// ─── Per-lender exclusion reasons (teaching layer) ───────────────────────────
+// The "Excluded (N)" teaching section names, for each lender NOT in the
+// ranking, the ONE decisive reason it fell out. This is a READ over the loaded
+// book — it reuses the same filter order as structuralMatch and the same
+// eligibility verdict as matchQuote; it changes no matching or ranking, and
+// touches neither the workbench nor the eligibility classifier. Reasons are
+// derived only from data already in the book (product class, term, rate type,
+// cash back, LTV band, occupancy) plus the eligibility verdict (province,
+// channel, transaction, restricted). Tier is NOT a scenario filter (it is a
+// savings-engine concept), so it is never a reason here.
+
+export type ExclusionReasonKind =
+  | 'class'
+  | 'term'
+  | 'rate_type'
+  | 'cashback'
+  | 'ltv'
+  | 'amortization'
+  | 'occupancy'
+  | 'province'
+  | 'channel'
+  | 'transaction'
+  | 'restricted'
+  // A restriction the rate sheet does not name (eligibility_unknown /
+  // unclassified): NO borrower profile or commitment can unlock it, so it must
+  // read differently from a named restriction.
+  | 'restricted_undisclosed'
+
+// Precedence: a quote that fails a LATER filter got further, so a lender's
+// decisive reason is its furthest-progressing quote's block — the first filter
+// that decisively stops that quote from the client's point of view.
+const REASON_RANK: Record<ExclusionReasonKind, number> = {
+  class: 1,
+  term: 2,
+  rate_type: 3,
+  cashback: 4,
+  ltv: 5,
+  amortization: 6,
+  occupancy: 7,
+  province: 8,
+  channel: 9,
+  transaction: 10,
+  restricted: 11,
+  restricted_undisclosed: 12,
+}
+
+// The first filter one quote fails, in structuralMatch's order then eligibility.
+// null = it matches AND is in the ranking (not excluded). 'skip' = not a real
+// candidate (not approved / the test lender).
+export function quoteBlockReason(
+  q: RateQuoteFullRow,
+  s: Scenario,
+  ctx?: EligibilityContext,
+): ExclusionReasonKind | null | 'skip' {
+  if (q.status !== 'approved' || q.lenderSlug === TEST_LENDER_SLUG) return 'skip'
+  if (q.productClass !== s.productClass) return 'class'
+  if (s.termMonths !== null && q.termMonths !== s.termMonths) return 'term'
+  if (s.rateType !== null && q.rateType !== s.rateType) return 'rate_type'
+  if (s.cashback === 'only' && q.cashbackPct === null) return 'cashback'
+  if (s.cashback === 'none' && q.cashbackPct !== null) return 'cashback'
+  const v = classifyVariant(q.variant)
+  const pct = ltvPct(s)
+  if (v.kind === 'ltv' && pct !== null && !(pct > v.min && pct <= v.max)) return 'ltv'
+  if (v.kind === 'rental' && s.occupancy !== 'rental') return 'occupancy'
+  if (
+    v.kind === 'mortgage-plus' &&
+    v.amortizationYears !== null &&
+    v.amortizationYears !== s.amortizationYears
+  )
+    return 'amortization'
+  // Structurally matches — the eligibility verdict decides. A restricted
+  // program is only "excluded" while show-restricted is off (revealing it puts
+  // it back in the ranking, amber). Province-unknown stays IN (flagged), so it
+  // is never an exclusion here.
+  const verdict = scenarioVerdict(q, s, ctx)
+  switch (verdict.category) {
+    case 'province_ineligible':
+      return 'province'
+    case 'channel_unavailable':
+      return 'channel'
+    case 'transaction_mismatch':
+      return 'transaction'
+    case 'program_restricted':
+      return s.showRestricted
+        ? null
+        : verdict.undisclosedRestriction
+          ? 'restricted_undisclosed'
+          : 'restricted'
+    default:
+      return null
+  }
+}
+
+export interface LenderExclusion {
+  slug: string
+  kind: ExclusionReasonKind
+  /** For 'province', the provinces the lender IS licensed in. For 'restricted',
+   * the requirement sentence. null for the structural reasons. */
+  detail: string | null
+}
+
+// Every lender that has real quotes but none in the ranking, with its one
+// decisive reason. Sorted structural-first then by slug for a stable list.
+export function lenderExclusions(
+  quotes: RateQuoteFullRow[],
+  s: Scenario,
+  ctx?: EligibilityContext,
+): LenderExclusion[] {
+  const byLender = new Map<string, RateQuoteFullRow[]>()
+  for (const q of quotes) {
+    if (q.status !== 'approved' || q.lenderSlug === TEST_LENDER_SLUG) continue
+    const arr = byLender.get(q.lenderSlug) ?? []
+    arr.push(q)
+    byLender.set(q.lenderSlug, arr)
+  }
+  const out: LenderExclusion[] = []
+  for (const [slug, qs] of Array.from(byLender.entries())) {
+    let best: { kind: ExclusionReasonKind; q: RateQuoteFullRow } | null = null
+    let included = false
+    for (const q of qs) {
+      const r = quoteBlockReason(q, s, ctx)
+      if (r === null) {
+        included = true
+        break
+      }
+      if (r === 'skip') continue
+      if (!best || REASON_RANK[r] > REASON_RANK[best.kind]) best = { kind: r, q }
+    }
+    if (included || !best) continue
+    // detail is used only for province (the provinces the lender IS licensed
+    // in); the restricted reasons are self-contained plain-words lines.
+    let detail: string | null = null
+    if (best.kind === 'province') {
+      const p = scenarioVerdict(best.q, s, ctx).province.provinces
+      detail = Array.isArray(p) ? p.join(', ') : typeof p === 'string' ? p : null
+    }
+    out.push({ slug, kind: best.kind, detail })
+  }
+  out.sort((a, b) => REASON_RANK[a.kind] - REASON_RANK[b.kind] || a.slug.localeCompare(b.slug))
+  return out
+}
+
 export interface LenderResult {
   lenderSlug: string
   count: number
