@@ -62,6 +62,7 @@ import type { KnowledgeOffer } from '@/lib/gates'
 import { useKnowledgeFetch } from '@/lib/knowledge-client'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import LenderMark from '@/components/admin/LenderMark'
+import CommittedNumberField from '@/components/admin/CommittedNumberField'
 import { OfferWindowBadge } from '@/components/admin/offer-display'
 import {
   CashbackChip,
@@ -866,31 +867,32 @@ function ScenarioRail({
           </select>
         </Field>
         <Field label="Mortgage amount">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
+          {/* Commits on blur or Enter, never per keystroke (the house rule):
+              each commit is one URL write and one match. The guard skips a
+              no-op commit so leaving an unchanged field never re-searches. */}
+          <CommittedNumberField
+            value={scenario.amount}
+            onCommit={v => {
+              if (v !== scenario.amount) setScenario({ ...scenario, amount: v })
+            }}
             className={selectCls}
-            value={scenario.amount ?? ''}
             placeholder="e.g. 928000"
-            onChange={e =>
-              setScenario({ ...scenario, amount: e.target.value ? Number(e.target.value) : null })
-            }
+            min={0}
             data-testid="scenario-amount"
+            aria-label="Mortgage amount"
           />
         </Field>
         <Field label="Property value">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
+          <CommittedNumberField
+            value={scenario.propertyValue}
+            onCommit={v => {
+              if (v !== scenario.propertyValue) setScenario({ ...scenario, propertyValue: v })
+            }}
             className={selectCls}
-            value={scenario.propertyValue ?? ''}
             placeholder="e.g. 1160000"
-            onChange={e =>
-              setScenario({ ...scenario, propertyValue: e.target.value ? Number(e.target.value) : null })
-            }
+            min={0}
             data-testid="scenario-value"
+            aria-label="Property value"
           />
         </Field>
         <div>

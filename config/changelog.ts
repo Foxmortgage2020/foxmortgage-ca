@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-18',
+    title: 'The rates scenario stops re-searching on every keystroke',
+    detail:
+      'A snappiness fix on the Rates scenario view. Typing a mortgage amount or property value used to run a fresh lender search after every single digit, so entering 1,500,000 fired seven searches in a row and made the whole page churn. Now those two fields commit once, when you tab out or press Enter, so you type the whole number first and the results update a single time. Everything else on that view already behaved (the dropdowns and toggles commit on one click, and the command-palette search waits for you to stop typing). Nothing about the results changed, only how often the search runs.',
+  },
+  {
+    date: '2026-07-18',
     title: 'The affordability tool’s bands now read from the client’s whole debt picture (TDS)',
     detail:
       'A small accuracy tweak to the “Can I afford it?” explorer. The three stretch bands (good options / still paths that fit / let us talk this through) now key on the client’s total debt service — the ratio that includes their consumer debts and is the one that actually gates a deal — rather than just the housing ratio. The green “fits comfortably” band still requires both ratios to be inside the standard limits. So a client whose home costs alone look fine but whose overall debt load is high now sees the honest band, and the warmth is unchanged: it still never tells anyone no.',
