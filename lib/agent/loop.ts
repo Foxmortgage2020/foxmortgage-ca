@@ -48,6 +48,15 @@ export type AnthropicFactory = () => Pick<Anthropic, 'messages'>
 
 const defaultFactory: AnthropicFactory = () => new Anthropic()
 
+// A reply we reached but could not read: the SDK (or a parse step) threw a
+// JSON/syntax error rather than an API/transport error. Distinguished from
+// "could not reach the model" so the copy is honest about what actually failed.
+export function isUnreadableReplyError(err: unknown): boolean {
+  if (err instanceof SyntaxError) return true
+  const m = err instanceof Error ? err.message : ''
+  return /JSON|Unexpected token|Unterminated|Unexpected end of (JSON|input)/i.test(m)
+}
+
 export async function runAgentTurn(input: {
   history: HistoryTurn[]
   userMessage: string
@@ -112,6 +121,11 @@ export async function runAgentTurn(input: {
       }
 
       if (message.stop_reason === 'max_tokens') {
+        // The answer was cut off: valid model text that hit the 16k ceiling.
+        // This is VALID (readable) content, unlike a parse-failed reply, so it
+        // is kept with an honest cut-off note (the brief's "fail with honest
+        // copy about the answer being cut off"). Unreadable replies are the
+        // ones never kept — see the catch block.
         const msg = 'The reply hit its length ceiling and may be cut short. Ask a follow-up for the rest.'
         emit({ type: 'error', message: msg })
         return { text: visibleText, toolLog, error: null }
@@ -140,7 +154,15 @@ export async function runAgentTurn(input: {
         }
         toolCallsThisTurn += 1
         emit({ type: 'tool', name: use.name, status: 'running' })
-        const execution = await (input.executeTool ?? executeAgentTool)(use.name, use.input, ctx)
+        // A tool that throws must never crash the whole turn (the
+        // 2026-07-20 knowledge_lookup incident): a throw becomes a failed
+        // tool result the model can respond to, and the turn continues.
+        let execution: ToolExecution
+        try {
+          execution = await (input.executeTool ?? executeAgentTool)(use.name, use.input, ctx)
+        } catch {
+          execution = { ok: false, result: { error: 'the tool failed to run' }, summary: 'tool error' }
+        }
         toolLog.push({
           name: use.name,
           input: (use.input ?? {}) as Record<string, unknown>,
@@ -164,20 +186,25 @@ export async function runAgentTurn(input: {
     }
 
     const msg =
-      'This message ran out of room for further checks. What is written above stands; send a follow-up for the rest.'
+      'This message ran out of room for further checks. What is written above stands. Send a follow-up for the rest.'
     emit({ type: 'error', message: msg })
     return { text: visibleText, toolLog, error: null }
   } catch (err) {
-    let msg = 'Ask Fox could not reach the model. Nothing was written; retry in a moment.'
+    // Three honest cases, plain words, no semicolons. A caught turn is
+    // untrustworthy, so nothing partial is kept as the reply (text is
+    // discarded); the store records the honest error instead.
+    let msg = 'Ask Fox could not reach the model. Nothing was written, retry in a moment.'
     if (err instanceof Anthropic.AuthenticationError) {
-      msg = 'The ANTHROPIC_API_KEY on the server was refused. Check the key in Vercel.'
+      msg = 'The ANTHROPIC_API_KEY on the server was refused. Nothing was written, check the key in Vercel.'
     } else if (err instanceof Anthropic.RateLimitError) {
-      msg = 'The model is rate limited right now. Wait a moment and retry.'
+      msg = 'The model is rate limited right now. Nothing was written, wait a moment and retry.'
     } else if (err instanceof Anthropic.APIError) {
-      msg = `The model API returned an error (HTTP ${err.status ?? 'unknown'}). Retry in a moment.`
+      msg = `The model API returned an error (HTTP ${err.status ?? 'unknown'}). Nothing was written, retry in a moment.`
+    } else if (isUnreadableReplyError(err)) {
+      msg = 'Ask Fox got a reply it could not read. Nothing was written, retry in a moment.'
     }
     console.error('[agent] turn failed:', err instanceof Error ? err.message.slice(0, 200) : 'error')
     emit({ type: 'error', message: msg })
-    return { text: visibleText, toolLog, error: msg }
+    return { text: '', toolLog, error: msg }
   }
 }

@@ -227,6 +227,23 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
 
 const s = (v: unknown, max = 300): string => String(v ?? '').slice(0, max)
 
+// Cap a structured value's size for the model WITHOUT ever slicing a JSON
+// string mid-token and re-parsing it (that threw "Unterminated string in JSON
+// at position N" and crashed the whole turn, 2026-07-20). Small values pass
+// through as the structured object; an oversized one becomes a valid object
+// carrying a truncation marker and the first `max` characters as text, so the
+// model sees an honest, readable cut rather than nothing.
+export function cappedProfile(profile: unknown, max = 6000): unknown {
+  if (profile == null) return profile
+  const full = JSON.stringify(profile)
+  if (full.length <= max) return profile
+  return {
+    truncated: true,
+    note: `profile is large, showing the first ${max} characters as text`,
+    text: full.slice(0, max),
+  }
+}
+
 function uwErr<T>(res: UwResult<T>): string {
   if (!res.configured) return 'workbench not connected'
   if (!res.ok) return isPermissionRefusal(res) ? 'not granted to the portal read-only role' : res.error
@@ -672,7 +689,7 @@ async function runKnowledgeLookup(input: any, ctx: AgentToolContext): Promise<To
       as_of: d.as_of,
       draft: d.draft,
       profile: d.profile
-        ? JSON.parse(JSON.stringify(d.profile, null, 0).slice(0, 6000))
+        ? cappedProfile(d.profile)
         : 'withheld by design; never invent figures for this lender',
       mechanism_note: mech
         ? {

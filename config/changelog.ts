@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-20',
+    title: 'Ask Fox stops crashing on a big lender profile, and its errors are honest',
+    detail:
+      'A lender with a large knowledge profile could crash a whole Ask Fox answer, and the message you got back wrongly said it could not reach the model. The real cause was the profile being cut in the middle and then re-read. That is fixed at the source, the profile is now capped safely, and any single tool that fails can no longer take down the whole answer. The error wording is honest now, in three plain cases: it could not reach the model, the answer was cut off, or the reply could not be read. In every failure case nothing is written, and a reply that could not be read is never shown or saved as a partial answer.',
+  },
+  {
+    date: '2026-07-20',
     title: 'Lenders is one clean tab row now',
     detail:
       'The Lenders page had two rows of tabs stacked on top of each other. Now it is one row: Scenario, Rates, Promos, Intel, Knowledge. The old Lenders and All quotes tabs are folded into Rates behind a By lender / All quotes toggle, so the same rows are one click away either grouped or flat. Nothing moved that you cannot still reach, every old link redirects to its new home, and your saved scenarios still open. Under the hood the rate book now loads once when you open the page instead of being re-read every time you change a scenario input or a dropdown, so the page stops churning as you explore.',

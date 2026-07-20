@@ -16,8 +16,8 @@ import {
 } from '@/lib/agent/limits'
 import { MAX_MESSAGES_PER_CONVERSATION, MAX_TOOL_CALLS_PER_TURN, AGENT_MODEL_DEFAULT } from '@/config/agent'
 import { parseCsv, parseTranscript } from '@/lib/agent/transcript'
-import { AGENT_TOOLS, type AgentToolContext } from '@/lib/agent/tools'
-import { runAgentTurn, type AgentStreamEvent } from '@/lib/agent/loop'
+import { AGENT_TOOLS, cappedProfile, type AgentToolContext } from '@/lib/agent/tools'
+import { runAgentTurn, isUnreadableReplyError, type AgentStreamEvent } from '@/lib/agent/loop'
 import { AGENT_SYSTEM_PROMPT, AGENT_PROMPT_VERSION } from '@/lib/agent/prompt'
 import { CALL_RUBRIC, CALL_RUBRIC_VERSION } from '@/config/call-rubric'
 import { FIND_CLIENT_NOTE, normalizeAgentDeal } from '@/lib/zoho-admin'
@@ -400,5 +400,109 @@ describe('agent loop (Anthropic API mocked)', () => {
     })
     expect(result.error).toContain('ANTHROPIC_API_KEY')
     expect(result.toolLog).toHaveLength(0)
+  })
+})
+
+// ─── Truncation handling and honest errors (2026-07-20 patch) ────────────────
+// The logged production failure was "[agent] turn failed: Unterminated string
+// in JSON at position 6000" — a knowledge_lookup profile capped with
+// JSON.parse(JSON.stringify(profile).slice(0, 6000)), which cuts JSON
+// mid-token and re-parses. cappedProfile fixes the source; the loop turns a
+// reply it cannot read into honest copy without keeping any partial.
+
+describe('cappedProfile (the position-6000 fix)', () => {
+  it('passes a small profile through as the structured object', () => {
+    const p = { penalty: '3 months interest', notes: 'standard charge' }
+    expect(cappedProfile(p)).toBe(p)
+    expect(cappedProfile(null)).toBeNull()
+  })
+
+  it('never throws on an oversized profile, unlike the old slice-then-parse', () => {
+    const big = { blob: 'x'.repeat(9000), more: { a: 'y'.repeat(3000) } }
+    // The OLD approach cut the JSON string mid-token and threw at position 6000.
+    expect(() => JSON.parse(JSON.stringify(big).slice(0, 6000))).toThrow(/Unterminated string|position/i)
+    // The fix returns a valid, readable, truncation-marked value.
+    const capped = cappedProfile(big, 6000) as { truncated: boolean; text: string }
+    expect(capped.truncated).toBe(true)
+    expect(capped.text.length).toBe(6000)
+    // And it round-trips as JSON (what the tool result does with it).
+    expect(() => JSON.parse(JSON.stringify(capped))).not.toThrow()
+  })
+})
+
+describe('isUnreadableReplyError', () => {
+  it('classifies JSON/syntax failures as unreadable, transport errors as not', () => {
+    expect(isUnreadableReplyError(new SyntaxError('Unterminated string in JSON at position 6000'))).toBe(true)
+    expect(isUnreadableReplyError(new Error('Unexpected end of JSON input'))).toBe(true)
+    expect(isUnreadableReplyError(new Error('fetch failed'))).toBe(false)
+  })
+})
+
+describe('the loop turns an unreadable reply into honest copy (no partial kept)', () => {
+  beforeEach(() => vi.stubEnv('ANTHROPIC_API_KEY', 'test-key-never-used'))
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('a mid-string truncation hits the honest read path and writes nothing', async () => {
+    const events: AgentStreamEvent[] = []
+    const result = await runAgentTurn({
+      history: [],
+      userMessage: 'tell me everything about this lender',
+      todayYMD: '2026-07-20',
+      ctx: testCtx(),
+      emit: e => events.push(e),
+      clientFactory: () =>
+        ({
+          messages: {
+            stream: () => ({
+              on() {
+                return this
+              },
+              async finalMessage(): Promise<never> {
+                // The exact production failure shape.
+                throw new SyntaxError('Unterminated string in JSON at position 6000')
+              },
+            }),
+          },
+        }) as any,
+      executeTool: async () => ({ ok: true, result: {}, summary: 'mocked' }),
+    })
+    // Honest read-path copy, not the "could not reach the model" copy.
+    expect(result.error).toContain('could not read')
+    expect(result.error).not.toContain('could not reach')
+    // Nothing partial is kept as the reply, and the copy says so.
+    expect(result.text).toBe('')
+    expect(result.error).toContain('Nothing was written')
+    // No semicolons in the error copy (house rule).
+    expect(result.error).not.toContain(';')
+    // The user was told in-stream.
+    expect(events.some(e => e.type === 'error' && /could not read/.test(e.message))).toBe(true)
+  })
+
+  it('a tool that throws does not crash the turn (defensive guard)', async () => {
+    let calls = 0
+    const result = await runAgentTurn({
+      history: [],
+      userMessage: 'look up the lender',
+      todayYMD: '2026-07-20',
+      ctx: testCtx(),
+      emit: () => {},
+      clientFactory: () =>
+        mockClient([
+          {
+            stop_reason: 'tool_use',
+            content: [{ type: 'tool_use', id: 'tu_1', name: 'knowledge_lookup', input: { slug: 'x' } }],
+          },
+          { stop_reason: 'end_turn', textDeltas: ['Here is what I found.'], content: [{ type: 'text', text: 'done' }] },
+        ]),
+      executeTool: async () => {
+        calls += 1
+        throw new Error('boom from a tool')
+      },
+    })
+    // The tool threw, but the turn completed cleanly with the model's reply.
+    expect(calls).toBe(1)
+    expect(result.error).toBeNull()
+    expect(result.text).toContain('Here is what I found.')
+    expect(result.toolLog[0]).toMatchObject({ name: 'knowledge_lookup', ok: false })
   })
 })
