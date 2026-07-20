@@ -2095,7 +2095,18 @@ export interface RateQuoteFullRow {
   eligibilitySource: string | null
 }
 
+// The approved+superseded book is agent-scoped and identical across scenario
+// and select params, so a short in-process cache lets a single page visit (with
+// its many param-driven server re-renders, plus the 60s notification-bell poll)
+// read it once instead of paginating ~1,257 rows on every navigation (the
+// input-commit follow-up). Failures are never cached; the 2-minute TTL matches
+// the house norm (slimDealsCache) so a freshly-approved sheet shows within two
+// minutes. Proven in tests/rate-quotes-cache.test.ts.
+const rateQuotesFullCache = createCache<string, RateQuoteFullRow[]>({ max: 4, ttlMs: 2 * 60 * 1000 })
+
 export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQuoteFullRow[]>> {
+  const cached = rateQuotesFullCache.get(agentId)
+  if (cached !== undefined) return { configured: true, ok: true, data: cached }
   const res = await uwSelectAll<any>('rate_quotes', {
     select:
       'id,intel_item_id,lender_slug,product_class,variant,term_months,rate,rate_type,prime_variance,cashback_pct,program_notes,comp_bps,as_of_date,expiry_date,source_page,source_snippet,confidence,status,extracted_by,created_at,reviewed_at,approved_via,held_reason,borrower_requirement,client_commitment,channel_requirement,transaction_types,eligibility_unknown,eligibility_source',
@@ -2104,7 +2115,7 @@ export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQ
     order: 'as_of_date.desc',
     limit: '5000',
   })
-  return mapResult(res, rows =>
+  const mapped = mapResult(res, rows =>
     rows.map(r => ({
       id: r.id,
       intelItemId: r.intel_item_id,
@@ -2137,6 +2148,8 @@ export async function getRateQuotesFull(agentId: string): Promise<UwResult<RateQ
       eligibilitySource: r.eligibility_source ?? null,
     })),
   )
+  if (mapped.configured && mapped.ok) rateQuotesFullCache.set(agentId, mapped.data)
+  return mapped
 }
 
 // Approval provenance for product detail: the sheet review behind

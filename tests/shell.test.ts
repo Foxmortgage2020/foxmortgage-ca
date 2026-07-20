@@ -86,7 +86,7 @@ describe('route inventory: every admin route stays on the map', () => {
       ['/portal/admin/deals', '/portal/admin/underwriting'],
       ['/portal/admin/renewals', '/portal/admin/beyond?tab=renewals'],
       ['/portal/admin/opportunities', '/portal/admin/beyond?tab=opportunities'],
-      ['/portal/admin/rates', '/portal/admin/lenders?tab=rates'],
+      ['/portal/admin/rates', '/portal/admin/lenders?tab=scenario'],
       ['/portal/admin/intel', '/portal/admin/lenders?tab=intel'],
       ['/portal/admin/knowledge', '/portal/admin/lenders?tab=knowledge'],
       ['/portal/bookkeeping', '/portal/admin/revenue?tab=bookkeeping'],

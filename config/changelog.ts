@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-20',
+    title: 'Lenders is one clean tab row now',
+    detail:
+      'The Lenders page had two rows of tabs stacked on top of each other. Now it is one row: Scenario, Rates, Promos, Intel, Knowledge. The old Lenders and All quotes tabs are folded into Rates behind a By lender / All quotes toggle, so the same rows are one click away either grouped or flat. Nothing moved that you cannot still reach, every old link redirects to its new home, and your saved scenarios still open. Under the hood the rate book now loads once when you open the page instead of being re-read every time you change a scenario input or a dropdown, so the page stops churning as you explore.',
+  },
+  {
+    date: '2026-07-20',
     title: 'Your Microsoft calendar shows up on Today',
     detail:
       'The calendar spot in your day is now live. It reads your Microsoft calendar and lists today’s meetings in Toronto time, in order, with the time, the subject, and where it is or a note that it is online. A meeting that is happening now is marked, and ones that already finished read quietly. It is read only, so nothing here ever changes your calendar. If the calendar cannot be reached, that one card shows a short line and the rest of your page carries on as normal. Nothing else moved.',

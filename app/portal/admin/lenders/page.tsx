@@ -1,32 +1,37 @@
-// Lenders (B3) — the lender book in one place: the Rates engine, the Intel
-// feed, and the Knowledge base as tabs over one summary strip. Every engine
-// is REPARENTED unchanged (no fetcher, gate, or logic changes; each tab
-// still runs its own requirePermission as defense in depth). Tab state
-// lives in the `tab` query param so the redirected old paths land on the
-// right tab and tabs are shareable.
-//
-// The rates engine's own inner tabs (scenario | lenders | promos | all) are
-// pathname-relative and value-DISJOINT from this page's tabs, so an
-// unrecognized tab value falls through to the Rates tab and the inner
-// engine reads it — old deep links keep their inner state.
+// Lenders — the lender book in one place, now a SINGLE tab row (2026-07-20
+// consolidation): Scenario, Rates, Promos, Intel, Knowledge. The two stacked
+// rows (outer rates|intel|knowledge and the inner scenario|lenders|promos|all)
+// collapsed; the old inner Lenders and All quotes are the Rates tab's two views
+// (?view=lenders|all). Every old URL redirects to its new home — nothing 404s.
+// The page name is Lenders, so nothing inside it is also called Lenders (the
+// old inner tab is now "By lender"). Each tab still runs its own
+// requirePermission as defense in depth; tab state lives in ?tab so tabs are
+// shareable. The rate book loads once through a short server cache
+// (getRateQuotesFull), so scenario and select changes never re-read it.
 
 import { redirect } from 'next/navigation'
 import { can, getSessionUser } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { getAgentIdByEmail, getKnowledgeClaimQueue, getRateQuotesFull } from '@/lib/underwriting'
+import {
+  LENDERS_TAB_KEYS,
+  isRateEngineTab,
+  lendersTabPermission,
+  resolveLendersTab,
+  type LendersTab,
+} from '@/lib/lenders-tabs'
 import SummaryStrip, { type StripTile } from '@/components/admin/ds/SummaryStrip'
 import TabBar from '@/components/admin/ds/TabBar'
-import RatesTab from '@/components/admin/lenders/RatesTab'
+import RatesEngine from '@/components/admin/lenders/RatesEngine'
 import IntelTab from '@/components/admin/lenders/IntelTab'
 import KnowledgeTab from '@/components/admin/lenders/KnowledgeTab'
 
 export const dynamic = 'force-dynamic'
 
-const TAB_KEYS = ['rates', 'intel', 'knowledge'] as const
-type LendersTabKey = (typeof TAB_KEYS)[number]
-
-const TAB_LABELS: Record<LendersTabKey, string> = {
+const TAB_LABELS: Record<LendersTab, string> = {
+  scenario: 'Scenario',
   rates: 'Rates',
+  promos: 'Promos',
   intel: 'Intel',
   knowledge: 'Knowledge',
 }
@@ -34,37 +39,40 @@ const TAB_LABELS: Record<LendersTabKey, string> = {
 export default async function LendersPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; lender?: string; kind?: string }
+  searchParams: { tab?: string; view?: string; lender?: string; kind?: string; from?: string }
 }) {
   const user = await getSessionUser()
   if (!user) redirect('/portal/sign-in')
 
-  // Per-tab access mirrors the three merged pages' own permission keys
-  // exactly — composition, never widening. A user lands on the first tab
-  // their permissions cover (agents reach Knowledge here, as before).
-  const allowed = TAB_KEYS.filter(k =>
-    k === 'rates'
-      ? can(user, 'rates.view')
-      : k === 'intel'
-        ? can(user, 'intel.view')
-        : can(user, 'knowledge.view'),
-  )
+  // Legacy inner-tab values (lenders / all) canonicalize to the Rates tab's
+  // views, preserving every other param — the redirect that keeps old bookmarks
+  // and cross-links alive.
+  const resolved = resolveLendersTab(searchParams.tab, searchParams.view)
+  if (resolved.needsRedirect) {
+    const params = new URLSearchParams()
+    for (const [k, v] of Object.entries(searchParams)) {
+      if (k !== 'tab' && k !== 'view' && typeof v === 'string') params.set(k, v)
+    }
+    params.set('tab', resolved.tab)
+    params.set('view', resolved.view)
+    redirect(`/portal/admin/lenders?${params.toString()}`)
+  }
+
+  // Per-tab access mirrors the merged pages' own permission keys exactly —
+  // composition, never widening. A user lands on the first tab their
+  // permissions cover (agents reach Knowledge here, as before).
+  const allowed = LENDERS_TAB_KEYS.filter(k => can(user, lendersTabPermission(k)))
   if (allowed.length === 0) redirect('/portal')
+  const active: LendersTab = allowed.includes(resolved.tab)
+    ? resolved.tab
+    : allowed.includes('scenario')
+      ? 'scenario'
+      : allowed[0]
 
-  const requested = searchParams.tab
-  const active: LendersTabKey =
-    requested && (TAB_KEYS as readonly string[]).includes(requested)
-      ? allowed.includes(requested as LendersTabKey)
-        ? (requested as LendersTabKey)
-        : allowed[0]
-      : allowed.includes('rates')
-        ? 'rates'
-        : allowed[0]
-
-  // The strip: from the sources the tabs already read. Approved book counts
-  // for rates.view holders; the pending-claims count for knowledge.view.
-  // (Lender data stays real in demo by the Session 9 contract; the claims
-  // queue resolves from fixtures there.)
+  // The strip: from the sources the tabs already read. Approved book counts for
+  // rates.view holders (the book is cached, so this shares the tab's read); the
+  // pending-claims count for knowledge.view. (Lender data stays real in demo by
+  // the Session 9 contract; the claims queue resolves from fixtures there.)
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
   const tiles: StripTile[] = []
@@ -110,7 +118,7 @@ export default async function LendersPage({
         }))}
         active={active}
       />
-      {active === 'rates' && <RatesTab />}
+      {isRateEngineTab(active) && <RatesEngine tab={active} />}
       {active === 'intel' && (
         <IntelTab searchParams={{ lender: searchParams.lender, kind: searchParams.kind }} />
       )}

@@ -31,6 +31,7 @@ const SESSIONS: {
       'Pure model in lib/today.ts, unit-tested; render-proven at 1280 and 375 in demo mode with zero real reads',
       'Task two-way (2026-07-20): the Tasks card gains a checkbox that completes the task in Zoho, with an optimistic tick, a ~10 second undo that restores the prior status, and an honest revert if Zoho does not take the write. The portal’s first Zoho write, admin only through a gated route, audited to FOXCA (task_action_events); Zoho stays the source of truth',
       'Calendar band live (2026-07-20): the Your day calendar reads today’s Microsoft calendar (Graph client-credentials, read-only, server-side, in-process token cache) and lists meetings in Toronto time with past/now/upcoming states. Fail-soft by construction: a Graph outage or missing config degrades only that card and never breaks Today. No Graph write exists anywhere in the build',
+      'Lenders one-row consolidation (2026-07-20): the two stacked tab rows collapse into one — Scenario, Rates, Promos, Intel, Knowledge — with the old Lenders and All quotes merged into Rates behind a By lender / All quotes toggle. Every old URL redirects to its new home and saved scenarios still resolve. The rate book fetch is decoupled from searchParams via a short agent-keyed cache, so scenario and select changes re-read nothing (proven: zero book reads after initial load)',
     ],
   },
   {

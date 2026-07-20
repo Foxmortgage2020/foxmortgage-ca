@@ -30,8 +30,10 @@ const nextConfig = {
         permanent: true,
       },
       {
+        // The old standalone Rates page landed on the scenario view; the Lenders
+        // consolidation (2026-07-20) makes Scenario its own tab, so land there.
         source: '/portal/admin/rates',
-        destination: '/portal/admin/lenders?tab=rates',
+        destination: '/portal/admin/lenders?tab=scenario',
         permanent: true,
       },
       {

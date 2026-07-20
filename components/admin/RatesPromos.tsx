@@ -265,7 +265,7 @@ function PromoCard({
       {!expired && (
         <div className="flex flex-wrap gap-2 mt-3">
           <Link
-            href={`/portal/admin/lenders?tab=lenders&lender=${encodeURIComponent(linkSlug)}`}
+            href={`/portal/admin/lenders?tab=rates&lender=${encodeURIComponent(linkSlug)}`}
             className="text-xs font-semibold text-navy border border-navy/30 rounded-lg px-2.5 py-1 hover:border-navy"
           >
             Open lender

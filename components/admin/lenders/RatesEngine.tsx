@@ -1,11 +1,10 @@
-// The Rates engine (Rates v3, Session 10) — reparented unchanged as the
-// Lenders page's Rates tab (B3). Scenario (who wins this deal, default),
-// Lenders (where a lender sits today), Promos (what's live and expiring),
-// and All quotes ride RatesTabs' own inner ?tab values (scenario | lenders |
-// promos | all — disjoint from the page's rates | intel | knowledge, and
-// pathname-relative, so they compose). The server resolves the approved
-// book, coverage signals, and sheet-review provenance once. Every rate
-// carries its sheet date; approved quotes only anywhere a rate is quotable.
+// The Rates engine (Rates v3) — reparented as three tabs of the Lenders page's
+// single tab row (2026-07-20 consolidation): Scenario (who wins this deal),
+// Rates (where a lender sits today / the dense table, behind a By-lender/All-
+// quotes toggle), and Promos (what's live and expiring). The book is fetched
+// once through a short server cache (getRateQuotesFull), so switching tabs or
+// changing a scenario select re-renders without re-reading ~1,257 rows. Every
+// rate carries its sheet date; approved quotes only anywhere a rate is quotable.
 
 import { requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
@@ -20,18 +19,31 @@ import {
 } from '@/lib/underwriting'
 import { lenderCoverage } from '@/lib/lender-browse'
 import { torontoTodayYMD } from '@/lib/dates'
-import RatesTabs from '@/components/admin/RatesTabs'
+import RatesScenario from '@/components/admin/RatesScenario'
+import RatesBook from '@/components/admin/RatesBook'
+import RatesPromos from '@/components/admin/RatesPromos'
 
 function val<T>(r: UwResult<T> | null): T | null {
   return r && r.configured && r.ok ? r.data : null
 }
 
-export default async function RatesTab() {
+export default async function RatesEngine({ tab }: { tab: 'scenario' | 'rates' | 'promos' }) {
   await requirePermission('rates.view')
+
+  // Promos reads its own offer feed (client-side); it needs no book.
+  if (tab === 'promos') {
+    return (
+      <div>
+        <Header />
+        <div className="mt-5">
+          <RatesPromos />
+        </div>
+      </div>
+    )
+  }
 
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
-
   if (!agentId) {
     return (
       <div>
@@ -47,6 +59,34 @@ export default async function RatesTab() {
     )
   }
 
+  const todayYMD = torontoTodayYMD()
+
+  if (tab === 'scenario') {
+    // Scenario needs the book (cached) and the approval provenance behind each
+    // approved quote's sheet review, resolved once for the product detail.
+    const quotesR = await getRateQuotesFull(agentId)
+    const quotes = val(quotesR) ?? []
+    const reviewIds = Array.from(
+      new Set(
+        quotes
+          .filter(q => q.status === 'approved' && q.approvedVia?.startsWith('sheet:'))
+          .map(q => q.approvedVia!.slice(6)),
+      ),
+    )
+    const provenance: Record<string, SheetProvenance> =
+      val(await getSheetProvenance(agentId, reviewIds)) ?? {}
+    return (
+      <div>
+        <Header />
+        <div className="mt-5">
+          <RatesScenario quotes={quotes} provenance={provenance} />
+        </div>
+      </div>
+    )
+  }
+
+  // tab === 'rates': the book plus the coverage signals (pending sheets + intel)
+  // and the unattributed rates sheets, for the By-lender / All-quotes view.
   const [quotesR, pendingR, intelR] = await Promise.all([
     getRateQuotesFull(agentId),
     getPendingSheetReviews(agentId),
@@ -55,8 +95,6 @@ export default async function RatesTab() {
   const quotes = val(quotesR) ?? []
   const pendingSheets = val(pendingR) ?? []
   const intelItems = val(intelR) ?? []
-
-  const todayYMD = torontoTodayYMD()
   const coverage = lenderCoverage(
     quotes,
     pendingSheets.map(p => ({ lenderSlug: p.lenderSlug, quoteCount: p.quoteCount })),
@@ -69,29 +107,16 @@ export default async function RatesTab() {
     })),
     todayYMD,
   )
-  // Captured rates sheets the ingest could not name a lender for: visible on
-  // the Lenders tab so they are never silently unbucketed.
   const unattributed = intelItems
     .filter(i => i.lenderSlugGuess == null && i.docClassGuess === 'rates')
     .map(i => ({ fileName: i.fileName, receivedAt: i.receivedAt }))
 
-  // Approval provenance for every approved quote's sheet review, resolved
-  // once server-side so the scenario product detail renders it without extra
-  // round trips.
-  const reviewIds = Array.from(
-    new Set(
-      quotes
-        .filter(q => q.status === 'approved' && q.approvedVia?.startsWith('sheet:'))
-        .map(q => q.approvedVia!.slice(6)),
-    ),
-  )
-  const provenanceR = await getSheetProvenance(agentId, reviewIds)
-  const provenance: Record<string, SheetProvenance> = val(provenanceR) ?? {}
-
   return (
     <div>
       <Header />
-      <RatesTabs quotes={quotes} provenance={provenance} coverage={coverage} todayYMD={todayYMD} unattributed={unattributed} />
+      <div className="mt-5">
+        <RatesBook quotes={quotes} coverage={coverage} todayYMD={todayYMD} unattributed={unattributed} />
+      </div>
     </div>
   )
 }

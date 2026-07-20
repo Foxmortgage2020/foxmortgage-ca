@@ -1000,7 +1000,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
             {/* Prefill only reads the deals row into rates searchParams; it
                 writes nothing anywhere (Session 5 Part 4). */}
             <Link
-              href={`/portal/admin/rates?${new URLSearchParams(
+              href={`/portal/admin/lenders?tab=scenario&${new URLSearchParams(
                 scenarioParamsFromDeal({
                   fileRef: deal.fileRef,
                   dealType: deal.dealType,
