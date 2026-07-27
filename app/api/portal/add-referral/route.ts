@@ -3,6 +3,7 @@ import { getPortalContext } from '@/lib/auth'
 import { createZohoLead } from '@/lib/zoho'
 import {
   EMAIL_RE,
+  alertSubmissionFailure,
   captureStatusLine,
   captureSubmission,
   markSubmission,
@@ -154,6 +155,19 @@ Submission id: ${capture.id}`,
     })
     if (capture.stored && resendId) {
       await markSubmission(capture.id, { resend_message_id: resendId })
+    }
+
+    // 3b. A downstream write failed. Alert separately so it is visible the
+    // same day instead of buried in the body of the routine email above. A
+    // lost referral also costs a partner relationship, not just a lead.
+    if (!zohoId || !capture.stored) {
+      await alertSubmissionFailure({
+        source: 'partner-referral',
+        submissionId: capture.id,
+        error: capture.stored ? (zohoError ?? 'unknown') : capture.error,
+        submitterEmail: clientEmail,
+        captured: capture.stored,
+      })
     }
 
     // 4. Honest response.

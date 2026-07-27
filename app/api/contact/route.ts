@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createZohoLead } from '@/lib/zoho'
 import {
   EMAIL_RE,
+  alertSubmissionFailure,
   captureStatusLine,
   captureSubmission,
   markSubmission,
@@ -92,6 +93,18 @@ Submission id: ${capture.id}`,
     })
     if (capture.stored && resendId) {
       await markSubmission(capture.id, { resend_message_id: resendId })
+    }
+
+    // 3b. A downstream write failed. Alert separately so it is visible the
+    // same day instead of buried in the body of the routine email above.
+    if (!zohoId || !capture.stored) {
+      await alertSubmissionFailure({
+        source: 'contact',
+        submissionId: capture.id,
+        error: capture.stored ? (zohoError ?? 'unknown') : capture.error,
+        submitterEmail: email,
+        captured: capture.stored,
+      })
     }
 
     // 4. Honest response: success only if the submission is durably held in

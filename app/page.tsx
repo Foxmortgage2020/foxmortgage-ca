@@ -286,8 +286,13 @@ export default function Home() {
           <p className="font-body text-gray-300 text-lg mb-10">
             Join homeowners across Ontario who never miss a savings opportunity.
           </p>
+          {/* Posts to /api/smm-interest, NOT /api/smm-enroll. This is a
+              native form, so the browser sends urlencoded; /api/smm-enroll
+              parses JSON only and threw on every submission, which is what
+              dropped every homepage lead until 2026-07-27. Kept native so the
+              CTA still works with JavaScript disabled. */}
           <form
-            action="/api/smm-enroll"
+            action="/api/smm-interest"
             method="POST"
             className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
           >
@@ -298,6 +303,13 @@ export default function Home() {
               placeholder="Your email address"
               className="flex-1 px-5 py-4 rounded-xl font-body text-navy placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lime"
             />
+            {/* Honeypot: hidden from people, filled only by bots. */}
+            <div className="hidden" aria-hidden="true">
+              <label>
+                Company
+                <input type="text" name="company" tabIndex={-1} autoComplete="off" />
+              </label>
+            </div>
             <button
               type="submit"
               className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-colors whitespace-nowrap"

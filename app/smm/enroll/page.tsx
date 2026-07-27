@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const PROVINCES = [
   'Ontario',
@@ -114,6 +114,21 @@ export default function SMMEnrollPage() {
   const [caslConsent, setCaslConsent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+
+  // A visitor who typed their email into the homepage CTA arrives here with it
+  // already captured. Carry it over so they do not type it twice. It travels
+  // in a short-lived same-origin cookie rather than a query parameter, so the
+  // address never lands in a URL, a server log, or browser history. Read on
+  // mount (not during render) to keep server and client markup identical, then
+  // clear it so it cannot leak into a later visit.
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|;\s*)smm_prefill_email=([^;]*)/)
+    if (!match) return
+    document.cookie = 'smm_prefill_email=; Max-Age=0; path=/'
+    const prefill = decodeURIComponent(match[1] ?? '').trim()
+    if (!prefill) return
+    setForm((prev) => (prev.email ? prev : { ...prev, email: prefill }))
+  }, [])
 
   function set(field: keyof FormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))

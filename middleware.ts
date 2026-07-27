@@ -52,6 +52,10 @@ export default authMiddleware({
     '/portal/file/(.*)',
     '/api/contact',
     '/api/smm-enroll',
+    // The homepage "Start Monitoring" CTA posts here. Without this entry
+    // Clerk 401s the request before the handler runs and the CTA breaks again
+    // in a way that looks nothing like the cause.
+    '/api/smm-interest',
     '/api/investor-inquiry',
     '/api/portal/add-referral',
     '/api/onboard/signup',

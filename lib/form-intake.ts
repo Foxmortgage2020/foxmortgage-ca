@@ -20,7 +20,11 @@
 import { randomUUID } from 'crypto'
 import { Resend } from 'resend'
 
-export type FormSource = 'contact' | 'investor-inquiry' | 'partner-referral'
+// 'smm-interest' is the homepage "Start Monitoring" CTA (B0, 2026-07-27). It
+// captures one email and sends the visitor into the enrollment wizard, so it
+// writes no Zoho record of its own and terminates at 'received'. The wizard
+// creates the authoritative Zoho record with its CASL consent.
+export type FormSource = 'contact' | 'investor-inquiry' | 'partner-referral' | 'smm-interest'
 
 export interface CaptureInput {
   source: FormSource
@@ -146,6 +150,47 @@ export async function notifyMichael(input: { subject: string; text: string }): P
     console.error('[form-intake] notify threw', err)
     return null
   }
+}
+
+// A downstream write failed. Say so the same day, in its own email, rather
+// than leaving it buried in the body of the routine notification (B0,
+// 2026-07-27). There is no operational-failure webhook in this repo today, so
+// this uses the mail transport the pipeline already carries. Best-effort and
+// never throws: the row is already the durable record, and an alert that
+// fails must never take a submission down with it.
+export async function alertSubmissionFailure(input: {
+  source: FormSource
+  submissionId: string
+  error: string
+  // Included so a submission whose CAPTURE failed is still recoverable by
+  // hand from the alert itself.
+  submitterEmail?: string | null
+  captured: boolean
+}): Promise<void> {
+  const lines = [
+    `A ${input.source} submission did not process cleanly.`,
+    '',
+    `Form: ${input.source}`,
+    `Submission id: ${input.submissionId}`,
+    `Stored in form_submissions: ${input.captured ? 'yes' : 'NO — this email is the only record'}`,
+    `Submitter email: ${input.submitterEmail || '(not provided)'}`,
+    `Error: ${input.error}`,
+    '',
+    input.captured
+      ? 'The submission is safe. Retry the downstream write with the replay endpoint: POST /api/portal/admin/forms/replay'
+      : 'The submission is NOT stored. Copy the details above before this email is lost.',
+  ]
+  const id = await notifyMichael({
+    subject: `[form intake] ${input.source} needs attention`,
+    text: lines.join('\n'),
+  })
+  // Leave a trace either way: an alert that silently failed to send is the
+  // same blind spot this function exists to close.
+  console.log(
+    id
+      ? `[form-intake] failure alert sent for ${input.submissionId} (${input.source})`
+      : `[form-intake] failure alert COULD NOT SEND for ${input.submissionId} (${input.source})`,
+  )
 }
 
 // One-line audit trail for the notification email: where the submission
