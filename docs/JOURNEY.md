@@ -102,6 +102,12 @@ The table's job is to stop saying unmeasured. That is queue item Q11, and most o
 
 **Executed Jul 28, swap day:** the renewal drip and the SMM wizard both book on the native engine, the drip through RENEWAL_CALENDAR_URL set by Michael in fox-underwriting and the wizard through the Jul 28 CTA retarget in `9d2db8e`. The Zoho Bookings page stays live for links already sent by hand, until the retirement date of 2026-10-27, which moves out a month if that account still shows bookings in the prior 30 days. Public navigation is unchanged and no /book link was added, because the go message did not ask for one. Not swapped, still pointing at Zoho: the `CONTACT.bookingUrl` constant in `lib/contact.ts`, read by the client status page, the qualification explorer, and six portal support pages.
 
+**Adopted Jul 28, n8n elimination:** n8n retires into owned Vercel code, piece by piece rather than in one cut. The order is the booking cron first, then Dialpad rebuilt native, then lender notes, then the Finmo receiver last, because the receiver carries the most traffic and the least tolerance for a bad swap. Each migration lands on its own and its registry row comes out when it does.
+
+**Adopted Jul 28, Zoho attrition rules:** new builds keep their source of truth in owned tables and touch Zoho only at seams that already exist. No new Zoho surface gets built. A function cuts over once it has been natively rebuilt, and the record layer swaps last, at the platform phase.
+
+**Adopted Jul 28, two-lane operating structure:** revenue leads and infrastructure fills in behind it. One Claude Code session per repo at a time, counted across all chats, so two sessions never share a working tree.
+
 **Rejected Jul 27, with reasons, logged so they don't resurface:** cold outbound in any form, no consent basis, CASL exposure, lowest-trust channel, and last by the standing revenue ranking [A-08, A-09 outreach half, A-01 scraping half]. Unattended voice calling, CRTC and DNCL exposure, no AI disclosure, recording consent absent, and an unsupervised agent quoting numbers is presenting, which never leaves Mike [A-07 cold half, A-12 outbound half]. Generic touch cadence as a strategy, the corpus's own sends produced 2 of 140 and 0 of 3,500 [M-13, M-14, resolved against M-08 by M-09]. Subscribing to the sponsor's monitoring product, SMM occupies the slot, its mechanics are adopted, its subscription is not, and its figures stay out of the benchmarks [M-19]. The brief's don't-build list reaffirmed, no credit scoring, no OCR foundation, no borrower intake product, no rules builder yet. Salaried headcount now, the corpus's staff roles map to systems already live or dark, document specialists are the documents desk, the renewal staffer is the drip, the underwriter is the workbench in shadow, the EA is the comms engine plus booking, revisit only when Mike's conversation hours saturate [M-10 through M-18, A-15].
 
 **Parked, with triggers:** podcast-as-filter, trigger is FoxSocial capacity pointed at the Fox Mortgage brand under the brand-separation rule [M-05, M-17]. Named AI persona, trigger is 90 days of the comms engine live plus volume [map Part 1]. Consented voice check-ins with AI disclosure, trigger is a touch family at graduation level 2 [A-07, A-12 transfer]. Full wealth-partner reciprocity machine, trigger is FP attribution fixed and the first ten routed referrals [M-20, M-06]. Dentist-model platform, existing level-3 ambition [M-03].
@@ -135,12 +141,14 @@ The original G-register's cited entry closed: G-02, document state lived in Finm
 | G2-13 | 12 | Six-month-product fact absent from lender registry | Q4 |
 | G2-14 | ritual | M-01 over cap in the reference pack | housekeeping |
 | G2-15 | 1, 12 | Booking experience off-brand, clicks out to a vendor page, no consent capture at booking | Q13 |
+| G2-16 | 12 | Enrollment sweep cannot see a sibling active deal in flight | Q14 |
+| G2-17 | 12 | Enrollment sweep cannot see a paid-out or discharged mortgage | Q14 |
 
 ## 12. The build queue, ranked by revenue
 
 | # | Item | Why first-order | Effort |
 |---|---|---|---|
-| Q1 | Light the renewal drip: env via dashboard, booking URL, push, first approve clicks, unsubscribe proof | Highest-conversion lane, fully built, dark | hours |
+| Q1 | **LIVE 2026-07-28.** Light the renewal drip: env via dashboard, booking URL, push, first approve clicks, unsubscribe proof. Sending on per-message approval at Level 0 | Highest-conversion lane, fully built, dark | hours |
 | Q2 | Write the renewal conversation skill | The drip books meetings, this converts them | one session |
 | Q3 | SMM backfill mining from stored files, ranked candidates, Mike's opinion emails to the top 20 | 53 of 58 seats came from own files in the corpus, direct SMM growth toward the 100 cap | 1-2 sessions |
 | Q4 | Thirteen-month play: registry fact plus eligibility flag in the Radar | Named campaign with computable eligibility | small feature |
@@ -152,12 +160,13 @@ The original G-register's cited entry closed: G-02, document state lived in Finm
 | Q10 | Discovery skill and the two-link intake email | Encodes JG-1 and JG-2 client-facing | one session |
 | Q11 | Measurement plumbing for section 7 | You can't improve unmeasured | small feature |
 | Q12 | FP Leads fields, six webhook envs, attribution backfill | Stops the silent drop, makes partner reporting true | small feature |
-| Q13 | Native booking engine v1, parallel track | One engine serves the drip, SMM calls, and the intake email, plus consent capture at booking | 2-4 sessions |
+| Q13 | **COMPLETE 2026-07-28.** Native booking engine v1, parallel track. Live, with the public discovery-call button on the site | One engine serves the drip, SMM calls, and the intake email, plus consent capture at booking | 2-4 sessions |
+| Q14 | Enrollment guards: the sweep must see a sibling active deal in flight, and a paid-out or discharged mortgage, before it enrolls anyone | Stops the drip touching a client whose file already moved, closes G2-16 and G2-17 | small feature |
 
-Q13 runs in parallel and never blocks Q1. The drip reads its booking destination from env, so it lights on the current Zoho Bookings link today and swaps to the native URL after Q13's test checklist passes.
+Q13 ran in parallel and never blocked Q1. Both are done as of 2026-07-28. The drip reads its booking destination from env and now points at the native booking URL.
 
 Housekeeping after: recut M-01 and ship reference pack v2, install this file at docs/JOURNEY.md with a pointer line in FOXMORTGAGE.md, slim the build-ledger CLAUDE.md by progressive disclosure, complete the superseded-file sweep.
 
 ## 13. Maintenance
 
-Update this file on every intake verdict and every queue completion. Refresh benchmarks monthly once Q11 lands. This document loads on demand, never by default. The Jul 7 audit remains partially reconstructed, its findings register and token dictionary fold in if the file turns up, and G2-10 closes either way at Q5. Currency of every claim is its bracketed date, and the live system always outranks the page.
+Update this file on every intake verdict and every queue completion. The two-lane chat structure runs revenue ahead with infrastructure filling in behind it, one Code session per repo at a time across all chats, and infrastructure decisions log in section 8 alongside the practice ones. Refresh benchmarks monthly once Q11 lands. This document loads on demand, never by default. The Jul 7 audit remains partially reconstructed, its findings register and token dictionary fold in if the file turns up, and G2-10 closes either way at Q5. Currency of every claim is its bracketed date, and the live system always outranks the page.
