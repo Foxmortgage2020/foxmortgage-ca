@@ -1616,9 +1616,12 @@ section is current state only.
   the operational surface.
 - **`/api/book/cron`** runs the hourly reminder and calendar-reconcile jobs. TWO
   auth paths, both valid: `Authorization: Bearer <CRON_SECRET>` (what Vercel's
-  cron sends) and `x-bridge-secret` / `UW_BRIDGE_SECRET` (the original machine
-  path, shared with the underwriting sweep, still primary and used for by-hand
-  runs; it retires when n8n does). **GET and POST both work and run identical
+  cron sends — now the PRIMARY path, since it is the one on the schedule) and
+  `x-bridge-secret` / `UW_BRIDGE_SECRET` (the original machine path, still used
+  for by-hand runs; it retires when n8n does). Session four's "booking needs its
+  own secret" debt is therefore mostly PAID: the scheduled path rides
+  `CRON_SECRET`, booking's own value, and only the manual path still shares the
+  sweep's secret. **GET and POST both work and run identical
   work — GET exists because Vercel invokes crons with GET, not POST.** The run's
   counts go to the runtime log as one `book.cron` line (via, job, ok, ms, and
   per-run counts) because the Vercel cron discards the response body that n8n
@@ -1630,17 +1633,17 @@ section is current state only.
   bound to its HTTP node. **THE RENEWAL-DAY PLAN FOR THAT WORKFLOW IS NOW
   DEACTIVATION, NOT REBINDING.** The jobs are idempotent, so a revived n8n trigger
   would only double-fire harmlessly.
-  **ONE MANUAL STEP REMAINS, Michael's:** set `CRON_SECRET` in the Vercel
-  dashboard (foxmortgage-ca → Settings → Environment Variables, any long random
-  value, **Production**, type Encrypted — never the Vercel CLI, per the
-  `type=sensitive` footgun). Vercel does not mint it for you, and without it the
-  hourly call arrives with no Authorization header and is refused 401 by design
-  (a visible refusal beats gating a public route on the undocumented
-  `x-vercel-cron` header). No redeploy needed once set. Until then the schedule
-  fires and is refused, `x-bridge-secret` remains the only working path, and no
-  reminder fires on its own. NOTE: the project env could not be read on
-  2026-07-28 (CLI token 403 `invalidToken`, no MCP env tool), so `CRON_SECRET`'s
-  absence is INFERRED from the repo, not verified against Vercel.
+  **NOTHING IS OUTSTANDING — the clock is running.** `CRON_SECRET` is already set
+  on the project with Production scope, proven live: the first native invocation
+  (2026-07-28 23:01:22 UTC, 200) authenticated as `via: "vercel-cron"`, reachable
+  only when `process.env.CRON_SECRET` is set AND the incoming Bearer matches it.
+  Both jobs ran clean. Cron timing is APPROXIMATE (`0 * * * *` fired at :01:22);
+  a minute of drift is the platform, not a fault.
+  CAUTION for a future session: the project env CANNOT be read from here — the
+  Vercel CLI token has been 403 `invalidToken` three times (2026-07-10, -17, -28)
+  and the Vercel MCP has NO env-var tool. On 2026-07-28 the repo evidence pointed
+  hard at `CRON_SECRET` being absent and that inference was WRONG. Repo contents
+  are not evidence about Vercel's environment; prove it with a runtime log.
 - **Rate limiting** (`lib/booking/rate-limit.ts`) is SLIDING-window, two tiers per
   surface (a burst in seconds plus a sustained one in minutes or hours), keyed by
   IP everywhere and ALSO by sha256 of the email on confirm. Refused attempts are
@@ -1707,10 +1710,8 @@ section is current state only.
   steps, and the 2026-10-27 retirement recommendation:
   `docs/booking-cutover-inventory-2026-07-28.md`. `/book` stays out of public
   navigation until Michael decides otherwise at swap time.
-- **Still open, none of it code:** set `CRON_SECRET` in Vercel (Production,
-  Encrypted) to finish the cron migration — this also GIVES booking its own cron
-  secret, retiring the shared-with-the-sweep debt; deactivate n8n
-  `Uc9CoYm4B2XSpN5m` on renewal day; the duplicate-event residual (Graph's
+- **Still open, none of it code:** deactivate n8n `Uc9CoYm4B2XSpN5m` on renewal
+  day (the cron replaced it and it never ran); the duplicate-event residual (Graph's
   `transactionId` is the identified fix, unwired because it needs a live Graph
   experiment); creating meeting types and editing intake wording (both wait for
   a real second agent); and deleting Zoho lead `7112178000006506006`, junk from

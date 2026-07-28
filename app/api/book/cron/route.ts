@@ -16,13 +16,16 @@
 //      one that is known to be configured, and it is how a run is triggered by
 //      hand. It retires when n8n does.
 //   2. `Authorization: Bearer <CRON_SECRET>` — what Vercel attaches to a cron
-//      invocation, and only when CRON_SECRET is set on the project. Vercel does
-//      not mint it for you. Until it exists in the project environment the
-//      hourly call arrives with NO Authorization header and is refused here with
-//      a 401, which is the correct and visible failure: the schedule fires, the
-//      jobs do not run, and nothing is silently half-authenticated. Setting
-//      CRON_SECRET in the Vercel dashboard (Production) is the one manual step
-//      that finishes this migration, and it needs no redeploy of this file.
+//      invocation, and only when CRON_SECRET is set on the project. It IS set
+//      (Production), proven live: the first native tick came in as
+//      via='vercel-cron', which this function can only return when the variable
+//      exists and the Bearer matches.
+//      If it is ever removed, Vercel does not mint a replacement: the hourly call
+//      would arrive with NO Authorization header and be refused here with a 401.
+//      That is deliberate, and it is the correct failure — the schedule fires,
+//      the jobs do not run, and nothing is silently half-authenticated. The
+//      alternative, trusting the undocumented `x-vercel-cron` header, would be a
+//      quieter but weaker gate on a route that is necessarily public.
 //
 // Vercel invokes crons with GET, so GET exists purely for the platform and reads
 // its job from the query string. Both verbs run the identical work through

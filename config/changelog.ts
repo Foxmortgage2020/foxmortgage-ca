@@ -15,7 +15,7 @@ export const PLATFORM_NOTES: PlatformNote[] = [
     date: '2026-07-28',
     title: 'The booking reminders now run on their own clock',
     detail:
-      'The hourly job that sends booking reminders and repairs a calendar entry that failed to write used to be scheduled from an outside automation tool. That schedule had never actually been switched on, which is why no reminder has ever gone out by itself. The schedule now lives in the website itself and runs every hour, so there is nothing left to renew or remember to activate. One setup step is still yours: add a value named CRON_SECRET to the site settings in Vercel, under Production. Until that is set the hourly run is turned away for safety, and the old manual trigger stays the only way in. Once it is set, reminders start going out on their own with no further work.',
+      'The hourly job that sends booking reminders and repairs a calendar entry that failed to write used to be scheduled from an outside automation tool. That schedule had never actually been switched on, which is why no reminder had ever gone out by itself. The schedule now lives in the website itself and runs every hour, so there is nothing to renew and nothing to remember to activate. It is live and was watched doing its first run, which came back clean with nothing waiting to be sent and no calendar entry needing repair. Nothing is needed from you. The old manual trigger still works alongside it, and the outside workflow can simply be switched off whenever it suits.',
   },
   {
     date: '2026-07-28',
