@@ -1702,14 +1702,26 @@ section is current state only.
   the two parts cannot drift, and it exists because "Click HERE" cannot be a
   link in plain text. The text part spells the application address out instead.
   The note to Michael stays text-only on purpose.
-- **NO SWAP PERFORMED.** `lib/contact.ts` `bookingUrl` is a HARDCODED CONSTANT
-  (not an env var) still pointing at Zoho Bookings, read by eight portal
-  surfaces; four Support pages also carry the literal string "Schedule time via
-  Zoho Bookings". `RENEWAL_CALENDAR_URL` lives in fox-underwriting and has NEVER
-  been set, so the drip has never sent a Zoho booking link. Full inventory, swap
-  steps, and the 2026-10-27 retirement recommendation:
-  `docs/booking-cutover-inventory-2026-07-28.md`. `/book` stays out of public
-  navigation until Michael decides otherwise at swap time.
+- **SWAP DAY 2026-07-28, PARTIAL BY DESIGN.** Two of the three booking
+  populations now run native, the third was scoped out of the swap-day brief and
+  is still on Zoho. NATIVE: the renewal drip (`RENEWAL_CALENDAR_URL` set by
+  Michael in fox-underwriting, which releases every held touch on the next tick)
+  and the six public CTAs including the SMM enroll wizard (`9d2db8e`, discovery
+  call only per gate JG-1). The CTA retarget is a verified commit. The env var is
+  Michael's assertion, NOT verifiable from this repo, and it was not verified
+  here. **STILL ON ZOHO:** `lib/contact.ts` `bookingUrl` is a HARDCODED
+  CONSTANT (not an env var), read by eight portal surfaces (client status page,
+  qualification explorer, six Support pages), and four of those Support pages
+  carry the literal client-visible string "Schedule time via Zoho Bookings".
+  That is the whole remaining swap, one constant plus four subtitles, and it is
+  cutover-inventory section A. Full inventory and steps:
+  `docs/booking-cutover-inventory-2026-07-28.md`.
+- **Zoho Bookings retires 2026-10-27**, three months past the swap, and only if
+  the account shows zero bookings in the previous 30 days. If it shows any, the
+  date moves out a month. It stays live until then for links Michael pasted by
+  hand, the only population that outlives the swap, because every portal surface
+  renders live and the drip never sent a Zoho link at all. `/book` is NOT in
+  public navigation and stays out until Michael asks for it.
 - **Still open, none of it code:** deactivate n8n `Uc9CoYm4B2XSpN5m` on renewal
   day (the cron replaced it and it never ran); the duplicate-event residual (Graph's
   `transactionId` is the identified fix, unwired because it needs a live Graph
