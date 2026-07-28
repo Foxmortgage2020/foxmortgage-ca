@@ -152,6 +152,14 @@ export const ADMIN_NAV: AdminNavItem[] = [
     description: 'Is the machine healthy: workbench, Zoho, n8n, deploys, bookkeeping.',
   },
   {
+    label: 'Availability',
+    href: '/portal/admin/availability',
+    iconKey: 'CalendarClock',
+    permission: 'booking.manage',
+    group: 'system',
+    description: 'Weekly hours, closed days, meeting types, and upcoming bookings.',
+  },
+  {
     label: 'Users & settings',
     href: '/portal/admin/settings',
     iconKey: 'Settings',

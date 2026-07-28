@@ -43,6 +43,7 @@ import { outlookProvider } from '@/lib/booking/outlook'
 import { googleProvider } from '@/lib/booking/google'
 import {
   availabilityInputs,
+  bookingById,
   bookingByRescheduleToken,
   bookingConfigFor,
   cancelBookingRow,
@@ -503,6 +504,27 @@ export function withoutOwnEvent(busy: BusyInterval[], calendarEventId: string | 
 export async function bookingForToken(rawToken: string): Promise<TokenBooking | null> {
   if (!isRescheduleTokenShape(rawToken)) return null
   const res = await bookingByRescheduleToken(hashToken(rawToken))
+  if (!res.configured || !res.ok) return null
+  return res.data
+}
+
+/**
+ * The same booking by id, for the Availability page.
+ *
+ * THE POINT IS WHAT IT DOES NOT DO. It returns the identical TokenBooking the
+ * token lookup returns, so an admin cancel is `cancelBooking({ by: 'admin' })`
+ * and nothing else. The client's cancellation email and the calendar removal
+ * live inside that function, so an admin cancelling from the desk cannot
+ * accidentally take a quieter path than the client's own link takes. The ONLY
+ * difference between the two doors is the `by` field on the audit trail.
+ *
+ * Deliberately NOT time-gated. SELF_SERVE_CUTOFF_HOURS exists because a client
+ * changing a call with an hour's notice needs a person; Michael IS that person,
+ * so the desk can cancel a call that starts in ten minutes.
+ */
+export async function bookingForAdmin(id: string): Promise<TokenBooking | null> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null
+  const res = await bookingById(id)
   if (!res.configured || !res.ok) return null
   return res.data
 }

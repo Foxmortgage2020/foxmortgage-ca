@@ -51,6 +51,16 @@ export const RECONCILE_STUCK_HOURS = 24
  */
 export const ZOHO_BOOKING_NOTE_PREFIX = 'Booking: '
 
+/**
+ * The host the Availability page is scoped to.
+ *
+ * A SLUG, not a uuid: the page resolves it to an agent id through the store, so
+ * pointing at a second host is this one value and never a code change. When a
+ * real second agent exists this becomes a per-user lookup rather than a
+ * constant, which is a change to one function.
+ */
+export const BOOKING_HOST_SLUG = 'mike'
+
 /** CASL consent method for someone who ticked the box on the booking form. */
 export const CASL_METHOD_EXPRESS = 'Express'
 export const CASL_SOURCE_BOOKING = 'Booking page, foxmortgage.ca'

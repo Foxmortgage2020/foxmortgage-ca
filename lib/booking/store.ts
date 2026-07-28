@@ -12,6 +12,7 @@
 
 import { foxcaOperatorSecret } from '@/lib/foxca-secret'
 import { isDemoMode } from '@/lib/demo'
+import type { EventTypeDraft, HoursWindow, OverrideDraft } from '@/lib/booking/admin'
 import type {
   AvailabilityInputs,
   BookingConfig,
@@ -69,7 +70,7 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<Bookin
 
 // ─── Mapping ─────────────────────────────────────────────────────────────────
 
-function mapIntakeQuestions(raw: unknown): IntakeQuestion[] {
+export function mapIntakeQuestions(raw: unknown): IntakeQuestion[] {
   if (!Array.isArray(raw)) return []
   const out: IntakeQuestion[] = []
   for (const q of raw) {
@@ -312,6 +313,31 @@ export async function getBooking(id: string): Promise<BookingStoreResult<Booking
  * never sent to the database and never stored, so this is the only way in, and
  * a database reader cannot use what they read.
  */
+function mapTokenBooking(raw: any): TokenBooking | null {
+  if (!raw || typeof raw !== 'object') return null
+  return {
+    id: String(raw.id),
+    agentId: String(raw.agentId),
+    hostSlug: String(raw.hostSlug),
+    hostTimezone: String(raw.hostTimezone ?? 'America/Toronto'),
+    hostDisplayName: String(raw.hostDisplayName ?? ''),
+    eventTypeSlug: String(raw.eventTypeSlug),
+    eventTypeName: typeof raw.eventTypeName === 'string' ? raw.eventTypeName : null,
+    durationMinutes: Number(raw.durationMinutes) || 30,
+    startsAt: String(raw.startsAt),
+    endsAt: String(raw.endsAt),
+    localDate: String(raw.localDate),
+    clientName: String(raw.clientName ?? ''),
+    clientEmail: String(raw.clientEmail ?? ''),
+    clientPhone: String(raw.clientPhone ?? ''),
+    clientTimezone: typeof raw.clientTimezone === 'string' ? raw.clientTimezone : null,
+    notes: typeof raw.notes === 'string' ? raw.notes : null,
+    status: raw.status,
+    calendarEventId: typeof raw.calendarEventId === 'string' ? raw.calendarEventId : null,
+    rescheduledCount: Number(raw.rescheduledCount) || 0,
+  }
+}
+
 export async function bookingByRescheduleToken(
   tokenHash: string,
 ): Promise<BookingStoreResult<TokenBooking | null>> {
@@ -320,33 +346,24 @@ export async function bookingByRescheduleToken(
     p_operator_secret: foxcaOperatorSecret(),
   })
   if (!res.configured || !res.ok) return res as BookingStoreResult<TokenBooking | null>
-  const raw = res.data
-  if (!raw || typeof raw !== 'object') return { configured: true, ok: true, data: null }
-  return {
-    configured: true,
-    ok: true,
-    data: {
-      id: String(raw.id),
-      agentId: String(raw.agentId),
-      hostSlug: String(raw.hostSlug),
-      hostTimezone: String(raw.hostTimezone ?? 'America/Toronto'),
-      hostDisplayName: String(raw.hostDisplayName ?? ''),
-      eventTypeSlug: String(raw.eventTypeSlug),
-      eventTypeName: typeof raw.eventTypeName === 'string' ? raw.eventTypeName : null,
-      durationMinutes: Number(raw.durationMinutes) || 30,
-      startsAt: String(raw.startsAt),
-      endsAt: String(raw.endsAt),
-      localDate: String(raw.localDate),
-      clientName: String(raw.clientName ?? ''),
-      clientEmail: String(raw.clientEmail ?? ''),
-      clientPhone: String(raw.clientPhone ?? ''),
-      clientTimezone: typeof raw.clientTimezone === 'string' ? raw.clientTimezone : null,
-      notes: typeof raw.notes === 'string' ? raw.notes : null,
-      status: raw.status,
-      calendarEventId: typeof raw.calendarEventId === 'string' ? raw.calendarEventId : null,
-      rescheduledCount: Number(raw.rescheduledCount) || 0,
-    },
-  }
+  return { configured: true, ok: true, data: mapTokenBooking(res.data) }
+}
+
+/**
+ * The same booking, found by id instead of by token.
+ *
+ * THE SHAPE IS DELIBERATELY IDENTICAL. An admin cancel then runs through the
+ * exact `cancelBooking` the client's own emailed link runs through, so the
+ * client confirmation and the calendar removal cannot be skipped by an admin
+ * taking a different door into the same action.
+ */
+export async function bookingById(id: string): Promise<BookingStoreResult<TokenBooking | null>> {
+  const res = await rpc<any>('booking_admin_by_id', {
+    p_id: id,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<TokenBooking | null>
+  return { configured: true, ok: true, data: mapTokenBooking(res.data) }
 }
 
 export type BookingActionVerdict =
@@ -572,6 +589,255 @@ export async function markSent(id: string, kind: 'confirmation' | 'reminder'): P
     p_kind: kind,
     p_operator_secret: foxcaOperatorSecret(),
   }).catch(() => undefined)
+}
+
+// ─── Session four: the Availability page's own surface ───────────────────────
+
+/** A host slug to its agent id. The page's starting point. */
+export async function agentIdForSlug(slug: string): Promise<BookingStoreResult<string | null>> {
+  const res = await rpc<string | null>('booking_agent_for_slug', {
+    p_slug: slug,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<string | null>
+  return { configured: true, ok: true, data: typeof res.data === 'string' ? res.data : null }
+}
+
+export interface AdminHoursRow {
+  weekday: number
+  windows: HoursWindow[]
+}
+
+export interface AdminOverrideRow {
+  date: string
+  closed: boolean
+  windows: HoursWindow[]
+  note: string | null
+}
+
+export interface AdminEventTypeRow extends EventTypeDraft {}
+
+export interface AdminOverview {
+  host: { agentId: string; slug: string; displayName: string; timezone: string; active: boolean } | null
+  hours: AdminHoursRow[]
+  overrides: AdminOverrideRow[]
+  eventTypes: AdminEventTypeRow[]
+}
+
+/** Windows off the wire, shaped without judgement. The editor validates. */
+function mapWindows(raw: unknown): HoursWindow[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map(w => ({ start: String((w as any)?.start ?? ''), end: String((w as any)?.end ?? '') }))
+    .filter(w => w.start && w.end)
+}
+
+/**
+ * Hours, overrides, and event types for one agent.
+ *
+ * NOT demo-guarded, and that is the existing rule rather than an oversight:
+ * hours and event types are PRACTICE reference data, the same class as lender
+ * names. No client's name, email, or phone is on any of these rows. The
+ * upcoming-bookings read below IS guarded, because that one carries people.
+ */
+export async function adminOverview(agentId: string): Promise<BookingStoreResult<AdminOverview>> {
+  const res = await rpc<any>('booking_admin_overview', {
+    p_agent_id: agentId,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<AdminOverview>
+  const raw = res.data ?? {}
+  const h = raw.host
+  return {
+    configured: true,
+    ok: true,
+    data: {
+      host: h
+        ? {
+            agentId: String(h.agentId),
+            slug: String(h.slug),
+            displayName: String(h.displayName ?? ''),
+            timezone: String(h.timezone ?? 'America/Toronto'),
+            active: h.active !== false,
+          }
+        : null,
+      hours: Array.isArray(raw.hours)
+        ? raw.hours.map((r: any) => ({ weekday: Number(r.weekday), windows: mapWindows(r.windows) }))
+        : [],
+      overrides: Array.isArray(raw.overrides)
+        ? raw.overrides.map((r: any) => ({
+            date: String(r.date),
+            closed: r.closed !== false,
+            windows: mapWindows(r.windows),
+            note: typeof r.note === 'string' ? r.note : null,
+          }))
+        : [],
+      eventTypes: Array.isArray(raw.eventTypes)
+        ? raw.eventTypes.map((r: any) => ({
+            slug: String(r.slug),
+            name: String(r.name ?? ''),
+            description: typeof r.description === 'string' ? r.description : null,
+            durationMinutes: Number(r.durationMinutes) || 30,
+            bufferBeforeMinutes: Number(r.bufferBeforeMinutes) || 0,
+            bufferAfterMinutes: Number(r.bufferAfterMinutes) || 0,
+            minNoticeHours: Number(r.minNoticeHours) || 0,
+            maxAdvanceDays: Number(r.maxAdvanceDays) || 30,
+            maxPerDay: Number(r.maxPerDay) || 8,
+            slotIncrementMinutes: Number(r.slotIncrementMinutes) || 15,
+            intakeQuestions: mapIntakeQuestions(r.intakeQuestions),
+            active: r.active !== false,
+          }))
+        : [],
+    },
+  }
+}
+
+export interface AdminUpcomingRow {
+  id: string
+  startsAt: string
+  endsAt: string
+  eventTypeSlug: string
+  eventTypeName: string | null
+  clientName: string
+  clientEmail: string
+  clientPhone: string
+  clientTimezone: string | null
+  notes: string | null
+  intakeAnswers: Record<string, string>
+  smsConsent: boolean
+  status: string
+  calendarStatus: string
+  source: string
+}
+
+/**
+ * The upcoming list. DEMO-GUARDED, unlike the overview above: these rows carry
+ * a real person's name, email, and number, so demo mode returns nothing at all
+ * rather than a fixture that could be mistaken for a real client.
+ */
+export async function adminUpcoming(
+  agentId: string,
+  limit = 50,
+): Promise<BookingStoreResult<AdminUpcomingRow[]>> {
+  if (isDemoMode()) return { configured: true, ok: true, data: [] }
+  const res = await rpc<any[]>('booking_admin_upcoming', {
+    p_agent_id: agentId,
+    p_limit: limit,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<AdminUpcomingRow[]>
+  const rows = Array.isArray(res.data) ? res.data : []
+  return {
+    configured: true,
+    ok: true,
+    data: rows.map((r: any) => ({
+      id: String(r.id),
+      startsAt: String(r.startsAt),
+      endsAt: String(r.endsAt),
+      eventTypeSlug: String(r.eventTypeSlug ?? ''),
+      eventTypeName: typeof r.eventTypeName === 'string' ? r.eventTypeName : null,
+      clientName: String(r.clientName ?? ''),
+      clientEmail: String(r.clientEmail ?? ''),
+      clientPhone: String(r.clientPhone ?? ''),
+      clientTimezone: typeof r.clientTimezone === 'string' ? r.clientTimezone : null,
+      notes: typeof r.notes === 'string' ? r.notes : null,
+      intakeAnswers: r.intakeAnswers && typeof r.intakeAnswers === 'object' ? r.intakeAnswers : {},
+      smsConsent: r.smsConsent === true,
+      status: String(r.status ?? 'booked'),
+      calendarStatus: String(r.calendarStatus ?? 'not_attempted'),
+      source: String(r.source ?? 'public'),
+    })),
+  }
+}
+
+export type AdminWriteResult =
+  | { configured: false }
+  | { configured: true; ok: true }
+  | { configured: true; ok: false; error: string }
+
+function writeResult(res: BookingStoreResult<unknown>): AdminWriteResult {
+  if (!res.configured) return { configured: false }
+  if (!res.ok) return { configured: true, ok: false, error: res.error }
+  return { configured: true, ok: true }
+}
+
+const DEMO_REFUSAL: AdminWriteResult = {
+  configured: true,
+  ok: false,
+  error: 'Demo mode is read only.',
+}
+
+/** One weekday's hours. An empty windows list means closed, and the function
+ *  deletes the row rather than storing an empty one. */
+export async function setHours(
+  agentId: string,
+  weekday: number,
+  windows: HoursWindow[],
+): Promise<AdminWriteResult> {
+  if (isDemoMode()) return DEMO_REFUSAL
+  return writeResult(
+    await rpc<boolean>('booking_hours_set', {
+      p_agent_id: agentId,
+      p_weekday: weekday,
+      p_windows: windows,
+      p_operator_secret: foxcaOperatorSecret(),
+    }),
+  )
+}
+
+export async function setOverride(
+  agentId: string,
+  draft: OverrideDraft,
+): Promise<AdminWriteResult> {
+  if (isDemoMode()) return DEMO_REFUSAL
+  return writeResult(
+    await rpc<boolean>('booking_override_set', {
+      p_agent_id: agentId,
+      p_date: draft.date,
+      p_closed: draft.closed,
+      p_windows: draft.windows,
+      p_note: draft.note,
+      p_operator_secret: foxcaOperatorSecret(),
+    }),
+  )
+}
+
+export async function deleteOverride(agentId: string, date: string): Promise<AdminWriteResult> {
+  if (isDemoMode()) return DEMO_REFUSAL
+  return writeResult(
+    await rpc<boolean>('booking_override_delete', {
+      p_agent_id: agentId,
+      p_date: date,
+      p_operator_secret: foxcaOperatorSecret(),
+    }),
+  )
+}
+
+export async function updateEventType(
+  agentId: string,
+  draft: EventTypeDraft,
+): Promise<AdminWriteResult> {
+  if (isDemoMode()) return DEMO_REFUSAL
+  const res = await rpc<boolean>('booking_event_type_update', {
+    p_agent_id: agentId,
+    p_slug: draft.slug,
+    p_name: draft.name,
+    p_description: draft.description,
+    p_duration_minutes: draft.durationMinutes,
+    p_buffer_before_minutes: draft.bufferBeforeMinutes,
+    p_buffer_after_minutes: draft.bufferAfterMinutes,
+    p_min_notice_hours: draft.minNoticeHours,
+    p_max_advance_days: draft.maxAdvanceDays,
+    p_max_per_day: draft.maxPerDay,
+    p_slot_increment_minutes: draft.slotIncrementMinutes,
+    p_intake_questions: draft.intakeQuestions,
+    p_active: draft.active,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (res.configured && res.ok && res.data !== true) {
+    return { configured: true, ok: false, error: 'That meeting type no longer exists.' }
+  }
+  return writeResult(res)
 }
 
 export async function markZohoLinked(input: {

@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-28',
+    title: 'Your booking hours are yours to change now',
+    detail:
+      'A new Availability page under System is where you set when the booking pages may offer a time. Weekly hours day by day, with more than one window a day if you want a lunch break. Closed days for holidays, or a day with different hours than usual. Every setting on each of the four kinds of call, the length, the buffers, the notice you need, how far ahead people can book, and how many you will take in a day, each with its allowed range printed underneath. And a list of what is booked ahead, with the client number in front of you and a cancel that sends them the same email and clears the same calendar entry their own cancel link would. Each day and each meeting type saves on its own, so one mistake never blocks the rest. Before this, changing your hours meant changing the database.',
+  },
+  {
+    date: '2026-07-28',
     title: 'The booking pages got their rough edges sanded off',
     detail:
       'Every way the booking flow can go wrong now has its own page instead of a dead end. If the calendar cannot be read, the page says so plainly, offers nothing it cannot keep, and gives both a phone number and an email. Same for a week with no times left, a link that has gone stale, a call that has already happened, and one booked too close to now to move online. The whole flow was also gone over for people using a keyboard or a screen reader, so every box announces its own error and picking a time jumps you straight to the form. Behind the scenes the limits that keep scripts out got tighter and now count by email address as well as by connection, and a calendar entry that fails to write for a full day now emails Michael once a day rather than sitting quietly in a log.',

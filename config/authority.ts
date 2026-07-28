@@ -56,6 +56,12 @@ export const PERMISSIONS = {
   // Session 8: provisioning and offboarding people (the wizard, the people
   // list, disable-and-checklist). Admin only, two-tap confirmed in the UI.
   'people.manage': ['admin'],
+  // Booking session four: the Availability page. Michael's weekly hours, his
+  // closed days, and his event-type settings. PER-AGENT by design (every store
+  // function takes an agent id), admin only in practice because there is one
+  // host. A second agent editing their own availability is a widening of this
+  // key plus a scoping rule, not a new surface.
+  'booking.manage': ['admin'],
   // Session 8: the workbench half of agent provisioning — POST
   // /api/gates/agents (fox-underwriting micro-session 4). Key name is a
   // CONTRACT with that API; admin only on both sides.
@@ -196,6 +202,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'portals.view-as': 'Open any partner portal read-only (view-as)',
   'settings.manage': 'See Settings and the authority matrix',
   'people.manage': 'Provision and offboard people (staff, partners, agents)',
+  'booking.manage': 'Set booking availability, meeting types, and cancel bookings',
   'agents.provision': 'Create the workbench half of a new agent (Gates API)',
   'demo.mode': 'Switch the command center to fictional demo data',
   'underwriting.provision': 'Start an underwriting room before a file reaches Submitted',

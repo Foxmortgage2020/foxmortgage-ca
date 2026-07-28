@@ -29,6 +29,7 @@ import {
   BookOpen,
   BookUser,
   Calculator,
+  CalendarClock,
   ClipboardList,
   DollarSign,
   ExternalLink,
@@ -70,6 +71,7 @@ const ICONS: Record<string, typeof LayoutDashboard> = {
   Calculator,
   ScrollText,
   Activity,
+  CalendarClock,
   Settings,
   Map,
 }

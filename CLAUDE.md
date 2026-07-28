@@ -1591,7 +1591,7 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ---
 
-## Booking engine, current state (sessions one to three of four)
+## Booking engine, current state (all four sessions shipped)
 
 Session entries live in `docs/ledger/2026-07.md` from 2026-07-27 onward. This
 section is current state only.
@@ -1647,14 +1647,47 @@ section is current state only.
   `booking_claim_stuck_alert` returns whether THIS call created it. The claim runs
   BEFORE the retry. An unreachable store returns false and sends nothing; the
   stuck row is still named in the job log every run.
-- **No swap yet.** The renewal drip and every Support page still point at Zoho
-  Bookings via `lib/contact.ts` `bookingUrl`. The cutover is session four.
-- **Open for session four:** the availability dashboard page and the cutover
-  inventory; booking's own cron secret; and the duplicate-event residual (a Graph
-  create that succeeds while its response is lost leaves `pending_retry` and the
-  next reconcile duplicates it) — the mechanism is Microsoft Graph's
-  `transactionId` idempotency key on the event create, identified but not wired,
-  because doing it safely needs a live Graph experiment.
-- Reference: `docs/booking-engine-session-one-2026-07-27.md`.
+- **The Availability page** (`/portal/admin/availability`, authority key
+  `booking.manage`, admin only) is where hours, closed days, and meeting-type
+  settings are changed. Four tabs, each saving on its own. PER-AGENT BY DESIGN:
+  every store function takes an agent id, the id is resolved SERVER-SIDE from
+  `BOOKING_HOST_SLUG` through `booking_agent_for_slug`, and NO route accepts an
+  agent id from the browser (a test asserts this, because a client-supplied
+  agent id on an admin write is how one host would edit another's calendar).
+  Meeting types are EDIT ONLY and the slug is immutable, because the slug IS the
+  public URL. Migration `20260728140000`.
+- **The admin cancel IS the client cancel.** `bookingForAdmin(id)` returns the
+  identical `TokenBooking` the token lookup returns (one shared
+  `mapTokenBooking`), so the desk calls `cancelBooking({ by: 'admin' })` and the
+  client email, the calendar removal, and the Zoho note cannot be skipped by
+  taking a different door. Never add a second cancel path.
+- **Two validators, deliberately different.** `normalizeWindows` (read path)
+  DROPS malformed windows so a bad row can never widen availability.
+  `lib/booking/admin.ts validateWindows` (write path) is LOUD: it refuses and
+  names the problem, and refuses overlaps rather than merging them. Do not
+  "simplify" one into the other. `EVENT_TYPE_BOUNDS` is tested against the
+  column checks in migration 20260727160000, so the page and Postgres cannot
+  drift.
+- **`lib/booking/copy-gate.ts` is the one home for the client copy rules** (no
+  em dash, en dash, semicolon, exclamation point, never "broker"). The tests
+  sweep with it and the Availability editor warns with it, because a meeting
+  type's name and description are typed by an admin and read by a client.
+- **NO SWAP PERFORMED.** `lib/contact.ts` `bookingUrl` is a HARDCODED CONSTANT
+  (not an env var) still pointing at Zoho Bookings, read by eight portal
+  surfaces; four Support pages also carry the literal string "Schedule time via
+  Zoho Bookings". `RENEWAL_CALENDAR_URL` lives in fox-underwriting and has NEVER
+  been set, so the drip has never sent a Zoho booking link. Full inventory, swap
+  steps, and the 2026-10-27 retirement recommendation:
+  `docs/booking-cutover-inventory-2026-07-28.md`. `/book` stays out of public
+  navigation until Michael decides otherwise at swap time.
+- **Still open, none of it code:** bind `Fox Bridge Sweep`
+  (`ju9Qj1NJTOg8P0SB`) to the n8n clock and activate it; booking's own cron
+  secret (needs an env var); the duplicate-event residual (Graph's
+  `transactionId` is the identified fix, unwired because it needs a live Graph
+  experiment); creating meeting types and editing intake wording (both wait for
+  a real second agent); and deleting Zoho lead `7112178000006506006`, junk from
+  session three's proof booking.
+- Reference: `docs/booking-engine-session-one-2026-07-27.md`,
+  `docs/booking-cutover-inventory-2026-07-28.md`.
 
 The session ledger moved verbatim to `docs/ledger/2026-07.md`.
