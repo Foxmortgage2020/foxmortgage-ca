@@ -1672,6 +1672,115 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ## Session Ledger
 
+### 2026-07-27 — Native booking engine, session one of four (the foundation)
+- Base `8dc9f36`. The practice gets its own booking system: public pages at
+  `/book/<host>/<event-type>`, per-agent configuration, a provider-agnostic
+  calendar layer with Outlook built and Google stubbed. NOTHING SWAPS this
+  session — the renewal drip keeps its Zoho Bookings link, and the `/book` pages
+  are deliberately unlinked from public nav. 1000 → **1042 tests** (+42), tsc
+  clean, `next build` green. Two migrations APPLIED LIVE to FOXCA.
+- **STEP 0, THE LOAD-BEARING FINDING: the Graph credential is READ ONLY.** Proven
+  non-destructively by decoding the `roles` claim of an app-only token — the
+  tenant's own statement of what the app may do. Granted roles are exactly
+  `["Calendars.Read"]`. No write. So event creation is a MARKED STUB, and Azure
+  grant steps for Michael are in docs/booking-engine-session-one-2026-07-27.md
+  (App registrations → API permissions → Application permissions →
+  Calendars.ReadWrite → **Grant admin consent**, which is the click that matters).
+  NO Azure change was attempted; no secret value was printed anywhere.
+- **THE STUB IS CAPABILITY-GATED, NOT HARDCODED** (the design choice that matters):
+  `lib/booking/outlook.ts` reads the same `roles` claim at runtime and refuses
+  BEFORE firing a doomed request. So no confusing 403s in the logs, the refusal
+  reason is specific and reaches the booking row's `calendar_detail`, and the day
+  the grant lands it starts writing with ZERO code change and no new env var (the
+  attempt-and-fallback rule this repo already follows for workbench grants).
+  Every booking meanwhile is REAL with `calendar_status='pending_retry'` + reason,
+  which is session two's reconcile queue, already correctly populated.
+- LOUD DEVIATION, "service-role writes only": THERE IS NO FOXCA SERVICE-ROLE KEY
+  (only the anon key, shared with public form intake, plus FOXCA_OPERATOR_SECRET).
+  Minting one would reverse the deliberate 2026-07-09 decision that deleted the
+  workbench's. So this follows the ruling already written into
+  20260717150000_client_links.sql: RLS on, no policies, grants revoked, five
+  narrow security-definer functions each demanding `p_operator_secret` — strictly
+  NARROWER than service-role (five operations, not a schema). The public visitor
+  never reaches Supabase; the Next server makes every call.
+- MIGRATIONS (new files only, nothing existing touched): `20260727160000_booking_engine.sql`
+  (booking_hosts / calendar_connections / booking_event_types / booking_hours /
+  booking_overrides / bookings; RLS + revokes; `booking_config_for`,
+  `booking_availability_inputs`, `booking_create`, `booking_mark_calendar`,
+  `booking_get`) and `20260727160100_booking_seed_mike.sql` (host `mike`, the
+  Outlook row seeded `status='read_only'` with a NULL write target — the Step 0
+  finding written into the DATA — four event types, Mon-Fri 9 to 5). Every table
+  keyed by `agent_id` from the first migration; the value is Michael's canonical
+  workbench `agents.id` `a0000000-...-0001`, resolved live by email, copied in as
+  a VALUE so there is no runtime workbench dependency.
+- SEEDED TYPES: discovery-call 15 / strategy-session 45 / smm-strategy-call 30 /
+  signing-review 20. **DURATIONS ARE THE BRIEF'S AND ARE UNVERIFIED** — browsing to
+  foxmortgage.zohobookings.com is blocked by policy, so Michael's live types could
+  not be read. He confirms or corrects them; from session four they are editable
+  in the dashboard, not in a migration.
+- DESIGN DECISIONS, each stated because each is a real choice: (1) AVAILABILITY
+  FAILS CLOSED — an unreadable calendar offers NO times and shows an honest line
+  pointing at phone and email, because offering times we cannot verify are free
+  double-books a client. (2) THE PREFILL TOKEN CARRIES RECORD IDS ONLY — a signed
+  token is signed, not encrypted, so a name or email in it is a name or email in
+  the URL; contact prefill moves to a server-side lookup in session two, and a
+  test asserts the payload keys and that no `@` appears. (3) THE RATE LIMITER IS
+  BEST EFFORT and says so — in-process state is never for correctness here; the
+  real guards are the DB rules. (4) TWO REDUNDANT CONFLICT CHECKS on purpose: the
+  engine re-check enforces every rule, the SQL re-check + partial unique index on
+  `(agent_id, starts_at) where status='booked'` enforce the two that must hold
+  under concurrency (in practice a taken slot refuses as `slot_not_offered`;
+  `slot_taken` is the true microsecond race). (5) `bookings.local_date` is an
+  ADDITION to the brief's column list — the host-local date computed server-side,
+  which makes every per-day rule DST-correct with zero timezone math in SQL.
+- BUILD: pure + tested `lib/booking/{time,availability,validate,tokens,types}.ts`
+  (timezone math hand-rolled two-pass because this repo vendors no date library);
+  server-only `lib/booking/{calendar,outlook,google,store,engine,rate-limit}.ts`;
+  `app/book/[host]/[eventType]/{page.tsx,BookingFlow.tsx}`; `/api/book/slots` +
+  `/api/book/confirm`; five middleware publicRoutes entries (both `/book` AND
+  `/book/(.*)` per the pair convention, plus each API path literally).
+- VERIFIED LIVE against Michael's REAL calendar, not a fixture: full days show 30
+  open slots, days with real meetings show 23 to 26, Jul 28 starts 10:15 AM
+  because a real event blocks that morning, weekends and today correctly absent;
+  the same day showed 25 open for a 45-minute type and 28 for a 15-minute one. A
+  REAL booking through the REAL form stored 2:00 PM Toronto as `18:00Z`, correct
+  `local_date`, phone normalized `+16475550142`, consent + timestamp, a 64-char
+  token HASH (raw never stored), and `pending_retry` with the honest permission
+  reason. The slot then vanished from the public list ALONG WITH 1:45 PM (the
+  5-minute buffer blocks the neighbour) — 28 → 25, exactly the three slots the
+  padded interval covers. Every refusal path exercised (slot taken, duplicate
+  across different email CASING, off-grid time, outside hours, past time, missing
+  phone, bad email, missing required intake answer, honeypot, unknown host) and
+  after all of it the table held exactly ONE row — every refusal stored nothing.
+  Anon posture proven: all six tables `42501`, every function refuses without the
+  secret and answers with it. Zero horizontal overflow at 1280 AND 375, zero
+  console errors. The proof booking was DELETED (state, not an audit trail).
+- A SELF-CAUGHT BUG WORTH RECORDING: my own copy-gate sweep failed on my own
+  files, correctly — but the sweep was ALSO wrong, because `!` and `;` are
+  ordinary TypeScript. It now strips comments and extracts only JSX text and
+  quoted strings, plus a companion test asserting the extractor really finds page
+  copy so it cannot pass vacuously.
+- GOOGLE, recorded in `lib/booking/google.ts` so nobody discovers it late: OAuth
+  verification for calendar scopes is a LEAD TIME OF WEEKS TO MONTHS (verified
+  domain, privacy policy, demo video, security questionnaire, and for restricted
+  scopes a paid third-party assessment); unverified apps are capped at 100 test
+  users behind a warning screen. If agent two runs on Google Workspace, START THE
+  SUBMISSION A FULL QUARTER AHEAD. Domain-wide delegation avoids it but only
+  inside one Workspace tenant.
+- CUTOVER INVENTORY (session four's job, mapped early as a bonus): `lib/contact.ts:31`
+  is the ONLY booking-URL literal in this repo, feeding 8 consumer surfaces; the
+  vendor name is in user-visible copy at 4 files (`'Schedule time via Zoho Bookings'`);
+  `RENEWAL_CALENDAR_URL` + `COMMS_BOOKING_LINK` live in the WORKBENCH as env vars;
+  `[CalendarLink]` has zero code references in either repo (a Zoho-side merge
+  token); `reviewUrl`/`COMMS_REVIEW_LINK` is the silent twin to cut over in the
+  same pass; two demo fixtures hardcode the pre-cutover held reason.
+- Guardrails held: no new services or vendors (Graph, Supabase, Resend, n8n only),
+  no `vercel env` commands, no Azure changes, no new env var (prefill signing
+  reuses SESSION_SECRET), no existing migration touched, `/book` unlinked from
+  public nav, copy gate on every client string, PII discipline (synthetic design
+  cast + example.com only, proof row deleted). See
+  docs/booking-engine-session-one-2026-07-27.md.
+
 ### 2026-07-20 — P1: BDM contacts on the lender card (portal lane)
 - Base `026af6f`. The lender detail page (Rates → By lender → a lender) gains a Contacts front: approved BDM / underwriter contacts render with tap-to-call + tap-to-email, and an admin adds / edits (supersede) / retires a contact through the human gate. Portal surface only over W1's workbench engine (fox-underwriting `0e1cd07`, migrations 0051+0052); NO workbench code, no migration, no new env var. 944 → **952 tests** (+8), tsc clean, `next build` green, shell lime audit green. Committed NOT pushed.
 - FINDINGS: (1) the by-lender view keys on the QUOTE slug (`?lender` = `rate_quotes.lender_slug`); the workbench contact endpoints key by whatever `lender_slug` the human enters and the read groups by it, so create + read both use the card's own slug (reconcile by construction). (2) STANDING QUESTION via a LIVE workbench query — the book holds **25** distinct approved slugs, the palette's static `HAND_WRITTEN_LENDER_SLUGS` had 23, the exact gap is `duca` + `meridian` (no stale entries). DECISION (loud): do NOT derive the palette from the book (a ~1,257-row read on every admin page + it empties the palette's lender jumps in demo); instead reconciled `config/lenders.ts` (added `duca: 'DUCA'`, `meridian: 'Meridian Credit Union'` → matches the book of 25; duca no longer title-cases to "Duca"). Book-derived-with-static-fallback is the deferred option. (3) W1 CONTRACT: ALL endpoints (read + write) require the browser-minted Clerk `gates` token (NOT portal_readonly), so on DEV the read shows the honest "couldn't reach" — production defers explicitly, never stubbed. Card carries a PRE-BUILT `tel` (`;ext=`) + `phone_display` (rendered, never re-derived); create AUTO-APPROVES; edit SUPERSEDES (response = NEW id → refetch); retire needs a reason; 409 = DUPLICATE (`surface409` passes the real reason). Legacy prose rows are skipped by the endpoint (empty array → teaching state). (4) DEVIATION from "Contacts on the grid card front": the grid card is a `<button>`, so interactive tel:/mailto: cannot nest — the section mounts on the DETAIL page (`LenderPage`, a `<div>`); §1's bulk-in-one-call honored by ONE bulk read at `RatesLenders` feeding both a non-interactive per-card "N contacts on file" line and the detail section.

@@ -50,6 +50,14 @@ export default authMiddleware({
     // the matcher below skips any path ending in `.<word>`, so a token with a
     // dot in it would route around this middleware entirely.
     '/portal/file/(.*)',
+    // The native booking engine (session one). /book/<host>/<event-type> is a
+    // public page a client reaches from a link in an email or a page on the
+    // site, so it must be reachable without an account. Both the bare path and
+    // the wildcard are listed because a wildcard entry does NOT cover its own
+    // bare path. Host and event slugs are validated `^[a-z0-9][a-z0-9-]*$`, so
+    // they are dot-free by construction and cannot route around this matcher.
+    '/book',
+    '/book/(.*)',
     '/api/contact',
     '/api/smm-enroll',
     // The homepage "Start Monitoring" CTA posts here. Without this entry
@@ -62,6 +70,11 @@ export default authMiddleware({
     '/api/onboard/partner/signup',
     '/api/onboard/request-new-link',
     '/api/onboard/lead-capture',
+    // Booking engine endpoints. Listed literally, one line each, because every
+    // public API path in this list is literal and a Clerk 401 here would arrive
+    // with a null body before the handler ever runs.
+    '/api/book/slots',
+    '/api/book/confirm',
     // Bookkeeping service-account routes (FOX-112): the handlers enforce
     // their own Bearer auth via BOOKKEEPING_WEBHOOK_SECRET. They must be
     // exempt from Clerk middleware so the Bearer check can run — Clerk

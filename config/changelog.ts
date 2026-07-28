@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-27',
+    title: 'Fox Mortgage has its own booking pages now',
+    detail:
+      'Clients can pick a time straight on foxmortgage.ca instead of being sent to an outside scheduler. There are four kinds of call to start, a quick discovery call, a full strategy session, a monitoring strategy call, and a signing review. Every one is a phone call where Michael rings the client, so the form asks for a number and the calendar entry carries it. Times come from the real Outlook calendar, so anything already booked is never offered, and each kind of call has its own length, buffer, notice, and daily limit. The page shows times in the visitor own timezone and asks, unticked, whether they are happy to get texts and emails, which is recorded with the moment they said yes. The pages are live but not linked from the menu yet, and the renewal drip still uses the old link until the new one has been through its full test run.',
+  },
+  {
     date: '2026-07-20',
     title: 'Lender pages get a contacts list you can call or email in one tap',
     detail:
