@@ -35,6 +35,11 @@ interface Props {
   durationMinutes: number
   intakeQuestions: IntakeQuestion[]
   prefillToken: string | null
+  // Resolved SERVER-SIDE from the token's record ids. Never parsed from a URL,
+  // never carried inside the token itself.
+  prefillName: string | null
+  prefillEmail: string | null
+  prefillPhone: string | null
   fallbackPhone: string
   fallbackPhoneHref: string
   fallbackEmail: string
@@ -101,14 +106,18 @@ export default function BookingFlow(props: Props) {
   const [confirmed, setConfirmed] = useState<{ startsAt: string } | null>(null)
 
   const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
+    name: props.prefillName ?? '',
+    email: props.prefillEmail ?? '',
+    phone: props.prefillPhone ?? '',
     notes: '',
     smsConsent: false,
     company: '', // honeypot
     answers: {} as Record<string, string>,
   })
+
+  // True when we already know who this is. Consent still starts UNTICKED, because
+  // knowing someone is not the same as them agreeing to be contacted.
+  const knownClient = Boolean(props.prefillName || props.prefillEmail)
 
   const tz = useMemo(visitorTimezone, [])
 
@@ -358,10 +367,16 @@ export default function BookingFlow(props: Props) {
       {selectedSlot && (
         <form onSubmit={submit} className="border-t border-gray-200 pt-8">
           <h2 className="font-heading font-bold text-navy text-xl mb-2">Your details</h2>
-          <p className="font-body text-gray-600 text-sm mb-6">
+          <p className="font-body text-gray-600 text-sm mb-2">
             {props.eventName} on {fmtDayLong(selectedSlot.start, tz)} at{' '}
             {fmtTime(selectedSlot.start, tz)}, {props.durationMinutes} minutes.
           </p>
+          {knownClient && (
+            <p className="font-body text-gray-600 text-sm mb-6">
+              We filled in what we have on file. Change anything that is out of date.
+            </p>
+          )}
+          {!knownClient && <div className="mb-6" />}
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>

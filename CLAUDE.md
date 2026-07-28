@@ -1670,6 +1670,38 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ---
 
+## Booking engine, current state (sessions one and two of four)
+
+Session entries live in `docs/ledger/2026-07.md` from 2026-07-27 onward. This
+section is current state only.
+
+- **Public pages** at `/book/<host>/<event-type>`, unlinked from public nav.
+  Manage page at `/book/manage/<token>`. Four event types seeded for host `mike`:
+  discovery-call 15 / strategy-session 45 / smm-strategy-call 30 / signing-review
+  20, all with 5 to 10 minute after-buffers. **Durations and buffers CONFIRMED by
+  Michael 2026-07-27.**
+- **Graph is READ AND WRITE.** The roles claim carries `Calendars.Read` and
+  `Calendars.ReadWrite`. `lib/booking/outlook.ts` gates on that claim rather than
+  hardcoding, so a revoked grant degrades to honest refusals rather than errors.
+  The permission is tenant-wide; an ApplicationAccessPolicy to scope it to one
+  mailbox is still open (it covers the Today band's read grant too).
+- **Availability fails closed.** No calendar visibility means no times offered.
+- **Storage** is FOXCA, RLS on, no policies, grants revoked, security-definer
+  functions each demanding `p_operator_secret`. There is no FOXCA service-role
+  key and one is not to be minted.
+- **Consent** writes the four `CASL_*` fields on the Contact with method
+  `Express`, and ONLY ever on a tick. An unticked box writes nothing at all.
+- **No Zoho Tasks are created by the booking flow**, deliberately. The calendar is
+  the operational surface.
+- **`/api/book/cron`** runs the hourly reminder and calendar-reconcile jobs behind
+  `x-bridge-secret` / `UW_BRIDGE_SECRET`, reusing the underwriting sweep's secret
+  because session two could not provision env vars. **Session three should give
+  booking its own secret.** n8n `Uc9CoYm4B2XSpN5m` is the clock, INACTIVE pending
+  credential binding.
+- **No swap yet.** The renewal drip and every Support page still point at Zoho
+  Bookings via `lib/contact.ts` `bookingUrl`. The cutover is session four.
+- Reference: `docs/booking-engine-session-one-2026-07-27.md`.
+
 ## Session Ledger
 
 ### 2026-07-27 — Native booking engine, session one of four (the foundation)

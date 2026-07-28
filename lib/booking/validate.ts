@@ -161,6 +161,10 @@ export const REFUSAL_COPY: Record<string, string> = {
   rate_limited: 'That is a lot of tries in a row. Please wait a minute and try again.',
   demo_mode: 'This is a demo. Nothing is booked here.',
   store_unavailable: 'We could not save that just now. Please call or email and we will book it for you.',
+  not_found: 'We could not find that booking. The link may be old.',
+  already_cancelled: 'That booking is already cancelled. There is nothing left to do.',
+  not_active: 'That booking is not open any more. Please call or email if you need a new time.',
+  too_late: 'That one is too close to now to change online. Please call and we will sort it out.',
   unknown: 'We could not book that time. Please call or email and we will sort it out.',
 }
 

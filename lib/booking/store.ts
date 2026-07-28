@@ -18,6 +18,7 @@ import type {
   BookingRecord,
   ExistingBooking,
   IntakeQuestion,
+  TokenBooking,
 } from '@/lib/booking/types'
 
 export type BookingStoreResult<T> =
@@ -174,7 +175,8 @@ function mapBooking(raw: any): BookingRecord | null {
 // NOT demo-guarded, deliberately: booking hosts, event types, and hours are
 // PRACTICE reference data, not borrower data — the same rule that keeps lender
 // names real in demo (Session 9). No client's name, email, or phone is on any of
-// these rows. `bookingsInRange` is different and IS guarded below.
+// these rows. The WRITES below are guarded, and the machine jobs (reminders,
+// reconcile) refuse to run in demo rather than silently no-opping their stamps.
 
 export async function bookingConfigFor(
   hostSlug: string,
@@ -301,4 +303,263 @@ export async function getBooking(id: string): Promise<BookingStoreResult<Booking
   })
   if (!res.configured || !res.ok) return res as BookingStoreResult<BookingRecord | null>
   return { configured: true, ok: true, data: mapBooking(res.data) }
+}
+
+// ─── Session two: the manage, reconcile, and reminder surface ────────────────
+
+/**
+ * Look a booking up by the sha256 of its reschedule token. The RAW token is
+ * never sent to the database and never stored, so this is the only way in, and
+ * a database reader cannot use what they read.
+ */
+export async function bookingByRescheduleToken(
+  tokenHash: string,
+): Promise<BookingStoreResult<TokenBooking | null>> {
+  const res = await rpc<any>('booking_by_reschedule_token', {
+    p_token_hash: tokenHash,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<TokenBooking | null>
+  const raw = res.data
+  if (!raw || typeof raw !== 'object') return { configured: true, ok: true, data: null }
+  return {
+    configured: true,
+    ok: true,
+    data: {
+      id: String(raw.id),
+      agentId: String(raw.agentId),
+      hostSlug: String(raw.hostSlug),
+      hostTimezone: String(raw.hostTimezone ?? 'America/Toronto'),
+      hostDisplayName: String(raw.hostDisplayName ?? ''),
+      eventTypeSlug: String(raw.eventTypeSlug),
+      eventTypeName: typeof raw.eventTypeName === 'string' ? raw.eventTypeName : null,
+      durationMinutes: Number(raw.durationMinutes) || 30,
+      startsAt: String(raw.startsAt),
+      endsAt: String(raw.endsAt),
+      localDate: String(raw.localDate),
+      clientName: String(raw.clientName ?? ''),
+      clientEmail: String(raw.clientEmail ?? ''),
+      clientPhone: String(raw.clientPhone ?? ''),
+      clientTimezone: typeof raw.clientTimezone === 'string' ? raw.clientTimezone : null,
+      notes: typeof raw.notes === 'string' ? raw.notes : null,
+      status: raw.status,
+      calendarEventId: typeof raw.calendarEventId === 'string' ? raw.calendarEventId : null,
+      rescheduledCount: Number(raw.rescheduledCount) || 0,
+    },
+  }
+}
+
+export type BookingActionVerdict =
+  | { ok: true; calendarEventId?: string | null; previousStartsAt?: string; unchanged?: boolean }
+  | { ok: false; reason: string }
+
+function verdictFrom(raw: any): BookingActionVerdict {
+  if (raw?.ok === true) {
+    return {
+      ok: true,
+      calendarEventId: typeof raw.calendarEventId === 'string' ? raw.calendarEventId : null,
+      previousStartsAt: typeof raw.previousStartsAt === 'string' ? raw.previousStartsAt : undefined,
+      unchanged: raw.unchanged === true,
+    }
+  }
+  return { ok: false, reason: typeof raw?.reason === 'string' ? raw.reason : 'unknown' }
+}
+
+export async function cancelBookingRow(input: {
+  id: string
+  reason: string | null
+  by: 'client' | 'admin' | 'system'
+}): Promise<BookingStoreResult<BookingActionVerdict>> {
+  if (isDemoMode()) {
+    return { configured: true, ok: true, data: { ok: false, reason: 'demo_mode' } }
+  }
+  const res = await rpc<any>('booking_cancel', {
+    p_id: input.id,
+    p_reason: input.reason,
+    p_by: input.by,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<BookingActionVerdict>
+  return { configured: true, ok: true, data: verdictFrom(res.data) }
+}
+
+export async function rescheduleBookingRow(input: {
+  id: string
+  startsAt: string
+  endsAt: string
+  localDate: string
+}): Promise<BookingStoreResult<BookingActionVerdict>> {
+  if (isDemoMode()) {
+    return { configured: true, ok: true, data: { ok: false, reason: 'demo_mode' } }
+  }
+  const res = await rpc<any>('booking_reschedule', {
+    p_id: input.id,
+    p_starts_at: input.startsAt,
+    p_ends_at: input.endsAt,
+    p_local_date: input.localDate,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<BookingActionVerdict>
+  return { configured: true, ok: true, data: verdictFrom(res.data) }
+}
+
+export interface PendingCalendarRow {
+  id: string
+  agentId: string
+  hostSlug: string
+  hostTimezone: string
+  hostDisplayName: string
+  eventTypeSlug: string
+  eventTypeName: string | null
+  durationMinutes: number
+  startsAt: string
+  endsAt: string
+  clientName: string
+  clientPhone: string
+  clientEmail: string
+  clientTimezone: string | null
+  notes: string | null
+  intakeAnswers: Record<string, string>
+  smsConsent: boolean
+  calendarEventId: string | null
+  calendarAttempts: number
+  calendarDetail: string | null
+  createdAt: string
+  ageHours: number
+}
+
+export async function pendingCalendarBookings(
+  limit: number,
+): Promise<BookingStoreResult<PendingCalendarRow[]>> {
+  const res = await rpc<any[]>('booking_pending_calendar', {
+    p_limit: limit,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<PendingCalendarRow[]>
+  const rows = Array.isArray(res.data) ? res.data : []
+  return {
+    configured: true,
+    ok: true,
+    data: rows.map((r: any) => ({
+      id: String(r.id),
+      agentId: String(r.agentId),
+      hostSlug: String(r.hostSlug ?? ''),
+      hostTimezone: String(r.hostTimezone ?? 'America/Toronto'),
+      hostDisplayName: String(r.hostDisplayName ?? ''),
+      eventTypeSlug: String(r.eventTypeSlug),
+      eventTypeName: typeof r.eventTypeName === 'string' ? r.eventTypeName : null,
+      durationMinutes: Number(r.durationMinutes) || 30,
+      startsAt: String(r.startsAt),
+      endsAt: String(r.endsAt),
+      clientName: String(r.clientName ?? ''),
+      clientPhone: String(r.clientPhone ?? ''),
+      clientEmail: String(r.clientEmail ?? ''),
+      clientTimezone: typeof r.clientTimezone === 'string' ? r.clientTimezone : null,
+      notes: typeof r.notes === 'string' ? r.notes : null,
+      intakeAnswers: r.intakeAnswers && typeof r.intakeAnswers === 'object' ? r.intakeAnswers : {},
+      smsConsent: r.smsConsent === true,
+      calendarEventId: typeof r.calendarEventId === 'string' ? r.calendarEventId : null,
+      calendarAttempts: Number(r.calendarAttempts) || 0,
+      calendarDetail: typeof r.calendarDetail === 'string' ? r.calendarDetail : null,
+      createdAt: String(r.createdAt),
+      ageHours: Number(r.ageHours) || 0,
+    })),
+  }
+}
+
+/** Stamp a calendar attempt. Unlike markCalendarOutcome this counts attempts and
+ *  CAN clear the event id, which a cancel needs once the provider event is gone. */
+export async function markCalendarAttempt(input: {
+  id: string
+  calendarEventId: string | null
+  calendarStatus: 'written' | 'pending_retry' | 'not_attempted'
+  detail: string | null
+  permanent: boolean
+  clearEvent?: boolean
+}): Promise<void> {
+  if (isDemoMode()) return
+  await rpc<boolean>('booking_mark_calendar_attempt', {
+    p_id: input.id,
+    p_calendar_event_id: input.calendarEventId,
+    p_calendar_status: input.calendarStatus,
+    p_detail: input.detail,
+    p_permanent: input.permanent,
+    p_clear_event: input.clearEvent === true,
+    p_operator_secret: foxcaOperatorSecret(),
+  }).catch(() => undefined)
+}
+
+export interface DueReminderRow {
+  id: string
+  eventTypeName: string | null
+  durationMinutes: number
+  startsAt: string
+  endsAt: string
+  clientName: string
+  clientEmail: string
+  clientPhone: string
+  clientTimezone: string | null
+  hostDisplayName: string
+  hostTimezone: string
+}
+
+export async function dueReminders(input: {
+  fromIso: string
+  toIso: string
+  minLeadHours: number
+  limit: number
+}): Promise<BookingStoreResult<DueReminderRow[]>> {
+  const res = await rpc<any[]>('booking_due_reminders', {
+    p_from: input.fromIso,
+    p_to: input.toIso,
+    p_min_lead_hours: input.minLeadHours,
+    p_limit: input.limit,
+    p_operator_secret: foxcaOperatorSecret(),
+  })
+  if (!res.configured || !res.ok) return res as BookingStoreResult<DueReminderRow[]>
+  const rows = Array.isArray(res.data) ? res.data : []
+  return {
+    configured: true,
+    ok: true,
+    data: rows.map((r: any) => ({
+      id: String(r.id),
+      eventTypeName: typeof r.eventTypeName === 'string' ? r.eventTypeName : null,
+      durationMinutes: Number(r.durationMinutes) || 30,
+      startsAt: String(r.startsAt),
+      endsAt: String(r.endsAt),
+      clientName: String(r.clientName ?? ''),
+      clientEmail: String(r.clientEmail ?? ''),
+      clientPhone: String(r.clientPhone ?? ''),
+      clientTimezone: typeof r.clientTimezone === 'string' ? r.clientTimezone : null,
+      hostDisplayName: String(r.hostDisplayName ?? ''),
+      hostTimezone: String(r.hostTimezone ?? 'America/Toronto'),
+    })),
+  }
+}
+
+export async function markSent(id: string, kind: 'confirmation' | 'reminder'): Promise<void> {
+  if (isDemoMode()) return
+  await rpc<boolean>('booking_mark_sent', {
+    p_id: id,
+    p_kind: kind,
+    p_operator_secret: foxcaOperatorSecret(),
+  }).catch(() => undefined)
+}
+
+export async function markZohoLinked(input: {
+  id: string
+  detail: string
+  contactId?: string | null
+  dealId?: string | null
+  leadId?: string | null
+}): Promise<void> {
+  if (isDemoMode()) return
+  await rpc<boolean>('booking_mark_zoho', {
+    p_id: input.id,
+    p_detail: input.detail.slice(0, 500),
+    p_contact_id: input.contactId ?? null,
+    p_deal_id: input.dealId ?? null,
+    p_lead_id: input.leadId ?? null,
+    p_operator_secret: foxcaOperatorSecret(),
+  }).catch(() => undefined)
 }

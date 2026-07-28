@@ -11,7 +11,7 @@
 // lib/booking/availability.ts); a write failure is recoverable and leaves the
 // booking with calendar_status 'pending_retry' for the reconcile job.
 
-import type { Interval, ProviderId } from '@/lib/booking/types'
+import type { BusyInterval, ProviderId } from '@/lib/booking/types'
 
 export interface CalendarRange {
   startUtc: string
@@ -19,7 +19,7 @@ export interface CalendarRange {
 }
 
 export type BusyResult =
-  | { ok: true; busy: Interval[] }
+  | { ok: true; busy: BusyInterval[] }
   | { ok: false; reason: string }
 
 export interface CreateEventInput {

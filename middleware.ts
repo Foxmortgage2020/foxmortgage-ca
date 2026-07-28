@@ -75,6 +75,14 @@ export default authMiddleware({
     // with a null body before the handler ever runs.
     '/api/book/slots',
     '/api/book/confirm',
+    // Session two. The manage routes are authorised by the reschedule token
+    // itself, the same model as the client status page, so Clerk must not gate
+    // them. The cron route enforces its own x-bridge-secret, the underwriting
+    // sweep precedent.
+    '/api/book/manage/slots',
+    '/api/book/manage/reschedule',
+    '/api/book/manage/cancel',
+    '/api/book/cron',
     // Bookkeeping service-account routes (FOX-112): the handlers enforce
     // their own Bearer auth via BOOKKEEPING_WEBHOOK_SECRET. They must be
     // exempt from Clerk middleware so the Bearer check can run — Clerk

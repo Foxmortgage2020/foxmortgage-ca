@@ -18,6 +18,8 @@ import { notFound } from 'next/navigation'
 import Nav from '@/components/nav'
 import Footer from '@/components/footer'
 import { loadConfig } from '@/lib/booking/engine'
+import { readPrefill } from '@/lib/booking/tokens'
+import { getContactForPrefill } from '@/lib/booking/zoho-link'
 import { CONTACT } from '@/lib/contact'
 import BookingFlow from './BookingFlow'
 
@@ -57,6 +59,15 @@ export default async function BookPage({ params, searchParams }: PageProps) {
   const config = await loadConfig(host, event)
   if (!config) notFound()
 
+  // SERVER-SIDE PREFILL. The link carries an opaque signed token holding record
+  // ids and nothing else. The name, email, and number are fetched HERE and
+  // rendered straight into the form, so no personal data ever rides the URL, the
+  // token payload, or any client-side code path. A token that does not resolve,
+  // or a contact we cannot read, simply means an empty form.
+  const rawToken = typeof searchParams?.k === 'string' ? searchParams.k : null
+  const claims = readPrefill(rawToken, Date.now())
+  const prefill = claims?.zohoContactId ? await getContactForPrefill(claims.zohoContactId) : null
+
   return (
     <main className="min-h-screen">
       <Nav />
@@ -90,7 +101,10 @@ export default async function BookPage({ params, searchParams }: PageProps) {
               eventName={config.eventType.name}
               durationMinutes={config.eventType.durationMinutes}
               intakeQuestions={config.eventType.intakeQuestions}
-              prefillToken={typeof searchParams?.k === 'string' ? searchParams.k : null}
+              prefillToken={rawToken}
+              prefillName={prefill?.name ?? null}
+              prefillEmail={prefill?.email ?? null}
+              prefillPhone={prefill?.phone ?? null}
               fallbackPhone={CONTACT.phone.display}
               fallbackPhoneHref={CONTACT.phone.href}
               fallbackEmail={CONTACT.email.address}

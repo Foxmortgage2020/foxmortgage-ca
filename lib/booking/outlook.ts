@@ -7,24 +7,23 @@
 // radii. Secrets are read here and nowhere else in the booking engine, never
 // NEXT_PUBLIC, never logged — logs carry status codes and durations only.
 //
-// ─── THE WRITE STORY, which is the important part of this file ───────────────
+// ─── THE WRITE STORY ─────────────────────────────────────────────────────────
 //
-// STEP 0 FINDING, verified live 2026-07-27: the application credential carries
-// exactly ["Calendars.Read"]. It can see Michael's calendar. It CANNOT create an
-// event on it. So `createEvent` is a MARKED STUB today.
+// SESSION ONE found the credential READ-ONLY: the roles claim was exactly
+// ["Calendars.Read"], so createEvent refused before firing and every booking
+// landed as pending_retry with the reason.
 //
-// It is not a hardcoded stub. `capability()` decodes the `roles` claim of the
-// client-credentials token — the tenant's own statement of what this app may do —
-// and createEvent refuses BEFORE making a request when the write role is absent.
-// That does three things a bare stub would not:
-//   1. No doomed POST is ever fired, so no confusing 403 lands in the logs.
-//   2. The refusal reason is honest and specific, and reaches the booking row's
-//      calendar_detail, so the state is visible rather than folklore.
-//   3. The day an admin grants Calendars.ReadWrite, this file starts writing with
-//      NO code change and NO new env var — the attempt-and-fallback rule the rest
-//      of this repo already follows for workbench grants.
+// SESSION TWO: the grant landed. The roles claim now reads
+// ["Calendars.Read", "Calendars.ReadWrite"], and events are created live and
+// verified. NOT ONE LINE OF THIS FILE CHANGED to make that happen, which was the
+// whole point of gating on the claim rather than hardcoding a stub: `capability()`
+// reads the tenant's own statement of what this app may do, so the day an admin
+// granted the permission the code started writing on its next token.
 //
-// Azure grant steps for Michael are in docs/booking-engine-session-one.md.
+// The gate stays exactly as it was, because it is not scaffolding. If the grant
+// is ever revoked, createEvent goes back to refusing before it fires, the
+// refusal reason reaches the booking row's calendar_detail, and the reconcile
+// job stops hammering a wall. That is the steady state, not a migration step.
 
 import { createCache } from '@/lib/cache'
 import type {
@@ -36,7 +35,7 @@ import type {
   CreateEventResult,
   ProviderCapability,
 } from '@/lib/booking/calendar'
-import type { Interval } from '@/lib/booking/types'
+import type { BusyInterval } from '@/lib/booking/types'
 
 const GRAPH = 'https://graph.microsoft.com/v1.0'
 const WRITE_ROLE = /^Calendars\.ReadWrite/
@@ -125,6 +124,7 @@ async function graphToken(env: MsEnv): Promise<CachedToken> {
 const NON_BLOCKING_SHOW_AS = new Set(['free', 'unknown'])
 
 interface GraphEvent {
+  id?: string
   start?: { dateTime?: string }
   end?: { dateTime?: string }
   showAs?: string
@@ -143,11 +143,11 @@ function naiveUtcToIso(value: unknown): string | null {
 // A short cache so the slots endpoint and an immediate confirm do not both hit
 // Graph. Keyed by the exact range. Only the success path is cached — a failure is
 // never remembered, because the next request must be free to succeed.
-const busyCache = createCache<string, Interval[]>({ max: 8, ttlMs: 45_000 })
+const busyCache = createCache<string, BusyInterval[]>({ max: 8, ttlMs: 45_000 })
 
 const MAX_PAGES = 8
 
-async function fetchBusy(env: MsEnv, range: CalendarRange): Promise<Interval[]> {
+async function fetchBusy(env: MsEnv, range: CalendarRange): Promise<BusyInterval[]> {
   const cacheKey = `${env.upn}|${range.startUtc}|${range.endUtc}`
   const cached = busyCache.get(cacheKey)
   if (cached !== undefined) return cached
@@ -156,12 +156,12 @@ async function fetchBusy(env: MsEnv, range: CalendarRange): Promise<Interval[]> 
   const qs = new URLSearchParams({
     startDateTime: range.startUtc,
     endDateTime: range.endUtc,
-    $select: 'start,end,showAs,isCancelled',
+    $select: 'id,start,end,showAs,isCancelled',
     $orderby: 'start/dateTime',
     $top: '250',
   })
   let url: string | null = `${GRAPH}/users/${encodeURIComponent(env.upn)}/calendarView?${qs}`
-  const out: Interval[] = []
+  const out: BusyInterval[] = []
 
   for (let page = 0; page < MAX_PAGES && url; page++) {
     const res: Response = await fetch(url, {
@@ -180,7 +180,7 @@ async function fetchBusy(env: MsEnv, range: CalendarRange): Promise<Interval[]> 
       const start = naiveUtcToIso(e.start?.dateTime)
       const end = naiveUtcToIso(e.end?.dateTime)
       if (!start || !end) continue
-      out.push({ start, end })
+      out.push({ start, end, id: typeof e.id === 'string' ? e.id : undefined })
     }
     url = typeof j['@odata.nextLink'] === 'string' ? j['@odata.nextLink'] : null
   }

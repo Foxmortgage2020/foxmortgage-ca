@@ -46,6 +46,19 @@ export interface Interval {
   end: string
 }
 
+/**
+ * Provider busy, carrying the provider's own event id where it has one.
+ *
+ * The id is load-bearing for a RESCHEDULE: a booking's own calendar entry sits
+ * in the busy list, so without it the engine would treat the booking as an
+ * obstacle to its own move and withhold every slot next to the time the client
+ * already holds. Excluding the row from the bookings table is not enough,
+ * because the same meeting is in the calendar too.
+ */
+export interface BusyInterval extends Interval {
+  id?: string
+}
+
 /** A live booking, carrying the buffers of the event type it was made under. */
 export interface ExistingBooking extends Interval {
   localDate: string
@@ -112,7 +125,40 @@ export interface BookingRecord {
   hostDisplayName: string
 }
 
-/** Why a confirm attempt did not become a booking. Each maps to plain copy. */
+/**
+ * A booking resolved from its reschedule token, carrying just enough host and
+ * event context for the manage page to re-run availability without a second read.
+ */
+export interface TokenBooking {
+  id: string
+  agentId: string
+  hostSlug: string
+  hostTimezone: string
+  hostDisplayName: string
+  eventTypeSlug: string
+  eventTypeName: string | null
+  durationMinutes: number
+  startsAt: string
+  endsAt: string
+  localDate: string
+  clientName: string
+  clientEmail: string
+  clientPhone: string
+  clientTimezone: string | null
+  notes: string | null
+  status: 'booked' | 'cancelled' | 'rescheduled' | 'no_show'
+  calendarEventId: string | null
+  rescheduledCount: number
+}
+
+/**
+ * Why an attempt did not land. Each maps to one plain sentence in
+ * lib/booking/validate.ts REFUSAL_COPY.
+ *
+ * 'store_unavailable' and 'demo_mode' are members now rather than riding the
+ * loose `| string` arm they used in session one, so a new reason cannot be
+ * introduced without also giving it copy.
+ */
 export type BookingRefusal =
   | 'slot_taken'
   | 'duplicate_pending'
@@ -123,3 +169,9 @@ export type BookingRefusal =
   | 'slot_not_offered'
   | 'calendar_unreadable'
   | 'rate_limited'
+  | 'store_unavailable'
+  | 'demo_mode'
+  | 'not_found'
+  | 'already_cancelled'
+  | 'not_active'
+  | 'too_late'
