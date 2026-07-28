@@ -18,6 +18,13 @@ import {
   type BookingMailKind,
 } from '@/lib/booking/email-copy'
 import { CONSENT_LANGUAGE } from '@/lib/booking/engine'
+import {
+  APPLICATION_SENTENCE,
+  APPLICATION_URL,
+  WEBSITE_URL,
+  signatureTextLines,
+} from '@/lib/booking/signature'
+import { CONTACT } from '@/lib/contact'
 
 const KINDS: BookingMailKind[] = ['booked', 'rescheduled', 'cancelled', 'reminder']
 
@@ -92,9 +99,96 @@ describe('client mail passes the copy gate', () => {
 
   it('is not vacuous, it really is reading the copy', () => {
     const mail = buildClientMail('booked', facts())
-    expect(mail.text).toContain('Mike Fox')
+    expect(mail.text).toContain('MICHAEL FOX')
     expect(mail.text).toContain('Mortgage Agent, Level 2')
     expect(mail.text).toContain('(647) 555-0142')
+  })
+
+  it('gates the HTML part too, which the text sweep above cannot see', () => {
+    const bad: string[] = []
+    for (const kind of KINDS) {
+      const html = buildClientMail(kind, facts()).html ?? ''
+      // Strip tags and hrefs first: a URL is not prose, and the application
+      // link legitimately carries brokerName and brokerId as query parameters.
+      const visible = html.replace(/<[^>]*>/g, ' ')
+      for (const o of offenders(visible)) bad.push(`${kind} html: ${o}`)
+    }
+    expect(bad).toEqual([])
+  })
+})
+
+// ─── The signature ───────────────────────────────────────────────────────────
+
+describe("Michael's signature is on every client email, from one source", () => {
+  it('all four kinds carry every signature line', () => {
+    for (const kind of KINDS) {
+      const mail = buildClientMail(kind, facts())
+      for (const line of signatureTextLines().filter(Boolean)) {
+        expect(mail.text, `${kind} is missing: ${line}`).toContain(line)
+      }
+    }
+  })
+
+  it('the title and the name are exactly as supplied', () => {
+    const text = buildClientMail('booked', facts()).text
+    expect(text).toContain('MICHAEL FOX')
+    expect(text).toContain('Mortgage Agent, Level 2')
+    expect(text).toContain('License M21000367')
+    // Never the old sign-off, in any kind.
+    for (const kind of KINDS) {
+      expect(buildClientMail(kind, facts()).text).not.toContain('Mike Fox\nMortgage Agent')
+    }
+  })
+
+  it('the application sentence ends in a period, never an exclamation point', () => {
+    expect(APPLICATION_SENTENCE).toBe('Click HERE to start your online application.')
+    expect(APPLICATION_SENTENCE).not.toContain('!')
+  })
+
+  it('HERE is a real link in the html, and the address is spelled out in the text', () => {
+    const mail = buildClientMail('booked', facts())
+    expect(mail.html).toContain(`href="${APPLICATION_URL}"`.replace(/&/g, '&amp;'))
+    expect(mail.html).toContain('>HERE</a>')
+    // Plain-text readers cannot click a word, so they get the address itself.
+    expect(mail.text).toContain(APPLICATION_URL)
+  })
+
+  it('the website line links out', () => {
+    const html = buildClientMail('booked', facts()).html ?? ''
+    expect(html).toContain(`href="${WEBSITE_URL}"`)
+    expect(html).toContain('www.foxmortgage.ca')
+  })
+
+  it('THE PHONE IS NOT WRITTEN INTO THE SIGNATURE, it comes from lib/contact.ts', () => {
+    // tests/contact-number.test.ts forbids the literal anywhere but contact.ts.
+    // This asserts the consequence: the signature renders the CONTACT value.
+    const src = readFileSync('lib/booking/signature.ts', 'utf8')
+    expect(src).toContain('CONTACT.phone.display')
+    expect(src).not.toMatch(/\d{3}-\d{3}-\d{4}/)
+    expect(signatureTextLines().join('\n')).toContain(CONTACT.phone.display)
+  })
+
+  it('the body and the html say the same things', () => {
+    // The html is DERIVED from the text body, so a sentence cannot exist in one
+    // and not the other. Spot-check the load-bearing one.
+    const mail = buildClientMail('rescheduled', facts())
+    expect(mail.text).toContain('The updated appointment is attached')
+    expect(mail.html).toContain('The updated appointment is attached')
+  })
+
+  it('the manage link is clickable in the html', () => {
+    const mail = buildClientMail('booked', facts())
+    expect(mail.html).toContain('href="https://foxmortgage.ca/book/manage/abc"')
+  })
+
+  it('the note to Michael stays plain text, it is internal', () => {
+    const host = buildHostMail('booked', facts(), {
+      notes: null,
+      answers: {},
+      smsConsent: false,
+      calendarWritten: true,
+    })
+    expect(host.html).toBeUndefined()
   })
 })
 

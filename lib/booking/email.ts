@@ -111,7 +111,11 @@ export async function sendBookingMail(input: BookingMailInput): Promise<MailOutc
       to: facts.clientEmail,
       replyTo: BOOKING_MAIL_REPLY_TO,
       subject: mail.subject,
+      // Multipart. The text part is unchanged in shape from the text-only mail
+      // this used to be; the html part exists so the signature's application
+      // link is clickable, which "Click HERE" needs and plain text cannot give.
       text: mail.text,
+      ...(mail.html ? { html: mail.html } : {}),
       attachments: [{ filename: ICS_FILENAME, content: icsToBase64(ics) }],
     })
     if (error) {
@@ -164,6 +168,7 @@ export async function sendReminderMail(input: {
       replyTo: BOOKING_MAIL_REPLY_TO,
       subject: mail.subject,
       text: mail.text,
+      ...(mail.html ? { html: mail.html } : {}),
     })
     if (error) {
       console.error('[booking-mail] reminder failed', error)

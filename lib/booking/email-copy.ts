@@ -11,6 +11,8 @@
 // in words. A client in Vancouver who booked a nine o'clock Toronto slot reads
 // "6:00 AM" and the reason why, rather than a time that looks wrong.
 
+import { signatureTextLines, wrapHtmlEmail } from '@/lib/booking/signature'
+
 export interface BookingMailFacts {
   clientName: string
   clientEmail: string
@@ -81,16 +83,44 @@ export function greetingName(fullName: string): string {
 export interface BuiltMail {
   subject: string
   text: string
+  /**
+   * The HTML alternative part.
+   *
+   * The booking mail was text-only until the signature arrived. "Click HERE"
+   * cannot be a link in plain text, so the mail is now multipart: this html is
+   * rendered FROM the same `text` above, never authored separately, so the two
+   * can never say different things. Absent on the note to Michael, which is
+   * internal and reads fine as text.
+   */
+  html?: string
 }
 
-function signOff(facts: BookingMailFacts): string[] {
-  return [
-    '',
-    'Mike Fox',
-    'Mortgage Agent, Level 2',
-    'Fox Mortgage',
-    `${facts.hostPhoneDisplay}`,
-  ]
+/**
+ * The sign-off, from the one shared source.
+ *
+ * `facts` is no longer read: the phone and email come from lib/contact.ts
+ * through lib/booking/signature.ts, so the signature cannot drift per-email.
+ * The parameter stays off the signature entirely rather than sitting unused.
+ */
+function signOff(): string[] {
+  return ['', ...signatureTextLines()]
+}
+
+/**
+ * One place where a built client email becomes its two parts.
+ *
+ * The BODY is authored once, as lines, by each builder below. The text part is
+ * that body plus the signature's text form; the html part is that same body
+ * rendered as HTML plus the signature's html form. Neither part is written by
+ * hand, so a sentence can never appear in one and not the other.
+ */
+function finish(subject: string, bodyLines: string[]): BuiltMail {
+  const body = bodyLines.join('\n')
+  return {
+    subject,
+    text: [body, ...signOff()].join('\n'),
+    html: wrapHtmlEmail(body),
+  }
 }
 
 function changeLines(facts: BookingMailFacts): string[] {
@@ -114,73 +144,57 @@ export function buildClientMail(kind: BookingMailKind, facts: BookingMailFacts):
   const hi = `Hi ${greetingName(facts.clientName)},`
 
   if (kind === 'cancelled') {
-    return {
-      subject: `Cancelled: your ${facts.eventName.toLowerCase()} with Mike Fox`,
-      text: [
-        hi,
-        '',
-        `Your ${facts.eventName.toLowerCase()} on ${when} is cancelled. You do not need to do anything.`,
-        '',
-        'If that was a mistake, or you want to pick a new time, just reply to this email or give me a call.',
-        `You can reach me at ${facts.hostPhoneDisplay} or ${facts.hostEmail}.`,
-        ...signOff(facts),
-      ].join('\n'),
-    }
+    return finish(`Cancelled: your ${facts.eventName.toLowerCase()} with Mike Fox`, [
+      hi,
+      '',
+      `Your ${facts.eventName.toLowerCase()} on ${when} is cancelled. You do not need to do anything.`,
+      '',
+      'If that was a mistake, or you want to pick a new time, just reply to this email or give me a call.',
+      `You can reach me at ${facts.hostPhoneDisplay} or ${facts.hostEmail}.`,
+    ])
   }
 
   if (kind === 'rescheduled') {
     const moved = facts.previousStartUtc
       ? `We moved it from ${whenLine(facts.previousStartUtc, tz)}.`
       : 'We moved it to a new time.'
-    return {
-      subject: `Moved: your ${facts.eventName.toLowerCase()} is now ${fmtMailDay(facts.startUtc, tz)}`,
-      text: [
-        hi,
-        '',
-        `Your ${facts.eventName.toLowerCase()} is now on ${when}, ${zone}. ${moved}`,
-        '',
-        `I'll call you at ${facts.clientPhoneDisplay}. It should take about ${facts.durationMinutes} minutes.`,
-        '',
-        'The updated appointment is attached, so you can add it to your calendar.',
-        ...changeLines(facts),
-        ...signOff(facts),
-      ].join('\n'),
-    }
+    return finish(`Moved: your ${facts.eventName.toLowerCase()} is now ${fmtMailDay(facts.startUtc, tz)}`, [
+      hi,
+      '',
+      `Your ${facts.eventName.toLowerCase()} is now on ${when}, ${zone}. ${moved}`,
+      '',
+      `I'll call you at ${facts.clientPhoneDisplay}. It should take about ${facts.durationMinutes} minutes.`,
+      '',
+      'The updated appointment is attached, so you can add it to your calendar.',
+      ...changeLines(facts),
+    ])
   }
 
   if (kind === 'reminder') {
-    return {
-      subject: `Tomorrow: your ${facts.eventName.toLowerCase()} with Mike Fox`,
-      text: [
-        hi,
-        '',
-        `This is a quick reminder about your ${facts.eventName.toLowerCase()} tomorrow, ${when}, ${zone}.`,
-        '',
-        `I'll call you at ${facts.clientPhoneDisplay}. It should take about ${facts.durationMinutes} minutes.`,
-        '',
-        'If you think of anything you want to cover, just reply here and I will have it ready.',
-        ...changeLines(facts),
-        ...signOff(facts),
-      ].join('\n'),
-    }
-  }
-
-  return {
-    subject: `You're booked: ${facts.eventName.toLowerCase()} on ${fmtMailDay(facts.startUtc, tz)}`,
-    text: [
+    return finish(`Tomorrow: your ${facts.eventName.toLowerCase()} with Mike Fox`, [
       hi,
       '',
-      `You're booked in for a ${facts.eventName.toLowerCase()} on ${when}, ${zone}.`,
+      `This is a quick reminder about your ${facts.eventName.toLowerCase()} tomorrow, ${when}, ${zone}.`,
       '',
-      `I'll call you at ${facts.clientPhoneDisplay}. It should take about ${facts.durationMinutes} minutes, and there is nothing you need to set up.`,
+      `I'll call you at ${facts.clientPhoneDisplay}. It should take about ${facts.durationMinutes} minutes.`,
       '',
-      'The appointment is attached, so you can add it to your calendar in one tap.',
+      'If you think of anything you want to cover, just reply here and I will have it ready.',
       ...changeLines(facts),
-      '',
-      'Looking forward to it.',
-      ...signOff(facts),
-    ].join('\n'),
+    ])
   }
+
+  return finish(`You're booked: ${facts.eventName.toLowerCase()} on ${fmtMailDay(facts.startUtc, tz)}`, [
+    hi,
+    '',
+    `You're booked in for a ${facts.eventName.toLowerCase()} on ${when}, ${zone}.`,
+    '',
+    `I'll call you at ${facts.clientPhoneDisplay}. It should take about ${facts.durationMinutes} minutes, and there is nothing you need to set up.`,
+    '',
+    'The appointment is attached, so you can add it to your calendar in one tap.',
+    ...changeLines(facts),
+    '',
+    'Looking forward to it.',
+  ])
 }
 
 // ─── The note to Michael ─────────────────────────────────────────────────────

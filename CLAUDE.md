@@ -1672,6 +1672,15 @@ section is current state only.
   em dash, en dash, semicolon, exclamation point, never "broker"). The tests
   sweep with it and the Availability editor warns with it, because a meeting
   type's name and description are typed by an admin and read by a client.
+- **`lib/booking/signature.ts` is the ONE home for Michael's e-signature** on
+  the client emails (confirmation, reminder, reschedule, cancel), in both a text
+  and an html form. The phone and email are read from `lib/contact.ts`, NEVER
+  written here, because tests/contact-number.test.ts forbids a phone literal
+  outside that file. The client mail is MULTIPART as of this: `BuiltMail.html`
+  is derived from the same authored body as `BuiltMail.text` by `finish()`, so
+  the two parts cannot drift, and it exists because "Click HERE" cannot be a
+  link in plain text. The text part spells the application address out instead.
+  The note to Michael stays text-only on purpose.
 - **NO SWAP PERFORMED.** `lib/contact.ts` `bookingUrl` is a HARDCODED CONSTANT
   (not an env var) still pointing at Zoho Bookings, read by eight portal
   surfaces; four Support pages also carry the literal string "Schedule time via
