@@ -82,7 +82,7 @@ export default function Services() {
               ))}
             </div>
             <div className="text-center mt-14">
-              <Link href="/contact" className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-colors text-lg">
+              <Link href="/book/mike/discovery-call" className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-colors text-lg">
                 Talk to Michael
               </Link>
             </div>

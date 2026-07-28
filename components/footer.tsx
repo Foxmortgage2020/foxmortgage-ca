@@ -48,7 +48,7 @@ export default function Footer() {
               <li>Fergus · Guelph</li>
               <li>Wellington County, ON</li>
               <li className="pt-2">
-                <Link href="/contact" className="text-lime hover:text-lime-light transition-colors">
+                <Link href="/book/mike/discovery-call" className="text-lime hover:text-lime-light transition-colors">
                   Book a Call →
                 </Link>
               </li>

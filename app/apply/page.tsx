@@ -14,8 +14,8 @@ export default function Apply() {
               The fastest way to start is a quick conversation. Tell me about your situation and I'll come back with options.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/contact" className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-colors">
-                Book a Free Consultation
+              <Link href="/book/mike/discovery-call" className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-colors">
+                Book a Call
               </Link>
               <Link href="/smm" className="border-2 border-white text-white font-heading font-bold px-8 py-4 rounded-xl hover:bg-white hover:text-navy transition-colors">
                 Start Monitoring

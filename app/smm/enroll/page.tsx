@@ -628,7 +628,7 @@ export default function SMMEnrollPage() {
 
             {/* CTAs */}
             <Link
-              href="/contact"
+              href="/book/mike/discovery-call"
               className="block w-full sm:w-auto sm:inline-block bg-lime text-navy font-heading font-bold px-10 py-4 rounded-xl hover:bg-lime-dark transition-colors"
             >
               Book a Call

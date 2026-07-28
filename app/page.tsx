@@ -34,7 +34,7 @@ export default function Home() {
                   Start Monitoring
                 </Link>
                 <Link
-                  href="/contact"
+                  href="/book/mike/discovery-call"
                   className="border-2 border-navy text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-navy hover:text-white transition-all text-center"
                 >
                   Book a Call

@@ -62,7 +62,7 @@ export default function About() {
                   </ul>
                 </div>
                 <div className="flex gap-4 mt-8">
-                  <Link href="/contact" className="bg-lime text-navy font-heading font-bold px-6 py-3 rounded-xl hover:bg-lime-dark transition-colors">
+                  <Link href="/book/mike/discovery-call" className="bg-lime text-navy font-heading font-bold px-6 py-3 rounded-xl hover:bg-lime-dark transition-colors">
                     Book a Call
                   </Link>
                   <Link href="/smm" className="border-2 border-navy text-navy font-heading font-bold px-6 py-3 rounded-xl hover:bg-navy hover:text-white transition-colors">
