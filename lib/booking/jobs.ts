@@ -24,13 +24,14 @@ import {
   REMINDER_WINDOW_TO_HOURS,
 } from '@/config/booking'
 import {
+  claimStuckAlert,
   dueReminders,
   markCalendarAttempt,
   markSent,
   pendingCalendarBookings,
   type PendingCalendarRow,
 } from '@/lib/booking/store'
-import { factsFrom, sendReminderMail } from '@/lib/booking/email'
+import { factsFrom, sendReminderMail, sendStuckCalendarAlert } from '@/lib/booking/email'
 import { buildCalendarDescription } from '@/lib/booking/email-copy'
 import { providerForAgent } from '@/lib/booking/engine'
 
@@ -42,7 +43,7 @@ export interface JobLog {
   failed: number
   skipped: number
   /** Bookings that have been waiting too long. Named, not just counted. */
-  stuck: Array<{ id: string; ageHours: number; detail: string | null }>
+  stuck: Array<{ id: string; ageHours: number; detail: string | null; alerted: boolean }>
   notes: string[]
 }
 
@@ -165,9 +166,44 @@ export async function runReconcileJob(now: Date = new Date()): Promise<JobLog> {
 
   log.considered = pending.data.length
 
+  let alerted = 0
   for (const row of pending.data) {
+    // THE ALERT COMES BEFORE THE RETRY, deliberately. A row that has been stuck
+    // a day is worth telling Michael about whether or not this particular run
+    // happens to fix it, and claiming first means a run that crashes halfway
+    // still leaves the alert claimed rather than sending twice on the next pass.
+    //
+    // The claim is atomic in the database, so the send happens once per booking
+    // per Toronto day no matter how many runs overlap. A store that cannot be
+    // reached returns false and nothing is sent, which is the safe direction:
+    // the stuck row is still NAMED in this log every hour.
     if (row.ageHours >= RECONCILE_STUCK_HOURS) {
-      log.stuck.push({ id: row.id, ageHours: row.ageHours, detail: row.calendarDetail })
+      const claimed = await claimStuckAlert({
+        id: row.id,
+        ageHours: row.ageHours,
+        detail: row.calendarDetail,
+      })
+      let sent = false
+      if (claimed) {
+        sent = await sendStuckCalendarAlert({
+          bookingId: row.id,
+          clientName: row.clientName,
+          eventName: row.eventTypeName ?? 'Call',
+          startUtc: row.startsAt,
+          hostTimezone: row.hostTimezone,
+          ageHours: row.ageHours,
+          detail: row.calendarDetail,
+          attempts: row.calendarAttempts,
+        })
+        if (sent) alerted += 1
+        else log.notes.push(`stuck alert for ${row.id} could not be sent`)
+      }
+      log.stuck.push({
+        id: row.id,
+        ageHours: row.ageHours,
+        detail: row.calendarDetail,
+        alerted: sent,
+      })
     }
 
     const provider = providerForAgent(row.agentId)
@@ -208,7 +244,7 @@ export async function runReconcileJob(now: Date = new Date()): Promise<JobLog> {
 
   if (log.stuck.length > 0) {
     log.notes.push(
-      `${log.stuck.length} booking(s) have been waiting over ${RECONCILE_STUCK_HOURS} hours for a calendar entry`,
+      `${log.stuck.length} booking(s) have been waiting over ${RECONCILE_STUCK_HOURS} hours for a calendar entry, ${alerted} emailed this run`,
     )
   }
   return log

@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-28',
+    title: 'The booking pages got their rough edges sanded off',
+    detail:
+      'Every way the booking flow can go wrong now has its own page instead of a dead end. If the calendar cannot be read, the page says so plainly, offers nothing it cannot keep, and gives both a phone number and an email. Same for a week with no times left, a link that has gone stale, a call that has already happened, and one booked too close to now to move online. The whole flow was also gone over for people using a keyboard or a screen reader, so every box announces its own error and picking a time jumps you straight to the form. Behind the scenes the limits that keep scripts out got tighter and now count by email address as well as by connection, and a calendar entry that fails to write for a full day now emails Michael once a day rather than sitting quietly in a log.',
+  },
+  {
     date: '2026-07-27',
     title: 'Fox Mortgage has its own booking pages now',
     detail:

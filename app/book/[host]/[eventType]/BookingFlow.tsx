@@ -12,13 +12,26 @@
 // no semicolons, no exclamation points, contractions are fine, and never the word
 // "broker".
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { IntakeQuestion, Slot } from '@/lib/booking/types'
+import BookingNotice from '@/components/booking/BookingNotice'
 
+// CONTRAST (session three a11y pass). placeholder-gray-400 was 2.8 to 1 on
+// white and failed at any size; gray-500 is 4.8 to 1 and passes. The focus ring
+// is navy rather than lime because lime on white is 1.8 to 1 and a focus
+// indicator nobody can see is not a focus indicator.
 const INPUT =
-  'w-full px-4 py-3 rounded-xl border border-gray-200 font-body text-navy placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lime focus:border-transparent bg-white'
+  'w-full px-4 py-3 rounded-xl border border-gray-300 font-body text-navy placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:border-navy bg-white'
+const INPUT_BAD = INPUT.replace('border-gray-300', 'border-red-600')
 const SELECT = INPUT
 const LABEL = 'font-body text-sm font-medium text-navy block mb-2'
+const OPTIONAL = 'text-gray-600 font-normal'
+const ERROR = 'font-body text-sm text-red-700 mt-1'
+
+// focus-visible only, so a mouse click does not paint a ring but a keyboard
+// user is never lost.
+const FOCUS =
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2'
 
 // Ask for four weeks, not the event type's whole advance window. A 60 day window
 // returns well over a thousand slots, which is a six figure JSON payload to ship
@@ -105,6 +118,14 @@ export default function BookingFlow(props: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [confirmed, setConfirmed] = useState<{ startsAt: string } | null>(null)
 
+  // KEYBOARD ORDER. Picking a time reveals the details form BELOW the grid, so
+  // a keyboard or screen reader user who just chose 10:15 would otherwise have
+  // to tab through every remaining time button to reach the form they just
+  // summoned. Focus moves to the form heading instead, which is also what
+  // announces that a new section appeared.
+  const detailsRef = useRef<HTMLHeadingElement | null>(null)
+  const pendingFocus = useRef(false)
+
   const [form, setForm] = useState({
     name: props.prefillName ?? '',
     email: props.prefillEmail ?? '',
@@ -172,9 +193,16 @@ export default function BookingFlow(props: Props) {
     }
   }, [days, selectedDay])
 
+  useEffect(() => {
+    if (pendingFocus.current && detailsRef.current) {
+      pendingFocus.current = false
+      detailsRef.current.focus()
+    }
+  })
+
   const daySlots = days.find(d => d.key === selectedDay)?.slots ?? []
 
-  const update = (field: 'name' | 'email' | 'phone' | 'notes' | 'company') => (
+  const update =(field: 'name' | 'email' | 'phone' | 'notes' | 'company') => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => setForm(f => ({ ...f, [field]: e.target.value }))
 
@@ -230,44 +258,53 @@ export default function BookingFlow(props: Props) {
   // ── Done ────────────────────────────────────────────────────────────────
   if (phase === 'done' && confirmed) {
     return (
-      <div className="bg-lime/10 border border-lime/30 rounded-2xl p-10 text-center">
-        <h2 className="font-heading font-bold text-navy text-2xl mb-3">You are booked</h2>
-        <p className="font-body text-navy text-lg mb-2">{fmtDayLong(confirmed.startsAt, tz)}</p>
-        <p className="font-body text-navy text-lg mb-6">{fmtTime(confirmed.startsAt, tz)}</p>
-        <p className="font-body text-gray-600 text-sm mb-2">
-          {props.hostName} will call you at the number you gave us.
+      <BookingNotice
+        title="You are booked"
+        tone="good"
+        live
+        callHref={props.fallbackPhoneHref}
+        callLabel={`Call ${props.fallbackPhone}`}
+        emailHref={props.fallbackEmailHref}
+        emailLabel="Email us"
+      >
+        <p className="text-navy text-lg">{fmtDayLong(confirmed.startsAt, tz)}</p>
+        <p className="text-navy text-lg mb-4">{fmtTime(confirmed.startsAt, tz)}</p>
+        <p className="mb-2">{props.hostName} will call you at the number you gave us.</p>
+        <p>
+          Check your email. The confirmation has a link that lets you change the time or cancel it.
         </p>
-        <p className="font-body text-gray-600 text-sm">
-          Need to change it? Call {props.fallbackPhone} or email {props.fallbackEmail}.
-        </p>
-      </div>
+      </BookingNotice>
     )
   }
 
-  // ── Cannot show times ───────────────────────────────────────────────────
+  // ── Provider outage, or anything else that stops us reading the calendar ─
+  //
+  // THE ENGINE FAILS CLOSED, so this is what a visitor sees when the calendar
+  // cannot be read: no times at all, rather than times we cannot stand behind.
+  // The line has to say that plainly and then hand over both ways to reach a
+  // person, because the alternative is a visitor who thinks the business is
+  // closed.
   if (phase === 'unavailable') {
     return (
-      <div className="border border-gray-200 rounded-2xl p-10 text-center">
-        <h2 className="font-heading font-bold text-navy text-xl mb-3">We cannot show times right now</h2>
-        <p className="font-body text-gray-600 text-sm mb-6">
-          {notice ?? 'Something on our side is not answering.'} You can still reach {props.hostName}{' '}
-          the usual way and he will book you in.
+      <BookingNotice
+        title="We cannot show times right now"
+        live
+        callHref={props.fallbackPhoneHref}
+        callLabel={`Call ${props.fallbackPhone}`}
+        emailHref={props.fallbackEmailHref}
+        emailLabel="Email us"
+      >
+        {/* The server's own refusal sentence is NOT printed here. Every reason
+            that lands in this phase says some version of "we cannot show times,
+            call or email", which is what the heading and the line below already
+            say, so printing it produced a card that repeated itself twice
+            before offering a single useful word. The specific reason belongs in
+            the log, where someone can act on it. */}
+        <p>
+          We would rather show you nothing than show you a time we cannot keep. Call or email and{' '}
+          {props.hostName} will book you in.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <a
-            href={props.fallbackPhoneHref}
-            className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-all text-center"
-          >
-            Call {props.fallbackPhone}
-          </a>
-          <a
-            href={props.fallbackEmailHref}
-            className="border-2 border-navy text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-navy hover:text-white transition-all text-center"
-          >
-            Email us
-          </a>
-        </div>
-      </div>
+      </BookingNotice>
     )
   }
 
@@ -275,40 +312,55 @@ export default function BookingFlow(props: Props) {
   if (phase === 'loading') {
     return (
       <div className="border border-gray-200 rounded-2xl p-10 text-center">
-        <p className="font-body text-gray-600 text-sm">Finding open times...</p>
+        <p className="font-body text-gray-600 text-sm" role="status">
+          Finding open times...
+        </p>
       </div>
     )
   }
 
   // ── No times at all ─────────────────────────────────────────────────────
+  //
+  // The calendar READ WORKED and came back with nothing free. That is a
+  // different sentence from the outage above, and it gets both ways out too:
+  // someone who cannot find a time is exactly the person who should be able to
+  // send an email instead of giving up.
   if (days.length === 0) {
     return (
-      <div className="border border-gray-200 rounded-2xl p-10 text-center">
-        <h2 className="font-heading font-bold text-navy text-xl mb-3">No open times right now</h2>
-        <p className="font-body text-gray-600 text-sm mb-6">
-          The calendar is full for now. Give {props.hostName} a call and he will find you a spot.
+      <BookingNotice
+        title="No open times right now"
+        live
+        callHref={props.fallbackPhoneHref}
+        callLabel={`Call ${props.fallbackPhone}`}
+        emailHref={props.fallbackEmailHref}
+        emailLabel="Email us"
+      >
+        <p>
+          The next four weeks are full. Call or email and {props.hostName} will find you a spot that
+          is not on here.
         </p>
-        <a
-          href={props.fallbackPhoneHref}
-          className="inline-block bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-all"
-        >
-          Call {props.fallbackPhone}
-        </a>
-      </div>
+      </BookingNotice>
     )
   }
 
   return (
     <div>
+      {/* role="alert" so a refusal is SPOKEN, not just painted. This is where
+          "someone just took that time" lands, and a sighted user sees the amber
+          bar while a screen reader user would otherwise get silence and a
+          quietly rebuilt grid. */}
       {notice && (
-        <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+        <div
+          className="mb-6 rounded-xl border border-amber-400 bg-amber-50 px-4 py-3"
+          role="alert"
+        >
           <p className="font-body text-sm text-navy">{notice}</p>
         </div>
       )}
 
       {/* Step 1: the day */}
       <h2 className="font-heading font-bold text-navy text-xl mb-1">Pick a day</h2>
-      <p className="font-body text-gray-500 text-xs mb-4">Times are shown in your timezone ({tz}).</p>
+      <p className="font-body text-gray-600 text-xs mb-4">Times are shown in your timezone ({tz}).</p>
 
       <div className="flex gap-2 overflow-x-auto pb-2 mb-8" role="group" aria-label="Pick a day">
         {days.map(d => {
@@ -322,14 +374,16 @@ export default function BookingFlow(props: Props) {
                 setSelectedSlot(null)
               }}
               aria-pressed={active}
-              className={`shrink-0 px-4 py-3 rounded-xl border font-body text-sm transition-colors ${
+              className={`shrink-0 px-4 py-3 rounded-xl border font-body text-sm transition-colors ${FOCUS} ${
                 active
                   ? 'bg-navy text-white border-navy'
-                  : 'bg-white text-navy border-gray-200 hover:border-navy'
+                  : 'bg-white text-navy border-gray-300 hover:border-navy'
               }`}
             >
               <span className="block font-medium">{fmtDayShort(d.slots[0].start, tz)}</span>
-              <span className={`block text-xs ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+              {/* gray-200 on navy, not gray-300, so the selected pill's second
+                  line clears 4.5 to 1 the same way the unselected one does. */}
+              <span className={`block text-xs ${active ? 'text-gray-200' : 'text-gray-600'}`}>
                 {d.slots.length} open
               </span>
             </button>
@@ -338,8 +392,14 @@ export default function BookingFlow(props: Props) {
       </div>
 
       {/* Step 2: the time */}
-      <h2 className="font-heading font-bold text-navy text-xl mb-4">Pick a time</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-10">
+      <h2 className="font-heading font-bold text-navy text-xl mb-4" id="bk-times">
+        Pick a time
+      </h2>
+      <div
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-10"
+        role="group"
+        aria-labelledby="bk-times"
+      >
         {daySlots.map(s => {
           const active = selectedSlot?.start === s.start
           return (
@@ -349,12 +409,13 @@ export default function BookingFlow(props: Props) {
               onClick={() => {
                 setSelectedSlot(s)
                 setPhase('details')
+                pendingFocus.current = true
               }}
               aria-pressed={active}
-              className={`px-3 py-3 rounded-xl border font-body text-sm tabular-nums transition-colors ${
+              className={`px-3 py-3 rounded-xl border font-body text-sm tabular-nums transition-colors ${FOCUS} ${
                 active
                   ? 'bg-navy text-white border-navy'
-                  : 'bg-white text-navy border-gray-200 hover:border-navy'
+                  : 'bg-white text-navy border-gray-300 hover:border-navy'
               }`}
             >
               {fmtTime(s.start, tz)}
@@ -365,8 +426,17 @@ export default function BookingFlow(props: Props) {
 
       {/* Step 3: details */}
       {selectedSlot && (
-        <form onSubmit={submit} className="border-t border-gray-200 pt-8">
-          <h2 className="font-heading font-bold text-navy text-xl mb-2">Your details</h2>
+        <form onSubmit={submit} className="border-t border-gray-200 pt-8" noValidate>
+          {/* tabIndex -1 makes the heading focusable by script but keeps it out
+              of the tab order, which is the standard way to move focus to a
+              region that just appeared without adding a stop nobody wants. */}
+          <h2
+            className={`font-heading font-bold text-navy text-xl mb-2 ${FOCUS}`}
+            ref={detailsRef}
+            tabIndex={-1}
+          >
+            Your details
+          </h2>
           <p className="font-body text-gray-600 text-sm mb-2">
             {props.eventName} on {fmtDayLong(selectedSlot.start, tz)} at{' '}
             {fmtTime(selectedSlot.start, tz)}, {props.durationMinutes} minutes.
@@ -379,19 +449,30 @@ export default function BookingFlow(props: Props) {
           {!knownClient && <div className="mb-6" />}
 
           <div className="grid gap-5 sm:grid-cols-2">
+            {/* Every field below follows the same three-part contract:
+                  aria-invalid marks it wrong, aria-describedby points at the
+                  message so a screen reader reads the field AND the reason
+                  together, and role="alert" on the message announces it the
+                  moment the server sends errors back. */}
             <div>
               <label className={LABEL} htmlFor="bk-name">
                 Your name
               </label>
               <input
                 id="bk-name"
-                className={INPUT}
+                className={errors.name ? INPUT_BAD : INPUT}
                 value={form.name}
                 onChange={update('name')}
                 autoComplete="name"
                 required
+                aria-invalid={errors.name ? true : undefined}
+                aria-describedby={errors.name ? 'bk-name-err' : undefined}
               />
-              {errors.name && <p className="font-body text-sm text-red-600 mt-1">{errors.name}</p>}
+              {errors.name && (
+                <p className={ERROR} id="bk-name-err" role="alert">
+                  {errors.name}
+                </p>
+              )}
             </div>
 
             <div>
@@ -400,16 +481,24 @@ export default function BookingFlow(props: Props) {
               </label>
               <input
                 id="bk-phone"
-                className={INPUT}
+                className={errors.phone ? INPUT_BAD : INPUT}
                 value={form.phone}
                 onChange={update('phone')}
                 autoComplete="tel"
                 inputMode="tel"
                 placeholder="(555) 555-5555"
                 required
+                aria-invalid={errors.phone ? true : undefined}
+                aria-describedby={errors.phone ? 'bk-phone-hint bk-phone-err' : 'bk-phone-hint'}
               />
-              <p className="font-body text-xs text-gray-500 mt-1">This is the number we call.</p>
-              {errors.phone && <p className="font-body text-sm text-red-600 mt-1">{errors.phone}</p>}
+              <p className="font-body text-xs text-gray-600 mt-1" id="bk-phone-hint">
+                This is the number we call.
+              </p>
+              {errors.phone && (
+                <p className={ERROR} id="bk-phone-err" role="alert">
+                  {errors.phone}
+                </p>
+              )}
             </div>
           </div>
 
@@ -419,64 +508,66 @@ export default function BookingFlow(props: Props) {
             </label>
             <input
               id="bk-email"
-              className={INPUT}
+              className={errors.email ? INPUT_BAD : INPUT}
               type="email"
               value={form.email}
               onChange={update('email')}
               autoComplete="email"
               required
+              aria-invalid={errors.email ? true : undefined}
+              aria-describedby={errors.email ? 'bk-email-err' : undefined}
             />
-            {errors.email && <p className="font-body text-sm text-red-600 mt-1">{errors.email}</p>}
+            {errors.email && (
+              <p className={ERROR} id="bk-email-err" role="alert">
+                {errors.email}
+              </p>
+            )}
           </div>
 
-          {props.intakeQuestions.map(q => (
-            <div className="mt-5" key={q.key}>
-              <label className={LABEL} htmlFor={`bk-q-${q.key}`}>
-                {q.label}
-                {!q.required && <span className="text-gray-400 font-normal"> (optional)</span>}
-              </label>
-              {q.type === 'select' ? (
-                <select
-                  id={`bk-q-${q.key}`}
-                  className={SELECT}
-                  value={form.answers[q.key] ?? ''}
-                  onChange={updateAnswer(q.key)}
-                  required={q.required}
-                >
-                  <option value="">Please pick one</option>
-                  {q.options.map(o => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              ) : q.type === 'textarea' ? (
-                <textarea
-                  id={`bk-q-${q.key}`}
-                  className={`${INPUT} resize-none`}
-                  rows={3}
-                  value={form.answers[q.key] ?? ''}
-                  onChange={updateAnswer(q.key)}
-                  required={q.required}
-                />
-              ) : (
-                <input
-                  id={`bk-q-${q.key}`}
-                  className={INPUT}
-                  value={form.answers[q.key] ?? ''}
-                  onChange={updateAnswer(q.key)}
-                  required={q.required}
-                />
-              )}
-              {errors[`answers.${q.key}`] && (
-                <p className="font-body text-sm text-red-600 mt-1">{errors[`answers.${q.key}`]}</p>
-              )}
-            </div>
-          ))}
+          {props.intakeQuestions.map(q => {
+            const err = errors[`answers.${q.key}`]
+            const id = `bk-q-${q.key}`
+            const errId = `${id}-err`
+            const shared = {
+              id,
+              value: form.answers[q.key] ?? '',
+              onChange: updateAnswer(q.key),
+              required: q.required,
+              'aria-invalid': err ? (true as const) : undefined,
+              'aria-describedby': err ? errId : undefined,
+            }
+            return (
+              <div className="mt-5" key={q.key}>
+                <label className={LABEL} htmlFor={id}>
+                  {q.label}
+                  {!q.required && <span className={OPTIONAL}> (optional)</span>}
+                </label>
+                {q.type === 'select' ? (
+                  <select {...shared} className={err ? INPUT_BAD : SELECT}>
+                    <option value="">Please pick one</option>
+                    {q.options.map(o => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                ) : q.type === 'textarea' ? (
+                  <textarea {...shared} className={`${err ? INPUT_BAD : INPUT} resize-none`} rows={3} />
+                ) : (
+                  <input {...shared} className={err ? INPUT_BAD : INPUT} />
+                )}
+                {err && (
+                  <p className={ERROR} id={errId} role="alert">
+                    {err}
+                  </p>
+                )}
+              </div>
+            )
+          })}
 
           <div className="mt-5">
             <label className={LABEL} htmlFor="bk-notes">
-              Anything we should know? <span className="text-gray-400 font-normal">(optional)</span>
+              Anything we should know? <span className={OPTIONAL}>(optional)</span>
             </label>
             <textarea
               id="bk-notes"
@@ -488,20 +579,22 @@ export default function BookingFlow(props: Props) {
           </div>
 
           {/* Express consent. Starts unchecked, never blocks the booking. */}
-          <div className="mt-6 rounded-xl border border-gray-200 p-4">
-            <label className="flex items-start gap-3 cursor-pointer">
+          <div className="mt-6 rounded-xl border border-gray-300 p-4">
+            <label className="flex items-start gap-3 cursor-pointer" htmlFor="bk-consent">
               <input
+                id="bk-consent"
                 type="checkbox"
-                className="mt-1 h-4 w-4 accent-lime"
+                className={`mt-1 h-4 w-4 accent-lime ${FOCUS}`}
                 checked={form.smsConsent}
                 onChange={e => setForm(f => ({ ...f, smsConsent: e.target.checked }))}
+                aria-describedby="bk-consent-hint"
               />
               <span className="font-body text-sm text-navy">
                 Yes, Fox Mortgage can text and email me about my mortgage and about rate changes that
                 could save me money. I can say stop any time.
               </span>
             </label>
-            <p className="font-body text-xs text-gray-500 mt-2 ml-7">
+            <p className="font-body text-xs text-gray-600 mt-2 ml-7" id="bk-consent-hint">
               You do not have to tick this to book. We will still call you.
             </p>
           </div>
@@ -520,17 +613,21 @@ export default function BookingFlow(props: Props) {
             </label>
           </div>
 
-          {errors.start && <p className="font-body text-sm text-red-600 mt-4">{errors.start}</p>}
+          {errors.start && (
+            <p className={`${ERROR} mt-4`} role="alert">
+              {errors.start}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="mt-8 w-full bg-lime text-navy font-heading font-bold py-4 rounded-xl hover:bg-lime-dark transition-colors disabled:opacity-60"
+            className={`mt-8 w-full bg-lime text-navy font-heading font-bold py-4 rounded-xl hover:bg-lime-dark transition-colors disabled:opacity-60 ${FOCUS}`}
           >
             {submitting ? 'Booking...' : 'Book this time'}
           </button>
 
-          <p className="font-body text-xs text-gray-500 mt-4 text-center">
+          <p className="font-body text-xs text-gray-600 mt-4 text-center">
             {props.hostName} is a Mortgage Agent, Level 2 with BRX Mortgage, FSRA 13463.
           </p>
         </form>

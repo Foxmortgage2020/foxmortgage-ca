@@ -11,10 +11,16 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import type { Slot } from '@/lib/booking/types'
+import BookingNotice from '@/components/booking/BookingNotice'
 
 const LABEL = 'font-body text-sm font-medium text-navy block mb-2'
 const INPUT =
-  'w-full px-4 py-3 rounded-xl border border-gray-200 font-body text-navy placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lime focus:border-transparent bg-white'
+  'w-full px-4 py-3 rounded-xl border border-gray-300 font-body text-navy placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:border-navy bg-white'
+const OPTIONAL = 'text-gray-600 font-normal'
+const FOCUS =
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2'
+const BTN_PRIMARY = `bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-colors ${FOCUS}`
+const BTN_SECONDARY = `border-2 border-navy text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-navy hover:text-white transition-colors ${FOCUS}`
 
 interface Props {
   token: string
@@ -27,9 +33,13 @@ interface Props {
   clientTimezone: string | null
   clientName: string
   durationMinutes: number
+  /** Inside the self-serve cutoff. The appointment still shows, the controls do
+   *  not, because a call ninety minutes away is the worst thing to hide. */
+  tooLate: boolean
   fallbackPhone: string
   fallbackPhoneHref: string
   fallbackEmail: string
+  fallbackEmailHref: string
 }
 
 type Mode = 'idle' | 'picking' | 'confirmCancel' | 'working' | 'moved' | 'cancelled'
@@ -174,35 +184,31 @@ export default function ManageFlow(props: Props) {
   // ── Cancelled ───────────────────────────────────────────────────────────
   if (mode === 'cancelled') {
     return (
-      <div className="border border-gray-200 rounded-2xl p-10 text-center">
-        <h1 className="font-heading font-bold text-navy text-2xl mb-3">That is cancelled</h1>
-        <p className="font-body text-gray-600 text-sm mb-6">
-          Nothing else to do. If you want a new time, give {props.hostName} a call or send an email
-          and we will get you back in.
+      <BookingNotice
+        as="h1"
+        title="That is cancelled"
+        live
+        callHref={props.fallbackPhoneHref}
+        callLabel={`Call ${props.fallbackPhone}`}
+        emailHref={props.fallbackEmailHref}
+        emailLabel="Email us"
+      >
+        <p>
+          Nothing else to do. If you want a new time, call or email {props.hostName} and we will get
+          you back in.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <a
-            href={props.fallbackPhoneHref}
-            className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-all text-center"
-          >
-            Call {props.fallbackPhone}
-          </a>
-        </div>
-      </div>
+      </BookingNotice>
     )
   }
 
   // ── Moved ───────────────────────────────────────────────────────────────
   if (mode === 'moved') {
     return (
-      <div className="bg-lime/10 border border-lime/30 rounded-2xl p-10 text-center">
-        <h1 className="font-heading font-bold text-navy text-2xl mb-3">All moved</h1>
-        <p className="font-body text-navy text-lg mb-1">{fmtDayLong(current.startsAt, tz)}</p>
-        <p className="font-body text-navy text-lg mb-6">{fmtTime(current.startsAt, tz)}</p>
-        <p className="font-body text-gray-600 text-sm">
-          {props.hostName} will call you then. We sent you a new confirmation.
-        </p>
-      </div>
+      <BookingNotice as="h1" title="All moved" tone="good" live>
+        <p className="text-navy text-lg">{fmtDayLong(current.startsAt, tz)}</p>
+        <p className="text-navy text-lg mb-4">{fmtTime(current.startsAt, tz)}</p>
+        <p>{props.hostName} will call you then. We sent you a new confirmation.</p>
+      </BookingNotice>
     )
   }
 
@@ -216,13 +222,13 @@ export default function ManageFlow(props: Props) {
       </p>
 
       {notice && (
-        <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+        <div className="mb-6 rounded-xl border border-amber-400 bg-amber-50 px-4 py-3" role="alert">
           <p className="font-body text-sm text-navy">{notice}</p>
         </div>
       )}
 
-      <div className="border border-gray-200 rounded-2xl p-6 mb-8">
-        <p className="font-body text-gray-500 text-xs uppercase tracking-wider mb-2">Booked in</p>
+      <div className="border border-gray-300 rounded-2xl p-6 mb-8">
+        <p className="font-body text-gray-600 text-xs uppercase tracking-wider mb-2">Booked in</p>
         <p className="font-heading font-bold text-navy text-xl mb-1">{props.eventName}</p>
         <p className="font-body text-navy">{fmtDayLong(current.startsAt, tz)}</p>
         <p className="font-body text-navy mb-3">{fmtTime(current.startsAt, tz)}</p>
@@ -231,19 +237,27 @@ export default function ManageFlow(props: Props) {
         </p>
       </div>
 
-      {mode === 'idle' && (
+      {/* INSIDE THE CUTOFF. The appointment above still shows. Only the controls
+          go, because a change this close needs a person on the phone and a
+          button that would refuse is worse than no button. */}
+      {props.tooLate && (
+        <div className="rounded-xl border border-amber-400 bg-amber-50 px-4 py-4">
+          <p className="font-body text-sm text-navy">
+            This one is too close to now to change on here. Call {props.fallbackPhone} and we will
+            sort it out with you.
+          </p>
+        </div>
+      )}
+
+      {!props.tooLate && mode === 'idle' && (
         <div className="flex flex-col sm:flex-row gap-4">
-          <button
-            type="button"
-            onClick={loadSlots}
-            className="bg-lime text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-lime-dark transition-all"
-          >
+          <button type="button" onClick={loadSlots} className={BTN_PRIMARY}>
             Pick a new time
           </button>
           <button
             type="button"
             onClick={() => setMode('confirmCancel')}
-            className="border-2 border-navy text-navy font-heading font-bold px-8 py-4 rounded-xl hover:bg-navy hover:text-white transition-all"
+            className={BTN_SECONDARY}
           >
             Cancel it
           </button>
@@ -251,18 +265,20 @@ export default function ManageFlow(props: Props) {
       )}
 
       {mode === 'working' && (
-        <p className="font-body text-gray-600 text-sm">One moment...</p>
+        <p className="font-body text-gray-600 text-sm" role="status">
+          One moment...
+        </p>
       )}
 
       {mode === 'confirmCancel' && (
-        <div className="border border-gray-200 rounded-2xl p-6">
+        <div className="border border-gray-300 rounded-2xl p-6">
           <h2 className="font-heading font-bold text-navy text-lg mb-2">Cancel this appointment?</h2>
           <p className="font-body text-gray-600 text-sm mb-4">
             You can book again any time. If you just want a different time, picking a new one is
             easier.
           </p>
           <label className={LABEL} htmlFor="mg-reason">
-            Anything you want us to know? <span className="text-gray-400 font-normal">(optional)</span>
+            Anything you want us to know? <span className={OPTIONAL}>(optional)</span>
           </label>
           <textarea
             id="mg-reason"
@@ -275,14 +291,14 @@ export default function ManageFlow(props: Props) {
             <button
               type="button"
               onClick={doCancel}
-              className="bg-navy text-white font-heading font-bold px-6 py-3 rounded-xl hover:bg-navy-light transition-colors"
+              className={`bg-navy text-white font-heading font-bold px-6 py-3 rounded-xl hover:bg-navy-light transition-colors ${FOCUS}`}
             >
               Yes, cancel it
             </button>
             <button
               type="button"
               onClick={() => setMode('idle')}
-              className="border-2 border-navy text-navy font-heading font-bold px-6 py-3 rounded-xl hover:bg-navy hover:text-white transition-colors"
+              className={`border-2 border-navy text-navy font-heading font-bold px-6 py-3 rounded-xl hover:bg-navy hover:text-white transition-colors ${FOCUS}`}
             >
               Keep it
             </button>
@@ -295,8 +311,8 @@ export default function ManageFlow(props: Props) {
           <h2 className="font-heading font-bold text-navy text-xl mb-4">Pick a new time</h2>
           {days.length === 0 ? (
             <p className="font-body text-gray-600 text-sm">
-              There are no open times right now. Please call {props.fallbackPhone} and we will find
-              one.
+              There are no open times right now. Call {props.fallbackPhone} or email{' '}
+              {props.fallbackEmail} and we will find one.
             </p>
           ) : (
             <>
@@ -309,27 +325,31 @@ export default function ManageFlow(props: Props) {
                       type="button"
                       onClick={() => setSelectedDay(d.key)}
                       aria-pressed={active}
-                      className={`shrink-0 px-4 py-3 rounded-xl border font-body text-sm transition-colors ${
+                      className={`shrink-0 px-4 py-3 rounded-xl border font-body text-sm transition-colors ${FOCUS} ${
                         active
                           ? 'bg-navy text-white border-navy'
-                          : 'bg-white text-navy border-gray-200 hover:border-navy'
+                          : 'bg-white text-navy border-gray-300 hover:border-navy'
                       }`}
                     >
                       <span className="block font-medium">{fmtDayShort(d.slots[0].start, tz)}</span>
-                      <span className={`block text-xs ${active ? 'text-gray-300' : 'text-gray-500'}`}>
+                      <span className={`block text-xs ${active ? 'text-gray-200' : 'text-gray-600'}`}>
                         {d.slots.length} open
                       </span>
                     </button>
                   )
                 })}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <div
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+                role="group"
+                aria-label="Pick a time"
+              >
                 {daySlots.map(s => (
                   <button
                     key={s.start}
                     type="button"
                     onClick={() => pickTime(s)}
-                    className="px-3 py-3 rounded-xl border border-gray-200 bg-white text-navy font-body text-sm tabular-nums hover:border-navy transition-colors"
+                    className={`px-3 py-3 rounded-xl border border-gray-300 bg-white text-navy font-body text-sm tabular-nums hover:border-navy transition-colors ${FOCUS}`}
                   >
                     {fmtTime(s.start, tz)}
                   </button>
@@ -340,7 +360,7 @@ export default function ManageFlow(props: Props) {
           <button
             type="button"
             onClick={() => setMode('idle')}
-            className="mt-6 font-body text-sm text-navy underline"
+            className={`mt-6 font-body text-sm text-navy underline rounded ${FOCUS}`}
           >
             Never mind, keep the time I have
           </button>

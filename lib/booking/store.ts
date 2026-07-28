@@ -537,6 +537,34 @@ export async function dueReminders(input: {
   }
 }
 
+/**
+ * Claim the right to alert Michael about ONE stuck booking on ONE day.
+ *
+ * Returns true exactly once per booking per Toronto day, to whichever caller
+ * won the insert. Every later call that day returns false and sends nothing,
+ * which is what turns an hourly job into one email rather than twenty four.
+ *
+ * A store failure returns FALSE, so an unreachable database means no mail
+ * rather than a mail per run. Silence on a broken store is the safer failure:
+ * the job log still names the stuck row, and a flood is the thing that gets an
+ * alert channel muted for good.
+ */
+export async function claimStuckAlert(input: {
+  id: string
+  ageHours: number
+  detail: string | null
+}): Promise<boolean> {
+  if (isDemoMode()) return false
+  const res = await rpc<boolean>('booking_claim_stuck_alert', {
+    p_booking_id: input.id,
+    p_age_hours: input.ageHours,
+    p_detail: input.detail,
+    p_operator_secret: foxcaOperatorSecret(),
+  }).catch(() => ({ configured: true, ok: false, error: 'threw' }) as BookingStoreResult<boolean>)
+  if (!res.configured || !res.ok) return false
+  return res.data === true
+}
+
 export async function markSent(id: string, kind: 'confirmation' | 'reminder'): Promise<void> {
   if (isDemoMode()) return
   await rpc<boolean>('booking_mark_sent', {

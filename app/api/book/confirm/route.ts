@@ -15,7 +15,13 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { confirmBooking, loadConfig } from '@/lib/booking/engine'
-import { clientKeyFrom, rateLimit, CONFIRM_LIMIT } from '@/lib/booking/rate-limit'
+import {
+  clientKeyFrom,
+  emailKeyFrom,
+  rateLimit,
+  CONFIRM_EMAIL_LIMIT,
+  CONFIRM_IP_LIMIT,
+} from '@/lib/booking/rate-limit'
 import { isHoneypotFilled, refusalCopy, validateBooking } from '@/lib/booking/validate'
 import { readPrefill } from '@/lib/booking/tokens'
 
@@ -36,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, booked: true, quiet: true })
   }
 
-  const limited = rateLimit(`confirm:${clientKeyFrom(req.headers)}`, CONFIRM_LIMIT)
+  const limited = rateLimit(`confirm-ip:${clientKeyFrom(req.headers)}`, CONFIRM_IP_LIMIT)
   if (!limited.allowed) {
     return NextResponse.json(
       { ok: false, message: refusalCopy('rate_limited') },
@@ -60,6 +66,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { ok: false, message: 'Please check the highlighted boxes.', errors: validated.errors },
       { status: 400 },
+    )
+  }
+
+  // PER-EMAIL, checked here rather than at the top because the address has to be
+  // validated before it can be a key, and keyed by hash so no address is ever
+  // held in memory. This is the tier that survives a proxy pool: rotating IPs
+  // buys a fresh IP budget but not a fresh address budget. Still before any
+  // write, so a refusal stores nothing.
+  const emailLimited = rateLimit(
+    `confirm-email:${emailKeyFrom(validated.value.email)}`,
+    CONFIRM_EMAIL_LIMIT,
+  )
+  if (!emailLimited.allowed) {
+    return NextResponse.json(
+      { ok: false, message: refusalCopy('rate_limited') },
+      { status: 429, headers: { 'Retry-After': String(emailLimited.retryAfterSeconds) } },
     )
   }
 

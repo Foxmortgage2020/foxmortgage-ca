@@ -176,6 +176,71 @@ export async function sendReminderMail(input: {
   }
 }
 
+/**
+ * Tell Michael a calendar write has been stuck past the threshold.
+ *
+ * INTERNAL MAIL, to Michael only, and it is the one place the reconcile job
+ * reaches a person. It carries the client's name and the appointment time on
+ * purpose: the recovery action is putting the call in the calendar by hand, and
+ * an alert that withholds what you need to act on is just noise.
+ *
+ * Best effort like every other send here. The caller has ALREADY claimed the
+ * day, so a failed send means no alert for this booking until tomorrow rather
+ * than a retry loop. That is the deliberate trade: the job log still names the
+ * row every hour, and a flood is what gets an alert channel muted for good.
+ */
+export async function sendStuckCalendarAlert(input: {
+  bookingId: string
+  clientName: string
+  eventName: string
+  startUtc: string
+  hostTimezone: string
+  ageHours: number
+  detail: string | null
+  attempts: number
+}): Promise<boolean> {
+  const resend = resendClient()
+  if (!resend) return false
+
+  const when = whenLine(input.startUtc, input.hostTimezone)
+  const hours = Math.round(input.ageHours)
+  const lines = [
+    `A booking has been waiting ${hours} hours for a calendar entry.`,
+    '',
+    `Who: ${input.clientName}`,
+    `What: ${input.eventName}`,
+    `When: ${when} in ${zoneWords(input.hostTimezone)}`,
+    `Waiting since: ${hours} hours ago, after ${input.attempts} attempt${input.attempts === 1 ? '' : 's'}`,
+    `Last reason: ${input.detail ?? 'not recorded'}`,
+    '',
+    'The booking itself is fine. The client has their confirmation and the time is',
+    'held. The only thing missing is the entry in your calendar, so put it in by',
+    'hand for now.',
+    '',
+    'The job keeps retrying every hour. You get this once a day per booking, not',
+    'once an hour.',
+    '',
+    `Booking id: ${input.bookingId}`,
+  ]
+
+  try {
+    const { error } = await resend.emails.send({
+      from: 'Fox Mortgage <noreply@app.foxmortgage.ca>',
+      to: BOOKING_HOST_INBOX,
+      subject: `Calendar entry stuck: ${input.clientName}, ${when}`,
+      text: lines.join('\n'),
+    })
+    if (error) {
+      console.error('[booking-mail] stuck alert failed', error)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('[booking-mail] stuck alert threw', err)
+    return false
+  }
+}
+
 /** Shared fact-builder so the mail, the ics, and the calendar body cannot drift. */
 export function factsFrom(input: {
   clientName: string

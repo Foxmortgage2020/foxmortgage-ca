@@ -1591,7 +1591,7 @@ Savings_Identified, Last_Activity_Time, Term_Years
 
 ---
 
-## Booking engine, current state (sessions one and two of four)
+## Booking engine, current state (sessions one to three of four)
 
 Session entries live in `docs/ledger/2026-07.md` from 2026-07-27 onward. This
 section is current state only.
@@ -1616,11 +1616,45 @@ section is current state only.
   the operational surface.
 - **`/api/book/cron`** runs the hourly reminder and calendar-reconcile jobs behind
   `x-bridge-secret` / `UW_BRIDGE_SECRET`, reusing the underwriting sweep's secret
-  because session two could not provision env vars. **Session three should give
-  booking its own secret.** n8n `Uc9CoYm4B2XSpN5m` is the clock, INACTIVE pending
-  credential binding.
+  because sessions two and three could not provision env vars. **Booking still
+  needs its own secret; it is session four's, since it needs an env var.**
+- **THE CLOCK IS NOT RUNNING.** n8n `Uc9CoYm4B2XSpN5m` is `active: false` AND its
+  HTTP node has no credential bound, so activating it as it stands POSTs without
+  the header and collects silent 401s. Two clicks in the n8n UI, both Michael's:
+  bind `Fox Bridge Sweep` (`ju9Qj1NJTOg8P0SB`) to the Run Booking Jobs node, then
+  activate. Until then no reminder fires on its own and no calendar retry drains.
+- **Rate limiting** (`lib/booking/rate-limit.ts`) is SLIDING-window, two tiers per
+  surface (a burst in seconds plus a sustained one in minutes or hours), keyed by
+  IP everywhere and ALSO by sha256 of the email on confirm. Refused attempts are
+  never recorded and the check is all-or-nothing, so Retry-After is truthful and a
+  burst refusal cannot spend the sustained budget. It is IN-PROCESS by decision,
+  not by omission: the real guards are the database's (one active booking per
+  email per event type per day, the partial unique index on
+  `(agent_id, starts_at)`, the per-day cap), and a durable limiter would add a
+  FOXCA round trip to the hot path to stop an attacker already stopped below. The
+  reasoning is written in the file. Revisit only if booking moves to the edge.
+- **Every dead end is a page, and they all share one card**
+  (`components/booking/BookingNotice.tsx`, which writes no copy of its own — every
+  word is passed in and gated at its call site). Outage, no times, `/book`
+  not-found, plus four manage states. **The manage page's vagueness is
+  deliberate and load bearing:** a token that does not RESOLVE gets ONE identical
+  card so the page is not an oracle for guessing tokens; the already-happened,
+  already-cancelled, and closed-out states ARE distinguished, because the token
+  resolving means the reader already proved the capability.
+- **Stuck calendar writes email Michael once a day per booking**, never once an
+  hour. FOXCA migration `20260728120000`: one row per `(booking, Toronto day)`,
+  primary key on the pair, insert-on-conflict-do-nothing, and
+  `booking_claim_stuck_alert` returns whether THIS call created it. The claim runs
+  BEFORE the retry. An unreachable store returns false and sends nothing; the
+  stuck row is still named in the job log every run.
 - **No swap yet.** The renewal drip and every Support page still point at Zoho
   Bookings via `lib/contact.ts` `bookingUrl`. The cutover is session four.
+- **Open for session four:** the availability dashboard page and the cutover
+  inventory; booking's own cron secret; and the duplicate-event residual (a Graph
+  create that succeeds while its response is lost leaves `pending_retry` and the
+  next reconcile duplicates it) — the mechanism is Microsoft Graph's
+  `transactionId` idempotency key on the event create, identified but not wired,
+  because doing it safely needs a live Graph experiment.
 - Reference: `docs/booking-engine-session-one-2026-07-27.md`.
 
 The session ledger moved verbatim to `docs/ledger/2026-07.md`.

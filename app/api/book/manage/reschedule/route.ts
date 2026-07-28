@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { bookingForToken, rescheduleBooking } from '@/lib/booking/engine'
-import { clientKeyFrom, rateLimit, CONFIRM_LIMIT } from '@/lib/booking/rate-limit'
+import { clientKeyFrom, rateLimit, MANAGE_LIMIT } from '@/lib/booking/rate-limit'
 import { refusalCopy } from '@/lib/booking/validate'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +23,7 @@ function statusFor(reason: string): number {
 }
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(`manage:${clientKeyFrom(req.headers)}`, CONFIRM_LIMIT)
+  const limited = rateLimit(`manage:${clientKeyFrom(req.headers)}`, MANAGE_LIMIT)
   if (!limited.allowed) {
     return NextResponse.json(
       { ok: false, message: refusalCopy('rate_limited') },
