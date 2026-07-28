@@ -13,6 +13,12 @@ export interface PlatformNote {
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
     date: '2026-07-28',
+    title: 'The booking reminders now run on their own clock',
+    detail:
+      'The hourly job that sends booking reminders and repairs a calendar entry that failed to write used to be scheduled from an outside automation tool. That schedule had never actually been switched on, which is why no reminder has ever gone out by itself. The schedule now lives in the website itself and runs every hour, so there is nothing left to renew or remember to activate. One setup step is still yours: add a value named CRON_SECRET to the site settings in Vercel, under Production. Until that is set the hourly run is turned away for safety, and the old manual trigger stays the only way in. Once it is set, reminders start going out on their own with no further work.',
+  },
+  {
+    date: '2026-07-28',
     title: 'Your booking hours are yours to change now',
     detail:
       'A new Availability page under System is where you set when the booking pages may offer a time. Weekly hours day by day, with more than one window a day if you want a lunch break. Closed days for holidays, or a day with different hours than usual. Every setting on each of the four kinds of call, the length, the buffers, the notice you need, how far ahead people can book, and how many you will take in a day, each with its allowed range printed underneath. And a list of what is booked ahead, with the client number in front of you and a cancel that sends them the same email and clears the same calendar entry their own cancel link would. Each day and each meeting type saves on its own, so one mistake never blocks the rest. Before this, changing your hours meant changing the database.',
