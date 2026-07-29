@@ -43,6 +43,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Percent,
+  PhoneIncoming,
   Radar,
   RefreshCw,
   ScrollText,
@@ -55,6 +56,7 @@ import {
 
 const ICONS: Record<string, typeof LayoutDashboard> = {
   LayoutDashboard,
+  PhoneIncoming,
   FolderOpen,
   ClipboardList,
   RefreshCw,

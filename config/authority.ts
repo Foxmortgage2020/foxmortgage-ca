@@ -31,6 +31,14 @@ export const PERMISSIONS = {
   'approvals.statement.decide': ['admin'],
   'approvals.ratesheet.decide': ['admin'],
   'approvals.offer.decide': ['admin'],
+  // Unassigned-call resolver (CC-03, 2026-07-29). MIRRORS the key CC-02
+  // shipped in fox-underwriting's config/authority.ts — verified against that
+  // file, not assumed: 'calls.resolve': ['admin']. It covers both the parse
+  // (a draft; writes nothing but reads a call's summary and redacted
+  // transcript) and the resolve (creates or matches a Zoho person and teaches
+  // the number directory). Admin only, because a misfiled CRM record is work
+  // someone has to undo by hand.
+  'calls.resolve': ['admin'],
   'flags.disposition': ['admin'],
   'shadow.score': ['admin'],
   // Session 4, matching the gates API contract (micro-session 2):
@@ -189,6 +197,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'approvals.statement.decide': 'Decide statement reviews (approve / hold / reject)',
   'approvals.ratesheet.decide': 'Decide rate sheet reviews',
   'approvals.offer.decide': 'Decide promotional offers (approve / reject)',
+  'calls.resolve': 'Identify unassigned calls (creates or matches a Zoho record)',
   'flags.disposition': 'Dispose flags',
   'shadow.score': 'Score shadow dimensions',
   'conditions.decide': 'Decide conditions (satisfied / moot / waived)',

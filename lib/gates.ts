@@ -1283,3 +1283,80 @@ export function setCommsSettings(
   if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('setCommsSettings'))
   return gateCall('/api/gates/comms/settings', { ...input }, token)
 }
+
+// ─── Unassigned-call resolver (CC-03, 2026-07-29) ──────────────────────────
+// Two calls, deliberately separate, mirroring the engine CC-02 shipped:
+// parse produces a reviewable draft and writes NOTHING; resolve performs the
+// write and takes only an explicitly confirmed identity. Endpoint paths were
+// confirmed against fox-underwriting's api/gates/calls/[callId]/{parse,resolve}.ts.
+
+export type CallIdentityKind = 'contact' | 'partner'
+
+export interface CallIdentityCandidate {
+  kind: CallIdentityKind
+  zohoId: string
+  label: string
+  matchedOn: 'email' | 'phone'
+  partnerType: string | null
+}
+
+export interface CallIdentityProposal {
+  callId: string
+  dialpadCallId: string
+  parsed: {
+    name: string | null
+    email: string | null
+    phone: string | null
+    kind: 'contact' | 'partner' | 'unsure'
+    reasoning: string | null
+    partnerType: string | null
+  }
+  candidates: CallIdentityCandidate[]
+  empty: boolean
+  note: string | null
+}
+
+export interface CallResolveResponse {
+  callId: string
+  kind: CallIdentityKind
+  zohoId: string
+  created: boolean
+  outcome: 'resolved' | 'skipped_no_number'
+  transcriptPatched: boolean
+  zohoRecordUpdated: boolean
+  auditId: string | null
+}
+
+/** Draft only. Re-callable freely while the description is being got right. */
+export function parseCallIdentity(
+  callId: string,
+  text: string,
+  token: string | null,
+): Promise<GateResult<CallIdentityProposal>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('parseCallIdentity'))
+  return gateCall(`/api/gates/calls/${callId}/parse`, { text }, token, { surfaceError: true })
+}
+
+export type ConfirmedCallIdentity =
+  | { mode: 'existing'; kind: CallIdentityKind; zohoId: string; label: string }
+  | {
+      mode: 'create'
+      kind: CallIdentityKind
+      name: string
+      email?: string | null
+      phone?: string | null
+      partnerType?: string | null
+    }
+
+/** The write. Carries the identity as REVIEWED — never the raw parse. */
+export function resolveCallIdentity(
+  callId: string,
+  identity: ConfirmedCallIdentity,
+  zohoRecordId: string | null,
+  token: string | null,
+): Promise<GateResult<CallResolveResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('resolveCallIdentity'))
+  const body: Record<string, unknown> = { identity }
+  if (zohoRecordId) body.zohoRecordId = zohoRecordId
+  return gateCall(`/api/gates/calls/${callId}/resolve`, body, token, { surfaceError: true })
+}

@@ -144,6 +144,17 @@ export const ADMIN_NAV: AdminNavItem[] = [
       'What changed: sheets in force, intel arrivals, and platform releases, grouped by week.',
   },
   {
+    // CC-03: the calls the pipeline could not put a name to. Practice work,
+    // not a system health surface — it sits with the day-to-day tools.
+    label: 'Unassigned calls',
+    href: '/portal/admin/calls',
+    iconKey: 'PhoneIncoming',
+    permission: 'calls.resolve',
+    group: 'practice',
+    description:
+      'Calls with no identified caller: say who it was, check what that produced, confirm.',
+  },
+  {
     label: 'Status',
     href: '/portal/admin/status',
     iconKey: 'Activity',

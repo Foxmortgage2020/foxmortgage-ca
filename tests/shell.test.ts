@@ -129,7 +129,14 @@ describe('route inventory: every admin route stays on the map', () => {
     }
   })
 
-  it('the working nav is eight destinations across two honest groups (B3)', () => {
+  // B3 set this at eight. CC-03 (2026-07-29) adds a ninth, "Unassigned
+  // calls", deliberately and not by widening a group: it is recurring
+  // practice work with its own queue, and a page nobody can find is a page
+  // nobody uses. Noted here rather than silently relaxed — the assertion
+  // exists to make exactly this change visible. Its longer-term home may be a
+  // tab under Approvals, which is already "one queue ... decided through the
+  // gates API"; that consolidation was out of CC-03's scope.
+  it('the working nav is nine destinations across two honest groups (B3 + CC-03)', () => {
     const working = ADMIN_NAV.filter(i => i.group !== 'system')
     expect(working.map(i => i.label)).toEqual([
       'Today',
@@ -140,6 +147,7 @@ describe('route inventory: every admin route stays on the map', () => {
       'Revenue',
       'Partners',
       'Compliance',
+      'Unassigned calls',
     ])
     expect(ADMIN_NAV.some(i => i.href === '/portal/bookkeeping')).toBe(false)
   })

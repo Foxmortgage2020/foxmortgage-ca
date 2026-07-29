@@ -3076,3 +3076,49 @@ export async function getCommsSettings(agentId: string): Promise<UwResult<CommsS
   }))
   return { configured: true, ok: true, data: { settings, suppressions } }
 }
+
+// ─── Unresolved calls (CC-03, 2026-07-29) ──────────────────────────────────
+// The resolver queue. counterparty_type='unknown' is the workbench's own
+// vocabulary for "matching ran and found nobody" (N-02), distinct from
+// 'unmatched' (never attempted) and 'suppressed'. call_transcripts is already
+// granted to portal_readonly, so this needs no new database work.
+//
+// The summary and the redacted transcript come along on purpose: that context
+// is what lets someone recognise a caller, and it is exactly what the Zoho
+// record does not show. Both are already redacted at rest (N-01/N-01b); this
+// repo never sees an unmasked number — only counterparty_number_masked.
+
+export interface UnresolvedCall {
+  id: string
+  dialpadCallId: string
+  startedAt: string | null
+  direction: string | null
+  durationSec: number | null
+  numberMasked: string | null
+  summary: string | null
+  transcript: string | null
+}
+
+export async function getUnresolvedCalls(agentId: string): Promise<UwResult<UnresolvedCall[]>> {
+  if (isDemoMode()) return demoResult([] as UnresolvedCall[])
+  const res = await uwSelect<any>('call_transcripts', {
+    select:
+      'id,dialpad_call_id,started_at,direction,duration_sec,counterparty_number_masked,summary,transcript_redacted',
+    agent_id: `eq.${agentId}`,
+    counterparty_type: 'eq.unknown',
+    order: 'started_at.desc',
+    limit: '200',
+  })
+  return mapResult(res, rows =>
+    rows.map(r => ({
+      id: r.id,
+      dialpadCallId: r.dialpad_call_id,
+      startedAt: r.started_at ?? null,
+      direction: r.direction ?? null,
+      durationSec: r.duration_sec ?? null,
+      numberMasked: r.counterparty_number_masked ?? null,
+      summary: r.summary ?? null,
+      transcript: r.transcript_redacted ?? null,
+    })),
+  )
+}
