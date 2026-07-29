@@ -108,6 +108,12 @@ The table's job is to stop saying unmeasured. That is queue item Q11, and most o
 
 **Adopted Jul 28, two-lane operating structure:** revenue leads and infrastructure fills in behind it. One Claude Code session per repo at a time, counted across all chats, so two sessions never share a working tree.
 
+**Decided Jul 28, JG-1 scope:** JG-1, no application no call, governs new intake only. A renewing client can take the 45 minute strategy session with no application on file, because the relationship already exists and the call is what decides whether an application is warranted at all. JG-2 binds the instant the client decides to switch, and that is what the Ready To Renew - Sent New Application status records. This resolves an apparent conflict between JG-1 and the renewal drip, which books strategy sessions without an application.
+
+**Locked Jul 28, the five beside rate:** section 4 names the frame but never enumerated the five. They are amortization, prepayment privileges with the penalty formula, portability and assumability, product structure, and access to equity. Composed during Q2 and ratified by Mike on Jul 28.
+
+**Noted Jul 28, Q2 delivered outside the repo:** the renewal conversation skill ships as an installed claude.ai skill rather than as a repo artifact. Where skill sources should live in version control is undecided, and it is recorded here so it is not forgotten. Relevant context: the Fox Knowledge Base repo has no git remote configured, so it is not currently a viable home.
+
 **Rejected Jul 27, with reasons, logged so they don't resurface:** cold outbound in any form, no consent basis, CASL exposure, lowest-trust channel, and last by the standing revenue ranking [A-08, A-09 outreach half, A-01 scraping half]. Unattended voice calling, CRTC and DNCL exposure, no AI disclosure, recording consent absent, and an unsupervised agent quoting numbers is presenting, which never leaves Mike [A-07 cold half, A-12 outbound half]. Generic touch cadence as a strategy, the corpus's own sends produced 2 of 140 and 0 of 3,500 [M-13, M-14, resolved against M-08 by M-09]. Subscribing to the sponsor's monitoring product, SMM occupies the slot, its mechanics are adopted, its subscription is not, and its figures stay out of the benchmarks [M-19]. The brief's don't-build list reaffirmed, no credit scoring, no OCR foundation, no borrower intake product, no rules builder yet. Salaried headcount now, the corpus's staff roles map to systems already live or dark, document specialists are the documents desk, the renewal staffer is the drip, the underwriter is the workbench in shadow, the EA is the comms engine plus booking, revisit only when Mike's conversation hours saturate [M-10 through M-18, A-15].
 
 **Parked, with triggers:** podcast-as-filter, trigger is FoxSocial capacity pointed at the Fox Mortgage brand under the brand-separation rule [M-05, M-17]. Named AI persona, trigger is 90 days of the comms engine live plus volume [map Part 1]. Consented voice check-ins with AI disclosure, trigger is a touch family at graduation level 2 [A-07, A-12 transfer]. Full wealth-partner reciprocity machine, trigger is FP attribution fixed and the first ten routed referrals [M-20, M-06]. Dentist-model platform, existing level-3 ambition [M-03].
@@ -126,8 +132,8 @@ The original G-register's cited entry closed: G-02, document state lived in Finm
 
 | ID | Stage | Gap | Resolves at |
 |---|---|---|---|
-| G2-01 | 12 | Booking URL unset, blocks the drip and the [CalendarLink] token | Q1 |
-| G2-02 | 12 | Renewal conversation undefined | Q2 |
+| G2-01 | 12 | Booking URL unset, blocks the drip and the [CalendarLink] token. RESOLVED 2026-07-28 on Mike's assertion, not on proof. RENEWAL_CALENDAR_URL lives in a different Vercel project and no session in this repo can verify it. Proof event is a runtime log line from the next renewal tick, expected around 2026-08-02 | Q1, proof pending 2026-08-02 |
+| G2-02 | 12 | Renewal conversation undefined. CLOSED 2026-07-28, defined at Q2 | Q2 |
 | G2-03 | all | 16 template bodies lack CASL opt-out copy | Q5 |
 | G2-04 | 1,2,4-8,10,11 | Nine stages without production templates | Q8, Q9, Q10 |
 | G2-05 | 1 | Discovery skill and intake gate artifact unwritten | Q10 |
@@ -140,17 +146,20 @@ The original G-register's cited entry closed: G-02, document state lived in Finm
 | G2-12 | 12, LEAD | SMM backfill never run | Q3 |
 | G2-13 | 12 | Six-month-product fact absent from lender registry | Q4 |
 | G2-14 | ritual | M-01 over cap in the reference pack | housekeeping |
-| G2-15 | 1, 12 | Booking experience off-brand, clicks out to a vendor page, no consent capture at booking | Q13 |
+| G2-15 | 1, 12 | NARROWED 2026-07-28. Q13 is complete and the booking engine is native, but the swap is deliberately partial. `lib/contact.ts:31` still points at Zoho Bookings and eight portal surfaces read it, four of which still show a client-visible line naming Zoho Bookings. One constant plus four subtitles, matching cutover inventory section A | Mike calls the second swap, before 2026-10-27 |
 | G2-16 | 12 | Enrollment sweep cannot see a sibling active deal in flight | Q14 |
 | G2-17 | 12 | Enrollment sweep cannot see a paid-out or discharged mortgage | Q14 |
+| G2-18 | 12, renewal lane | CRM has no field for current outstanding balance, current property value, equity, or penalty exposure. Total_Loan_Amount, Purchase_Price_Value and LTV are all origination era and are the trap, not the answer. Renewal briefs cannot compute the math from Zoho alone | Q3 for what stored files hold, Q11 for anything measured |
+| G2-19 | 12 | Drip sequence state and Zoho may be two sources of truth. On deal IFMS-F002015, Renewal_Status, Renewal_Sequence_Stage and Last_Renewal_Email_Date are all blank while the drip holds that client enrolled with touch-150 skipped and T-60 and T-30 intact. Either the drip keeps sequence state in fox-underwriting's own store and never mirrors it, or the enrollment is not where it is believed to be. Anything reading Zoho alone is blind to drip state until this is settled | diagnostic in fox-underwriting, currently unqueued |
+| G2-20 | all | No CASL consent basis is recorded on contact records. CASL_Consent_Date, CASL_Consent_Method and CASL_Consent_Source are blank on at least one client enrolled in the live drip. Distinct from G2-03, which is about opt-out copy in the message body. This one is about the basis for sending at all | Q5, one dated task already open ahead of the first live send |
 
 ## 12. The build queue, ranked by revenue
 
 | # | Item | Why first-order | Effort |
 |---|---|---|---|
 | Q1 | **LIVE 2026-07-28.** Light the renewal drip: env via dashboard, booking URL, push, first approve clicks, unsubscribe proof. Sending on per-message approval at Level 0 | Highest-conversion lane, fully built, dark | hours |
-| Q2 | Write the renewal conversation skill | The drip books meetings, this converts them | one session |
-| Q3 | SMM backfill mining from stored files, ranked candidates, Mike's opinion emails to the top 20 | 53 of 58 seats came from own files in the corpus, direct SMM growth toward the 100 cap | 1-2 sessions |
+| Q2 | **COMPLETE 2026-07-28.** Write the renewal conversation skill. The deliverable is an installed claude.ai skill named renewal-conversation, SKILL.md plus three references. It is not currently held in any repo, and the source-of-truth location for skill files is undecided | The drip books meetings, this converts them | one session |
+| Q3 | SMM backfill mining from stored files, ranked candidates, Mike's opinion emails to the top 20. Note: this pass opens every stored file, and the same pass could populate the renewal fields the CRM is missing, at the cost of one extra mapping. Decide that when Q3 starts rather than after it ships | 53 of 58 seats came from own files in the corpus, direct SMM growth toward the 100 cap | 1-2 sessions |
 | Q4 | Thirteen-month play: registry fact plus eligibility flag in the Radar | Named campaign with computable eligibility | small feature |
 | Q5 | Light the comms engine families, CASL copy pass on the 16 templates, regenerate the token dictionary | 20 touches mint on day one, remediation is copy not plumbing | hours plus copy |
 | Q6 | Referral ask, MPP advance-review, click-signer call | Three cheap encodings of the corpus's happiest-moment asks | copy |
@@ -170,3 +179,17 @@ Housekeeping after: recut M-01 and ship reference pack v2, install this file at 
 ## 13. Maintenance
 
 Update this file on every intake verdict and every queue completion. The two-lane chat structure runs revenue ahead with infrastructure filling in behind it, one Code session per repo at a time across all chats, and infrastructure decisions log in section 8 alongside the practice ones. Refresh benchmarks monthly once Q11 lands. This document loads on demand, never by default. The Jul 7 audit remains partially reconstructed, its findings register and token dictionary fold in if the file turns up, and G2-10 closes either way at Q5. Currency of every claim is its bracketed date, and the live system always outranks the page.
+
+## 14. Verified Zoho field map
+
+Verified against the live Zoho modules on 2026-07-28. Read this before assuming a field exists. Section 8 is a decision log and this is reference data, so it lives here instead.
+
+**Deals carries:** Mortgage_Rate, Rate_Type, Variable_Mortgage_Rate, Maturity_Date, Payment_Amount, Payment_Frequency, Term_Type, Term_Years, Amortization_Years, Prepayment_Privileges, Lender_Name, Lender_Classification, Lender_Product_Line, Rate_Hold_Expiry_Date, Renewal_Status, Renewal_Sequence_Stage, Renewal_In_Progress, Renewal_Opted_Out, Last_Renewal_Email_Date.
+
+**Contacts carries:** Email_Opt_Out, SMM_Status, SMM_Relationship, SMM_Intake_Form_Submitted, CASL_Consent_Date, CASL_Consent_Method, CASL_Consent_Source, CASL_Consent_Language.
+
+**Two traps.** Amortization_Years and Term_Years are both labelled in months in the CRM despite their API names. Renewal_Opted_Out sits on the deal while Email_Opt_Out sits on the contact, so the two are never found in the same place.
+
+**Live Renewal_Status picklist:** Attempted To Contact Once, Attempted To Contact Twice, Attempted To Contact Three Times, Renewed Elsewhere, No Longer Needs Mortgage, Ready To Renew - Sent New Application, Renewed With Us. The last four are the terminal set, and setting one removes the client from the drip.
+
+What this map does not contain is the point of G2-18: no current outstanding balance, no current property value, no equity, no penalty exposure. The origination-era fields are not substitutes.
