@@ -1316,6 +1316,16 @@ export interface CallIdentityProposal {
   note: string | null
 }
 
+export interface CallSiblingSweep {
+  candidates: number
+  confirmed: number
+  resolved: number
+  skipped_different_number: number
+  skipped_unverifiable: number
+  remaining: number
+  errors: string[]
+}
+
 export interface CallResolveResponse {
   callId: string
   kind: CallIdentityKind
@@ -1324,6 +1334,8 @@ export interface CallResolveResponse {
   outcome: 'resolved' | 'skipped_no_number'
   transcriptPatched: boolean
   zohoRecordUpdated: boolean
+  /** CC-04: other calls from the same number cleared by the same action. */
+  siblings: CallSiblingSweep
   auditId: string | null
 }
 

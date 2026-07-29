@@ -177,7 +177,10 @@ function CallPanel({ call, onResolved }: { call: ResolverCall; onResolved: (labe
         setError('Dialpad could not give a full number for this call, so nothing was written.')
         return
       }
-      onResolved(draft.chosen ? draft.chosen.label : draft.name.trim())
+      // CC-04: identifying a number also clears its history, so say so.
+      const also = body.data?.siblings?.resolved ?? 0
+      const label = draft.chosen ? draft.chosen.label : draft.name.trim()
+      onResolved(also > 0 ? `${label} · also resolved ${also} earlier call${also === 1 ? '' : 's'}` : label)
     } catch {
       setError('Could not reach the resolver. Retry.')
     } finally {
