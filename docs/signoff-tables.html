@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign-off tables</title>
+<style>
+  :root { --ink: #1c1a17; --line: #8f887c; --line-soft: #ccc6ba; --head: #efece4; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    color: var(--ink);
+    background: #f4f2ec;
+    line-height: 1.5;
+    font-size: 16px;
+    margin: 0;
+    padding: 32px 20px 64px;
+  }
+  .wrap { max-width: 8in; margin: 0 auto; background: #fff; padding: 40px 44px 52px;
+          border: 1px solid var(--line-soft); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: .01em; }
+  h2 { font-size: 21px; margin: 44px 0 4px; padding-top: 18px; border-top: 2px solid var(--ink); }
+  h3 { font-size: 17px; margin: 26px 0 6px; }
+  .source { font-size: 13px; color: #6a6459; font-style: italic; margin: 0 0 14px; }
+  .lede { font-size: 14px; color: #4a453d; margin: 0 0 18px; }
+  p.note { font-size: 14.5px; margin: 14px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0 6px; font-size: 14.5px; }
+  th, td { border: 1px solid var(--line); padding: 8px 11px; text-align: left; vertical-align: top; }
+  th { background: var(--head); font-weight: bold; }
+  td.key, td:first-child { white-space: nowrap; }
+  td.body { white-space: normal; word-break: break-word; }
+  code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: .86em;
+         background: #f0eee8; padding: 1px 4px; border-radius: 3px; }
+  .letter { border: 1px solid var(--line); border-left: 4px solid var(--ink);
+            padding: 20px 24px; margin: 16px 0; background: #faf9f5; }
+  .letter p { margin: 0 0 12px; }
+  .letter table.terms { width: auto; min-width: 60%; margin: 12px 0; }
+  .letter table.terms td { padding: 6px 12px; }
+  .missing { border: 1px dashed var(--line); padding: 18px 22px; color: #6a6459;
+             background: #faf9f5; font-style: italic; }
+  @media print {
+    body { background: #fff; color: #000; padding: 0; font-size: 11pt; }
+    .wrap { max-width: none; margin: 0; padding: 0; border: 0; box-shadow: none; }
+    @page { size: letter; margin: 0.6in; }
+    h2 { break-after: avoid; }
+    h3 { break-after: avoid; }
+    table, .letter { break-inside: auto; }
+    tr { break-inside: avoid; }
+    th { background: #fff; }
+    thead { display: table-header-group; }
+    code { background: transparent; padding: 0; }
+  }
+</style>
+</head>
+
+<div class="wrap">
+
+<h1>Sign-off tables</h1>
+<p class="lede">Reproduced verbatim for review from the reports named under each heading. Nothing below is summarized, reworded, or edited.</p>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<h2>1 — The client's words</h2>
+<p class="source">from docs/client-portal-b5-2026-07-17.md — “The clientJourney sign-off table (Michael's word-level review)”</p>
+<p class="lede">Every cell is a one-line edit in <code>config/lifecycle.ts</code> (<code>CLIENT_PHASES</code> / <code>CLIENT_STEPS</code>) after your review. Nothing here says no, and no internal word appears (both enforced by tests).</p>
+
+<h3>Phases (5) — the five dots on the client's page</h3>
+<table>
+  <thead><tr><th>key</th><th>Client label</th><th>What's happening</th></tr></thead>
+  <tbody>
+    <tr><td class="key">intake</td><td>Getting started</td><td>Your file's open and we're getting your application together.</td></tr>
+    <tr><td class="key">underwriting</td><td>Reviewing your file</td><td>We're going through everything and getting your file ready for lenders.</td></tr>
+    <tr><td class="key">fulfilment</td><td>Finalizing your approval</td><td>Your lender said yes. Now we're tying up the last details.</td></tr>
+    <tr><td class="key">complete_paid</td><td>Closing</td><td>Everything's done on our side and your lawyer takes it from here.</td></tr>
+    <tr><td class="key">beyond_funding</td><td>Looking after it</td><td>Your mortgage is done. We keep an eye on it from here.</td></tr>
+  </tbody>
+</table>
+
+<h3>Steps (20) — the sentence under the current phase, and what we ask of them</h3>
+<table>
+  <thead><tr><th>key</th><th>Client label</th><th>What's happening</th><th>What we need from you</th></tr></thead>
+  <tbody>
+    <tr><td class="key">qualify</td><td>Getting to know your plans</td><td>Michael wants to hear what you're hoping to do, so he can point you the right way.</td><td>Give Michael a call or reply to his message whenever it suits you.</td></tr>
+    <tr><td class="key">application</td><td>Your application</td><td>We're getting your application filled in.</td><td>Finishing your application is the one thing that gets this moving.</td></tr>
+    <tr><td class="key">application_chase</td><td>A gentle reminder</td><td>We'll remind you if your application still needs something.</td><td>—</td></tr>
+    <tr><td class="key">first_review</td><td>Reading it over</td><td>Michael's reading through everything you sent.</td><td>—</td></tr>
+    <tr><td class="key">documents</td><td>Your paperwork</td><td>We're gathering the paperwork your lender needs to see.</td><td>Sending anything we've asked for is what moves this along fastest.</td></tr>
+    <tr><td class="key">underwrite</td><td>Checking the numbers</td><td>Michael's going through your file in detail and checking every number.</td><td>—</td></tr>
+    <tr><td class="key">plan</td><td>Your options</td><td>Michael's putting your options together so you can pick what fits.</td><td>—</td></tr>
+    <tr><td class="key">preapproval_letter</td><td>Your pre-approval letter</td><td>Michael's getting your letter ready so you can shop knowing your number.</td><td>—</td></tr>
+    <tr><td class="key">shopping</td><td>Out looking</td><td>You're pre-approved and out looking. Tell us when you find the one.</td><td>—</td></tr>
+    <tr><td class="key">package_submit</td><td>Off to your lender</td><td>Michael's putting your file together and sending it to your lender.</td><td>—</td></tr>
+    <tr><td class="key">with_lender</td><td>It's with your lender</td><td>Your file's with the lender and we're waiting on their answer. Michael checks in if it goes quiet.</td><td>—</td></tr>
+    <tr><td class="key">commitment</td><td>Your approval's in</td><td>Your lender said yes. Michael's going through the paperwork now.</td><td>—</td></tr>
+    <tr><td class="key">conditions</td><td>The last few items</td><td>Your lender asked for a few final things and we're working through them.</td><td>If we've asked you for anything, sending it back quickly keeps your closing date safe.</td></tr>
+    <tr><td class="key">final_approval</td><td>Final sign-off</td><td>We're confirming the last sign-off with your lender.</td><td>—</td></tr>
+    <tr><td class="key">broker_complete</td><td>Everything's set</td><td>Everything's done on our side. Your lawyer takes it from here.</td><td>Your lawyer will be in touch to book your signing.</td></tr>
+    <tr><td class="key">compliance_package</td><td>Filing the paperwork</td><td>We're filing the last of the paperwork.</td><td>—</td></tr>
+    <tr><td class="key">paid</td><td>All done</td><td>Your mortgage is funded and everything is complete. Congratulations.</td><td>—</td></tr>
+    <tr><td class="key">renewal_watch</td><td>We're watching your renewal</td><td>We keep an eye on your renewal date so it never sneaks up on you.</td><td>—</td></tr>
+    <tr><td class="key">monitoring</td><td>Strategic Mortgage Monitoring</td><td>Every month we check your mortgage against what's out there, and Michael reaches out when there's something worth doing.</td><td>—</td></tr>
+    <tr><td class="key">renewal_outreach</td><td>Your renewal check-in</td><td>We'll be in touch well before your renewal comes up.</td><td>—</td></tr>
+  </tbody>
+</table>
+<p class="note">Plus the calm generic when a stage maps to no phase:<br>
+<strong>Your file · "We're working on your file. Michael will be in touch with an update."</strong></p>
+<p class="note">The client always sees ONE phase's sentence at a time (the current one) and, in a purchase, only the purchase steps — the shape-awareness is inherited from the lifecycle steps, not restated. <code>application_chase</code>, <code>shopping</code>, and <code>renewal_outreach</code> carry words for totality but are <em>planned</em> capability and never render to a client (no placeholders).</p>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<h2>2 — Document freshness windows</h2>
+<p class="source">from docs/desk-freshness-b63-2026-07-18.md — “The freshness table — for Michael's sign-off”</p>
+<p class="lede">These are <strong>drafts</strong>. Read the table; to change a window, edit one cell in <code>config/doc-freshness.ts</code> (the value in days, or <code>—</code> for no day window). A blank window is deliberate: some documents' real freshness is a <em>content</em> rule (a tax-year cycle, a current-year requirement, an on-face expiry date), which is a later (W2) task and must never be faked with a day count.</p>
+<table>
+  <thead><tr><th>Document</th><th>Window (days)</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Pay stubs</td><td><strong>30</strong></td><td></td></tr>
+    <tr><td>Proof of pay deposit</td><td><strong>30</strong></td><td></td></tr>
+    <tr><td>Bank / mortgage / line-of-credit statements</td><td><strong>60</strong></td><td></td></tr>
+    <tr><td>Letters of employment</td><td><strong>60</strong></td><td></td></tr>
+    <tr><td>CCB and benefit statements</td><td><strong>90</strong></td><td></td></tr>
+    <tr><td>Property tax bill</td><td><strong>—</strong> (no day window)</td><td>current-year logic is a content rule (W2)</td></tr>
+    <tr><td>NOA, T4, T1</td><td><strong>—</strong> (no day window)</td><td>tax-year cycle (W2)</td></tr>
+    <tr><td>Government ID</td><td><strong>—</strong> (no day window)</td><td>on-face expiry date (W2)</td></tr>
+    <tr><td>Void cheque</td><td><strong>—</strong> (no day window)</td><td>no natural freshness window</td></tr>
+  </tbody>
+</table>
+<p class="note">A document kind the classifier does not recognise gets no window, so no flag — never a guess.</p>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<h2>3 — The pre-approval letter, and the offer rubric scales</h2>
+<p class="source">from docs/presentation-b8b-2026-07-18.md</p>
+
+<h3>The letter template — for Michael's word-level sign-off</h3>
+<p class="lede">Every sentence below is a one-line edit in <code>lib/preapproval-pdf.ts</code>. The structure is fixed.</p>
+<div class="letter">
+  <p><strong>FOX MORTGAGE — Mortgage pre-approval</strong><br>
+  Prepared {date} · File {ref}</p>
+  <p>Dear {first name},</p>
+  <p>This letter confirms that, based on the information reviewed so far, you are pre-approved for a mortgage toward a home purchase, on the terms set out below.</p>
+  <table class="terms">
+    <tbody>
+      <tr><td>Maximum purchase price</td><td>${max price}</td></tr>
+      <tr><td>Rate</td><td>{rate}%</td></tr>
+      <tr><td>Rate held until</td><td>{expiry}</td></tr>
+      <tr><td>Conditions</td><td>{your conditions line}</td></tr>
+    </tbody>
+  </table>
+  <p>A pre-approval is not a final commitment to lend. It is subject to a satisfactory property, updated documents, and full lender approval at the time you make an offer. The rate above is held until the date shown; after that date it may change.</p>
+  <p>Please reach out with any questions. I am glad to walk through what this means for your search.</p>
+  <p>Michael Fox<br>
+  Mortgage Agent, Level 2, BRX Mortgage, FSRA 13463<br>
+  {phone} | {email} | foxmortgage.ca</p>
+  <p><em>This pre-approval is valid until {expiry}.</em></p>
+</div>
+
+<h3>The rubric scales — for Michael's sign-off (DRAFT defaults in <code>config/offer-rubric.ts</code>)</h3>
+<p class="lede">The <strong>weights</strong> (rate 30 / prepayment 20 / penalty 20 / portability 10 / fees 10 / flexibility 10) and the <strong>letter thresholds</strong> (A≥85 / B≥70 / C≥55 / D) and the <strong>coverage gate</strong> (≥70) are DECIDED per the brief. The per-component quality scales below are DRAFTS — each is a one-line edit:</p>
+<table>
+  <thead><tr><th>Component</th><th>Scale (draft)</th></tr></thead>
+  <tbody>
+    <tr><td>Rate → 0–30</td><td>linear: 4.00% earns 30, 6.50% earns 0</td></tr>
+    <tr><td>Penalty basis → 0–20</td><td>three-month interest 20 · IRD vs discounted/contract 12 · IRD vs posted 4</td></tr>
+    <tr><td>Prepayment → 0–20</td><td>up to 10 for annual lump % (20% = full) + up to 10 for payment-increase % (20% = full)</td></tr>
+    <tr><td>Portability → 0–10</td><td>portable + blend-and-extend 10 · portable 7 · not portable 0</td></tr>
+    <tr><td>Fees → 0–10</td><td>none 10 · low 6 · moderate 4 · high 2 (or $0 = 10, scaled to 0 by $500)</td></tr>
+    <tr><td>Flexibility → 0–10</td><td>a 0–1 feature score × 10</td></tr>
+  </tbody>
+</table>
+<p class="note"><strong>Forward contract with the knowledge extractor</strong> (the claim topics the rubric reads): penalty is <code>penalty_methodology</code>/<code>ird_comparison_basis</code> (live today); prepayment <code>prepayment_privileges</code>, portability <code>portability</code>, fees <code>lender_fees</code>, flexibility <code>product_flexibility</code> (not emitted yet → "not on file" until they are).</p>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<h2>4 — Client comms templates</h2>
+<p class="source">from fox-underwriting/reports/client-comms-b7w-2026-07-18.md — “Deterministic drafts + the template sign-off table (Task 3)”</p>
+<p class="lede">Templates live in ONE config home (<code>src/comms/templates.ts</code>). Merge is deterministic string substitution from stored truth only (first name, closing date, the documents list, config links); a missing required field HOLDS the touch (never a half-merged send). Every rendered draft passes the mechanical copy gate (<code>src/comms/copyGate.ts</code>: no em/en dash, no exclamation, no semicolon, no "broker", no vendor name, no figures, sign-off "Michael") — proven by a golden test over all templates. <strong>The full set for Michael's voice pass:</strong></p>
+<table>
+  <thead><tr><th>Touch</th><th>Trigger</th><th>Subject</th><th>Body (verbatim, merge fields in {})</th></tr></thead>
+  <tbody>
+    <tr><td>stage · application received</td><td>stage crosses to Application Started</td><td>We got your application</td><td class="body">Hi {first_name}, / Thanks for getting your application in. I have it now and I am getting started on your file. / If a question comes up on your end, just reply to this email.{booking} / Talk soon, Michael</td></tr>
+    <tr><td>stage · documents complete</td><td>all Finmo requests approved</td><td>Your documents are all in</td><td class="body">Hi {first_name}, / Good news. I have all the documents I need from you for now. Thank you for sending them over. / I am putting your file together and will let you know as it moves along. / Talk soon, Michael</td></tr>
+    <tr><td>stage · submitted to lender</td><td>stage crosses to Submitted to Lender</td><td>Your file is with the lender</td><td class="body">Hi {first_name}, / Quick update. I have sent your file to the lender for review. This is a big step. / Lenders usually take a few days to come back. I will let you know the moment I hear anything. / Talk soon, Michael</td></tr>
+    <tr><td>stage · commitment in</td><td>stage crosses to Approved</td><td>Good news on your mortgage</td><td class="body">Hi {first_name}, / Your mortgage has been approved and the commitment is in. This is great news. / There are usually a few final conditions to clear. I am on it and will walk you through anything I need. / Talk soon, Michael</td></tr>
+    <tr><td>stage · conditions cleared</td><td>stage crosses to Ready To Close</td><td>You are cleared to close</td><td class="body">Hi {first_name}, / More good news. All the conditions on your mortgage are cleared. You are set to close on {closing_date}. / Your lawyer will handle the final signing. I am here if anything comes up before then. / Talk soon, Michael</td></tr>
+    <tr><td>stage · funded</td><td>stage crosses to Funded</td><td>Your mortgage is funded</td><td class="body">Hi {first_name}, / It is official. Your mortgage has funded and everything is done. Congratulations. / I will keep an eye on your mortgage for you through my Strategic Mortgage Monitoring service, so you always have someone watching the market on your behalf. / It was a pleasure working with you. / Talk soon, Michael</td></tr>
+    <tr><td>app chase (d2/d5/d9)</td><td>application sent, not finished</td><td>A quick nudge on your application</td><td class="body">Hi {first_name}, / I noticed your mortgage application is not quite finished yet. No worries, it happens. / When you have a few minutes, please pop back in and finish it so I can get to work for you. Just reply to this email if you hit a snag.{booking} / Talk soon, Michael</td></tr>
+    <tr><td>doc chase (x3, every 3 biz days)</td><td>documents waiting on the client, or flagged/stale (W2)</td><td>A couple of documents I still need</td><td class="body">Hi {first_name}, / I am still waiting on a few documents to keep your file moving. Here is what I need: / {documents} / Whenever you get a chance to send those over, I will take it from there. Just reply to this email if you have any questions. / Talk soon, Michael</td></tr>
+    <tr><td>review ask</td><td>one week after funding</td><td>A quick favour</td><td class="body">Hi {first_name}, / I hope you are settling in and enjoying your new mortgage. It was great working with you. / If you have a minute, a short Google review would mean a lot and helps other families find me. Here is the link: / {review_link} / Thank you either way, Michael</td></tr>
+  </tbody>
+</table>
+<p class="note"><code>{booking}</code> is an optional clause (Michael's booking link, a config constant) that appears only when set and drops cleanly otherwise. Every template is a config edit; and since every send is individually approved, an unsigned or edited template can never reach a client without Michael's eyes on that exact message.</p>
+
+</div>
+</html>

@@ -1,0 +1,360 @@
+
+
+
+
+I use CLAUDE code to build an AI voice agent that can cut 80% of your sales admin.
+
+The agent calls your prospects on the phone, qualifies a lead, will check your calendar availability and will automatically book meetings.
+
+Zero human involvement, all AI.
+
+And I built the entire thing using CLAUDE code.
+
+It's the central intelligence brain of my entire tech stack.
+
+Now, for those of you who don't know me, I'm Mike and I have over years in the technology enterprise industry.
+
+Workday Datadog, Zendesk, ServiceNow, Okta.
+
+I've worked with some of the biggest SaaS companies in the world and we've consulted over 100 businesses on how to implement AI effectively.
+
+And the number one reason AI fails in businesses, people skip the audit, they jump straight into the tech.
+
+They got Claude code, they think they're good, they watch a tutorial on YouTube. Awesome.
+And they just jump straight into things and they hope for the best. But that's not how it works.
+The businesses that win are the ones that slow down, map their processes, understand where the problems and the bottlenecks are, and then build around that.
+
+And that's what we do. Research first, build second.
+And when it's time to build, we use Claude code.
+
+Claude code in cursor is the brain, N8N handles the workflows and the backend. Automation and Elevenlabs is the orchestration for V the stack.
+That's how we built this agent and I'm going to show it to you today. Okay, we're in N8N.
+Now let's jump into the demo. Hey, this is Will from Dynaflow. Thanks for taking my call.
+Do you have a couple of minutes? Yeah, I do.
+Great, appreciate it. So I'll keep this quick.
+Can you tell me a bit about what you do and what kind of company you're at? I'm a CTO at a high tech manufacturing company.
+Nice.
+
+That's an interesting space.
+
+How big is the team you're working with?
+
+Are we talking a small outfit or something larger?
+
+I have a team of 50 operations and engineer people. Got it.
+A solid sized team.
+
+So with 50 people across Ops and engineering, I'm curious, what's the one process that eats up the most time for your team right now?
+
+Like if you could automate one thing tomorrow, what would it be?
+
+I'd love to automate some of the admin that we're doing and some of the operational stuff on the back end.
+
+That makes a lot of sense.
+
+Can you give me a bit more detail on what that looks like day to day?
+
+Like is it things like reporting, data entry, scheduling, tracking production, what's taking up. The most hours tracking production and reporting?
+Yeah, those are classic time sinks in manufacturing.
+
+A lot of that is highly repetitive and structured data, which is actually a great fit for AI automation.
+
+We've helped teams automate things like production reporting, data aggregation across systems and real time tracking dashboards.
+
+The kind of stuff that frees your engineers up to focus on actual problem solving instead of admin work.
+
+I think Mike, our founder, could add a lot of value here.
+
+He does a free 30 minute AI audit where he comes prepared with research on your company and you walk away with a written report of exactly where AI can save you time.
+
+Would that be worth exploring? That sounds good.
+I'd like to meet with Mike. Awesome.
+Let me pull up his availability for you. What dates work best for you?
+Are you thinking early next week or later in the week?
+
+I'm thinking next week. Afternoon ict.
+Perfect.
+
+Let me check what Mike has available next week in the afternoons. Great news.
+Mike has plenty of afternoon slots next week in ICT. Here are a few.
+Monday, April 6th at 2pm, Wednesday, April 8th at 3pm or Thursday, April 9th at 4pm Any of those work for you?
+
+Wednesday, April 8th at 3pm ICT.
+
+Can I grab your full name and email address to lock that in? My name is Mark Anderson and my email is just to confirm. Your email is dynaflow AI, is that right?
+Yes. Perfect.
+Let me get that booked for you now. You're all set, Mark.
+The meeting is confirmed for Wednesday, April 8th at 3pm ICT. You'll receive a calendar invite at.
+Mike will come prepared with research on your company and you'll walk away with a written report on where AI can make the biggest impact for your team.
+
+Is there anything else I can help you with?
+
+That's great.
+
+I look forward to meeting Mike. Awesome.
+Mike's going to enjoy the conversation. Have a great rest of your day.
+All right, thanks. Bye.
+If you want us to build something like this for your business, there's a link in the description, free discovery call.
+
+We research your workflows before we even get on Google Meet and you get a written report showing where automation, AI and voice can save you money and time.
+
+No pitch, just the numbers.
+
+So click the link and let's get connected.
+
+This is the part of the video where I'm going to walk through the build for you.
+
+So this is for you agency owners out there, you techies, you people who are interested in building tech tools that we're using right now, mainly Claude code N8N for backend workflows using ElevenLabs for voice and orchestration, Calm API for calendar availability and some other tools which I'm going to show you.
+
+So if you're interested, click on Book Free Strategy Call that'll take you to my calendly.
+
+And select a date, let's say April 20th, select a time, let's say 11:00am by the way, I'm in Asia, I'm on ICT time zone.
+
+Click next, put in your name and your email and let's get connected.
+
+All right, so the first thing I want to show you is the email that got sent from that agent.
+
+So as you remember from the demo, the agent asked me for some availability, gave me some time slots.
+
+I picked one, gave my email and then it booked the meeting. So you can see the email here, the meeting has been booked. And then if we go into my calendar, where is that?
+My calendar, yes, you can see here the meeting is actually on my calendar. So this is pretty cool.
+An agent is actually going out and calling your prospects, getting their availability and booking calendar meetings for you.
+
+So this could work in any type of front office, commercial application or situation.
+
+Maybe you have an SDR team, maybe you are an sdr, maybe you are a recruiter, maybe you are a technology partner and you want to go out and get some information from your customers regarding a certain aspect aspect of technology.
+
+I mean, the business cases and the applications are potentially limitless, but you know, the agent can go out and do this stuff and book meetings for you.
+
+All right, the next thing I'm going to show you is Claude code in cursor. Okay, so we have, what we're looking at here is this is Claude code in cursor. Cursor.
+And, and I'm going to kind of like go quickly here.
+
+I'm not going to go too tech or too deep, but I am going to.
+
+There is going to be some terminology that is a little bit technical. If you have any questions, just comment in the comment section. Please subscribe to my channel as well.
+It helps with the algorithms. This is is Claude code in cursor.
+Cursor is an AI native IDE which is an integrated development environment.
+
+So it allows you greater customization in terms of how you build stuff and how you interact with the AI.
+
+By the way, I do also use a voice activated application to communicate with my AI and my agents and all this type of things.
+
+I'm using whisper flow for voice ad activated commands.
+
+There's another one called Glido, which a couple of friends of mine have Built, which is really good.
+
+I'm also using that Glido.
+
+So let's just say like we're on cursor and say, how is the latest agent looking? So I've just typed that into a text file.
+I'll go into Claude code in cursor, paste that and actually let's try that again just in the command screen.
+
+What are we working on now? What is the latest on our tech build?
+So I've asked a very general question to Claude code in cursor. We're working on an N8 and middleware solution.
+We're working on a BD dashboard, a contact vault and a lot of stuff.
+
+So this is all the stuff that I'm working in my current repo, which is like a project folder.
+
+So what you want to do at the beginning is create a project folder on your computer and then you want to give Claude code access to those folders and then you can communicate to cloud code.
+
+I use voice activated commands and you can build stuff.
+
+So like at the beginning I just said, hey, I want to build a BD brain and I also want, like just for example here, I want to build a BD brain and I also want to give you access to all of my customer notes as a type of CRM so you can build dashboards.
+
+So I have a bet I have better visibility into my leads and I also want to use this repo as a tech development demo building brain.
+
+So we can synchronize problems that I've identified with some of my leads and my customers and we can build demos specifically around those problems in this same brain in the same depot repo.
+
+Okay, I was just talking to my AI there and you can see this has all gone into a text folder using Whisper Flow.
+
+Again, you can use Glido as well.
+
+And then you do that and then it will start building out a brain for you or like an agent essentially.
+
+So you can see here in this agent, this is a JSON file that has some skills locked in. We've got a requirements text file.
+This is in the actual brain agent itself.
+
+In Claude code, we have an install MD MD MD is markdown. How I built my repo in Claude code.
+I have various brains in cloud code. I have one for my website.
+I'm building a new application actually, which is a ship tracking application. I'll do a video on that in the future.
+So I have various brains for various functions and.
+
+And then this is the Claude MD file which is the repo for the main brain repo, which is like the business development brain for my company Dynaflow.
+
+And then it just goes on to kind of like have rules, skills, verticals. By the way, I didn't write any of this stuff.
+Claude code wrote all of this and created these files in cursor so you can start to see like
+
+how powerful this can get and how customizable.
+
+It can also write Python scripts for you, like do actual programming and HTML and CSS for web and this kind of thing.
+
+My entire website was revamped and re architected using entirely in Claude code. All right, cool.
+So that's a little brief introduction to to Claude code in cursor. Next I want to show you N8N the the actual agent that I built.
+So this is N8N and this is the agent that we built with the prompt, so you can see the prompt here.
+
+Now actually what I did is I used Claude code to build an agent for me and I gave it access to my agents in N8N using something called MCP, which is model context protocol.
+
+And discussing MCP in detail is beyond the scope of this video.
+
+But you can create MPC servers for ElevenLabs and put those into CLAUDE code.
+
+So in this section here, this is the documentation section of ElevenLabs for how to create an MCP.
+
+And you can see here, this is a post server request and you can see it's just some curl scripting here.
+
+And then you just, you just grab that, copy it here and then go into Claude and just say, I want to create an ElevenLabs MCP server in this brain.
+
+Here's the curl scripts.
+
+So again, I use voice activated commands to speak to Claude code and then I just paste in the MCP server and then it will create that in cloud code.
+
+I'm actually not going to activate this because I've already done this.
+
+But once you set up an MCP in CLAUDE code, it can actually connect to your ElevenLabs, which is the orchestration for voice.
+
+And an MCP essentially is like an API for AI.
+
+It allows your CLAUDE code and cursor to communicate with your orchestration platform, which in this case is elevenlabs.
+
+All right, now you can see on the right here I've used Will, which is a relaxed, relaxed optimist for my voice, the voice that you heard in the demo.
+
+The language is English, as you heard.
+
+And the LLM we're using is Claude Sonnet Sonnet 4.6.
+
+But you have like access to a whole bunch of different LLMs in elevenlabs. I like Claude.
+I'm kind of like big on claw or anthropic right now.
+
+So I think for the purpose of this agent and demo, Claude's. Well, Claude 4.6 I think is actually the most advanced one.
+You've also got Gemini 3 Pro Preview and you can see the pricing here as well. So the one that we're using is 0.0291, which is the more expensive one.
+But again, for the purposes of demos, it's fine.
+
+I'm going to draw your attention now to the tool section because I had to build a couple of tools in the agent.
+
+Claude code helped me do this and showed me how to do all this stuff.
+
+But you actually have to build the function tool calls in N8N sorry, in 11 labs.
+
+The first one is Check Calendar tool, which will access cal.com and that is right here. And I've created an event in Cal.com which I've connected to my Google Calendar.
+And when you do that, you create a get request with this URL here.
+
+If you can see this and you need to create some authorization headers, you need to add your Cal.com secret API code API key in here.
+
+What this does is a function tool called Tocal.com API to check your Google Calendar availability.
+
+And Cal.com has an API that allows 11 labs to communicate with your Google Calendar and get availability to send back to the agent.
+
+So you do that, you set this up.
+
+You need to also add some, what they call query parameters. So there's a string start an LLM prompt with a description.
+So this is like start time information.
+
+And then you need a string N with an LLM prompt, which is the end time essentially. And then you need an event ID which you can get in Cal.com API in the URL here.
+I'm not sure if you can see this, it's probably hidden, but it is a 1, 2, 3, 4, 5.
+
+I think it's a six digit number that is actually in the URL, like the actual like URL screen of your browser.
+
+And then you add that in here, you can see it here and then there. That's it really.
+You've set up your Check Calendar tool call.
+
+The next tool that I built is Book Meeting, because then the availability will get sent back to your agent, which is 11 labs.
+
+And then the agent will say to the user, you heard this in the demo. Oh, Mike is available next week at these times.
+And then the user will provide availability.
+
+And that's when you activate the Book Meeting tool function.
+
+And all of this is happening within the prompt of the agent of the orchestration.
+
+So when the availability comes back and the user provides picks availability then it actually
+
+activates a book meeting tool call.
+
+And then this is a post and it's actually a post request that gets sent to N8N which is the automation workflow that we're using.
+
+I'm going to show you that in a second by the way.
+
+Again, if you have any questions on this stuff, I know I'm moving quite quickly here but leave a comment in the comment section and I will answer all questions in the comments.
+
+If you want to know how to build this for your business or if you think this is interesting, book a meeting with me.
+
+I'll do an audit, we'll get connected and we'll, we'll do like a 3, 330 minute section session. I will check out your business and like we can start building stuff immediately.
+I will, I guarantee I will start adding value to your business.
+
+We'll find the bottlenecks, we'll automate, we'll start saving you time and making you money.
+
+Digression.
+
+Now in the body parameters you need to create some body parameters. This is JSON in the properties, it's a string.
+This is the same as the other tool that we built. Basically string attendee name.
+So it needs to get the person's name and this is for the actual like booking itself. And then we need to get the attendee's email.
+Email can be tricky but in this case it worked.
+
+In the, in this case agent's case it, it did actually work.
+
+A lot of people and I don't always recommend emails because they can be tricky but there is a ways around getting emails very precisely by sending like SMS and getting the user to type in their email in an SMS and sending that back to the agent.
+
+V are getting much better at retrieving actual data and information correctly. So as long as the user says email in a clear way it'll, it'll capture that.
+And then the time zone is also important.
+
+So you can synchronize like the user's time zone with, with the agent representing me's time zone, if that made any sense.
+
+All right, so then this gets sent into N8N and I have built a workflow in N8N which is a 1, 2, 3, 4, 5 node workflow.
+
+And so let me just make sure we'll go to the latest one, this is the latest session that happened.
+
+Go into executions and then copy to editor and then unpin. That'll take you into the N8N workflow.
+So the first node that you need is a web hook and it has to be in the production URL post and then the path is book dash meeting authentication none.
+
+And then respond using. Respond using webhook node.
+And so this, the information from the agent from N will send the fields that we just looked at.
+
+Okay, these fields here, start time, name, email and time zone to this workflow. This shows up in the workflow and you can see this stuff here.
+You can see the URL and you can see the start time, the name, the email and the time zone here.
+
+So that is the webhook that captures basically a webhook is the first part of the workflow that captures dynamic data that has been provided to the agent in a dynamic field which, which also gets captured.
+
+Well again a lot of this is in the prompt here.
+
+So we can see the prompt.
+
+We didn't really take a detailed look at this. This is circling back into ElevenLabs.
+And so I'm not going to go through this whole thing, but you are an AI publisher, AI powered SDR agent for Dynaflow and AI automation consultancy.
+
+Your job is to qualify inbound leads and book consultation meetings. By the way, I didn't write this prompt.
+This was all done automatically in Claude code, in cursor.
+
+So again, cloud code is your brain building all this stuff and telling you how to build these workflows and managing it.
+
+So it has an understanding of what's going on.
+
+But it built this entire prompt for me with the dynamic data.
+
+So that gets sent to the web webhook and then that information gets sent to a code node, which is basically a JavaScript code node that just kind of manages the information in a more easy to understand machine learning way.
+
+And then that will get sent to an HTTP node which is the node where you send this information back to Cal.com to the API and then that gets booked into the Google Calendar and the Cal.com API.
+
+API actually will do all that in the background and then an email will get sent.
+
+So this information that gets sent to this URL as a post and then the Cal.com API does its magic and sends out the email.
+
+Now also you need to have a code.
+
+Well, you don't have to, but it's good to have a code node after that for I'm not going to get into the technicals of this, but to manage this information here, the output and then that gets sent to a respond to webhook node.
+
+The response body is some JSON which then gets sent back to the, the agent where the agent can say to the user, hey, thank you for your availability.
+
+This meeting has been booked. All right, cool.
+So that is the basics of the so we were again, we're using Claude code in cursor for the. The brain for and building out the agents.
+And we are using 11 labs for the orchestration N8N for the backend workflow.
+Again, you do need to set up an MCP server in Claude code to communicate with N8N. And then we're using Cal.com for the availability of the API there for availability, checking,
+confirmation, email, Google, all of that stuff and then that that results in this email here, and it also results in happy customers.
+
+So again, if you're interested in this stuff, understanding where the bottlenecks and the problems are for your business, just click on the link, let's get connected and I will see you in the next one.
+
+Thank you very much.
+
+If you've stayed all the way to the end of this video, first of all, you're an absolute champion, and second of all, you are committed to the cause and I really appreciate.
+
+Excuse me.
+
+I really appreciate that and you have my undying respect. See you in the next one.

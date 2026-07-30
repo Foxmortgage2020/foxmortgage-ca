@@ -3,7 +3,8 @@
 // reads the draft out of the GateResult envelope.
 
 import { describe, expect, it, vi } from 'vitest'
-import { runLenderNotesGeneration, runFinmoPull, runSubmissionSet, runNoteEdit, DEMO_LENDER_NOTE, LENDER_NOTES_CEILING } from '@/lib/lender-notes-client'
+import { runLenderNotesGeneration, runFinmoPull, runSubmissionSet, runNoteEdit, runLenderNotesCrmWrite, DEMO_LENDER_NOTE, LENDER_NOTES_CEILING } from '@/lib/lender-notes-client'
+import { LENDER_NOTES_STATUS_BY_KIND, lenderNotesBridgeConfigured, resolveLenderNotesUrl } from '@/lib/lender-notes-bridge'
 
 const HEADER = 'x-gates-token'
 
@@ -163,5 +164,126 @@ describe('the readiness-strip actions POST to the proxy outside demo', () => {
     await runNoteEdit({ dealId: 'd-1', text: 'the edited note body', demo: false, mintToken: async () => 'tok', gatesTokenHeader: HEADER, fetchImpl: fetchImpl as unknown as typeof fetch })
     expect(fetchImpl.mock.calls[0]![0]).toBe('/api/portal/admin/gates/deals/d-1/lender-notes/edit')
     expect(JSON.parse(fetchImpl.mock.calls[0]![1].body)).toEqual({ text: 'the edited note body' })
+  })
+})
+
+// ─── The Zoho write (N-06, 2026-07-29) ──────────────────────────────────────
+
+const runBody = (over: Record<string, unknown> = {}) => ({
+  ok: true, dryRun: false, outcome: 'generated', mode: 'DRAFT',
+  dealId: 'z-1', dealName: 'BRXM-F000000', note: 'THE NOTE', diagnostics: { charCount: 8 },
+  model: 'claude-opus-4-7', sources: null,
+  writes: { history_note: true, lender_notes: true, log_note: true },
+  notes: [], errors: [], auditId: 'a-1', ...over,
+})
+
+describe('resolveLenderNotesUrl never guesses', () => {
+  it('prefers an explicit UW_LENDER_NOTES_URL', () => {
+    expect(resolveLenderNotesUrl({ UW_LENDER_NOTES_URL: 'https://uw.example/api/bridge/lender-notes-generate' }))
+      .toBe('https://uw.example/api/bridge/lender-notes-generate')
+  })
+
+  it('derives from the room bridge URL, so it reaches wherever that reaches', () => {
+    expect(resolveLenderNotesUrl({ UW_BRIDGE_URL: 'https://uw.example/api/bridge/rooms' }))
+      .toBe('https://uw.example/api/bridge/lender-notes-generate')
+  })
+
+  it('returns null for an unrecognised UW_BRIDGE_URL rather than inventing a path', () => {
+    expect(resolveLenderNotesUrl({ UW_BRIDGE_URL: 'https://uw.example/some/other/hook' })).toBeNull()
+    expect(resolveLenderNotesUrl({})).toBeNull()
+  })
+
+  it('needs both a URL and the secret to count as configured', () => {
+    const url = { UW_BRIDGE_URL: 'https://uw.example/api/bridge/rooms' }
+    expect(lenderNotesBridgeConfigured(url)).toBe(false)
+    expect(lenderNotesBridgeConfigured({ ...url, UW_BRIDGE_SECRET: 's' })).toBe(true)
+  })
+
+  it('a refused bridge credential is a 502 config fault, never a 401 at the browser', () => {
+    // The caller's own session was already gated on the portal side, so
+    // answering 401 would send an admin to sign in again over our secret.
+    expect(LENDER_NOTES_STATUS_BY_KIND.credential).toBe(502)
+    expect(LENDER_NOTES_STATUS_BY_KIND['not-configured']).toBe(503)
+    expect(LENDER_NOTES_STATUS_BY_KIND['not-found']).toBe(404)
+  })
+})
+
+describe('runLenderNotesCrmWrite', () => {
+  it('demo never touches the network and never claims a write', async () => {
+    const fetchImpl = vi.fn()
+    const r = await runLenderNotesCrmWrite({ dealId: 'demo-deal-1', dryRun: false, demo: true, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(r.ok).toBe(true)
+    expect(r.demo).toBe(true)
+    expect(r.dryRun).toBe(true)
+    expect(r.writes).toEqual({ history_note: false, lender_notes: false, log_note: false })
+  })
+
+  it('posts DRAFT mode to the portal route and mints no token', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _opts: any) => ({ status: 200, json: async () => ({ ok: true, run: runBody() }) }))
+    const r = await runLenderNotesCrmWrite({ dealId: 'd-1', dryRun: false, demo: false, fetchImpl: fetchImpl as unknown as typeof fetch })
+    const [url, opts] = fetchImpl.mock.calls[0]!
+    expect(url).toBe('/api/portal/admin/underwriting/lender-notes/d-1')
+    expect(opts.method).toBe('POST')
+    // The bridge secret is the server's; no gates token rides this call.
+    expect(opts.headers[HEADER]).toBeUndefined()
+    expect(JSON.parse(opts.body)).toEqual({ mode: 'DRAFT' })
+    expect(r.ok).toBe(true)
+    expect(r.note).toBe('THE NOTE')
+    expect(r.writes).toEqual({ history_note: true, lender_notes: true, log_note: true })
+  })
+
+  it('a preview sends dry_run and reports that nothing was written', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _opts: any) => ({
+      status: 200,
+      json: async () => ({ ok: true, run: runBody({ dryRun: true, writes: { history_note: false, lender_notes: false, log_note: false }, notes: ['dry run: no Zoho write attempted'] }) }),
+    }))
+    const r = await runLenderNotesCrmWrite({ dealId: 'd-1', dryRun: true, demo: false, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(JSON.parse(fetchImpl.mock.calls[0]![1].body)).toEqual({ mode: 'DRAFT', dry_run: true })
+    expect(r.dryRun).toBe(true)
+    expect(r.note).toBe('THE NOTE')
+    expect(r.writes).toEqual({ history_note: false, lender_notes: false, log_note: false })
+    expect(r.engineNotes).toEqual(['dry run: no Zoho write attempted'])
+  })
+
+  it('flags the 10 minute recency skip so the card can offer a forced press', async () => {
+    // The engine returns ok:true on a skip, so a caller reading ok alone would
+    // report a note that was never written.
+    const fetchImpl = vi.fn(async (_url: string, _opts: any) => ({
+      status: 200,
+      json: async () => ({ ok: true, run: runBody({ outcome: 'skipped_recent', note: null, writes: { history_note: false, lender_notes: false, log_note: false }, notes: ['skipped: Lender_Notes was generated 42s ago'] }) }),
+    }))
+    const r = await runLenderNotesCrmWrite({ dealId: 'd-1', dryRun: false, demo: false, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(r.ok).toBe(true)
+    expect(r.skippedRecent).toBe(true)
+    expect(r.note).toBeNull()
+  })
+
+  it('sends force only when asked', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _opts: any) => ({ status: 200, json: async () => ({ ok: true, run: runBody() }) }))
+    await runLenderNotesCrmWrite({ dealId: 'd-1', dryRun: false, force: true, demo: false, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(JSON.parse(fetchImpl.mock.calls[0]![1].body)).toEqual({ mode: 'DRAFT', force: true })
+  })
+
+  it('surfaces a partial write honestly instead of reading as a clean failure', async () => {
+    const fetchImpl = vi.fn(async (_url: string, _opts: any) => ({
+      status: 502,
+      json: async () => ({
+        ok: false, kind: 'engine', message: 'Lender_Notes update failed: 401 from Zoho',
+        run: runBody({ ok: false, outcome: 'generation_failed', writes: { history_note: true, lender_notes: false, log_note: false }, errors: ['Lender_Notes update failed: 401 from Zoho'] }),
+      }),
+    }))
+    const r = await runLenderNotesCrmWrite({ dealId: 'd-1', dryRun: false, demo: false, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(r.ok).toBe(false)
+    expect(r.writes).toEqual({ history_note: true, lender_notes: false, log_note: false })
+    expect(r.errors).toEqual(['Lender_Notes update failed: 401 from Zoho'])
+    expect(r.message).toContain('Lender_Notes update failed')
+  })
+
+  it('a network throw never claims the file is untouched', async () => {
+    const fetchImpl = vi.fn(async () => { throw new Error('boom') })
+    const r = await runLenderNotesCrmWrite({ dealId: 'd-1', dryRun: false, demo: false, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(r.ok).toBe(false)
+    expect(r.message).toMatch(/may still be going/i)
   })
 })

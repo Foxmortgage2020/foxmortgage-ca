@@ -1,0 +1,232 @@
+Everyone is building AI agents right now.
+Every startup, every tech company, every developer on Twitter.
+Agents, agents, agents.
+And it's the hottest word in AI.
+But what if I told you that Antropic, the company that actually builds, Claude just said, stop
+building agents.
+Not me, them.
+The people building the AI are telling us that the future isn't more agents.
+It's something they call skills.
+So in this video, I'm going to break down exactly what skills are, why they matter, and why I
+think this changes everything.
+Especially if you're someone who's been trying to figure out how to actually make AI useful.
+Useful for real work and not just demos.
+And then I'm not just going to explain this in theory.
+I'm going to show you a real project I built using cloud code skills, which are a set of skills
+that can take any website, run a full AI search optimization audit on it, and generate a
+professional report.
+You can charge clients for all powered by skills.
+So let me first set the stage.
+Why would Antropic, a company that literally builds AI, tell people to stop building agents?
+Here's the thing.
+
+AI agents right now are incredibly powerful.
+They can write code, browse the web, call APIs, AI's reason through complex problems.
+The raw intelligence is there.
+No one is disputing that at all.
+But intelligence is not the same as expertise.
+Think about it like this.
+Imagine you need someone to do your taxes right.
+You've got two options.
+Option A, a genius, someone with a sky high IQ who can figure out anything from first
+principles.
+They've never done a tax return before, but they're brilliant, they'll work it out.
+Option B, an experienced tax professional.
+They have done thousands of returns.
+They know every rule, every edge case, every in every deduction.
+So who are you picking in this scenario?
+You're picking the tax professional every single time.
+Because you don't want a genius figuring out the tax code from scratch.
+You want someone who already knows it.
+And that's exactly the problem with AI agents today.
+They're brilliant generalists.
+They can figure things out if you give them enough time and the right guidance.
+But they don't come preloaded with specific expertise.
+
+They don't know your workflows, they don't know your industry.
+They don't remember what worked last time.
+So what does everyone do?
+They build a separate agent for every use case.
+A tax agent, a legal agent, a marketing agent.
+Each one with its own custom tools, its own setup, its own architecture.
+And it's exhausting.
+It does not scale at all.
+What anthropic Realized that the agent underneath is actually universal.
+You don't need a different agent for every job.
+What you need is a way to give the same agent domain expertise on demand.
+That's what skills are.
+Okay, so let me explain this as simply as possible.
+At its core, a skill is a markdown file, basically a document of instructions that teaches
+Claude how to do something specific.
+Think of it like a playbook you would hand a new employee.
+Here's how we do things, here are the steps, here's what to watch out for.
+That file lives inside a folder, and that folder can also include other things like scripts that
+Claude can run, reference documents, templates, examples, whatever Claude needs to do
+expert level work in that area.
+But the heart of every skill is that instruction file file.
+So at its simplest, you can create a skill in five minutes.
+You write a markdown file that says, when someone asks you to write a blog post, follow
+these steps, use this tone, structure it in this way.
+
+Always include these sections, save it in the right folder.
+Done.
+Cloud now knows how to write blog posts the way you want them written.
+But skills can also be much more sophisticated.
+You can include Python scripts that Claude can execute.
+You can have templates it fills in.
+You can build entire workflow.
+Now here's the part that makes this really clever.
+Skills are what antropic calls progressively disclosed.
+That's a fancy term for something simple.
+Claude doesn't load every skill into memory all at once.
+When Claude starts working, it just sees a short description of each skill, like reading the
+title on a spine of a book.
+Only when Claude decides it actually needs a particular skill for the task at hand, does it pull
+it off the shelf and read the full instructions.
+This means you can give Claude access to hundreds or even thousands of skills and and it
+won't get overwhelmed.
+It picks the right ones for the job automatically.
+Just like how an expert knows which reference manual to grab without having to reread all
+of them.
+And this is what makes skills so different from just stuffing a bunch of instructions into a
+prompt.
+With a prompt, everything is crammed into context at once and it gets messy fast.
+With skills, it's organized, it's modular, and Cloud pulls it only when it needs when it needs
+
+it.
+Now here's the part that really matters.
+For non technical people.
+Before skills, if you wanted to customize AI behavior, you basically needed to be a
+developer.
+You had to build custom tools, write code, set up infrastructure.
+With skills, anyone can create one.
+You're a recruiter.
+Write a skill that teaches Claude your company's hiring Process your evaluation criteria,
+your interview questions, bank you're in finance, write a skill that teaches Claude how to
+build reports the way your team does them.
+You are in legal, teach Claude how to review contracts the way your firm does it.
+And skills also work alongside something called MCP servers which are Claude's
+connections to external tools and data.
+Think of it this way, MCP lets Claude reach out and interact with the world.
+Pull data from APIs, connect to your tools, skills, tell Claude what to actually do with all of
+that.
+MCP is the hands, skills are the experience.
+Now when you put these together, you get something really powerful.
+An agent that can connect to anything and knows exactly how to handle what it finds.
+Alright, so now that you have a little bit of idea of what skills are, let me now show you a
+practical project so you know exactly what I'm talking about.
+So I'm inside my cloud code here and I'm gonna run a geo analysis on a real website.
+By the way, if you're interested in learning more about skills, check out the community link
+is gonna be description.
+
+I have an entire skills library that you can download for different business use cases for
+research analysis.
+And then also if you're interested in learning how to monetize this and sell this to real
+businesses and build real solutions for businesses, that's gonna be also ins community.
+But anyways, so I'm inside my Visual Studio code, inside cloud code.
+What I'm going to do is come in the bottom here and I'm going to press slash geo and as you
+can see all of these different slash commands which are these skills are available for me.
+I'm going to click on Geo Audit.
+By the way, all of these details, this geo audit and everything is inside this GitHub repo that I
+created.
+Again this is completely free for you guys.
+Available link is going to be description again.
+So basically this geo tool consists of 12 different skills.
+As you can see, these are the different skills on the folders.
+Each folder has a Skills MD file.
+So this geo audit, as I can click on Skill md, you'll see exactly that all of these details are here
+and I'm going to talk about that a little bit.
+So what I'm going to do is go ahead and run Geo Audit on a popular website called
+calendly.com again.
+I'm sure a lot of people are familiar with that, so I'm just going to press enter.
+What this is going to do is now Claude code is going to look into the geo skills file inside this
+particular folder.
+This skills MD this GEO Audit, that's because that's exactly what we ran.
+And this are the, these are instructions that I was talking about in the beginning of the video
+where now we're giving cloud code a specific instruction and making it become an expert in
+a specific area.
+
+In this case it's basically GEO Audit.
+Again GEO stands for Generative Engine Optimization.
+It's basically optimizing businesses for search in ChatGPT, Gemini and clouds of the World,
+right?
+So what this is going to do is it's going to run all of these analysis as you can see this, so it's
+going through and running these, these multiple steps and all of this is again coming from
+the instructions that's inside this Geo Audit Skills MD file.
+So the first phase is going to be discovery, it's going to discover the homepage of the
+calendar com and then afterwards it's going to run this phase two which is parallel sub
+agent delegation.
+So this skills has instructed Claude code to run five sub agents simultaneously.
+Each agent is responsible for different TAs.
+And that's what the beauty of skills are.
+You can have a simple instruction or you can tell Claude to run multiple different agents
+doing different things.
+Right?
+So imagine if you're building a house, I gave this example before.
+If you're building a house and you have a main contractor, then that contractor, in order to
+make sure that the house is built in an efficient way, they hire five different subcontractor,
+right?
+Each subcontractor will be in charge of doing something in particular an electrician, H vac
+contractor.
+One's going to be building the foundation.
+So that's the best way to basically build that house in the most efficient way.
+That's exactly what's happening here behind the scene.
+Cloud code is running all of these different sub agents and they're delegating these different
+tasks.
+
+As you can see right here, everything is going through.
+I'm just going to fast forward this so you see the result here.
+And as you can see the result is running this GEO reports.
+If I open this now, this is the output of this particular tool.
+And as you can see it ran this geo analysis report with executive summary score breakdown,
+right?
+For different platforms like ChatGPT, Perplexity, Gemini, Bing, all of that stuff.
+By the way, I did a step by step on this if you want to, if you're interested in checking it out,
+I'm going to put the link description of that video.
+But essentially this runs this incredible service and runs these key findings for this
+particular company.
+It says hey calendly has no Wikipedia article.
+This is a critical finding and at the bottom it gives it also a prioritized action plan what they
+can do on a week basis to basically improve their AI solubility from chat GPTs and Geminis
+of the world.
+Again, I walk through this step by step if you're interested in finding more details about this.
+But essentially this is what this skills, these skills files are, right?
+This particular one, geo audit, this is kind of like an entire comprehensive geo audit, but
+there's multiple other skills inside this.
+So for instance, if you just want to run a geo citability analysis for that particular website,
+you click on this or you run the Geo/catsitability instead of the geo audit and cloud code is
+going to look at the skills MD file inside geo citability and this is going to have a separate set
+of instruction.
+As you can see, this one doesn't have any sub agents.
+So if you run this, this has a particular set of instruction that tells Claude how to operate for
+that task that the user is asking for.
+
+So that's basically how you can run multiple different skills or give Claude code multiple
+skills.
+And based on what you're asking, it knows exactly what to run, when to run it.
+And again, cloud code is smart enough to know that even if you give it plain English, just tell
+them, hey, I want to have a report generated for a geo audit, right?
+You don't have to specifically run the slash commands.
+It will know exactly what you're asking for.
+It will look into the skills files and see, okay, which one is going to be relevant for this
+particular ask the user is asking me for?
+It's going to pull that off the shelf, those particular instructions and it's going to follow
+through.
+And that's what makes this such a powerful and that's why Anthropic is saying that the
+future of AI agents actually building separate skills and giving cloud code access to all the
+skills.
+And based on what the user is asking, then cloud code is capable of pulling the exact skill
+that it needs in order to run the analysis or in order to satisfy the need of what the user is
+asking.
+Again, this was just a quick walkthrough.
+I have done a step by step on this.
+You can check it out, feel if you're interested.
+But this hopefully give you an idea of what skills are, why this is the future.
+I'm going to be doing a lot more videos on this, so make sure you like and subscribe to the
+channel because I've got a lot more content coming up I recently also did a marketing one,
+so check that out if you're interested as well.
+And again, if you're interested in launching your AI agency and learning how to monetize
+this, check out the community link is going to be.
+Description thanks for watching and I'll see you in the next one.
+
+

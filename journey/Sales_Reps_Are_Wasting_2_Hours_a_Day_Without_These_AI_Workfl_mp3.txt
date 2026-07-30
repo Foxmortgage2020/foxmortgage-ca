@@ -1,0 +1,309 @@
+The average sales rep is spending up to two hours a day on administrative work.
+I experienced this myself firsthand.
+2024 I had arguably the busiest year of my career.
+Both in and out of work.
+I was flying every single week to different locations.
+I would have six to seven meetings a day.
+Next thing I know I'm just saving all my grunt work for my plane ride to my customer visit
+or over the weekend.
+I'll just tackle it then.
+And this includes things like account research, note taking, creating slide decks, updating
+slide decks, updating CRMs, keeping tabs on all my accounts.
+And whether it's actually creating things like notes or emails or calendar invites, or it's
+things like catching up on accounts, if you're balancing several different accounts, getting all
+of that context, jumping from tool to tool, it's a real pain in the ass.
+And I want to walk you through these five use cases today on how they have not only saved
+me two hours of work every single day, but also it is doing as good or better work than I was
+already doing myself.
+But it takes a little bit of know how to to actually get these things to get consistent outputs
+that are great.
+The beauty is for all of these use cases all you need is the $20 a month plan.
+On ChatGPT you can use Google Gemini.
+It has similar functionality as well as Claude.
+Really go to your platform of choice.
+
+I have built so many workflows in ChatGPT and really refined them that I find the writing
+and the outputs are really great.
+So I haven't switched yet though I have seen similar results on different platforms.
+The biggest thing if you are not familiar in ChatGPT it's called custom GPTs or projects.
+In Gemini it's called Gems.
+I believe Claude has their version of it as well.
+Everything you're seeing Here are custom GPTs that are specifically designed to execute on
+one specific function really really well.
+So the first one that we're going to get into and what I recommend you do is not just come in
+here and make a simple prompt of.
+Like hey, summarize this call.
+I actually have a custom GPT that is designed to take a full length transcript.
+This could be a 60 minute, 90 minute, 120 minute call.
+8 It will break it down in terms of everything my organization needs specifically, not just
+generic like Bant or Medic.
+I've actually gone in here and using a custom prompt really designed exactly what I want
+from a transcript and also told it hey, if you don't have this information, please identify gaps
+and let me know that you don't feel confident in this piece of information so that I can know
+to get it next time.
+So just as an example, I started this one.
+It's simply asking me for a transcript.
+I'm going to upload this transcript here.
+And just say anonymize this company info as this is a video demonstration make up
+company and people's names.
+It's going to analyze this transcript and it is going to break every single thing down that I
+just go in and copy to Salesforce, copy to HubSpot, copy to Gmail, whatever it may be.
+
+Right.
+So it's made up this information here about the different client but it's got everything.
+If you are as one example of many like every single Salesforce or HubSpot from a company
+that I've worked at always requires next steps.
+It's got it here.
+If you're a command of the message you have current state negative consequences, future
+state positive business outcomes Medic Bant I've codified it to also create a detailed follow
+up email.
+And not just a follow up email but I've given it several templates of my own and said this is
+exactly what I want my follow up emails to look like.
+And it's also based on the transcript created a follow up calendar invite.
+This is one example of many.
+You can also if you would like make each of these a separate GPT where you could have A
+dedicated email 1 A dedicated calendar invite.
+But if you are not doing this guys again you may have to tweak a few things here or there
+but this alone is something that I would put off till 5pm I close my laptop, I'm like you know
+what, I need to go run, I need to go exercise.
+I'll come back to this at 7 or 7:30 after I have some dinner and this is done in a matter of 10
+to 20 seconds like you just saw here.
+And if you are not doing this at a baseline this immediately gets you an hour back.
+Comment below if I can elaborate further on the note taking use case.
+But that is I would say just from the BS admin stuff that is so annoying to do.
+If you are not already using ChatGPT or an AI tool to do that I would do that immediately.
+The next one I want to get into and this has been insanely valuable for me, you'll actually see
+that we work with a lot of different companies.
+Again I've made up the names here of these different companies but but what I am doing
+
+now is I am actually I've created A project.
+Right.
+So this again has very specific instructions.
+I can actually show you these here.
+If you want to pause the video, feel free.
+But it basically says, hey, you are an expert account executive with 15 years of experience.
+Here's your task.
+You got to do all these things.
+Here's the context of what I want you to do.
+So I basically told this project, hey, you need to take in all the information from an account I
+give you and you need to be the expert resource on everything that is happening in that
+account.
+So.
+So if I want, as one example, I can go into a current account that I'm working and say, hey, I
+haven't talked to them in a month.
+Please create a paragraph summary of everything we've talked about so far.
+And this is a super simple way.
+Instead of jumping to Salesforce, instead of jumping into Gong and rewatching a call, instead
+of jumping into your email inbox and rereading the emails, that this is an incredible way.
+Again, the one challenge here is that you actually have to upload your emails, upload your
+transcripts.
+Please check with your company.
+In some cases that may not be allowed, especially depending on the company that you're
+working with or supporting.
+But this has been unbelievable in the sense that like right now, it's over winter break, I've
+
+stepped away from my computer for almost two weeks.
+I'm going to come back and I don't have to spend a day just getting back up to speed on all
+my accounts.
+I can do this in a matter of minutes.
+And on that note, guys, you know I give tons of free value here and if ultimately using
+ChatGPT is the best tool tool for you, it's only 20 bucks a month and I highly recommend
+that.
+Again, it's very painful to upload all of the transcripts, all of the emails.
+I just wanted to give you guys a heads up.
+In February or March, we are going to launch Rhythm AI.
+It is the first AI sales copilot that is actually built by sales reps and I've actually got a
+preview here to show you.
+So by the way, if you want to be notified when we go live, even if you just want a free trial,
+put your email here.
+I'll give you a shout directly myself when we do ultimately go live.
+But, but some of the things I just walked through I have not seen in any of the AI co pilots.
+So we're going to integrate directly with your calendar, with your email and then as an
+example, after you have a meeting with your client Morgan Stanley, you can come in Here
+and have it generate a meeting summary, which is also a predefined workflow right away.
+Or as one example of many, maybe you want to sync back on Salesforce.
+You know, hey, catch me up on everything that's going on with Salesforce right now.
+The beauty of this is all of your information is going to be securely aggregated and stored
+here.
+So you can almost have these custom GPTs for every single account that you have and also
+very detailed and defined actions that give you what you want.
+I've seen so many of these call recording tools and all respect to them, but they give you AI
+summaries and they can create follow up emails, but they don't even allow you to define
+
+what kind of note style you want or what kind of emails you want.
+So anyway, my point being guys, there's a link in the description and in the comments
+below.
+If you want to be notified when we do go live with that, just throw in your email here, I'll
+give you a shout.
+We're gonna let everyone start with a free trial so that again will be coming around
+February or March and getting back to the different use cases here.
+The third one, and I would argue this is one of the most underrated, but also the hardest to
+pull off, is account research.
+Specifically, one of the things that I didn't really appreciate because when ChatGPT was like
+first on the block, it was rather new, it was connected to the Internet.
+All of the research that it did was still pretty bland and generic.
+It wasn't clear that it was actually scraping the up to date Internet.
+But now in 2020 and beyond, ChatGPT effectively is scanning thousands, if not hundreds of
+thousands of websites when you have it, do a web search.
+So when you are actually asking this thing and prompting it correctly to do a deep dive
+account research, the results I've gotten are absolutely insane.
+Even if you're new to ChatGPT, all you need to do is just start a new chat.
+You're going to want to come in here and enable the web research specifically.
+But if you're not familiar, a free tool that I recommend is PromptCowboy AI and and this
+will allow you to create a super detailed and lengthy post that gets you incredible results
+when you're doing a web search.
+Again, this is totally free and all you would need is the 20amonth ChatGPT plan.
+But let's just do a very basic example.
+If you have not really used ChatGPT for account research and your potential prospect is
+Verizon, you can say, hey, you.
+Are an expert researcher for sales teams with 20 plus years of enterprise sales experience.
+
+I need you or let's actually back up.
+I sell Oracle.
+Again, a very simple example databases and I need you to learn everything about Verizon's
+tech stack, business outlook and otherwise that would make Oracle a great fit for Verizon.
+Please generate a detailed report and identify key stakeholders tying their current business
+pains with their publicly stated goals from news.
+Reports, 10ks etc so prompt Cowboy, I mean this is already a halfway decent prompt.
+It's not that great in the grand scheme of things, but Prompt Cowboy is going to take this
+and now make this a super detailed prompt.
+I just want to show you very briefly how powerful this is.
+Again, in the scope of two minutes I've created an extremely detailed prompt.
+I'm going to get some really good data on Verizon and then the key thing as well, as you'll
+see when we jump back to ChatGPT, is not only is this first shot of research on Oracle going
+to get some pretty good results, but I can ask it follow up questions, I can continue to probe
+it further and and you'll be amazed at what it can get with a very simple search right here.
+So I went ahead and hit answer now just for the sake of this example.
+But sometimes it'll deep dive for a couple minutes if you really want it to go deep, which
+again I encourage if you have the time to do.
+It's amazing, it can just run in the background, but here you can see it's already getting some
+very detailed information about what it's using, the types of technology it has.
+And what I'm going to do is not just take this at face value but again I can go, hey, please
+explain to me how you know they're using Apache or Kafka or Snowflake, who's using it?
+How much are they using it?
+Please find the linkedins of everyone in Dallas, Texas that is using Snowflake that works at
+Verizon, right?
+Many examples here.
+
+You can also probe it further.
+Hey, this was great.
+You know about the business outlook and strategic priorities.
+Please cite specifically from the latest 2025 10K that you can find XYZ problem or XYZ
+statement, right?
+You have the C suite, you have all these things broken down.
+But my point being again guys, this is something that you know, if you're creating an
+account, you're preparing for a qbr, this is something that takes hours per account, let alone
+how many accounts you have to balance if you're actually going to show up and do this
+right.
+So if you have not been using ChatGPT for account research, it is extremely, extremely
+underrated.
+The fourth use case I have here is slideshows.
+I originally said emails.
+I'm going to change that up because you saw that in a previous one.
+A lot of people.
+I'm not saying you actually have ChatGPT create slideshows.
+The image creation is not quite there yet.
+However, those of you that have worked at a company for a long time, you generally
+speaking have pretty standard templates for things like a discovery call presentation, maybe
+a demo call, maybe a scoping call, maybe if you do extensive trials.
+I know I commonly run trials on the order of one to three months.
+You scope that out.
+There's a very standard document.
+Don't feed it any private information your company would not be comfortable with.
+
+However, if you say, hey, I need you to create a slide and here's the overall format of my
+typical slide deck.
+Slide 1 is this.
+Slide 2 is this.
+Slide 3 is this.
+Slide 4 is this.
+Then you feed it a bunch of transcripts and tell it to go crazy.
+It will get you 80 to 85% of the way there.
+And I want to show you again a very simple example with an executive summary creator
+I've created here.
+I certainly use it much more extensively.
+And when I'm deeply involved with an.
+Account, I'll feed it several emails, several transcripts.
+But I'm going to take this simple scoping call transcript from earlier and just.
+Say, hey, please create a one page.
+Executive.
+Briefing for the CTO of this company so they understand the significance of the problem we
+are solving.
+And again, guys, under the hood, I have already codified this thing to create an executive
+summary based on several templates that have been effective for me.
+I'm just going to say, hey, please.
+Anonymize this information and make up the company and people's names.
+So it's going to read through this and as you can see, it's saying Acme Financial Systems, but
+it's actually using the data from the transcript and it's taking something that I can very
+easily just copy paste here.
+
+I'm not, I'm not saying blindly, you.
+Know, use it word for word, but now I'm 85% of the way home.
+I've got to fix the formatting, the spacing, but I can come in here and now very, very quickly
+have a really dialed in executive summary slideshow, whatever it may be, the last one, and
+I've made several videos on the channel by the way.
+So if you want to see more, you can obviously subscribe, follow along and find these
+different videos.
+But a lot of people again do not really value how.
+Well when prompted correctly, Prompt Cowboy can be an insane role play or interview
+prep or coach for active reps or reps trying to break in an interview.
+As you might imagine, I have a first round interview simulator I've already created.
+I use Prompt Cowboy, by the way to create the detailed instructions and this includes
+anything you know, hey, provide the company.
+These are the common questions that you might get asked.
+But not only can you provide it further information so you can say, hey, here's my resume,
+I'm interviewing for Oracle, here's my work experience, I'll start a simple example.
+But the beauty of these is actually using this voice mode you can have an actual
+conversation and practice your answers out loud in a game time situation.
+And also I would add like if you have a friend in the industry that's helping you interview or
+helping you prep for a call, obviously their insight is very valuable.
+But I know a lot of people, especially if you're breaking in, don't have an expert to really give
+you meaningful advice in terms of how to prep or how to say things.
+So using this actually not only gets you saying things out loud, but it actually gives you
+expert feedback.
+For the sake of this example, I'll.
+Just say I'm interviewing for an SDR role at Oracle in the Austin office.
+
+Please start.
+And as this thing starts, hey, I am a new college grad, I am really short on time so I can't
+provide you a ton of context, but I studied engineering.
+I have one engineering internship and I would like to start this interview right now.
+I'm very short on time and so the sound is not going to pick up on that recording, but it will
+literally give you a back and forth.
+And this is something again, it's a public video on my channel.
+If you want to go find that, follow along.
+These are incredible ways.
+Whether it's an interview, whether it's a discovery call, I will feed it all of the information
+about a company that I'm preparing for a call for and I can have a real simulated and expert
+type of back and forth including things like, you know, simulating a tech stack so I can
+genuinely say, hey, I think the customer is using these tools, they're using these products,
+whatever it may be and it will give me very hyper realistic answers back.
+So all that to say, guys, again that you can absolutely do that with ChatGPT, with Gemini,
+with Claude, we have spent six months building Rhythm AI really building towards a tool
+that is actually meant for sales reps.
+I see so many copilots right now, so many people saying, oh, look at these cool things for
+sales reps. And all they do is create generic summaries, generic emails.
+They don't monitor accounts or they're tracking all your account information.
+But by the time it actually creates something meaningful, it's just a bunch of high level
+generic summaries that aren't actually the way that you want it to work.
+That's why we created rhythm.
+And again guys, we're going live in the February to March timeframe.
+So if you want to be notified when we go live, get a free trial that's exclusively available to
+people who sign up for the waitlist.
+You can enter your email here if you guys have any questions.
+
+I monitor this myself, so if I can help you with your ChatGPT workflows and anything else,
+let me know.
+And the final thing I'd say, guys, is if you are brand new to all of this and you want to
+accelerate going live with ChatGPT, with AI, we have 30 plus custom GPTs, many of which
+you saw today that are ready out of the box@highlevels.com and our AI Sales Accelerator.
+So if that's something you're interested in, you just want to use ChatGPT.
+Hopefully this video gets you going.
+And again, if you really want to accelerate and have 30 GPTs ready to go today, highly
+recommend checking out the AI Sales Accelerator.
+But with that being said guys, good luck in the new year getting all your AI workflows going.
+If you have any questions, let me know.
+We'll see you in the next video.
+Thanks.
+
+

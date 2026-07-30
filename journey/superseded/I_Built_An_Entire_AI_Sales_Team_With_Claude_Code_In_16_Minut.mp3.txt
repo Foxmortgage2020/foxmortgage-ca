@@ -1,0 +1,546 @@
+﻿Hey.
+
+So I know people have been driving crazy for Claude code, but I've spent the last three 
+months making my agency AI native.
+
+So I've built different systems, I've built different agents, I've created a lot of skills.
+
+Everything that I've built using cloud code and different AI tools so that my agency can be 
+converted to an AI native agency.
+
+Right?
+
+Most of the tasks that I need to do are already being taken care by these AI agents.
+
+So in this video I'll be covering out the sales agent.
+
+Now the sales agent is not just a text chatbot.
+
+It is also connected to a live CRM that we have created from scratch.
+
+And any lead that I engage with, I will be able to get all the details right here.
+
+Now this sales agent will have skills like ad client, so it will be able to add new clients into 
+the CRM.
+
+It also has skills like call analyzer.
+
+So any call that I have, if I have my fathom note taker there, I will be able to copy the 
+transcript and it will be able to analyze the call word by word will give me suggestions what
+I need to improve.
+
+And this call analyzer will then be used to create pitch text as well as the next follow ups 
+that I need to do.
+
+Then there is this comms extractor.
+
+All the WhatsApp chat that I had with that particular client, any email conversation that I 
+had with that particular client, it will be able to analyze each and everything so that when 
+
+
+
+we are adding the data into the CRM, we have each and every information right there.
+
+Right.
+
+And in the future, whenever I have to do follow ups or any, any pitch deck that I need to 
+create, I will use this information so that no context is being lost.
+
+There is also a discovery prep skill.
+
+So before I jump on the discovery call with the client, I know what type of questions do I 
+need to ask from that particular client.
+
+And then we have a pitch deck skill which is going to create pitch decks.
+
+There is also a script writer skill.
+
+So whenever I have to jump on a call, I need an exact script that I need to speak with a 
+particular client so that any sales call that I'm trying to do with that client, I'm able to close 
+it very easily.
+
+Right?
+
+So whenever I'm using the sales agent, it gets me the best information available.
+
+I'll give you a quick demo as well.
+
+So this entire sales agent is connected to this CRM.
+
+You can already see we have added one lead.
+
+But when I open this up you can see it has analyzed the pain points of the client.
+
+It has analyzed the buying signals, the objections, the current solutions.
+
+It has analyzed from the sales call, from the WhatsApp communication, the email 
+communication, any information that it is given, for example their website, any social media 
+account, whatever they have provided us, all the context is analyzed and put into this data.
+
+So this is not just a basic CRM, this is an Claude powered CRM for you.
+
+And as I move forward you can see a timeline.
+
+This timeline is actually very pretty.
+
+
+
+You can already see that it picked that this client was added on 12th of February.
+
+This was a discovery call that we had, the first interaction that we had with that guy.
+
+So this was a 37 minute discovery call and it actually ranked the call.
+
+The engagement was 8 out of 10, the buying signal was 7 out of 10, the objections were 5 
+out of 10.
+
+The deal probability is 55%.
+
+It analyzed each and everything.
+
+Right.
+
+In the future, when I had any email communication with it, it was able to analyze these 
+email communication.
+
+Since it was an important event, it is marking that in the timeline and any WhatsApp 
+communication, all the things that I've had with him right now, this timeline is something 
+that I am going to take reference from in the future.
+
+Whenever I have a future communication with Joseph, I'm going to take a reference.
+
+I will get to know everything that this is.
+
+This is what happened, everything that I showed you, the CRM, how to add data here, how 
+Claude is going to manage each and everything.
+
+I'm going to show you step by step in this entire video.
+
+So watch till the end.
+
+Perfect.
+
+So now I have emptied the entire CRM.
+
+So I'm going to give you the link to this GitHub repository and when you're going to clone 
+this repository into your own system, you can simply run this index HTML and it is going to 
+look something like this.
+
+It's going to be an empty CRM for you.
+
+
+
+Now let's understand the sales pipeline first.
+
+So every business has this type of a lead generation funnel.
+
+Well this can include things like social media, content, ads, hold outreach.
+
+A business has this type of lead generation funnel.
+
+From this lead generation, what is going to happen is the client is going to book a call.
+
+Once they book a call, sales specialist is going to do a discovery call with them and then 
+they're probably going to exchange contact details, something like email or WhatsApp.
+
+Once that is done, they're going to have some communication and after a while they're going
+to jump on the sales call.
+
+Now this is a sales call that is actually very crucial for anyone.
+
+This is where we are able to generate new revenue, right?
+
+Client that is coming from this and is moving to booking a call, is moving to discovery call, is 
+moving to email communication and then finally coming on sales call.
+
+They need to be active.
+
+Each and every step has to be very smartly played.
+
+So this Claude agent is going to take care of each and every step.
+
+How so let's say I got a call booked from one of my lead generation funnels.
+
+So this is from Joseph itself.
+
+You can see we have the time zone and we have the question that it answered.
+
+So simply said I've got a new lead Joseph.
+
+Here's the question that he answered.
+
+Just copy pasted this and I've said that please add him to the CRM.
+
+Perfect.
+
+
+
+Now you can already see that I added the name I gave him the question.
+
+He has a time zone but he needs a few details.
+
+So for that let me just enter the details here.
+
+You can already see it has the details and it is going to ask me do you want to prepare a 
+discovery call script?
+
+I'm going to say sure.
+
+So now I only got the call booked, right?
+
+You can already see that we got the call booked on calendly and our agent is already 
+prepping up the discovery call so that I know exactly what I need to ask from the particular 
+client.
+
+So it is going to prepare a full script.
+
+So now you can see that it has created this Joseph discovery script.
+
+Now I have a word by word script what I need to speak over the call, right?
+
+Something like hey Joseph, it's Prakash from Small Group.
+
+Thanks for booking the call with me.
+
+I've been looking forward to this.
+
+I have the exact sales script.
+
+Now what I can do is I can simply take the script down open let's say a markdown preview 
+so that it's easier for me to read.
+
+And you can see this is a discovery call script, right?
+
+I can simply read the script when I am on the call with him.
+
+Entire purpose of having a script during the discovery call is I can get the right questions.
+
+I can bring motivation into him so that he knows that I can get the job done.
+
+
+
+Once I'm able to understand the right pain points I now know how exactly do I need to 
+position my sales call right?
+
+So this is the entire purpose of discovery call and using the script I'm able to achieve that 
+once I have the script of course I can find the same thing into the CRM as well.
+
+You can see that we have Joseph whose stage is discovery and under this you can see that 
+there is a Materials generated.
+
+And there is the discovery script that is already being mentioned.
+
+Let's move ahead.
+
+So what I've done is we have already gotten the call booked.
+
+We have done with this.
+
+We have prepared for the discovery call using the script.
+
+Now let's say that the discovery call happens.
+
+So I have the right call.
+
+Here you can see this is the discovery call that I had with the same client.
+
+This is the sales call that I had with the client.
+
+So you can already see we have the pitch.
+
+I am simply going to copy the transcript from here.
+
+So I'm going to copy the transcript from here and I'm simply going to say.
+
+So I'm simply saying perfect.
+
+I just had the discovery call and here's the transcript pasted the entire transcript right here.
+
+Paste that in.
+
+Okay.
+
+So here's the entire transcript that we had with the customer.
+
+
+
+Perfect.
+
+Now Claude is going to analyze this transcript and it is going to add the details into the CRM 
+as well.
+
+So here is the CRM that we have.
+
+So in the CRM itself it's going to update the timeline.
+
+So you can see that we only have the discovery script based on the 2nd of April but right 
+after the call we're just going to update these things just perfect.
+
+So now it has updated the client data based on the transcript.
+
+Let's just check our CRM.
+
+I'm just going to press on reload and you can see that Joseph is now qualified.
+
+The state has been updated and we have already added the 37 minute discovery call here.
+
+It has analyzed the sales call and you know we have the right captions that we can use now 
+these are the captions that I can put in to the sales call.
+
+Moving ahead, you can already see that it is already asking me do I need a follow up email, 
+do I need to have the pitch call or do I need to prepare a pitch script.
+
+Right.
+
+So it has these skills, it knows what it needs to do.
+
+I can simply say it has been two days, let's create a follow up email.
+
+See the purpose of having cloud code is the flexibility.
+
+Right.
+
+I can simply chat, I can tell him what exactly I need and it's going to use the skills, use the 
+knowledge base that I've already given and it's going to create that right here.
+
+The beauty of this was so that I can easily visualize it.
+
+Yeah, this is the CRM that I can hand it over to my all sales specialist.
+
+
+
+Right.
+
+So when I have handed it over to them I can get the data right published here and I can view
+this from anywhere using my phone.
+
+All right.
+
+So it now has created the email, you can see.
+
+So it was also able to propose the system in the follow up email so that it is able to get the 
+call, get the client active.
+
+It was able to get my name, the company name, all these different things.
+
+And it is asking me now, do you want me to save it in the CRM record?
+
+So now it's going to save it into the CRM that I've sent this email.
+
+Right.
+
+These things are actually important so that no context, any communication that you've done
+with the client, no context is being lost.
+
+Now I can use this context in the future and I can analyze and I can touch base with him.
+
+So it is now updating the CRM.
+
+Perfect.
+
+So now it has updated the CRM.
+
+The communication has also been added.
+
+So I'm going to copy this.
+
+I'm just going to reload the entire page.
+
+And now you can see that it has added this follow up email.
+
+Right.
+
+It was able to detect what happened in the email and it gave me just the headline.
+
+
+
+Perfect.
+
+Now what I'm going to do is I'm going to say I've received a reply and we have booked a call 
+for tomorrow.
+
+Help me prepare pitch deck and a sales click.
+
+Now what this will do, it is going to call our pitch deck skill as well as the scriptwriter skill 
+and it is going to create an entire presentation based on the particular client, put everything 
+there.
+
+Because I have created that skill, it is also create a script that I can use during the sales call.
+
+So what this will allow me to do is I will have this, I will have the presentation shared.
+
+Right?
+
+And meanwhile I can just read through the script, ask him the right questions, get him on, 
+get him to say yes a lot of times so that I can get into the yes psychology and then I will be 
+able to close that particular deal very easily.
+
+Right.
+
+So now you can see that it has created the pitch script as well as the pitch deck.
+
+I'm just going to open it up and for the pitch deck, you can see it has created an entire HTML
+file.
+
+And when I open this, I should be able to see it.
+
+So I can see that this script, these things are not openable.
+
+So I'm just simply going to say so now it has ensured that we can view these pitch decks as 
+well.
+
+Let me see the pitch deck.
+
+So this is the pitch that it was able to make.
+
+It has funnels and connected flowcharts.
+
+The easier way I can explain it to him, then we have the solution we have pillar number 1, 2, 
+3, 4, how it's going to work, why they should choose us.
+
+
+
+And then there is this investment piece as well.
+
+Let's get started.
+
+All right.
+
+So this is the sales script.
+
+This is a pitch deck that it was able to create in another few minutes.
+
+And with this it also has the pitch script.
+
+So we have the sales script as well.
+
+So I can use this exact word by word.
+
+Can see, this is exactly the word by word thing I can use.
+
+And if I just want a summary of the sales script, here's the brief.
+
+Right.
+
+I can simply, I can use this exact word by word.
+
+Hey Joseph, it's Prakash from small group.
+
+How's it going?
+
+You know, so listen, after a call, the email I sent over, I've been mapping out exactly how the 
+system would work for your staffing business.
+
+And honestly I got pretty fired up because your model is already proven.
+
+You've got the page, you've got the, you, you see the script, you see how enticing this entire 
+script looks like.
+
+And when I'm going to use the script I actually used, created by the same agent into this call,
+this call and this is the PPT that I created.
+
+And this I think it went for almost.
+
+So this is a 65 minute call.
+
+
+
+As you can already see, I'm just simply going to copy the transcript, waiting for it to get 
+copied.
+
+Perfect.
+
+And now I'm going to say perfect, I had the sales call and here's the transcript.
+
+Meanwhile before I do that, let's, let's see the status of the lead.
+
+So this is currently the qualified status.
+
+I'm just simply going to say perfect, I have the sales call.
+
+Let's is a transcript and ideally, thus the status is now going to get changed to pitched.
+
+Perfect.
+
+So now it has updated these things.
+
+Let's check out on the dashboard.
+
+So you can see the status has also been changed to pitched and we have the pitch deck, pitch
+script, all these things and you can already see the pitch call as well.
+
+So this is the pitch call that we had, 65 minute call that I was talking about.
+
+This is the engagement, this is the buying signal.
+
+This is the objection.
+
+Deal probability is at 50%.
+
+That's it.
+
+So now this sales agent that I'm talking about, it now helps me with the discovery call script.
+
+It helps me create pitch text, it helps me update the data into the CRM.
+
+It helps me analyze each and every touch point that I had with the customer, be it WhatsApp
+text, be it email text, anything that I had this Claude skill can handle everything.
+
+So you can already see that we are getting this date.
+
+
+
+We have all these files that are being created as in data.
+
+And this is the cl.
+
+That's it.
+
+This entire folder is a cli.
+
+We can remove this folder.
+
+This is of no use.
+
+And these are the skills.
+
+These are the skills that I'm going to use to create be it discovery, call preparation, pitch 
+deck, script writing, call analyzing, anything that I want to do.
+
+These are the script.
+
+Perfect.
+
+I've been using the sales agent for a few clients.
+
+By the way, I'll show you my real database.
+
+So this is my real database.
+
+I've actually used it for a few clients and you can already see that it has the discovery call, 
+transcript, WhatsApp chat, PRD content, all these things and the pitch deck and the 
+proposal, all these things it is already being able to create.
+
+Well, this is it for this entire video.
+
+So you can download this entire repo from the link in the description.
+
+Once you do that, make sure that you are updating it day by day.
+
+You are updating all the communication, everything that you have with the client.
+
+And it's going to maintain this beautiful CRM on your behalf.
+
+You can view it, you can share it.
+
+
+
+It's all done.
+
+And if you are trying out cloud code and if you want me to make any video on a specific 
+topic, just comment down below and I will make a video on that so that it can help you out 
+as well.
+
+All right, see you in the next one.
+
+Bye.

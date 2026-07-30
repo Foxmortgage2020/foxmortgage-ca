@@ -1,0 +1,1482 @@
+Used to have about 10 people full time. Now you have 1.2 humans, 20 agents.
+We have 10 desks that used to be go to market people. They're all just labeled with our
+agents Reply for replit quali for qualified arty for artisan. Agentforce needs a nickname.
+Agents work all night and they work weekends and they work on Christmas. We're done
+with hiring humans in sales.
+We're done. The business is doing very similarly to what it was when you had 10 humans.
+If I had two more great humans that wanted to join, don't get me wrong, I would hire them
+tomorrow. But I'm not going to hire someone that after their third month in the job doesn't
+know what Saster does. I just can't do that. AI is replaced displacing the jobs people don't
+want to do today. And it is displacing the mid pack and the mediocre.
+How do you see the future of the sales profession?
+We should have $250,000 a year SDRs. But they'd be like at Vercel. They'd be managing 10
+agents, not 10 people. The classic SDR junior kid that is hired out of college to send emails.
+We don't need them. Folks that qualify leads coming in, the contact me's that we see. We
+have no need for them today. They should be extinct next year.
+Someone's listening to this like oh man, my job is in trouble.
+If you can go do this, you're hyper employable.
+Today my guest is Jason Lemkin, founder and CEO of Saster, the world's largest community
+for B2B founders and one of my absolute favorite sales and go to market minds on the
+planet. Jason is not only deeply knowledgeable about everything sales, he's also extremely
+articulate and direct and is also now personally going super deep on what AI can do for a
+sales org.
+He's transformed his own Saster sales team from from around 10 SDRs and AES to one full
+time AE, a part time Chief of AI named Amelia and 20 AI agents. He is seeing the same
+performance from his AI team as he saw with his former human team and he's just getting
+started.
+These are my favorite kinds of conversations because the guest is living in the future and
+comes here to show us what the future is like, where we're headed and how we can get
+
+there ourselves and also just how to avoid all the pitfalls that he had to deal with along the
+way. We cover all of the things that he has learned about where sales and go to market is
+going in the AI age. He gives a bunch of advice for salespeople and the future of their
+careers, the future of the Go to Market.
+Org how to win as an AI startup Right now, what tools he's finding most useful, what it took
+to shift a sales team, and so much more. This episode is going to get your mind spinning in
+the best way possible. If you enjoy this podcast, don't forget subscribe and followed in your
+favorite podcasting app or YouTube. It helps tremendously.
+And if you become an annual subscriber of my newsletter, you get 19 premium products for
+free for an entire year, including a year free of lovable Replit, Bolt, N8N, Gamma, Linear,
+Devon, Post Hoc Superhuman, Descript, Whisper Flow, Perplexity Warp, Granola, Magic
+Patterns, Raycast, Japier D Mobin and Stripe Atlas. Head on over to Lenny'snewsletter.com
+and click product Pass. With that, I bring you Jason Lemkin.
+After a short word from our sponsors, today's episode is brought to you by dx, the
+developer intelligence platform designed by leading researchers. To thrive in the AI era,
+organizations need to adapt quickly, but many organization leaders struggle to answer
+pressing questions like which tools are working? How are they being used? What's actually
+driving value? DX provides the data and insights that leaders need to navigate this shift.
+With DX, companies like Dropbox, Booking.com, adyen and Intercom get a deep
+understanding of how AI is providing value to their developers and what impact AI is having
+on engineering productivity. To learn more, visit DX's website@detdx.com Lenny that's
+getdx.com Lenny this episode is brought to you by V0 from Vercel. V0 is the web
+Development assistant designed for professionals of all technical backgrounds.
+Whether you're a product manager, designer or developer, transform how you bring
+products to life. With V0 everybody can cook. Don't just show up to reviews with docs and
+ideas. Arrive with working prototypes that demonstrate real functionality. V0 drafts project
+plans, generates interactive interfaces and builds full stack applications without writing a
+single line of code. And with features like AI and database integrations, screenshot, import
+and sync.
+With GitHub, v0 helps reduce development bottlenecks and enhance collaboration between
+technical and non technical team members. The result? Faster iteration and a shorter path
+from idea to implementation. Vercel built V0 for the builders who want to create at the
+moment of inspiration. If you can dream it, you can ship it. Visit vercel.comlenny to get
+started. That's vercel com sl Lenny, Jason, thank you so much for being here and welcome
+back to the podcast.
+Lucky to be a super fan and then to get to join. Right. It's, it's, it's terrific to, to, to be on the
+
+other side.
+So this is our second conversation. We did our last conversation a year and a half ago. I
+don't know if you know this, but it became a pretty legendary episode. It's something people
+continue to share and that conversation is around basically a deep dive into building your
+sales. Org. And a lot has changed for you and the world since then. Cough AI. And what's
+happened is you've gone extremely deep on what AI enables for sales for startups, for go to
+market.
+And what I love about conversations like this is you're basically living in the future and
+you're here to give us a glimpse of where things are heading and tell us how to avoid the
+wrong turns and just help us get there ourselves.
+That I think I can do to start. Yes.
+Help us understand just the business you run. This Saster.
+Yeah.
+What is it you sell? What is the business? What is it? What is it you do? Jason?
+You know, I'm still trying to figure it out, Lenny. Maybe you are too in some ways.
+Yeah, that's true.
+So you know, I, I, I am a two time founder who started writing a blog. My God, in 2012 about
+all the mistakes I made. After I sold my startup to Adobe we started doing a couple meetups.
+You've done meetups before anyone did this stuff. We did a big meetup in 2015. Thousands
+of people came then. We do 10,000 people a year at Saster annual. I've actually also invested
+almost $200 million, almost 10x lifetime only into founders from the community.
+But the reason I don't know is what I folks that do are connected to our content. I'm just
+passionate about helping other founders see mistakes and make less of them. Sonia, we're a
+large community. I do invest, but it turned into a business. There was no revenue in the
+beginning. I'm sure there was no revenue for Lenny in the beginning and ours was less
+intentional. But we do do eight figures of revenue a year and it's work. That sounds great.
+Okay to do eight figures but there's a lot of costs, especially on the event side. The media
+side has almost no cost and it's work. We have a hundred sponsors and as you know, like
+you have sponsors. But there's a certain level where it becomes a lot of work like getting
+two folks to sponsor Your podcast with a couple emails. No work. Right. If you wanted to
+have like four Lenny podcast, like it just, it just scales.
+
+So we have built our own go to market team over time and I've lived the frustrations, folks
+have followed it and then maybe I'm rambling a little bit. The interesting thing, the aha
+moment that happened to us is going into May of this year we had one AI agent into
+production called Delphi that we both use for digital Lenny and digital Jason. Really
+interesting learnings.
+And we went into our 10,000 person event this year with, with an eight, you know, a seven
+figure budget and eight figure top line and two folks on the sales team who are were paid
+high end of market. I have many flaws, but paying well and being loyal are not one of them.
+And two of them just quit at the event. They just quit on site. Okay. And I, this was like the
+third time I've done this. Like the eighth team I've built.
+And I turned to Amelia, our chief A officer and I said we're done with hiring humans in sales.
+We're done.
+We are going to push the limits with agents. We're going to put even if it doesn't quite work.
+Okay. And I knew from this Delphi, this general agent that it would sort of work because
+going into annual, this general agent, this digital Jason closed a 70k sponsorship on its own.
+So when I saw that a horizontal agent not trained for sales, not trained for GTM could close
+one deal or like let's deploy a couple of these apps, we have time. And I just can't pay a
+junior SDR $150,000 a year to quit.
+I just can't like criticize me. But I just couldn't do it one more time. I just couldn't do it one
+more. And I actually think this isn't. When I talk to cos at leading AI companies, they kind of
+don't want to do it either. They want to have the smallest sales teams they can as much for
+cultural reasons. Right. Even if, even if replit only goes from 0 to 200, it could have been 220
+with the smaller sales team. I think Amjad's okay with it. Right. So it's an enduring thing.
+But anyhow, so we push the limits. And now if you walk into Sastor's office, it's kind of
+funny. We have 10 desks that used to be go to market people. They're all just labeled with
+our agents. Repli for replit, quality for qualified, arty for artisan agent force needs A
+nickname. Maybe we can make one up with Salesforce. There's Amelia's corner office at one
+end. I'm in the, I'm in the back of the office. And it's just agents. It's the quietest office. And
+net net. Lenny, it's about.
+Here's the meta learning for when we, when we're recording this. The pro, the. Net
+productivity is about the same. It's not better, it's not worse, but it's so much more efficient.
+And it scales because software scales. So. And we can talk about what we've learned. I think
+it's important that it takes time to train these agents.
+They don't work out of the box, but when you dial them in, when you take your best person
+or your best script and you train an agent with your best person and best script, that agent
+
+can start to become a version of your best salesperson, your best person. And that's what
+we've learned and how to perfect it. And I just think because. And criticize me. Anybody you
+or anyone watching or listening, maybe it's not cool.
+I didn't want to hire my 28th rep that was going to quit, but I just couldn't do it one more
+time. In the age of AI, I'm like, it's time to go to the bleeding edge and just see what we can
+push the limits here.
+Okay. I love all the directions we're already heading. Okay, so just to help people totally
+understand what your business is, basically these people are selling sponsors for your
+conferences.
+They're selling two things because it's just relevant to the deep dive. They're selling
+sponsorships which average about 70 to 80k. And then they're also selling tickets, which is
+the high volume for this is like the self serve version. They're selling tickets that are
+anywhere from a couple hundred bucks to. If you're a VC that comes the night before, could
+be two grand. Okay. No gifts for VCs that decide the night before, founders that decide early.
+Get it about 20% of cost.
+And it's work to sell these tickets, right? And so you can just post an email like you do and
+you probably fill up Lenny Summit. But if you want to max it out, you got to do work, you
+got to do drip campaigns, you got to reach out to people. You have to reactivate folks that
+came to Lenny's Summit, you know, three years ago. But you want them back because
+they're good people and that just requires work.
+And as your base scales, you know, you have how many people subscribe to Lenny's
+newsletter now. 1.2 Million or something.
+1.2 Million roughly.
+Okay, how many as, how many of those is a human willing to reach out to approaching
+nuns? Imagine you hired a 21 year old SDR fresh out of junior college and said, here's my
+list, 1.2 million people. Start calling them. I want him to come to Lenny Summit. But anyhow,
+so we have this low end version which is tickets, right. Which is 4 or 5 million a year.
+And then we have this higher end sales cycle and they're very different and actually they
+have different agents and then we have a different agent to get people to come back. Lapsed
+people. So we have lapsed high end and low end agents and they have different workflows
+and we actually use different vendors. For now. For now we use different vendors.
+Okay. And so previously, before this future world, how many SDRs did you have? How many
+salespeople?
+
+In this we would have two to three SDRs and up to five AES.
+Okay, so like eight, nine people full time working on Saster to bring in sponsors and to bring
+in tickets.
+Yes. Although, yes, a lot of it is inbound and renewals. But not. But yes to, to manage that
+business, to manage sales. Go to market. Let's call 8 to 9 and go to market. Now we have 1.2,
+1.2 humans.
+Human. 1.2 Humans.
+20 Agents. AI agents.
+1 Point. What is a 0.2 human?
+Amelia, who's our chief A officer who, who runs everything, she spends 20% of her time
+managing the agents, orchestrating the agents.
+Okay.
+Which is something I think people don't,.
+Let's get into that.
+They talk about, but they don't actually understand what that means.
+Yeah. Okay. I definitely want to spend time there. Okay. So used to have about 10 people full
+time. Now you have 1.2 humans. And you said 20 agents.
+20 Agents, yeah.
+Okay. And what you're describing is the business is doing very similarly to what it was
+when you had 10 humans. Now you have 20 agents, the business doing the same.
+Yeah. Now listen, if I had two more great humans that wanted to join, don't get me wrong,
+and this is true of every fast growing startup, I would hire them tomorrow. Okay. And if you
+go, if you go to Vercel, if you go to Replit, if you go to, they're all going to tell you the same. I
+was literally in London. We were just at our London event. We were with, with Maggie
+who's in the leadership of OpenAI. She said they just can't Hire enough enterprise reps now.
+Okay, but what it is replacing are the mid pack and below. The ones that don't really
+understand what linear does. The ones that don't really know what a pull request is or
+exactly how replit works. The AI can do better not than the best, right? So I would love to
+
+have more humans, but I'm not going to hire someone that after their third month in the job
+doesn't know what saster does. I just can't do that one more time. And you don't need to. I
+don't think you need to. So we're not doing.
+This is the thing. AI is replacing the jobs people don't want to do today and it is displacing
+the media, the mid pack and the mediocre.
+They are.
+Their jobs are at risk. They are at risk. The best humans. It is true that they will get
+superpowers from AI, but I'm not sure the rest will. It's a. It's a cautionary tip, but I would
+love to have more than one. But at the end of the day, 1.2 humans is plus 20A agents is doing
+about what 10 human GTM did.
+Wow. Okay. I want to spend time on the different agents you've built. But first of all, just
+kind of zooming out. Having gone through this experience, how do you see the world of go
+to market changing next year, in the coming years?
+All the plays work. It's the playbooks that are kind of broken in the age of AI, all the plays
+work. Outbound still works. Webinars still works. Podcasts still work. Okay. Events still
+work. All this stuff works. All this stuff works. Why is 11 labs out doing a roadshow? Right?
+It works. Why? Why do they go on Lenny's podcast? It works. So the plays all work.
+It's just the playbooks are broken because for folks that aren't in the age of AI, growth has
+decelerated so much that nothing seems to work. Okay, it's working. It just works so much
+worse than 2021. But the plays still work. They just. They don't have enough ROI. There's
+not enough budget for old school SaaS from 2021. The ones that are blowing up, right, the
+vercels, the replits, the 11 labs, they have so much demand.
+So much demand that you know that they're still running the plays, but they're. They're
+doing them differently. They're doing them from a hyper PLG focus because there's so much
+demand and they're often picking and Choosing which prospects to talk to, contact. So like
+for example, Bolt is probably a distant number three behind Replin and Lovable, right?
+But one of my old sales guys run sales there and I talked to him when they went from zero
+to 50 million in like six months, he's like, we honestly just have so many leads. We just. Our
+half our job is picking which ones to respond to, right? And he's like, and he also is like, we
+closed a seven figure deal we stole from Lovable because no one called them back at
+Lovable.
+So your traditional B2B SaaS company, even ones with billions of revenue, even the
+hubspots and all of them, they don't have so many great leads, they don't call them back. So
+that is a different world. Not easy different world. And then this world where nothing seems
+
+to be working is just because the demand has evaporated, right? So both ends have an
+incentive in 2026 to push the limits for AI, for go to market. The ones that are hyper
+growing can't touch everybody. They can't do everything.
+Not everyone, like Vercel, will build their own internally. We can talk about why most folks
+should not build, they should buy for the same reasons. It's always been true in software.
+We can talk about it. At the low end, you still need humans, but ruthless efficiency is going
+to be the name of the game for 2026. So anything where AI works, the demand is
+inexhaustible. So everyone's either looking for more efficiency or they just can't service the
+massive amount of inbound they have.
+And so maybe that doesn't totally answer your question or I got a little bit off track, but
+that's how the world's changing. Like when we first did this, which wasn't that long ago in a
+way, pre the AI explosion, all B2B companies were kind of the same. Like they grew at
+somewhat different rates. Some blew up faster like a Samsara, some took longer like a UI
+path, but come on, they were all, they all kind of grew the same way for the same acv, for the
+same deal size.
+Now, just like in venture and everything else, it's wildly bifurcated, right? You've got the low
+end, which is all about price increases and forcing things onto the base. And at the high end
+we have something we've never seen since 2020, which is everyone in the market at once.
+Everyone in the market at once. This is something that people don't understand. Why, why
+are, why are these companies doing so well? Why are they blowing up because they're. It's
+not just that the software.
+We love this stuff, Lenny. Right. All these new tools, we love them. But it's not one law firm
+looking at Harvey. It's everyone. It's everyone, right? It's not a few folks looking at video on
+the Internet. It's everyone trying to make video on the Internet.
+Because there's a lot of push from the top of like, we need to adopt AI. We need to be more
+productive now.
+Everyone. Not the traditional. Like the traditional metric was. In most categories, 3 to 5% of
+prospects would be in market a year. So you'd send a trillion emails and you do cold calls
+and you'd hope maybe 2026 was the time they're willing to dump Salesforce for your new
+product. So at all that up 5% in many categories, we're north of 50% in market, so that just
+totally changes the plays still work.
+Showing up in person, actually knowing what the hell you're selling, knowing how to get
+through procurement, all of those are work. But other than these weird windows, artificial
+windows in 2020, we've never had so many people in market at once.
+And this is for AI products specifically or yeah, that.
+
+That have massive roi.
+Yeah, productivity.
+I want. I. I need to bring a vibe code tool into my company. Lenny. Okay. Go out and do the
+work. Compare Replit lovable and whoever else and buy one. Okay. Har. Like why Harvey
+and the others in Laora doing so. I mean they're great tools, but everyone's like, we need to
+automate how we review contracts and documents with AI now they want a leader and
+they're going to do it and that will slow down. Like not everybody can be in market every
+year. It. It's exhaust an enterprise.
+So this is a version of the AI bubble that will end and we will revert in some ways to old
+school. But when everybody's in market, it just changes how you run the whole thing. So the
+fastest growing ones and the slowest growing ones both have incentives to use AI here just
+for different reasons.
+How about the sales profession specifically? Are SDRs going to be replaced fully AES? How
+do you see the future of the sales profession?
+The classic SDR junior kid that is hired out of college to send emails and respond. Respond
+to inbound emails and maybe get back to them later that day or the next day. We don't need
+them. We're not going to need most of them. SDRs that knock on doors in a lot of industries
+aren't going to be displaced right the email based cadence SDR will be 90% displaced by AI
+next year. The people have different nomenclature I call BDRs.
+Folks that qualify leads coming in the contact knees that we see, we have no need for them
+today. They should be extinct next year. There is no reason in the age of AI I have to hit
+contact me. Wait a day or two for a 21 year old that doesn't know what linear does to say
+hey, what do you do? How much are you willing to pay me? Maybe I'll set up a call with
+Lenny later this week. There is no need to do that with AI. Our AI alone, one of our agents
+fully qualifies everybody on the website.
+So they don't even know they're being qualified. It just sets up the meeting with the
+salesperson. So this sdr, this email based SDR and this human qualifying leads which is not
+good for the customer, it doesn't feel good to be qualified, does it? They will be mostly
+extinct next year I'm guessing with your now the ae, the classic human doing the sales, most
+of the tools aren't there yet for the most part.
+I think 70% of their jobs will be safe by the end of next year but I think it will decline to 40
+or 50. I don't think there's any reason what we're seeing in other categories a great agent
+can't close a deal too if there's not a lot to negotiate on price and the agent knows the
+product better than a human. At least for folks like you and me. I mean do you like to talk to
+
+a human in sales?
+Sometimes I'd rather just shot the chat with a. Yeah, a really smart AI.
+Yeah. So that's all in progress now but the classic and the tough part and a lot of folks ask
+this question Lenny, they say okay Jason, I see that in your data. How are we going to build
+the sales profession if there's no entry level jobs in SDRs and AES? And that's a meta
+question across all of AI we're already seeing AI concentrate strength in sort of mid tier
+folks, isn't it?
+And we're already seeing lots of folks cut back on entry level hires, know, Shopify and
+others aside, where they'd rather have the six or seven year old engineer that's a cursor
+machine rather than train some kid. It's just more efficient today, right? I'm sure you see
+that across a lot of folks you talk to. It's going to happen in sales too. So the folks that know
+how to manage an agent, work with an agent.
+The folks that know their product for real, they're going to become more valuable and the
+rest are going to become less valuable.
+It's interesting because I'm an investor in a bunch of startups, as are you and I'm actually
+seeing a lot of asks for go to market people, salespeople. Do you think this is kind of a
+temporary because there's so much demand, they're like, oh, we need people to help and
+then this will start to become more AI over time or are they just looking for these really
+senior people that you're talking about?
+Well listen, whether you're managing humans or orchestrating agents, you need leadership.
+We've yet to produce an autonomous CEO. I know folks talk about how on on Twitter that
+will AI will replace the CEO, but I don't know that that's literal as much as figurative. Right.
+So we're still going to need the C suite, we're still going to need VPs. I mean it's become so
+much work to manage a million leads, right? A half a million leads. So we need these leaders.
+Whether the question is, and I've seen your call out there and I saw your tweet on it, the
+question is how many of the folks that had the current playbooks are the right folks for the
+future? I'm thinking maybe 20% of the folks I talk to, 24 are still panicking about AI. And I'll
+tell you how to not how to be in the 20% if you want to know. But I think very few like the
+Janine from Vercel are going to make the jump. So we'll see. There will be huge
+organizations, right?
+Like Denise just went from Slack and Salesforce after 14 years to be CRO OpenAI. She's
+working going to be pretty high level, right? So she may not know how to need to know how
+to implement the agents. But most of the folks your companies want to hire, I would just
+make sure they could. They really want to roll up their sleeves and do the job of 2026, 2027,
+right. Just because they worked at Slack does not necessarily mean they have the skills at
+
+your startup.
+You said that you had some tips for folks to actually be this 20%. What are some. If
+someone's listening to this like oh man, my job is in trouble, what should I focus on?
+It's going to sound simple, it will work and most almost nobody's doing this. Pick a tool, an
+agent, an agentic tool to solve one of your problems. It doesn't Almost just one that's the
+most painful or the one that's most acute. It could be support, it could be sdr, it could be
+inbound qualification. Pick one, pick a leading vendor. I don't care which one it is, okay? We
+can talk about how to pick a vendor, but pick a leading vendor that treats you well, that you
+like, and do it yourself.
+Train the agent, ingest the data, do the iterations, understand how the damn thing works,
+okay? The folks that are lost today have never done it. We literally, we've turned into a
+consulting shop. Lenny. It's kind of crazy. I don't know what I think about it, but we literally
+just did a job. Amelia, our chief AI officer and Mia, she drove it. We did a call with a public
+B2B company worth well over 10 billion that you would think is an AI leader, okay?
+And we did a call with their team and they're like, we're struck. We want to figure out this
+AI SDR stuff. Like, great. You're like, we think we're just going to buy this tool and just give it
+to our SDRs to figure it out on their own. Okay, one, no chance. Two, we asked them, how
+much of this have you done yourself? Like, have you, have you done it yourself? And it was
+just crickets on this call of 20 people. No one had done it theirself.
+So they thought they could take an untrained agent with no training and just magically give
+it to a bunch of young 20 year old SDRs and this magically would sell on its own. It doesn't
+work that way, right? So the way all these agents work is you. There's a lot of jargon which
+is intimidating. Ingestion, orchestration training, it's not that hard, guys. It's just different.
+It's the same B2B stuff we've been doing for over a decade.
+You go to a website, okay, you give it a URL of your website, you give it a URL of what your
+wiki is, you give it a URL of your training docs, maybe you upload your prospectus, you
+upload a few documents, it ingests the data. And ingesting means it uploads it means it
+processes the data and it does some other stuff you don't really need to know. Some
+bragging, some vectoring, it really doesn't matter. You, you upload some stuff and it kind of
+knows it and isn't great at it.
+And then it will turn it into, ideally it will turn it into questions and you answer These
+questions and they will be get the more you answer and train it. Training is just answering
+questions and getting better and better. So first you upload a bunch of your stuff, then you
+spend hours training it, often with the help of a vendor, someone called a forward deploy
+engineer, which is a scary term. It means someone that's going to help you do this.
+
+You upload your stuff, you try to get it right and then you basically have to make sure it's
+right. QA testing and every day when that AISDR sends out emails and do practice emails,
+they will say some dumb things. Maybe it's hallucinations, it really doesn't matter what the
+technical term is. And you correct it and each and if you do this for 30 days, then every day
+you spend an hour or two correcting those mistakes by the 30th day it's going to be pretty
+good.
+And this is anyone can do this that has been in B2B or SaaS. Anyone can do what I just
+described. It is not that different than other things we've done. It's just sequenced
+differently. But nobody does this. Everyone's panicked. And if you, if you can go do this, pick
+any tool, pick, pick agent force, pick qualified, pick artisan, pick whatever you want. If you
+can go do this and get it live into production, you're hyper employable.
+All the companies you talked about that you GTM person they will hire you could be a
+magically be their chief agentic GTM officer because almost anyone can do this if they want
+to. It's just going to take a month of your time and it might take you 50 or 60 hours plus
+qualifying the vendor right? And in the old days like when we diverse did our podcast, you'd
+hire an agency and disappear. That's how you do this stuff don't it don't work that the
+agencies don't know how to do this.
+You've got to do it yourself. But if you do, man, you will rock. You will, you will just rock and
+you will learn, right? You will learn and you will learn the limits and you will learn the agent
+can what it can do and where it can't do and then you will learn how to do the next one
+right? So like we're pretty far on agent force, which is Salesforce is one which Mark talks a
+lot about. But we're probably one of the only organizations of our size on it.
+I will tell you a cheat code which is pretty interesting. So we've got, we had three of these
+agents working for sales after training it and learning it and spending months time to learn
+it, we got it down to one prompt. And prompt is another almost intimidating word. A string
+of text that describes what you want this thing to do. Okay, we took that prompt and gave it
+to Agent Force. Then a day was pretty good. So you will, if you can do one of these, it'll be
+really hard, it'll be brutal.
+Then the second one will be easier and then you're going to be like the master of the
+universe in AI if you can do it yourself. But if you're waiting for people on your team to do it,
+if you're waiting for an agency to do it, I think you're going to be out of a job. Right. So this is
+like everyone comes to us as an experts. We're not only experts because we did it 20 times.
+I think what might be helpful here actually is to do a tour, kind of a quick tour of the agents
+that you've built and what they do, which ones have been most impactful and then as you do
+that, what products you use, what, what powers these agents that, that you like and maybe
+don't like.
+
+If, if anyone goes to saster AI slash agents, you'll see everything we built, it's all bulleted out.
+You can copy us and I'll walk you through it. But two, two caveats are things that I built a lot
+of stuff in replit. We can talk about it for fun. I'm like a top 1% user. I love it. None of the
+GTM stuff we built ourselves. Don't build it yourself. You're not vercel, you don't have a full
+time, wicked awesome engineer that wants to build this. Could all this stuff be built
+yourself?
+It's the same idea of building your own notion. You could do it, but don't do it. It's these
+products are expensive. They're not so expensive. It's worth. And then maintaining the pace
+of innovation is so fast. Even if you can hire someone to build it internally, it will become
+obsolete if you're not careful in a couple months. So we've built a lot of stuff we could talk
+about. I built a calculator to do startup calculations used 800,000 times in 90 days.
+For valuation?
+Yeah, for valuations. I built a pitch deck reviewer that' reviewed almost 3,000 pitch decks.
+Lots of fun stuff, but none of the GTM stuff we built ourselves. None of it. So just a caveat,
+don't build it yourself unless you're vercel, unless you have a reason that was a great pod. It
+was wonderful. Don't do it. Don't do that.
+Basically, unless you have a awesome go.
+To market engineers for and they really want to do it, they really are chomping at the bit to
+do it. Don't do it. So I started and this is not where other folks would start, but there's some
+learnings I started. There's an app called Deli which makes digital clones and you used it for
+the Lenny Bot a long time ago. I saw you do it. What's that? Yeah, lennybot.com, yeah, I saw
+it a long time ago. It was interesting, but it didn't click.
+And then Brian Halligan, who's the founder chairman of HubSpot, did one too. There's
+Sequoia backed and he was working at Sequoia, so he helped them early on. And then I kind
+of had a magic moment and this is the way it works in AI when I saw the combination of the
+two. So yours was real. Like, people should love moneybot because it's got.
+It's.
+If folks haven't tried it, try it. It is ingested. I know a scary term for some. It is ingested.
+Every single interview you've ever done, right? Every word of content you've written. So.
+And it can combine them all together. It can combine the Vercel story and the. And what you
+did with Dylan at Figma and can synthesize the knowledge and it's pretty good. It's pretty
+good.
+What I liked about Brian's better than yours though, was that it was Brian and Lenny Bot is
+kind of Lenny, but it's also kind of all your guess, right? I think that's the superpower of it,
+
+right?
+That's the way I think about it. It's not just my intelligence, the. The lessons of every single
+person I've had on this podcast.
+So it's great. But I thought, hey, maybe I could finally do one that's. That's in between the
+two. Like, I. I've been a founder and I. And I've written 10,000 pieces of content. So that's a
+little bit like Brian, but I have more than Brian and I'm not Lenny in terms of productivity,
+but I've got a lot of voices, so I'm like, I'll try it. I used Delphi. I instantly broke it because I
+had too much data to ingest. It took about a week to get going and it worked. And people.
+And it's just like you people, some people spend hours a day on digital Jason in another
+browser. And they don't do what they do with Lenny, but they'll. They'll ask about their
+sales woes and what to do with their sales team and they'll. And they'll upload LinkedIn and
+ask if they should hire people. And then a curious thing happened, which is that because we
+do these events, people started to use it for questions for the events. Hey, how do I get a
+refund? Hey, can I get a discount?
+Hey, where is the San Mateo County Fairgrounds? So Jason lies. That's really in the San
+Francisco Bay area. Like, who's speaking? Or. And like, there's endless questions, right? And
+we used to use prefin Intercom and we're so busy, we would answer like two weeks later.
+Like, it was the worst support ever. And the agent just started doing support on its own. And
+then it did this thing where it sold sponsorship on its own. Right? So. So start. You can start
+with.
+So one place to start if you haven't started is in support. Okay? And you don't have to buy
+Sierra and you don't have to buy Decacon necessarily. And you don't have to buy Fin. But
+one potential place to start is. Is your support. Like, can you do great 24. 7 Support? Can
+you. Most. Most apps can't. In fact, some of the worst offenders are AI leaders. They have no
+support at all on their website. So that's one place to start.
+And then the next place we started, okay, so for us, the Logan for the next place we started
+is, hey, we want to try Outbound, okay. Because we don't have 1.2 million names like you
+have, but we have like 400,000. Okay. And we have data on them. So we wanted to say,
+come, come back to our Saster event. So we didn't know what to use. And I'll tell you
+something. So we picked a YC company called Artisan. They've gone like, from like nothing
+to 10 million this year.
+We picked them, but it's important why they were at. They were a sponsor at Sastra. We
+didn't know and they offered to help us the most. This is the critical insight. We didn't know
+if Artisan was the. I have opinions now. We hadn't deployed it, but another Vendor argued.
+The CRO argued with us. He said, I need 100k up front before I help you. Okay. Another one
+said they were scared of Saster. They didn't want bad PR if it failed. Fair.
+
+Oh, yeah. Certain companies, we don't want to be your first okay.
+And Artisan said we'll do it. And we had nothing. And here's an interesting thing about
+agentic stuff. It's like support if you have nothing. Like it doesn't have to like change the
+world if you're literally doing nothing and you start to do something that's high roi, like
+you're going to get return. Right. So we did that one. We trained it. It's great. We did about
+60,000 emails, saw pretty high rates. Then we said, well we'll try inbound.
+We like, we don't want to have this depressing experience where a salesperson quits and
+it's two weeks later until they talk to it. So we use this vendor called Qualified which was
+founded by the X CMO of Salesforce that does a lot now, but mostly focused on qualified
+stuff that immediately worked. Like we had someone at 11pm on Saturday night that
+wanted to sponsor and they sponsored and it worked and it worked great. But again they
+helped us.
+And this is an agent that is emailing with prospect selling them on a sponsor.
+Well, if literally if you go to saster annual.com and anyone should buy a product like this, it
+doesn't have to be Qualified. And the bubble, the intercom like bubble.
+Okay, gotcha.
+Is tuned to qualifying inbound prospects. Folks that say, hey, I want to sponsor Lenny's
+podcast. Sorry, we're sold out through 2028 but if you want to be on the wait list, sign up
+here. Okay. Or, or even better for us, it would qualify folks out that weren't a good fit. Right.
+It would save so much time and it would do it 24 hours. Then it would just set up the
+meeting. So the reason that was a great second one was because no one was willing to do
+that.
+No human was willing to pick up the phone and talk to these people. So it was such low
+hanging fruit. Um, but the key to the first two and, and if you're going to pick an agent is
+they, they offered to help the most. You're I at the end of the day, Lenny, these are all
+running on Claude 4. They're all basically using a bunch of APIs mashed together. That's not
+new to software, right? Mashing a bunch of APIs into the hood. But deep down I don't want
+to get anybody trigger anybody.
+Many of these leader the leaders in AI gtm, they're more similar than different. They're
+more similar and different under the hood. It doesn't mean the features are parody. So
+because you have to train them, because it takes A month. The world's best software with
+no help training you is not 1 99% of people should buy. So today, in the old days we would
+qualify the best software, we would make a matrix and we would do their thing and we
+would compare features and do it.
+
+You got to do another column, which is your forward deployed engineer or solution
+architect or your search and talk to them and say, who is going to help me? And before you
+write a check, get on the phone with Lenny and see if Lenny's really going to do deployment.
+And if Lenny rocks and the other vendor is better and won't help you, don't do it. And that's
+why we've had so much success is the first two we did. Yeah, they were startups, right? So
+they worked harder.
+But Artisan and Qualified just did the work with us. And we're not stupid, but it was work,
+we needed help. Right? And so that's what I learned is you have this partner, the FD and the
+vendor and, and a lot of them actually might not take your business if they don't think they
+can help you. The best ones turn away a lot of business today. Which is interesting, right?
+Interesting.
+Learning from this for folks is a lot of folks say, and they would say to you, if you use these,
+Lenny, they say you have too much data. Saster is not like us, we're a startup, we're tiny. You
+have 400,000 people in your database. Lenny is 1.2 million. It's not like that's, I, I got, I, I, I
+only have 300 customers. Okay. Or 200 customers. What I've learned is that's wrong. If you
+have 300 customers, how many folks have come to your website ever? 30,000. How many
+leads do you have?
+How many folks in your database? How many folks have you tried to reach out before? More
+than a human's doing. And they all of a sudden they have a haha moment like how many
+folks do you have in your HubSpot? Right? How many folks do you have in your CRM? They
+look it up. 31,000. Okay, how many folks do you have talking to them? Zero. You don't need
+the scale of numbers that you and I have to make these agents work.
+You need a little bit of scale and you need a little bit of traffic, but not as much as you think.
+So all the learnings, we have a lot of folks that honestly they don't want to do the work.
+They're like, well, Sassner has a lot of scale. They have a lot of years it's not true. And it
+turns out to also be like true with the training. I'm sure you've seen it with Lennybot. Like I
+thought having 12 years of content made the difference.
+Nah, it's having like a couple months of really good content and a long tail beyond that. But
+you don't need as deep training and as much as you think, you just need a bit to be really
+good. So anyone that has any skill whatsoever, even a couple million of revenue and up, can
+benefit from these products. Right? So we did Horror General, General Bot got us to a
+certain place. Then we did STR for Outbound, then we did Inbound, and then we did Agent
+Force really early with Salesforce.
+And we didn't know what to do with Agent Force at first, right. But we decided we would
+reactivate the folks that sales decide was not worth their time, folks that reached out to
+sales. And this is true at every startup. We even just talked about some of the AI leaders
+
+where a human says, you know what, I don't think this is enough commission. I'm kind of
+busy. I got a $4 million deal with Meta going. We just took Asian Force just on those. Okay.
+And we trained it on very similar prompt.
+It had 70% response rate. Those are people that were dying to interact with us. 70% Is so
+good at. And this is something humans were not willing to do. It wasn't worth their time.
+And I know this sounds critical and maybe I'm going to trigger some sales folks, but the
+reality is if you know, if you're in a lead rich environment, okay. And I think that there's lead
+rich and lead poor environments for even big companies. But startups, like there's not
+enough. But eventually you become lead rich.
+Okay. Reps just don't follow up with a lot of them. It's just human nature. It's even you. I bet
+more folks want to sponsor the newsletter than you can let in, right? Do you, do you pick up
+the phone with all of them?
+I reply to all of them and then we just tell them where we're full.
+But yeah, but you see the point, right? Even your scale, you see the point, right?
+Yeah, yeah. It gets challenging.
+And let's imagine all of a sudden you had six months of inventory available. I bet if you
+spooled up an agent and emailed all those folks back automatically you'd fill up. You fill up
+the docket, right? So anyone can do these sorts of. You think you can't unless you're so small
+that you have sufficient humans to talk with every potential lead, every person that touches
+your website, every person that clicks with anything you can benefit from AI. So that was
+kind of our journey.
+And then we've done a lot of other niche stuff. I'll tell you at the end, the. Where we are
+today, this is a, maybe this is almost too much learning is we're at the point where maybe
+we can't do one more. Because right now, when we, when we did Delphi, in the beginning,
+when I copied you with Delphi, even me, I spent almost an hour a day training it in the
+beginning, because when we started to use it for support, it had an initial. It started telling
+people the wrong dates. Okay.
+And we could talk about why. So I had to fix it. And it made some mistakes. And so when
+people started to use it, I had to spend an hour each morning firing up Delphi, reviewing the
+issues and answering them. I don't have to do it anymore. It's well trained. We have so many
+agents going in so many emails that Amelia has to spend, you know, 10 to 15 hours a week
+reviewing the outputs. And it's exhausting because agents work all night and they work
+weekends and they work on Christmas.
+It's a big issue, right? This is not being the orchestrator or the chief AI person is not a good
+
+job for lazy people because the agents never sleep. Right? So it is so much time now to
+manage these 20. This is interesting. We can't, I don't know when we're going to do the 21st.
+We may be full. And for folks that are startups, this is a reason to go harder because
+everyone was in market this year, okay, everyone. And it's going to keep happening.
+But business process change remains an issue for business software. Business process
+change at the end of the day. And so many founders get this wrong. And 99% of sales folks,
+they don't care about business process chain Salesforce, they just want to get their
+commission. It doesn't really matter what you pay for an app for, for a customer, as long as
+it's fair. It's all the work to do to change the way you do your business. Right? And so we're
+even.
+We're at the point where we're overloaded, right? And so just be aware if you're, if you're a
+startup or even Salesforce or HubSpot, maybe, maybe close those deals in the next 12
+months because the window may close where people say, listen, that's the coolest agent I've
+ever seen. I'm exhausted from the Last five. I had to do five last year. I just can't, literally
+cannot bring one more app into my enterprise.
+And so that's going to be a headwind that today everything seems like it has tailwinds.
+Right. Everything's on fire. But people are going to get exhausted for having so many agents.
+Exhausted, man. Okay. There's so much to, to learn from in what you just shared. Something
+I definitely want to ask about as people hear this. Agents sending off emails, agents talking
+to your clients. We get, I get a ton of emails that, that are terrible.
+Yes.
+What have you learned about making these outbound emails good and not just, you know,
+noise? How do you make these conversations high quality? How do you.
+It's a really, really, really good question. So the two, maybe the two biggest learnings, take
+your best person on your sales team, the best marketer you have, take their email copy and
+use that as the template for your AI. If you. The terrible mistake people make. Everyone in
+2024 said these products didn't work. There were two reasons they didn't work. It was
+before Claude 4. Right. Replit didn't work. Lovable didn't exist. Gamma didn't really work
+before 2025.
+Right before cloud like the LMS reached this point where they would work for these use
+cases. So that was one threshold. The other thing that happened in 2024 is the vendors kind
+of lied and said, just turn the product on, it'll get you revenue. No, no needing to train it. No
+need to do anything. We'll just do everything. As this magic AI savant. It's not, it's not the
+way it works.
+
+This way what you do is an agent will be successful and go to market and sales today if you
+take what works for your best person. Train. I know this seems like a scary term, but it's
+not. Upload that text. Okay. Train the agent on it and let it iterate an A B test from that.
+Agents are really good at AB testing. They're really good at creating variants. AI is like ask
+Claude or chat for a variant of your best email. Say, give me three versions of my best email.
+They'll be pretty good.
+That's all the agent has to do is take your best email you ever sent and stick it through an
+API and go. It's. I'm making it sound simpler than it is, but not by too much. So train it and
+then what it'll do and then give it some data sources and the data source could be as simple
+as salesforce. Okay. And then if it has Any data on Lenny, it can pull data and it can lightly
+personalize that email. Okay?
+And even better, a lot of these products track all the visitors to your website so they can see
+what's happened and they use other APIs and so they can personalize your emails more.
+And so what ends up happening is the emails that the AIs write are pretty good. Okay? If
+you're getting terrible emails, it's a poorly trained product from a bad vendor. You should
+be getting emails when you get them and you're like, this isn't as good as Jason said on
+Lenny's podcast, but it's pretty good. Okay?
+That's what AI can do today. And the magic is if a human isn't even doing that, or if your
+mediocre humans are worse. And I'll tell you, you know, one of the first lessons I learned
+when my last startup was acquired by Adobe, Sam Blonde was one of our sales leaders.
+Then he became Sierra of Brax and others. And he we inherited a bunch of reps from Adobe.
+We didn't ask for them. And he's like, my God, I never read everyone's emails before. These
+are the worst emails I've ever read.
+So the AI can do better than that. The AI can do better than that. And so you just train it on
+your best and it'll be pretty good. And so you just haven't seen a well trained agent. And
+then what I learned, and then another question folks ask is, okay, Jason, that email was
+pretty good. It wasn't as great as you said on stage, but it was pretty good. But do you tell
+people it's an AI or do you hide it? And what we learned from sending hundreds of
+thousands is it does matter people.
+We're in an age where people don't really care as long as the email adds value and they
+know they're going to get an instant response. We've tried both, we've tried to say, hey, it's
+digital Amelia or digital Jason. We've tried to fake it. And what we've learned is now we just
+send it. We just send it and no one cares. And sometimes we'll get, especially founders will
+get an email back. They'll be like, haha, I can tell this is an AI, but it's pretty good. Can I do a
+meeting?
+That kind of says it all, doesn't it? So we're worrying about creating issues as excuses to not
+do the work.
+
+Your point about how human salespeople's emails are not great already is really powerful
+because all we're looking at is these okay emails from AI and you're saying okay, but
+humans, they're not actually that much better. If you actually look at them, My.
+God, they're not the bet. Listen, the best outbound emails you've ever gotten, like for
+example, I know you've done a bunch of investments to. A lot of them are inbound to you.
+They want Lenny involved, right?
+That's right.
+Some of them are just so good you can't believe it. Right? A few, yeah. How many are that?
+But, but a lot of them aren't. Right?
+Right.
+So like the best founders and the best sales execs and the best SDRs will spend two hours
+researching an email. Okay. Who exactly the IBM should I reach out to? What did IBM? Who
+else exactly is a competitor that's using them. Exactly what was the roi? They'll give you a
+perfect story. Like if you get the world's best story, here's your competitor, here's how they
+use it, here's exactly when they bought, here's the roi, here's the case study. That's gonna,
+that's a great email, right?
+How many 21 year old SDRs do that? No, they, they use an automation tool, whether it's
+outreach or Gong or salesoft or Mixmax or an AI based but they do no work. It's not gonna
+be that great. It's not gonna be that great. So that's why for, for people getting a little
+confused, the bar for good enough for aigtm, it's not as high as we think. It's just like, you
+know, a facsimile of your best person reproduced as best we can. It's gonna beat your mid
+pack person.
+It's gonna beat the person that literally knows nothing about your product.
+Is this, is this an opportunity for humans to continue to thrive? This layer of much better
+emails. This came up when I had Jen Abel on the podcast. She asked her like what tools do
+you use? What do you use? She's like nothing. I just write it out artisanally and it works
+really well because everyone's sending AI emails. Is this just like where go to market
+salespeople still can exist? That's much better email.
+Or is that also for. If you have a high performing human team hunting high dollar value
+logos and when this is classic stuff, letting I and Jenner in a conference room, we put a
+whiteboard of the 50 best folks that we want to sponsor Lenny's podcast. There's only 50.
+Okay. And we write notion and we write linear and we write repl. There's only 50, it's a
+three. And we're all trying to sell them these new sponsorships. They're, they're, they're half
+
+a million bucks for two years.
+Take it or leave it. Okay. And I give, we divide them up and we say, lenny's best at this,
+Jason's best at Jen, and We each take 15 or 17. Dude, no need for AI there, is there? Agreed.
+No need for AI today because our.
+Why is really high.
+Yeah, and we're going to. And we're great. And we know that the three of us are. We're
+different. The three of us are really different. It's going to crush. And we don't need any.
+Maybe one of us will take our emails and run it through Claude real quick just to make it
+better. Right? Or, or what I do is I do it for more research. Like I write the world's best email
+and then I say, claude, how could I make this better? Do a little research, it will still be
+better.
+So that's an AI boost Jen should be doing. I love Jen, but she should be, she should at least be
+making it better. But for our 45, 50, 50 best ones, we don't need it. What if it's 5,000? Her
+approach just doesn't work. So yes, a lot of the stuff we're talking about lends itself to higher
+volume sales, but as everyone gets bigger, it's all higher volume. There's just so much
+volume as you scale. Right?
+So yes, if you're tiny and you have three prospects and you're just getting into Y
+Combinator, maybe you don't need these tools. But we graduate out of that more quickly.
+And the bespoke thing for Jen, I think will work for high dollar value enterprise, but is
+outside of that. I don't know, man, It's. You just can't touch enough people. Humans can't
+touch enough people. And humans don't want to do the work. They don't want to talk to the
+mediocre leads. They literally.
+I'll tell you an ex, like, when I was in London, I wanted to buy a $10,000 product, okay? And
+I'm literally in London and we're doing Sask. I don't have any time. Right. And I get confused
+with the time zones. Lenny. I don't know if you do. I don't even know what time it is in the
+Bay Area. So I just email this rap. It's in the air. I'm like, just send me the contract. I want to
+Buy it. But I have two questions. I have two questions I want answered.
+And I told him these two questions and they weren't even about price. Took him three days
+to get back to me and he introduced me to someone else on his team. It wasn't worth his
+time. Ten grand wasn't enough because there's not enough commission for him. Right. So
+introduced someone else to me and the other guy said, I can't answer your questions unless
+you'll get on the phone. And I said, I'm in London, I'm traveling, if you will. Ordinarily I
+would have ended this, but I'm, I'm.
+It's a journey. I'm like, if you answer my two questions, I will buy your product for 10K. Is
+like, I need to get on the phone. Like, AI is better than that. This is not Jen's in the
+
+whiteboards thing of doing it. So it will, at least it will fill. Even if Jen's process is right, AI
+can fill all the gaps. What about all the sponsors, the leads? We didn't follow up with that.
+We got a 70% response rate. Right.
+I mean the gens are diamond in a rough and whatever the expression of the diamond,
+there's not that many of them. There's not that many of them. So I, I love her and I love what
+she says and I agree with 99% of it. But here's a, a related point. Most of us don't have the
+hottest brands and we don't have the most elite CROs running them. So we end up settling
+for not the best sales team. That's the truth. Most 99% of the best sales reps want to work
+just at the hottest brands.
+And the minute you're not, the minute your star fades just a little bit, they don't want to
+work. They immediately want to jump to the next one. It's just, there's a lot of reasons why.
+So bear in mind, 99% of, of the world cannot attract a team of gents or better. It's just
+practical. Even I can't even you could, Lenny, you're so great. But even a lot of folks that
+would want to go work for you if you want to hire someone, they'd be like, well, I love the.
+But what do I have to do?
+I've got to sell newsletter spot. Like no, no, no, no, no, no, no, no. I want to be CRO at lovable.
+I love Lenny, but is that really going to get me there? Right?
+Yeah.
+So we, AI can, AI can beat those. But AI can't beat the enterprise thing. AI. I, I have no idea
+how AI is going to do in person sales. I. Someone smarter than me is going to have to answer
+that. But a lot of. I, you know, you have such a huge audience, Lenny, but I still think most of
+your folks are in tech and, and doing tech sales. Tech is the largest segment of our economy
+and growing. Right. So for the most part, these tools will work for tech sales.
+Tech sales is over the zoom, over the phone, over email. We're not, we should knock on
+more doors. We should do more in person. All the data I've ever collected shows everything
+closes at a higher rate. If you go in person, it's just not. But in tech, it's basically as much
+automation as we can get away with in gtm.
+What I think might be helpful is just like, let me zoom out for a second and describe what
+you've gone through here. So you used to have, I love this visual you had of the desks of the
+sales folks in your office where you had inbound SDRs, you had outbound SDRs, maybe a
+support person and.
+Three or four AES account examples.
+Okay. And three or four AES who kind of take these leads and then close the deal. And so
+now just like instead of humans, there's an agent doing each of these jobs.
+
+Yes.
+You have this inbound, this outbound agent that's just sending emails, trying to find
+potential leads. An inbound agent that's talking to people that are interested, trying to get
+them more excited. And then is there an AE agent or I forget what.
+No, we have. That's what I'm still learning. We have one full time AE plus 20% of Amelia's
+time. So it's 1.2. Doing what five or six AES do.
+I see.
+And basically SDR BDRS.
+Got it. So basically all the top of funnels is AI. And there's one human now that takes all this,
+all the great stuff and just closes the deals, negotiates pricing, things like that.
+Yeah, maybe 1.2 just to say it, but. But yeah, 1.2.
+Yeah. So that's where I wanted to go. So Amelia. So that feels really important. Just
+somebody, not necessarily full time, but just staying on top of these agents, watching the
+emails, making sure quality is high, making sure they're running correctly. Talk about just
+like how important that part is to the, this whole operation.
+It, it's critical. It, it's critical. And you know, people are posting on LinkedIn that they want to
+hire these GTM engineers or I don't think that role exists today. I, I, I, I worry when I see
+these roles. I think today and listen, if we get together in 18 months, we'll, we'll update this
+because the world's changing so fast, right? I think today 95% of 100, you've got to promote
+someone internally. It's got to be a nerd. Someone that likes marketing and sales and is
+quantum.
+You know, a lot of B2C people are frankly good at this stuff because in B2C sales and
+marketing are kind of the same thing, you know. But someone that's a nerd that loves to sit
+in front of data for a couple hours a day and route data and manage these agents and they
+come out of product, they could come out of marketing, but maybe they could come out of
+revops, but they better be nerdy odds they come out of regular sales approach zero.
+So I would find someone on my team that raises their hand and says, I've already done this.
+Okay? I, I've already, I've already written 10 apps in Replit and I, and I, and I love Vercel and
+I did this and I've already tried these ones on my own. Can I please manage these for you
+and then have them be your chief orchestration officer? But it is a new skill set. It, it really is.
+And, and ultimately finding someone that's going to spend an hour to two a day to manage
+
+these agents is the new new frontier for us to figure out. They, they do not, they, they
+operate autonomously but not without constant oversight and iteration. That's the
+confusing part. It, and, and you just, if you just buy one of these products and disappear, you
+will have zero roi. So maybe too long of an answer, but that's critical.
+And I just think unfortunately you're gonna, you have to grow this resource at home today.
+You have to. Even with Genie Versail, that basically grew the resource at home. Right. We're
+not all for sale, but I just haven't seen it. Everyone's posting for this job, but we need
+veterans. We don't have veterans yet. Right. And going back earlier, the conversation, if that
+is you, you're going to be super employable next year.
+You're going to have so many job offers, you're not going to know what to, you're going to
+have to beat them off.
+And when you think of is Amelia, would you describe her as a go to market engineer or do
+you, is that a different role?
+I would say now, yeah. Officer. Yeah.
+Okay.
+But she knows the products. Colt Cold. She knows how the all the quirks work, how all the
+agents work. And here's a this is, this is a, a complicated issue, but an interesting one if
+you're running multiple agents, okay, someone's got a segment which of the base the agents
+are working with or they're going to have tons of conflict. You need someone smart enough
+and any like really nerdy demand gen marketer that loves data can do this.
+But you've got to segment your base otherwise it just becomes a mess. There are no people
+on X and the Internet. Talk about these master agents that can manage agents that can
+manage agents. We're not there yet. Okay, maybe like I'm excited for it, but we're not there
+yet. So just even figuring out how to segment your base so you can do inbound, retargeting,
+remarketing new marketing like so so that, that is complicated. But most badass marketers
+can't understand that.
+They're already doing a B testing segmenting their bases. This is not new, is it? No, no. Yeah,
+but turning it on with zero work is a F like it's just no chance.
+This episode is brought to you by Datadog, now home to epo, the leading experimentation
+and feature flagging platform. Product managers at the world's best companies use datadog,
+the same platform their engineers rely on every day to connect product insights to product
+issues like bugs, UX friction and business impact. It starts with product analytics where PMs
+can watch replays, review funnels, dive into retention and explore their growth metrics.
+
+Where other tools stop, datadog goes even further. It helps you actually diagnose the impact
+of funnel drop offs and bugs and UX friction. Once you know where to focus, experiments
+prove what works. I saw this firsthand when I was at Airbnb, where our experimentation
+platform was critical for analyzing what worked and where things went wrong. And the
+same team that built experimentation at Airbnb built epo. Datadog then lets you go beyond
+the numbers with session replay.
+Watch exactly how users interact with heat maps and scroll maps to truly understand their
+behavior. And all of this is powered by feature flags that are tied to real time data so that
+you can roll out safely, target precisely and learn continuously. Datadog is more than
+engineering metrics metrics. It's where great product teams learn faster, fix smarter and
+ship with confidence.
+Request a demo@datadoghq.com Lenny that's datadoghq.com Lenny I'm looking back at
+some notes I took as you were talking of just like advice for each Function almost of how to
+be successful in this future that you're seeing. So I'll try to summarize briefly. So your advice
+for salespeople is use the agents, build one yourself, try to train it, help it run, run alongside
+you so that you understand these tools and be the person within the sales organ.
+That's for ma, for leadership. I advise that for leaders. I don't know that if your average SDR
+or junior salesperson is going to get budget for their own agent, if they do run with it. The
+problem Lenny is that all these agents that work today, they have forward deployed
+engineers, they have training. So they're all like 50 grand and up. 50 Grand? 80 Grand. I
+mean people pay more, don't get me wrong.
+But kind of the entry level point for these is sort of like 50 grand plus 25k for the FD or 75
+like they want even clay I think starts at 100k a year. So if you're a bigger organization that's
+cheaper than a human. Right. It's a tall but. But There are no $99 a month products which
+has a lot of it. They're trying and I think it's going to come. They don't auto train yet
+particularly well and so I don't know that junior folks are going to have access to 100k
+budget unfortunately. Right.
+So that advice is for the VPs, the folks that are worried. A lot of them are worried that I'm
+obsolete. Right. That I'm obsolete, that I'm not going to get that role at Vercel or OpenAI. So
+keep, keep going. My. The advice for the junior folks is to embrace it. You, if you whatever
+tools your organization is using, become the best person at working with that agent and you
+will automatically get more efficient. Yeah.
+Is it annoying that that you walk into work and the agent set up four calls for you and maybe
+you only wanted to do two of them. Embrace it. Embrace it because you'll be twice as
+productive. Right. I was literally talking yesterday. There's a company I'm on the board of
+called owner.com which is kind of like AI for restaurants are crossing 100 million in
+revenue, going really quickly. It's got a hundred folks on the sales team. Kyle does with AI.
+
+He's trying.
+He's targeting 3 to 5 million in revenue per rep. 3 to 5 million. Honestly if this was three or
+four years ago for a similar company it would be 3 to 500K. That's an order of magnitude
+more efficiency. Still a hundred reps. Right. A hundred reps, he's going to need more to hit
+the number for next year, but 3 to 5 million per rep. So if you're that guy that can work with
+those tools, you become more valuable.
+But if you fight it, if you don't want to do that extra meeting, if you fight it, there's a. There's
+a. There's a tool. Another tool we use for RevOps, there's two we use. One's called
+Momentum, one's called attention. They're both great. They're very similar. And what it
+does is every single thing a human does is automatically tracked in your CRM instantly.
+Every comm, real time. There have been tools that have done some of this before, but
+literally everything.
+And when we rolled it out and it happened with a few other folks, I know one of the folks on
+that old team quit that day. Quit the day we rolled out the. The AI Rev ops. You know why?
+He hadn't done anything in 30 days. The gig was up.
+Oh, wow.
+Every day he would show up to our standup, and he said, yeah, I'm doing outbound, and I'm
+really working on that deal with Vercel, and nothing would close. And then we said, oh,
+we're. We're. He quit that day. So my point is, he didn't lean into it. Right. Lean into it. Now
+you're going to have full, total transparency on your day. You know, granola is a, you know,
+a side example for everything. But. But AI is going to track everything you do.
+Like, if you want to fight it, you want to fight the future, good luck to you. But embrace it,
+and you will. You will leap ahead of your peers that aren't embracing this. Embrace all the
+transparency, all the leads, all the work it makes you do. Because you can't close 10 times as
+much doing the same amount of work, can you?
+Nope.
+We do more work. With AI, I'm working the hardest I've ever worked. That's with all these
+agents and all the output they create. And Amelia does a lot of it, but even I am working the
+hardest. But. But it. But it's better. But it's not less work. It's the. It's more work. The agents
+are so productive. You have to keep up. So I. So sorry to interrupt. For the. For the. For the
+managers, buy an agent, deploy it yourself. Don't have someone else do it.
+Do everything from training to ingestion to orchestration. Those terms will be less scary to
+you. For the junior folks, be the guy, the gal, the person that Loves these tools. And that is
+the first person to embrace whatever it is, don't fight it.
+
+Awesome. Okay. For founders in startups, what I'm hearing is the be that for deployed
+engineer, have that person, that sales engineer that's sitting there helping companies. This
+is basically an opportunity to compete with bigger players where you're actually there
+helping them set things up. Like all the companies you mentioned, none of them are big
+companies, they're all startups, which is really interesting.
+It is true. I will say it is. Working with Salesforce the way we are, it's the way. I haven't
+worked with Salesforce since it was the first product I bought, I mean, 20 years ago. Dude,
+when I bought Salesforce 20 years ago, I got. Everything was hands on. I bought two seats. I
+remember back in the day talking to my rep, I'm like, don't talk to me. You don't have time.
+You work at Salesforce. I'm buying two seats. It's like, no, no, no, this is what we do. I'm here
+for you.
+I'm gonna help you get your app on the app exchange. I'm gonna do all of it. And that went
+away. It's kind of back. Right. And Mark's got 2,000 folks doing this at Salesforce now. So we
+have a forward deployed engineer. I'm not even sure it makes economic sense. And maybe
+in two years someone like you or I would not get an fd. But, but, but the big companies are
+figuring it out. But yes, pick a vendor that will make you a success with, with an fde. Right.
+And, and people throw this term out, but again, it's, it's just someone that's going to make
+sure you get trained and onboarded with your product for real. But yeah, so start. Startups
+have a motivation to do this in a way that maybe some of the incumbents really are still
+figuring out. Right.
+Which is a big opportunity for startups to actually do this. And, and this actually resonates
+very closely to what Jen suggested for startups, which is sell services initially. Just like do
+work for them, solve their problem, not with software. To get things started, to grow that
+into a massive contract with them. That is software.
+You mean? The mean landed expand. Start with a smaller deal and grow it.
+Start. No, like, like afford like a person sitting there doing this work with them. Essentially
+what you're describing, don't just like, we have software, go try using it. It's like we will
+have someone on our team helping you figure this out. And, and maybe there's not Even
+software yet to do all these things. But we'll have them do it for you. And then the software
+will take on more and more of that work over time.
+I think that's always been great advice. And startups have always been great at this. Like in
+the early days you, the CEO does it is doing support. The CEO's onboarding you. I think
+what's different today is the agent will fail without training and onboarding this product. It
+will fail like it will never, it will never work. So it becomes an imperative if you want to win
+like you need. This term has been bandied about too much. But you need a team of humans.
+
+We can call them forward deployed engineers that make 100% sure that when the agent is
+turned on, it's awesome. That's your job as a founder. Make sure it's awesome. Versus in the
+old days, even when I built one of the first E Signature services, it was so easy to use. We'd
+have some customers, take them two years to go live. Big customers. That's just not okay in
+the age of AI, right?
+Yeah. And these forge deploy engineers, is that just another name for sales engineer or is
+that a different sort of background?
+It can be. And I think all this nomenclature is confusing, man. All this orchestration and
+ingestion. I think we're, we're confused. Like Palantir is obviously the single most successful
+public B2B company at the moment, right? Maybe. Maybe databricks and a few others will
+beat them in the next wave of IPOs. But their idea for forward deployed engineers is similar.
+But these are nine figure deals. Most of us aren't doing hundred million dollar deals.
+So the idea that you'll have Gary Tan and an army of folks out in the office for six months
+getting the software to work, that, that sort of inspires the idea. But it's really. Sure it could
+be a sales engineer or solution architect. But the difference is the SES that a lot of us worked
+with in the days were resources. And often like there was also in a classic resource of like
+eight sales reps to one se.
+So the eight reps would, there'd be a POD and one SE would be responsible and you'd kind
+of have to fight to get Jason or Lenny's time to help the eight reps. This is inverted. The FDA
+is number one job is to make the customer a success. Okay. I was literally the other day
+doing a presentation in a leader that closed a $3 million deal. The FD did it all himself. Sales
+wasn't even involved.
+In the deal, they went on site, they got the deployment going, they tuned it, everything all
+sales did was manage it through the procurement process. This okay, that's pretty different
+than a guy answering some questions for the humans, right? So it is a combination of
+customer success and SE or whatever. But it is, it is really. I mean frankly it's just being a
+classic consultant that gets the product done on day one. On day one. That's the difference is
+that when you go live, it works.
+When you go live it works. That's that. And it's a fancy name for a bunch of folks on your
+team that when it goes live the AI agent actually works. So you have a hundred percent
+success rate instead of like the 5% rate of 2024. So those people, but they do need to be tech
+technical. I don't know if they need to be engineers. It can really vary based on, you know, I
+love it when they're kind of like mediocre engineers that are like in love with the product.
+That's my favorite type of fd.
+Like they're on. They don't really want to code much anymore but they did code and they
+
+like just love your product. But I don't think it can be someone with no product chops. But
+all different folks can work but they've, they've got to know the product hold. But yeah, I
+would startups like, I mean the term is thrown around. You need four folks that will just
+make sure that on go live the product works, your agentic product works. That's what you
+need.
+I think it might be useful to close out this conversation is to kind of go through what are the
+things that are changing. Like maybe a handful of things that, that are changed that are now
+going to be different in the world of sales go to market and what are a few things that are
+just going to stay the same.
+Yeah, let's go through it. Obviously support is the first one to have changed. It's obviously
+permanently changed with AI, right. Whatever vendor you look at, 50 to 80% of support is
+done by AI. And we don't always think about support as GTM, but it is, it's the start of a
+customer journey. It's very important to the customer journey. So, so if you're skeptical, go
+look at, you know, support has changed permanently so that that trains left the station.
+Really as we record this, not much has changed in sales. I mean I do think the stuff we've
+talked about is the bleeding edge. I do think the classic cadence based SDR running
+campaigns through A tool, him or herself will be mostly extinct with 12 months. There is no
+reason AI can't do a better job than that role. The classic qualifier qualifying inbound leads
+which is a crappy experience for customers should be similarly extinct within 12. Mostly
+extinct in 12 months.
+The rest we're going to wait and see. I think what we do know for reps, for sales reps,
+everyone wants to be even more efficient in the next 12 months. There's a lot of reasons
+people want to be able again. At the bottom end it's, it's, it's cost, it's profitability pressures.
+At the high end it's cultural. We just don't want 200 reps running around vercel or repl that
+don't know what the product does. Everyone just the. The company owner.
+3 To 5 million per rep is a lot different than 3 to 500,000. So you have to adjust as a rep, you
+still, there's still. Every AI leader can't hire enough reps like we talked about. But you're
+going to have to adjust to being geometrically, if not exponentially more productive with
+help from AI. So you have to embrace these tools for real. And everyone, a lot of folks, a lot
+of old school GTM leaders are like, you know, AI isn't going to hurt sales reps.
+It's just going to make them give them superpowers, the best ones. Yes. The mediocre are
+just going to be like more mediocre.
+Right.
+So I think the AE is. We will always have salespeople. But being a people person is not
+enough anymore. You know how you can tell a mediocre salesperson, Lenny? You ask them
+
+what they're really good at. I'm a people person, Lenny. You know how you can, you know,
+you know how you, you know how good I am, Lenny. I'm on text with 10 of my best
+customers. I'm a people person. What are the toughest technical objections you have at your
+product? What, What?
+They don't, they don't know, but they're a people person. You know this is like Golf 3.0. It
+just. It's not enough. Like it's, it's insufficient. So people, people, people are becoming
+obsolete in sales. Field sales. No idea how AI is going to impact that if you're out in the field.
+I mean, you know the enterprise leaders are hiring more field salespeople than ever.
+Salesforce is hiring more than ever. And knocking on doors still works, man. So don't know
+the answers there.
+But the office worker and the work from home worker AI is going to take as much of your
+job or make you as much better as it can and you got to embrace it. So that's, I would say
+from support to knocking on doors, you know, we're going to go from 80% to 0%.
+What about phone calls?
+You know, it's a great question and we should have hit it. Obviously there's, there's plenty of
+robocall and regulatory issues around it. Certainly a lot of startups are breaking the rules
+anyway. I would say this, listen, there are, there's phone calls and there's even sms. There's
+limits to how much SMS you can automate. Right. A lot of old school businesses don't even
+check emails, right? I mean, you're working in the shop floor. So those are unanswered
+questions.
+People are breaking the rules. OpenAI still breaks the rules. Right now it's licensing Disney
+content. It used to just borrow Disney content. We will see. So I don't, I don't know the
+answers to that. I think in, in Europe it'll certainly be much slower than in the us but
+startups are going to push the limits. They're going to push the limits on what we can do
+with AI calls, AI enhanced, whether a human's kind of on the line. But AI is doing all the
+work. Maybe that's, maybe that's legal, right?
+Getting more consent for SMS than we typically get. So to think that the typical barriers to
+robocalling and SMS is going to. That startups aren't going to bend the rules in the age of AI,
+I'm dubious, but it's a good question. It's harder to do. The one thing I will add is, and it's a
+good objection to all of this and I'd love to get Jen's thoughts too. But if you talk to the
+startups, you'd invest in Lenny for fewer of them are good at outbound phone calls than
+you'd think. Right.
+We had many of the heads of revenue at Rippling Speak at Saster. The old CRO worked on
+my team and others. They were late to develop Cold Calling because we never did it back in
+the day. The CRO was on my team so we had to bring in someone that had worked with Sam
+Blonde at Brecht who had done it. It is a real art to pick up the phone and close business. It
+
+is a specialized skill and so if, if that's your specialized skill and there's no way for AI to
+benefit, so be it.
+But I don't think for most tech calls that that is as impactful as we pretend it is. I don't think
+most of the startups you and I work with and most of the folks listen to this, do not close the
+majority of their revenue with cold, human cold calls. It's. It is a, it is a craft that works but
+man it, you gotta be good at it.
+Yeah. This line somewhere that if you can close on a text message, AI can close it.
+Yes, it is. I'm being facetious in the sense that people say that I think have weaker
+relationships with customers. This is why AI is people have weaker relationships with their
+customers than they think. Yeah. And if it's so easy to close the deal on a text message and
+we've done hundreds of thousands of these and founder folks don't mind if it's an AI, if it's a
+good AI, why won't it close it on the text message? Right. AI can be people. People too. It
+really can't.
+If you don't believe me folks, go to lennybot. Is that the URL lennybot.com lennybot.com if
+you don't think AI can be people people go sp people spend hours on Lennybot, don't they?
+Yeah. And the best part is you could talk to talk to lennybot with boys. There's a voice
+feature that sounds exactly like me. It's unbelievable.
+Yeah. So and. And one a meta reason to go use lennybot. Go in with a learning. A learning
+mind. Don't go in biased. You will find that AI can be people people people spend hours our
+best. Who are our best therapists today as we record this chat GPT is our best. Best
+therapist on planet Earth. It's a people person. I mean it sounds silly but if, if that is your
+best defense in sales that you're a people person. You, you're the. The sands are. The sands
+are sinking beneath you right now. It's.
+It's not enough of a skill. It's. People person is great. When people buy enterprise software
+that's going to take two years to roll out and they have no idea how it works. And it's a hope
+and a prayer when you expect the agent to work during the pilot before the big check
+comes, people person is insufficient. Terrific talk. Tell me the person that's going to launch
+my agent, train it and get into production for me before I even pay you. You know, it is. This
+is the dream.
+When this is maybe this is one of the biggest changes of all. When I talked with Mark Ben off
+And Salesforce is the biggest, right? It's 44 billion. It's the biggest ship to to turn right. He's
+like the number one thing I envy in Paler 1 is their high deal sizes. He made that joke in all
+the media and all the press. But the other thing is I wish he said I wish I could, I can't today. I
+wish every Salesforce customer now could go live before they pay.
+
+That is so different from how we've been trained in many ways to almost rip off the
+customer to get them to buy the product first, try to avoid a pilot, then have the smallest
+pilot we can then roll it out over years to different people. AI has upped the bar in terms of
+what customers expect. And that's why the best ones are blowing up because the ROI is so
+high. And so you've got to deliver the ROI before the document is e signed today that will.
+People that haven't fully embrace that are at public companies growing 8%. They're still
+trying to play games.
+What are some other things that you think are going to change that people may not be
+thinking about that's going to change the way we do sales.
+In the next couple years net net, we're going to need more sales and go to market
+professionals than ever. Because the winners are growing so quickly that even if they're
+more efficient, they will need more human beings than ever. We'd have to put together a
+spreadsheet to see the crossover point. Obviously many folks are shrinking headcount.
+Microsoft's already said they're past peak employee. They'll never going to be bigger. We're
+seeing this all across the companies we work with.
+They don't want to be. They want to be as lean as they can. But AI is such a huge part of our
+economy already, right. And it's such a force of nature. And everyone is. Everyone
+eventually goes enterprise. Everyone eventually has a sales team. Everyone eventually does
+it. It's happening faster. You know, 11 labs, 50% of their sales is through enterprise now.
+Right. I mean, I don't know everybody. The fact that Vercel just added Janine means they're
+going more enterprise by definition. Right?
+I think Replit just added a sales team a couple months ago for real. And now they've added
+another CRO. So they got to 100 and something million with no traditional sales team. But at
+a billion it's going to be flooded with salespeople. So if you get great at this stuff, if you go
+buy an agent today when you listen to this and Deploy it yourself and do the hard work and
+train it and ingest it and iterate it every day and get ahead of it and then get two agents, then
+three and then four.
+You may become more valuable, have a better experience in GTM and I believe, I hope
+actually be better paid. Like I've talked about that we should have $250,000 a year SDRs.
+But they'd be like at Vercel they'd be managing 10 agents, not 10 people. Then they're
+worth 250 grand instead of 80 grand or 90 grand. It's, it's not that much, is it? So there is a
+great world coming. These are the best of times, aren't they Lenny? For product and
+business, right? Just it's not evenly distributed.
+So you want to be, you want to have, if you have those skills. Even though we're not going to
+need these SDRs and even though we're not going to need BDRs, even though we can get rid
+of half of AES, there is so the amount of revenue and growth in AI leaders is so phenomenal.
+
+Right? Not just at the startups, at the Google Clouds, at everywhere. Azure, they're hiring so
+many humans that Net net. It's a positive for the profession but not for the way we've done
+it in the past. You're at risk.
+That is really interesting that we're still hiring. And this is what I've seen too. Just like
+everyone's hiring salespeople go to market people. Do you think there's going to be this
+peak in the next couple of years of just okay, now that AI is doing more and more of this or
+is it just hard to predict because who knows how big AI gets, how big these companies get.
+I mean it is over a trillion dollars. I don't see any reason. And it's accelerating the amount. AI
+is increasing the amount. Gartner says next year will be the fastest acceleration of money
+deployed into IT and software in a decade. It's re accelerated. Can that last forever? No.
+Eventually we consume 100% of the global GDP. There's no money left to bite. So like there
+are some, some limits. But I, I think for. I don't think you and I and anyone, any of the
+millions of people that follow you.
+I don't think we got to think too much more than three to four years out here. It's too much.
+There's too much change. If you, if you become a master of the universe in AI, you will be
+hyper employable the next two to Three years. And if you stay with a learner's mind, that
+will just compound. And so you will, you will have a job that I think is far more interesting,
+even if more tiring than, than, than we used to have.
+But the days of working 20 hours a week and kind of phoning it in and getting a few deals,
+you know, I think those are forever behind that. That was a great time even you had a little
+bit of that. You're, I think you're working harder than you used to, aren't you?
+I am, I am.
+I mean the classic Lenny Vibe at 100,000 subscribers was kind of leave me alone. I take a lot
+of vacations, I do some good work. I mean it's still part of your vibe, but I think you're
+working harder.
+I'm working incredibly hard. The original idea was create this like, like, like chill newsletter
+Life. I'm just gonna write a newsletter once a week. Life's gonna be good. And it was just, it's
+just hard to pass up on really cool opportunities and, and do more, help it grow bigger. Like,
+it's just, I couldn't resist. So yeah, I'm working.
+And that should be all of us though. Like we should.
+You should be.
+If you're not feeling what you said or even a version of what I said, then, then you're not,
+you're not living, you're not on the right, you're not living the AI dream today. It is more
+
+work. It should be tired. It should be like if nothing, even if it's better in some ways it is just
+more work. But, but this is the most exciting time of our lifetimes to be in software. I mean,
+good God, I'm like, I can't even code Letty and I've built 12 apps on rep in the last 150 days.
+Used by a million, million times. I've been waiting 10 years for some of these folks to build
+some of these apps. I just did it myself, right? I literally, just when I was in London, I built a
+whole app where you can sell, you can practice selling Harvey cursor Replit and ChatGPT
+Enterprise and it works like we couldn't. This wasn't even possible at the start of the year,
+was it?
+These are magical times and we, the fact that we can, we can run an eight figure business
+with three people and 20 agents, it's like, you know, get, get excited or like go join one of
+these really slow growing beautiful like I. My advice is pick one of two paths today. Either be
+working harder, like Even you and I are right. We don't have to. Or honestly, I will say the
+truth is there were a thousand unicorns born in 2021. Right. 800 Of them are growing
+pretty slowly.
+Will never IPO may not have an exit, but they're okay with 8% or 15% growth. If you don't
+want to be on the journey we talked about, I'm not judging. I get it. We're humans, right? We
+have families. Not all of us are obsessed. I think I'm kind of obsessed. I think you've become
+more obsessed. If that's not you, join something more slow growing. They still need people.
+Not as many. They still need people. But I would pick. I would pick a lane for next year.
+Don't pretend that there's this middle path going to start because it don't exist in gtm and I
+don't think it exists in product or engineering either.
+I love just how excited you are about this. Just like you could tell on Twitter just how fun
+this is for you, just learning and sharing. And I love that you're sharing it. But I think it's just
+a symptom of you're just so excited about what's happening and what you're learning, and
+it's just like, you can't help but share it. I'm in the same way. I'm just like, oh, shit. I just vibe
+go to this really cool thing. I got a tweet about it.
+It's just. It is just magical that our ability to build things that we couldn't build before or
+build in ways and paces, it's just. And it's accelerating. It's so. I mean, we could talk about it
+forever. But even for me, for, like, I just picked Rep. I picked replit because Twitter told me
+to. I could have picked another tool. Like, I'm not an investor and I'm not. I'm not even
+biased, but I'm in the top 1%.
+Just to double down. What you said you're top 1% user of Replit?
+Yeah. Wow. Yeah. So it really didn't work well when I started about 170 days ago. Then a V2
+came out and it got better. The hallucinations went away. And then this is just like, you got
+to get excited about. Folks may not know this and other tools. When V3 came out, I don't
+
+know, 45 days ago. Now it has agents talking to agents. So what happens is when you. When
+you and I again, I can't really code. So when I have an issue And I'm trying to figure out how
+to do something.
+The agent calls in an architect or another agent and they debate and argue with it and they
+come up with the right answer. The first time this happened, I just fell out of my chair. It's
+just so. Not only is it magical, I mean, great, you can do a prompt and build a crappy app that
+doesn't work. Now like 150 days later, you have agents debating how to build better code
+with each other and you don't even need to know how to code.
+I mean this is the greatest, the only greater time is going to be next year, right? I've been
+waiting. I've been waiting, right? And you know, and just the things that you can build today
+and the other, I mean, you know this, but other folks, I mean, that's me building without
+being able to code the other Captain Obvious thing, you know, if you're building any. Why
+are folks so productive on all these tools? I mean every bit of open source software in the
+world is in these tools.
+If you want to build something that's been built before, it's so easy. The novel stuff's really
+hard, right? It's not any easier, but man, it's just, these are, these are great. And so, and
+maybe, maybe and so for gtm, for sales, it's, it's, it's a couple beats behind and there's
+probably a bunch of reasons for it. Some of it is, I think ironically is just where founders are
+interested. So marketing is behind sales for AI. Like the AI SGR has exploded. I don't really
+know why.
+I invested in a couple of pre AI tools. I invested in Salesloft, which was sold for two and a
+half billion. Is like the last deal, the 2020 ones, like the seed investment. No one wanted to
+be in that category. Now everyone in the world wants to build an aisgr, a rcrm. But
+marketing is slower just because people don't really want to build the cursor for marketing.
+People say they do, but. But it's just not. But it, it will get there, but the innovation will just
+accelerate.
+It's just going to accelerate. So, so don't be a skeptic on this stuff. Like if you're not as excited
+as me, then here's my last bit of advice on this for folks. If you're not, if you don't feel what I
+feel, here's my advice. Over the holidays, when you have a quiet moment when you're
+having your mold wine or your hot chocolate or whatever, go fire up your browser, do it in
+incognito. Go to your app and do everything with a fresh Gmail address. Try support. See
+how your support is.
+Try to contact sales. Sign up for the newsletter. Do everything. Try your product. If you do
+this quietly, your heart. You're going to cry about some of the things you've seen. You're
+going to cry how bad you're supported. You're going to cry how long it takes sales to get
+back to you. You're going to cry about a couple things. Pick the thing that makes you cry the
+most over your mulled wine and go buy that agent and fix it. And. And then you will have
+
+the passion that we have. This.
+I always cancel people to do this. It just wasn't as actionable before AI but so many f. You
+just get lost. You forget about what these things. You forget about the onboarding workflow
+and you forget about support and you forget how bad contact me. And you're so lost in the
+strategy. So you got it once a year, ideally once a quarter. Just do this incognito mode test.
+And even for Lenny's newsletter, I bet we can find some part you forgot to touch.
+Nope.
+No. You just gonna happen.
+I'm just.
+I'm just joking. You're like, oh, my God, I can't believe I didn't touch that. Since I launched
+the substack, it doesn't even go to the right. That place gets a 404.
+I'm gonna do this over the holidays. And I love that.
+This.
+Like, usually the advice would have been, okay, email your product manager and tell them
+you found all these bugs. What you're saying here is no, find an agent to take care of this in
+the future. Like make this a much better experience for everyone. Oh, always.
+Yeah. Yeah. And if it's the one that makes you cry, it may motivate you to do it.
+Yeah. And you don't. It's not like you have to publish it to production. It's not like you have
+to have your, you know, CEO approve this thing. It's just like show them what you might be
+able to do. Here's what I did over the weekend. Maybe we should explore doing this thing
+with our site.
+Yeah. The job's just my job.
+Yeah.
+Yeah.
+Oh, man. Jason, I feel like I could chat with you for hours, but I think it's. This is a good point
+to wrap things up. Is there anything that you wanted to share or is there anything you want
+to leave listeners with?
+One last thing maybe that comes up that I'VE learned that are on people's minds and we can
+
+break is a lot of folks are concerned, hey, this will impact people's jobs. What do I do? Like,
+okay, I want, I did what you said I did the incognito mode. I'm going to bring in this, this
+agent, this sales agent, or this support agent. I've tried, I've even did it, but I'm worried I'm
+going to get pushed back and people are going to lose their jobs.
+Um, I don't, I, I don't have the perfect answer to this one, but I think be honest about it. Be,
+be honest that for the best people, it will make them more productive. For the best people
+will be even fun. For the best people, they will be better at their job. And if it is a threat to
+some of the folks on the team, the future is coming anyway. We might as well embrace it. So
+it's just when I hear, I, I, I wouldn't, I would be positive about it.
+I would explain it helps the best people, but I don't think dancing around it is the right
+answer in your organization. It will result in change. And if some jobs change from one role
+or the other, that's life in the age of AI. Don't hide it. I don't think it helps.
+I love that in your case and in Gene's case at Vercel, it's not like you let anyone go. In your
+case, the SDRs quit and in her case, she moved them from, I believe, from inbound to
+outbound or outbounds inbound. She just kind of reshuffled them to do, to have higher
+impact somewhere else.
+I think that's an important, a really important point. This is another thing that I think the
+media creates too much drama on. I don't think AI is not, I mean, AI has led to some layoffs,
+but even though most of the ones we read, it's just a justification to do layoffs, it's just, it's
+just a reason to blame it on it. What's a much bigger issue is that people just won't be
+backfilled with humans. We will use AI to backfill. That's what we did, right? We didn't fire.
+I've never fired anyone my whole career other than for inappropriate conduct a few times.
+Right? That's that you fired today for that stuff. But pretty much I've never fired anyone that
+didn't do something inappropriate. They just, when they go, this time we just said now it's
+the agents. Right? And so That's a much bigger force of nature than some random layoffs
+which probably aren't really due to AI. Right. It's probably not because you brought in 20
+agents in 2025.
+It's probably because you just want to downsize anyway and this is the excuse. So it's not.
+It's not. It's probably less a threat to you than you think, AI. But it, what it does mean is if
+you're not, don't want to embrace it. Lenny, Maybe don't leave your current job. Yeah,
+maybe don't leave your current job.
+Because the new place might not be hiring for this role.
+Yeah, I have a God, I have. I have a sales exec who I love. I worked, I'd known for many years
+and he went from 100k job, then almost an 800k job, then down to a 200k job, then left that
+one because he didn't like it. And now he can't get a job at all. He's back in school. So maybe
+
+stay. We all maybe stay. No shame in staying, is there?
+Yeah, I like that. Well, with that, Jason, we have reached our very exciting lightning round.
+This is your second time going through a lightning round. So I'll make it. I'll make it quick.
+First question, what are a couple books you often find yourself recommending to other
+people?
+I was recently asked to write a forward for a book from one one of the revenue leaders I
+have the most respect for in the world. I read a little bit of it. I couldn't do it because as good
+as it was, it was dated, it wasn't current enough in AI. And there's just. I don't know what we
+said at this. It might have been before we started the pod. The plays all work, but the
+playbooks don't really work as well. So.
+So many of these GTM books are playbooks, especially folks selling courses and stuff, but
+they're playbooks. Run from the playbooks, embrace the plays. And so read all these books,
+go to market and sells books and take, take great items from them, which was always the
+goal from a book, right. Pick three, two or three things out of it. But I'm, I think I'm waiting
+for the next level of books and GTM in 2026 because everything I've read, it's, it's just too
+backwards looking.
+So just be a skeptic, Grab the plays, but don't adopt the playbook.
+I just had the head of growth from lovable Elena Vernon on the podcast. She had the same
+advice that all these playbooks that she's used over the last 20 years in growth just don't
+work anymore at AI companies. Next question. Do you have a favorite recent movie or TV
+show that you have really enjoyed?
+What's this one called? What's it called? Pluribus. Is that what it's called?
+Plus yeah.
+Watching that, it's. And this is so it's a good show. This is what I realized is why you should
+be excited about AI and GTM is Pluribus. Because Plur and Pluribus, there's like a hive mind,
+right? We're all connect. All the people except 11 people or 13 people. They're all connected.
+People don't get this. This is why right now, the whole point when we're doing this, maybe.
+Maybe we'll do a third one if I'm lucky. The whole point is just get your AI agents to be
+almost as good as humans.
+But working 247 and at scale, that's pretty damn good. If it can do ten or a hundred times
+more work 247 as pretty good as your human, that's a resource you don't even have today.
+It's not that complicated. When AI really is the hive mind, when it can share all of the data
+across all of your agents and knows everything that happens, then humans are at risk in
+gtm. They're going to be so much better when they're the hive mind. Right now, our hive.
+
+And there's a bit of a renaissance for Salesforce as a CRM. There's a bunch of reasons. Even
+though it's old, right. It's founded in the 90s. It has become the hub for these AIGTM agents
+they all plug into. So Salesforce has become the database for all these. So that's a little hint of
+the Pluribus hive mind. But when all these agents can talk with each other for.
+For real and share all their GTM data and all the customer data and everything on the one
+next time we do it, the 3.8 million people that read Lenny's and all the agents can share data
+together. No human. That. That's. I don't mean to turn. Turn Pluribus into an AIGTM show,
+but there's my connection. But. But it's pretty good, right?
+I get it. I get it. Oh man. That shows. So good. I feel like every episode I get these pushes from
+Apple tv. Like there's a new episode of Playerbus. I'm like, I can't wait to go watch that. They
+just leave the. Each Episode ends and like, oh, I can't wait to see what happens next. Okay, is
+there a favorite product you've recently discovered that you really love? Like an app or a
+gadget or clothing?
+Maybe not in the last two weeks. I'll just give a small one. Just. Just for GTM1 there is
+because everyone's about Sora this and all of this and video and I love it. I get it. But there is
+an app called Reeve. It used to be Revart. It's for imaging. And it is. The folks that build it
+built their own image LLMs on their own. And the reason I bring this up, I use it every single
+day is because it can do a lot of cool things with a prompt. Right.
+But if you want to do cool stuff for marketing, if you want to create a great image, I have a
+CMMO buying my product doing this. I don't know a tool that is better for that kind of stuff.
+That stuff that we used to torture. We used to fire up canva and try to create things. Or even
+worse, wait four days for someone to do it for you. I just. You. This is one of my cheat sheets.
+I have a couple tool tools that I use that people don't get. But now it's app.revai.
+It changed its name, but it's just a simple prompt. Go to it. Type in whatever image you want
+to make. And for a lot of the boring B2B stuff we like to do, I find it's the best.
+And it's rv.com.
+Yeah, I'm looking at it right now.
+Copy bar. Delivering Matcha through a quite moss garden app.
+Re.com.
+Yeah, sweet.
+Oh, oh, you're making the image you said.
+
+I'm just like. They're giving me examples here on the website here.
+Yeah.
+This is great. And you're saying this is better than like nano banana and all these other.
+For this use case and you and I, we just images. I want to do a thumbnail. I want an image
+for my article. I want it. I just did. I just. My niche thing, content. I just want to do. I've got to
+do it. I just don't think there's anything better for. For this use case. So I use it two or three
+times a day and I use all this stuff. Stuff.
+Okay. The alpha. More alpha to. To share with the audience. Okay. Two more questions. Do
+you have a favorite life motto that you often find yourself coming back to in work or in life
+that you often maybe even share with other people?
+I'll just tell you one in the weird time we're at, this is probably your best startup. Just talking
+yesterday with a friend of mine, startup just raised 20 million from a top 2 or 3 VC founder
+just quit the next day. Just on the call the other day yesterday, CEO of a company at 250
+million. Just, just, just, just quit. No success or know anyone to join a, a hot AI startup?
+Maybe, maybe, maybe most of the time there are, there are times and places to just quit
+when you have customers, when you have a million or 2 million or 5 or 10 million in
+revenue. But we, we often think it's easier to get back to get back to that 10 million of
+revenue to get back to a hundred happy customers or 200.
+It might seem easier to quit in the age of AI, but I'd rather take those 500 happy customers,
+build that badass AI product and sell it to 500 happy customers and go have to find them
+from scratch. Go have to find that 10 or 20 million. So that's, I literally had a third
+conversation with the founder just crossing a hundred million that wanted to leave and do a
+robotic startup after 10 years. I'm like, I get it man.
+But like this is, you know, you have nine figures of equity in this company, maybe go to the
+next level. So there's so much going on, they're decelerating, accelerating. I just usually
+think the best startup as f for founders, not, not necessarily for everybody else, is the one
+you're already working at. And if you're not happy, turn that into your a hot AI startup. It's
+not, here's the thing, it's not too late, Lenny. Sometimes it feels like it's too late on social
+media.
+Maybe it's too late to build the next ChatGPT on the cheap, okay? But for most stuff, it's not
+too late. It's still so early. We don't even have great AI marketing tools. We're really early on
+these AI SDRs. The markets have not hardened. The LLMs are getting so much better. Dude,
+if you want it, it's not too late. So the best startup you're ever going to have probably is the
+
+one you're working at today day. Don't quit. Don't quit if you have happy customers. Maybe
+that's how.
+Don't quit if you have happy customers. They'll buy more from you.
+I love advice like that. That's empowering and optimistic and, and de stresses people I think
+in a lot of ways. So that is great. Final question, how many, so how many sasters have you
+Done at this point. Like, how many years of saster have there been?
+Good God. We've done the first big of. We did some meetups. You know that, right? And then
+we did the first bigger one in 2015. So 2016. We did. We did take a break in 2020 of what
+we did in 2021. We're the only event in the Bay Area in 2021. So is that 12 of them? 12
+Years. It's a long time, man.
+And then how many talks have there been across those, would you say, total?
+And. And then we've done seven in Europe, so 12 and 12 in the US.
+And seven in Europe, so about 20. Okay, 20 events.
+20 Bigger events. Yeah.
+Yeah.
+I don't know. Like the annual one, probably, if you count the smaller ones. 300. So that
+3,000. 4,000 Over the years.
+So then here's the question. Is there a talk that you think is the one that you like? What's
+your favorite talk across all those events? Is the one you're like, oh, this one really stood out.
+This is one I always share with people. One that you think people might. You'd want people
+to check out if they were to check out one talk across all sester.
+It's interesting. It's like a lot of things in B2B. Everything was pretty much the same for 10
+years, and then all of a sudden, everything's out of date. Right. If you wanted to watch an
+older one, not that old, but old in Internet AI time that I think will change the way you think,
+Watch the one I did with Ben Chestnut right after they got acquired. Because that's a
+magical time. It's called Everything that breaks on the way to 1 billion. It's only got 23,000
+views.
+That's nothing for Lenny, but for me, that's pretty good. Okay. And it's a moment in time,
+right after he sold the billion dollar company, where he talks about how the deal almost fell
+apart, where he challenges almost every B2B metric we know how, you know, running a
+profitable business at that scale, not really caring about CLTV and CAC or any of these
+
+things. What really matters for customers is mailchimp. As cutting edge as it was today.
+Right?
+Maybe not, but that's one when I look at it, because everything. Everything's kind of the
+same. We don't. We don't really get challenged in the way we think. Everyone's talking their
+book, Right. You're so good at getting people to not talk their book. But. But that one, I think
+is a great one. And then if people wanted to watch a GTM one, just some favorite ones, we
+did this one. It's a recent one, Matt Plank, because these guys were on my team.
+Matt Plank, who CEO of Rippling, did one with Sam Blonde, who was NCR of Brex. It's called
+Rippling Secrets to Hyper Growth. It sounds like a commercial for Rippling, which is okay.
+Right? But because Sam was. They worked together and now Sam's on the board and all.
+Like, they have a fluency of two CROs who are honest and have a learner, a Lenny style
+learner's mindset. This one on the. The revenue playbook from Rippling. It's. It's a. It's a 14
+for. For GTM.
+I just had Matt McGinness on the podcast.
+Okay.
+Former COO, now CPO.
+Yep.
+At rippling. So that would be a good combo, those two. Jason, I don't know if you know this,
+but you're. You're the perfect podcast guest because you have such deep experience in the
+space that you just have answers to everything I ask.
+Plus, you're now just living in this future that we're all heading towards and you're like,
+hands on, telling us, here's how the future will be and here's how it works and here's how
+you can get there, and here's what you shouldn't do, and here's what we'll break. So I'm just
+so thankful that you're here sharing all this advice with us. I'm excited for many more
+podcast conversations, so. So thanks for doing this.
+All right, Lenny, you're the best. I'm, I'm, I'm just a super fan. I'm lucky to be here, so thank
+you.
+Let me just ask you, how can listeners be useful to you? As a closing question, the fun thing.
+For me, we have two websites, Saster.com and Saster AI. Just go to Saster AI and just play
+with the tools we built. Play with the valuation calculator we talked about. Play with the
+aivc. Play with any of our tools and just have fun and share any feedback. Because I've
+waited 10 years to build tools for the Saster community. Now I want to build like 20. So on
+
+the side, we've talked about tools you should go buy, but building your own stuff is pretty
+fun too.
+So try our tools and give me kind but critical feedback but. But with some kindness.
+Okay? And that's s. A. A str.
+AI Dot AI. Yeah, we're still trying to figure out the AI versus the.
+Com.
+We got an SEO issue, so I can't really move it over, but it looks great.
+It works. It works. It's shorter, too.
+It is shorter.
+Jason, thank you so much for being here.
+All right, Lenny, you're the best.
+Bye, everyone. Thank you so much for listening. If you found this valuable, you can
+subscribe to the show on Apple Podcasts, Spotify, or your favorite podcast app. Also, please
+consider giving us a rating or leaving a review, as that really helps other listeners find the
+podcast. You can find all past episodes or learn more about the show@lennyspodcast.com
+See you in the next episode.
+
+

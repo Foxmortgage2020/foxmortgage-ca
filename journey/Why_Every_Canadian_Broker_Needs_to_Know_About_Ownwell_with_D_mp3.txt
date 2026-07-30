@@ -1,0 +1,590 @@
+Today on the pod, I've got my friend Dan McDonald from Ownwell and we're talking about
+this amazing tool that he's built for Canadian mortgage brokers to help them stay in touch
+with their database, create conversations and really just create deals.
+This tool has been available or a tool like this has been available in the US for a long time.
+Homebot and some other tools.
+And I love this because it's instead of just sending an email every month or sending
+something to your clients trying to stay in touch that's like recipes or just be so they're
+aware you exist, you're actually sending them a report with their home equity as well as
+their buying power.
+And he continues to make the tool more and more powerful.
+I think it's a fantastic way for people to engage with their databases.
+So I think you're going to enjoy this conversation.
+Before I jump into that though.
+Hey, I'm Scott Beckford.
+This is the I Love Mortgage Brokering podcast and our goal is to go and help you in your
+mortgage business to scale it.
+And occasionally we bring people in that have tools that I think are absolutely game
+changing, like this one with OwnWell.
+Check it out and check out my conversation with Dan.
+And if you want, just check on the show notes and you'll be able to get a link to go check to
+sign up for this tool for something that you think you can use.
+I know that the brokers have been using it so far have been having fantastic results and the
+open rates on these things are crazy because again, it's about that individual's own home
+and their own buying power.
+
+Check it out.
+Hey, Dan, welcome to the show.
+Thanks for having me, Scott.
+It's great to be here.
+So, hey, tell me a little bit about yourself and how you got into the mortgage biz.
+And you're not a mortgage broker, but you are a technologist that's building some cool tech
+for mortgage brokers, which you're going to talk about.
+And we're going to talk about some of the lessons that you've learned from what you guys
+have built.
+But tell me a little about that first.
+Yeah, you bet.
+It's definitely been a roundabout journey to get here.
+I actually started off drawing comic books.
+That was my first career.
+What really get further away from tech.
+I mean it's, it's, it's nerdy.
+So I guess it's related in that way.
+But yeah, so I, I grew up idolizing, you know, these, these like illustrators of X Men.
+And all these guys mostly live down in la And I was growing up in Prince Edward island, so,
+you know, that cold spit of sand off the east coast and dreamed of sun and, you know, this
+amazing lifestyle that these guys had.
+And actually when I was 17, I got a chance to go down there and apprentice alongside my
+idol, who was the original artist that drew Wolverine.
+And it was a great time.
+
+You know, it made a huge impression on me coming from little old Charlottetown.
+But I realized that that industry was in structural decline.
+So the owner of the studio, the guy I was working with, he had made his money a while ago,
+but think about it, right?
+Like around the mid-2000s, things were really starting to go digital.
+Video games were huge.
+You just didn't see that many, like young kids going to the comic book shop anymore.
+And so a lot of these older guys in the studio were like, hey, we really love this profession,
+but it kind of sucks that we'll never own a home.
+I remember hearing that and I was like, what?
+I thought I was going to be like rich drawing comic books.
+So you're telling me I'm going to be working for minimum wage that doesn't quite work.
+So decided I'd go to business school so that I could at least figure out how to bridge
+creativity and business so that I could have the creative freedom I wanted but also have a
+lucrative career.
+So that took me to UVic where I did my BCom.
+Graduated at a terrible time, like 2010.
+No one was hiring.
+Ended up getting into marketing and then into T shirt design.
+Ended up actually getting a chance to draw some T shirts for Richard Branson, of all people.
+Was back in like 2013.
+He needed a promotional apparel line for this, this film that he was producing and ended up
+getting to, to meet him and do this line for him.
+But it was, it was not an easy path doing the whole starving artist thing.
+
+And so around that time I started to see in Vancouver all these tech companies popping up.
+And my friend at the time, actually who I was living with, my roommate, Alex Conconi, who I
+think, you know, he was starting lend us and I thought, mortgage technology.
+What?
+What is that?
+I didn't even know what a mortgage was.
+But he explained to me that the status quo and, you know, his vision for doing something
+much better for the industry, I got pretty excited about it.
+I ended up quitting my marketing job and taking a software development boot camp
+because I didn't feel like I had any hard skills to offer in tech.
+And I guess about a year and a half later, Alex was growing his team and ended up joining
+Lendesk as a junior developer, I found software development didn't come naturally to me.
+It was kind of like banging my head against the wall.
+So I found myself more often solving problems between the sales team and the engineering
+team, helping translate these, these business or customer pain points into, you know,
+technical tech requirements that the engineering field, hey, turns out that's a job.
+It's called product management.
+So I decided that we needed more of that in the business to, to, to make sure that we were
+building what our customers wanted.
+So I ended up becoming our head of product at Lendesk and, you know, ended up being
+there through till 2022 when I finally got the itch to do my own thing and decided to build
+something again in this, this industry that, you know, after eight years, I finally decided I
+knew something about it.
+So that's, that's how I got here.
+Right.
+Okay, that's cool.
+I had no idea, dude.
+
+I didn't know that any of this stuff.
+So what have you drawn for any comics that were published?
+Yeah, yeah, I did.
+You know, this, this wouldn't ring a bell for most people.
+It's not a, not a famous one like X Men or Spider man, but the, the comic book was called
+Hunter Killer and it was published by Image Comics.
+Image Comics is the same publisher that does, like, Spawn is their big one.
+Yeah.
+Witchblade, the Darkness, lots of, lots of cool stuff.
+Okay.
+Do you have, do you have any T shirts that you design still that I can find pictures of?
+You got to send me.
+This isn't even the podcast, but I want to see what.
+So some of this, the design piece.
+I didn't.
+This is awesome, man.
+Super cool.
+Okay, this is a funny one.
+I, I promise not to take us off track too far here, but I was drawing T shirts in like 2010.
+I don't remember that time, but it was like Ed Hardy and everything had like skulls and, you
+know, koi fish on it.
+And ended up working for a local company that sold these really expensive high end
+hoodies with those types of graphics on it to, you know, people that would buy them.
+
+It turns out one of our biggest markets was like, gangsters, frankly.
+So I remember opening up the paper one day and seeing the Bacon brothers walking out of
+the courtroom wearing something I had drawn.
+And I thought, okay, might be time for.
+Oh, man.
+Well, you can't.
+Like, that's.
+That's insane.
+Yeah, that's.
+That's actually hilarious.
+Okay, so product management with Bendesk and then a couple in 2022 started your own
+thing.
+So talk to me through you got.
+You created this cool tool called OwnWell.
+And if anybody listens to my podcast, I talk about it all the time, always saying, hey, you
+guys got to check this out.
+Because it's.
+It is a technology that's existed in the US for some time.
+And then when I first saw it, I was like, oh, man, this has to exist in Canada.
+It didn't.
+And the CEO of homebot, the guy that I had met, he had said that didn't an indication or
+interest in coming to Canada.
+So I was pretty excited when I heard you guys are doing it.
+
+So maybe.
+But anybody who hasn't heard about it, break that down for me.
+Yeah, for sure.
+We're a homeowner engagement platform, and what we do is we build really engaging, I
+guess, educational content, frankly, for homeowners so that they can understand what's
+going on with their home equity, what's going on with their mortgage, their home price, et
+cetera, et cetera.
+Because, you know, it might be.
+Might be a surprise for this crowd who's into the, you know, the real estate and mortgage
+market day in and day out.
+But your average homeowner doesn't know what's going on with their home or mortgage at
+all.
+And oftentimes they're making terrible decisions without consulting you.
+So I set out to build something to solve that problem.
+But rather than go direct to the consumer, who's probably not going to be willing to pay for
+it, I recognize this other problem with mortgage brokers and Realtors, where they have a
+hard time staying top of mind after that initial transaction.
+So OwnWell allows mortgage brokers or Realtors to upload their client database.
+And then OwnWell automatically enrolls those clients in a personalized homeownership
+report that goes each month.
+And each month it's different because the real estate market's changing, so their home price
+is fluctuating.
+Rates are obviously changing every day, so there's new opportunities all the time.
+And so each month they get the most personalized insights on their.
+Their property and their mortgage.
+And in doing so, they, you know, come back to the mortgage broker that's been sending it to
+them each month.
+
+Right?
+Yeah.
+It creates conversations, though.
+I mean, the way I've described it, you.
+You sell, you know, is.
+It's basically a way for you to homeowner to monitor their home equity and buying power
+on a monthly basis and create conversations.
+And that's what homebot was able to do.
+And the open rate, engagement rates are off, off the Charts because it's about something
+they care about, their own situation, their own home, their own equity.
+And, and so I think it's absolutely brilliant.
+So we're going to talk about kind of five insights you've got from this, from, from, you know,
+this pro, this company that you guys have spun up and, and already you've sent.
+You've got a bunch of brokers that are using it and having some success.
+So walk me through, like.
+Yeah, what's the first kind of insight that you've got from this?
+Yeah, I think the first one is just the extent to which most mortgage brokers are sending
+truly, like, useless content to their, their clients after closing.
+Of course, there's exceptions.
+A number of the people that are doing it right have been on this show.
+But when I've had conversations with so many mortgage brokers, I've learned that, you
+know, they're just doing, if they're doing anything, it's things like a mortgage anniversary, a
+giveaway once in a while, a happy birthday card, and they're getting forgotten.
+So I, you know, I was just surprised at, frankly, how low the bar was in Canada because I'm
+always looking at the US and seeing what people are doing down there.
+
+And so I think that's the first insight is just how big an opportunity this is for mortgage
+brokers to offer something that's more relevant and truly valuable to their clients.
+Yeah.
+And so what kind of, what are you guys seeing for open rates on.
+On these campaigns?
+You guys are sending out a report.
+I call it a report.
+It's an email, but it's really a report that.
+And the reports are becoming more sophisticated over time that allow people.
+You guys are continually adding more tech into this, but walk me through that.
+Correct.
+Yeah.
+And so the email goes out monthly.
+It includes a link to the report, which is this dynamic thing that actually clients can now edit
+and adjust as well.
+It's becoming more and more of an app.
+But the open rate on those emails, on average across the platform has been around 65%.
+But some of our top performers are seeing rates in excess of 75 or 80%, which is pretty
+crazy.
+And then the click rates on those reports is in the 55% range.
+And again, some top performers see click rates in those reports of 65% or more.
+Yeah.
+One of the things that I think that drives even more engagement is explaining it to your
+
+client.
+So they know, like, if otherwise it's just another email.
+If they understand what it is and the value of it, then it's like, oh, I actually, I want to.
+And I think I would suspect if you were actually to peel back the onion on that, you discover
+that the people that are having the most engagement are the ones that have had a
+discussion saying, hey, keep an eye out for this report.
+Here's what it does.
+Here's why you care.
+And they go, oh, and the other people are kind of stumbling into it, but if you don't, you kind
+of have.
+There's a little bit of an education component because it's new.
+It didn't exist before, so we didn't know this was possible.
+Now we do.
+It's like, oh, now that I know it exists, I want it.
+Right.
+Yeah, you're totally right.
+And so we, we've got like a, like a getting started and my Keys to Success guide that we send
+people whenever they sign up for OwnWell.
+And the first thing we mentioned in there is the thing that separates the top performers
+from, you know, the, you know, the ones that aren't the top is before they enroll their clients
+in this report, they send that email out to their database saying, hey, you know, I've invested
+in this amazing free tool for you.
+It's going to do xyz.
+You're going to receive it every month.
+If you have questions about it, ask.
+
+And then, of course, when people receive that email, they anticipate that it's coming.
+They click on it and they read it.
+That boosts open rates like crazy.
+And then the other thing that we've seen our most successful customers do is also mention
+it in a monthly basis in their newsletter or whatever regular communication they have
+going up.
+Remind them, hey, keep an eye out for your report this month.
+Exactly.
+Yeah.
+Right.
+Yeah, that's a good, that's a good tip there.
+A little.
+If you guys are listening to it, if you're using it.
+So then, yeah, I'm sure you guys have already had success results from brokers.
+I know that.
+I've talked.
+We got a bunch of brokers from our brokers that are using it and they're generating not
+client conversations, generating referred mortgage clients from it.
+And like, it's.
+Yeah, because it's so specific to the mortgage industry.
+Right.
+Like, I think I told you this story how I got a new truck that I didn't know I wanted.
+And, and it was because they sent me an email saying, hey, because I have a truck and I have
+a, a loan on it.
+
+And so they said, hey, you can get it out of 2021.
+You get a 2025 and your payment's going to change by 80 bucks.
+So I was like, all right, I want a new truck.
+Like, I didn't want a new truck.
+And next thing you know, it was the easiest sale the salesman ever had to make.
+I went in there, I said, here's what I want.
+Make sure you match.
+It's got to be at, you know, this level, you know, all this stuff.
+And I had it within three days.
+And like, there was not.
+It was not even a sale because there's.
+And there's nothing the salesman could have said to me that would have worked, except
+that's all the difference in payment is.
+And I can now have a truck with warranty and not one off warranty.
+And so I literally.
+That was the.
+Because it was specific to my truck, my everything.
+And so then I really believe this type of marketing is going to be the future.
+Well, it's a really good insight that you just gave.
+I think the core thing that we've learned about that is it's really hard to anticipate when
+your client is going to want to make a change or need to make a change.
+And I think a lot of the marketing in this industry historically has been around, okay, I see
+rates moving, or I see economic forecasts changing this way.
+
+I think my client ought to do xyz.
+We're saying it's really tough to do that well because your clients lives are changing all the
+time, and it's tough to know what they're going to need or want at any one moment.
+So instead, send them this really empowering, engaging information because then they're
+going to recognize an opportunity, think about it, and reach out.
+And you're informing them about things that they have no idea about today.
+Like, I think the number one cause of a new mortgage deal coming from OwnWell that we've
+heard from our clients is most Canadian homeowners just have no idea how much home
+equity they have.
+And when they see that number, it's really surprising.
+A lot of the time, some of them don't believe it, and they're like, hey, you know, I don't
+believe my home is worth this much.
+You know, can.
+Can you.
+Can you double check this?
+And in that scenario, the one I just mentioned, actually, once they got a CMA with their
+realtor, turned out the home was actually worth more than we said it was worth.
+And.
+And they ended up trading up into a bigger home in a different neighborhood.
+So it's.
+But again, it's because it's specific to their home.
+Like, there's how.
+How do you create that conversation, without that.
+That unique data point and that report, I don't know how you do it.
+
+Like, yeah, yeah.
+And so the whole thing creates conversations is what I think is that.
+That's the power of it.
+So what are some of the mistakes you see that brokers make when they think about their,
+you know, marketing to their database or clients, whether they're using your tool or
+something else?
+Yeah, I think there's a couple.
+The first one is just general, and then the second one is.
+Is with ownwell, the first general thing that I see people doing wrong is maybe conflating
+what matters to them with what matters to their clients.
+And I get it.
+Like, you know, mortgage brokers living in the mortgage world day in and day out.
+So things like, you know, changes in the bond market or changes in rates, things like that,
+that.
+That's really important.
+All they hear is Charlie Brown's teacher.
+They don't care.
+Like, for the most part.
+Well, a homeowner that, like, what does that, like, how, you know, what's in it for me?
+You know?
+Yeah, people are lazy and selfish.
+They want to know immediately, like, okay, so what, what can I do with this?
+And so at the end of the day, the things that we've seen, people care about, the end client
+care about is, can I save money, can I make money?
+
+Or can my life be better than it is right now because I can, you know, move into a bigger,
+better home.
+That's what people care about at the end of the day.
+So I think the.
+The first thing I think people get wrong is they.
+They.
+They think their clients care about one thing, but they actually care about this.
+This other stuff.
+Then the thing I see people get wrong with OwnWell is our top performers.
+One of the other common things with them is, to your point, about the true value of this,
+which is engagement in conversations.
+They get that.
+They don't.
+They don't hem and ha about getting started.
+They don't stress out about every data point being perfect.
+They just go, okay, right, I'm going to enroll my clients in this.
+And if I made a mistake in my data or, you know, if something has changed in my client's
+mortgage since I got it for them, and they call me on it.
+Well, I'm the expert.
+I know that I can turn any inbound question or concern or conversation into a valuable
+touch point.
+So they just get going.
+The mistake that we see people make sometimes is they go, okay, I'm sending out this
+information.
+
+I have to review every single data point in every single house.
+They'll never do it.
+And guess what?
+They don't do it.
+And then three months go by and they haven't done anything and they're not getting any
+value.
+So that's the mistake I see some people make.
+Yeah, no, that makes sense.
+So what are the things you find?
+Separate top performers, like people that are actually doing good database marketing from
+people that, that aren't.
+Yeah, I think the first one is they, they, they understand what matters to their client.
+They ask that like, you know, what's in it for me?
+Or so what question?
+And then the other thing is I guess having that, that mindset of okay, I am, you know, I'm the
+expert.
+And any, any question that comes up is something that is going to allow me to demonstrate
+my value.
+Yeah, exactly.
+It's about creating conversations that turn into.
+And so one of the things too, it's like the home, the home price.
+You guys are using pretty, some pretty interesting technology to estimate home prices, but
+sometimes it isn't, it's not like it could be low, could be high.
+But again, the whole point is, is like this is a conversation, right?
+
+Yeah, that's exactly right.
+That home price, it, you know, it's a double edged sword, right?
+Like it, you know, if it's, it's such an important piece of information for homeowners, like I
+forget, I forget, what's the book?
+Maybe it's how to win friends and influence people.
+But you know, it's like what's the most important word in the English language to most
+people?
+It's their name.
+What's the most important number for a Canadian homeowner?
+It's, it's what's their home price worth?
+And they all have, and they all.
+Think their house is better than their neighbors.
+Right.
+It's just like everybody thinks they're better than average drivers, which can't be possible
+mathematically.
+Right.
+So yeah, where I'm going with this is that you could spend your entire life trying to come up
+with like the perfect algorithm for, you know, the most objectively accurate home price
+possible.
+Guess what?
+It wouldn't matter because it's, it's not just the reality of what the home is worth, it's the
+perceived value that the client has about what their home is worth.
+And so why we think that's important is the, the AVMs, the estimates, that's just one part of
+it.
+But we also allow the client to adjust the value themselves.
+
+We also encourage the client, when they're clicking on that section in the report to request a
+consultation from a realtor partner.
+So it's all about generating engagement around that home price, generating those inbound
+questions, not necessarily optimizing for that home price to be 100% objectively accurate.
+Yeah, well, and, yeah, exactly.
+But it creates a conversation.
+And yeah, I mean, the other thing that people use this for.
+So my buddy Wally down in the U.S. he's, he's using Homebot, obviously he's got.
+But they use it to generate referrals for their partners.
+So they have other wealth partners.
+So like most mortgage brokers, they're only thinking about, and understandably, I guess
+they're only thinking about what's, what's in it for me.
+Just like the clients only think about what's in it for me.
+But if you can step back and look a little bit more further, you can actually turn this thing
+into way bigger opportunity.
+And so the way that Wally has done this is that he generates, he, he generates business for
+his accountants, financial planners, CPAs, all the attorneys.
+And what happens is that he does such a good job of generating referrals for them that they
+end up giving him referrals, end up giving him their databases.
+And so now he's end up adopting databases of other people's because they're not as good at
+generating these conversations and leads as he is.
+And so that kind of leads me into my next thing.
+So you guys have a cool.
+You.
+You've recently rolled out a new feature, so, so depending when you listen to this, that
+allows people to adopt databases, maybe walk me through what that is and can talk about
+
+how people.
+And there is a limit to how many of these you're doing at the moment.
+So why don't you walk me through that?
+Yeah, thanks for that.
+Yeah.
+This new feature is called Adopt My Mortgage.
+And the concept is that all these referral partners of yours that have trusted client
+relationships with homeowners, these people have mortgages, and while they're not your
+clients yet, you can adopt their mortgage, so to speak, and give them these insights about
+ways that they might be able to save or make money through their home and mortgage.
+And in doing so, obviously it's going to create more referral business over time.
+So how that all came about is I guess last fall we were starting to get some traction with our,
+our first use case for OwnWell, which was generating repeat business from one's existing
+client database.
+Bunch of our customers, mortgage brokers, some of their clients are realtors, lawyers, etc.
+And so they started asking our customers, hey, this report is really awesome.
+I'm not doing much for my database right now.
+Can I somehow, can I sign up for this and send this out to my database?
+And so we said, well okay, we won't let them sign up for OwnWell directly.
+Instead we'll allow our customers, the mortgage brokers to give them access.
+So how it works right now is you as a, as a mortgage broker known.
+Well, if you're on our annual plan, you basically get up to 10 referral partner spots in your
+ownwell and you can then generate a unique link for each of your referral partners and they
+can then get a custom Ownwell landing page through which their clients can opt into your
+ownwell report which will then be co branded with the referral partner and yourself.
+So not only is the referral partner getting to get in front of their clients each month with the
+
+same kind of report, but you're in there too for those home finance related sections of the
+report.
+And so that was the first, the first, I guess, MVP for this feature.
+And what's coming next is we're going to have a separate login portal specifically for those
+referral partners.
+They can upload databases, you know, they can.
+So they can do it on mass as well.
+So that.
+Because as a broker you can upload, you can do it en masse.
+Upload.
+Yeah.
+And then go and Saint now bacon.
+And these are co branded.
+Yeah, I mean again that's, that's what.
+Why all.
+I think I've said this before on my shows but like Wally has 4,000 past clients but markets to
+30,000 on a monthly basis.
+And so he's got 26,000 homeowners that are constantly seen from him with incredibly high
+engagement rates.
+And so it becomes a big piece of his marketing is just, that's where all his business comes
+from.
+So he generates so much business from that that he then gives to his partners, that his
+partners give back to him.
+He and it.
+You don't, you don't need to do any external marketing at all.
+
+It's all done.
+It's all your marketing is done through your, your basically how to leverage your database.
+So yeah, it's awesome.
+Okay, what like how can people get signed up?
+We'll put links in the show notes to this.
+If you click on it, you can go get it.
+But where can they, if they want to get one of these spots?
+What's that look like?
+Yeah, yeah, thanks.
+So we're limiting access to this feature to 250 brokers across the country to start with.
+We want them to have a head start and Being able to offer something really valuable and
+exclusive to the referral partner.
+So we're capping it at 250.
+We've got just under 100 of these spots left.
+And so if you want to get access, go to ownwell CA and when you sign up, sign up with the
+code ILMB100 at checkout and we'll take, take the referral.
+I'm sorry, take the sign up fee, the setup fee, I mean, off your plan.
+So you can save 100 bucks and you'll get, you'll get one of those remaining 100 spots, right?
+Yeah, because there's a setup fee.
+But if you're, yeah, you guys are basically, if you listen to this episode or this podcast.
+Thank you.
+But then go check that out.
+
+If there's something, if you have a database, you're going to want to get on this.
+Like I would go, as I said before, if this was, if I was brokering today, this is the, what I would
+do to generate my business is I would get, you know, Peter Mathony, one of my idols.
+The very first podcast I did.
+He was.
+And if you ever listen that episode, Dan, I was so nervous and like squeaky voice.
+And I reached out to him like, hey, would you do a podcast with me?
+The guy does like 4 or 500 mortgages a year.
+And I remember asking one time I was having lunch with him, like, if you could start over
+again, what's your advice to somebody starting over?
+And he said, I would go do everything in my power to get 250 clients and then I'd spend all
+my time energy marketing those 250 clients.
+Well, now I think the number's bigger today, but that principle is the same.
+The difference is you get your 250 clients, but if those 250 clients, you can then turn into
+700 plus referrals to your partners.
+And that's how you go from 250 clients to 500 clients.
+And so I'm convinced that there is a young, a new Peter Math Knee or you know, Penny
+Matheny, you know, out there that's going to grab this idea and in a few years from like, holy
+crap, I can't believe what you've done with this whole thing.
+And so I'm excited about seeing that, how that works.
+Absolutely.
+Okay, well, hey Dan, thanks again for chat with me, man.
+And if you know, I'd love to see, send me some, I want to send me some of those images.
+I want to check it out.
+I'm interested in seeing some of the artwork that you have and to just put.
+
+But I will say I've checked with the Omwell dashboards.
+They do look good.
+Like, they have a.
+They have a good visual.
+You know, you obviously have a design eye, so.
+Or somebody does on your team, because it looks good.
+The entire report and stuff.
+Well, thanks, Scott.
+No, we.
+I mean, well, we do have a UX designer who's excellent, but I definitely care a lot about the
+way things look, especially from the client's perspective.
+Right.
+Because I think that if we can build something that your clients love and.
+And want to check each month, then ultimately it's, you know, it's going to be something
+that you love, too.
+It's a win for you, too.
+Yeah.
+Awesome.
+Okay, thanks, Dan.
+Thanks so much, Scott.
+Take care.
+Hey, thanks again for listening, and hopefully you've got some ideas or certainly inspired
+about how you can do a better job of connecting with your database.
+
+And as I always say, there's no problem in your mortgage business that someone else hasn't
+already solved.
+Your problem is who's got the answer?
+The goal is that this podcast is going to provide some of those answers.
+Thanks again for listening, and I will see you on the next show.
+
+

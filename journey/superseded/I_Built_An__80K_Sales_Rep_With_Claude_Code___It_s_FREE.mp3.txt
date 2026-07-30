@@ -1,0 +1,586 @@
+﻿Hiring sales reps cost 50 to $80,000 a year, and tools like Apollo, Zoom Info and Outreach 
+charge hundreds of dollars a month for.
+
+I'm about to show you how to build completely for free.
+
+I built an AI sales team using cloud code that researches any company, finds decision 
+makers, qualifies leads, and generates personalized outreach sequences, all with one 
+prompt.
+
+By the end of this video, you'll have the same exact tool installed on your computer and 
+running without needing to code.
+
+Here's what nobody's talking about.
+
+Every founder, freelancer, and agency needs to sell.
+
+But most people are terrible at prospecting.
+
+They either spend hours manually researching companies or they blast generic cold emails 
+that get completely ignored.
+
+This fixes both problems.
+
+What I built is a set of AI sales skills for Claude code 14 different commands that analyze 
+prospects, score leads, map the buying committee, write cold outreach sequences, prep you 
+for meetings, and even generate a professional PDF pipeline report.
+
+And the flagship command launches free.
+
+Five agents in parallel to do a full prospect audit in under one minute.
+
+Let me show you how this works and then I want to walk you through how to install it so 
+you can run this in any prospect you're going after.
+
+Let's get started.
+
+All right, so I'm going to do a quick demo for you and run this on a popular website called 
+loom.com.
+
+
+
+So I'm in my cloud code here again.
+
+Don't worry, I'm going to show you how to install all of this if you're new to this.
+
+So I'm just going to run sales prospect.
+
+Okay, there you go.
+
+So I'm just going to tap and I'm just going to do loom dot com.
+
+Okay, so I'm going to press enter and now cloud code is going to run this analysis on 
+Loom.com based on the skills that are inside the instructions on this GitHub repo right here.
+
+So again, this is available for you completely for free.
+
+I'm going to show you how to install this in a little bit if I go back to my visual studio code.
+
+As you can see, what's happening right now is five agents.
+
+So right here says this is running phase two, launching five parallel analysis sub agents.
+
+Now, each agent is doing something different, right?
+
+One is researching the company, one is finding the decision makers, one is scoring the 
+opportunity, one's analyzing their competitors, and one's building an outreach strategy all 
+at the same time.
+
+So I'm going to go ahead and fast forward this because otherwise it's going to take a couple 
+of minutes and then I'm Going to show you exactly what the result looks like.
+
+All right, perfect.
+
+So it finished the analysis.
+
+It gave the score breakdown key decision maker.
+
+It found the head of VP of Revenue, head of Sales.
+
+Now obviously this is a little hard to read because inside our cloud code.
+
+So I ran another little quick note to generate the PDF and it generated this really nice little 
+PDF file for us.
+
+
+
+So as you can see, this is the sales pipeline report for Loom.com so Loom is scored 75 out of 
+100, making it a high priority target worth immediate senior level attention.
+
+And in the bottom, this shows the score breakdown.
+
+Again the score breakdown is essentially telling you whether this prospect is even worth 
+your time.
+
+Right.
+
+And in the bottom as you can see, it says top prospect Loom Outreach.
+
+Outreach ready.
+
+Right.
+
+It also gives you the next step.
+
+Send a LinkedIn request in a cold email to Nick Feeney, VP of Revenue referencing GTM10 
+Award 2025.
+
+Right?
+
+It gives you the pipeline summary.
+
+In the bottom it gives you clear action plan what you can do for immediately for quick wins, 
+what you can do this week, this month.
+
+Scoring methodology.
+
+All of this is done for you in a matter of minutes.
+
+This would take the same process would take a sales rep two to three hours a day doing 
+manually things like LinkedIn stalking, right?
+
+Checking crunchbase, reading their, figuring out who to email.
+
+Now we're doing all of this in under two minutes.
+
+And that's the beauty of cloud code and giving it specific skills.
+
+You're basically essentially making an expert in your own domain.
+
+
+
+Now the skills inside this repo not only does give you a really nice report, but also you can 
+do things like decision making, identification, you can do cold outreach, email sequence, 
+follow up email sequence, meeting preparation, brief client proposal, generator, objective 
+handling, playbook, customer profile builder, competitive intelligence and much, much 
+more.
+
+This is completely packed with everything you need because it's a true sales team for you.
+
+By the way, this GitHub repo is in the description.
+
+This is completely free for you guys.
+
+So I'm going to show you how to install this in a little bit.
+
+And if you're interested in learning how to make money and start your agency so you can 
+sell these services, check out the community link is going to be description this how to build
+and sell with cloud code.
+
+We go through projects step by step, how to reach out to clients to start and give these 
+services.
+
+So if you're interested out again.
+
+All right, so let's go ahead and now start building this thing step by step.
+
+All right, so the first thing you need to do is to install Visual Studio code.
+
+Again this is completely for free, depending on whether using Mac or Windows of course.
+
+Just go ahead, head over to code.visualstudio.com you can download this Visual Studio code 
+for those of you not familiar is an ide, which stands for Integrated Developer Environment.
+
+Essentially it's a fancy way to say that all of your files and your ability to interact with cloud 
+code and everything else is going to be inside this one cohesive environment.
+
+Alright, so once you go ahead and download that, so it's gonna look something like this.
+
+Let me go ahead and just open a new folder.
+
+So I'm just gonna do create a new folder here, just call it Test.
+
+Click on open.
+
+
+
+Now this is gonna open up my brand new folder here.
+
+So this is what your Visual Studio code is gonna look like.
+
+So I'm gonna go ahead and on the right hand side get rid of this chat window.
+
+And as you can see right here, I'm inside my test folder.
+
+So what I'm going to do is obviously we need to use Claude code.
+
+If you haven't start cloud code, you're going to click on the extensions here and you're going
+to search for cloud code.
+
+Or this is the one, I think usually it's the most popular one.
+
+So make sure you're installing this one which is the 6 million downloads already and spy on 
+Tropic.
+
+So once you download this now you have this enabled and on the top right hand corner 
+you'll see the cloud codes logo shows up.
+
+So if I click on this now I have cloud code open here.
+
+Of course you need to have a subscription for cloud code obviously otherwise this wouldn't 
+work.
+
+But honestly it's worth the subscription.
+
+Go ahead and get started.
+
+Alright, so let me go ahead and show you the different.
+
+First of all, let me show you how to install this so that way you can have access to it from 
+your cloud code.
+
+And then I'm going to go through the different skills that are inside this file so that way you 
+can see exactly which one you want to use.
+
+Okay, so once you have your cloud code installed, what you're gonna do is come here.
+
+On the top right hand corner here, you're gonna click on this and this is gonna open up your 
+terminal.
+
+
+
+The reason why we're doing this, don't worry, you don't have to code or anything like that.
+
+The reason we're doing this is because we need to install our GitHub skills, right?
+
+So once you come here, all you have to do is again click on the Link in the description.
+
+It's gonna bring you to this GitHub repo that I created for you guys.
+
+All you have to do is come to the bottom and click and copy this code right here, this piece of
+code.
+
+You're gonna click on this and it's going to copy.
+
+It's just basically a one command installation for all of these skills that are available inside 
+this tool.
+
+Basically.
+
+Okay, so I'm going to go back to my Visual Studio code, I'm going to paste that, I'm going to 
+press Enter.
+
+And now as you can see, all of this gets installed.
+
+So let me pull this up a little bit.
+
+There you go.
+
+It says AI sales team, cloud code skills, 14 skills, 5 agents, 4 scripts PDF all installed.
+
+Right.
+
+It cloned it from GitHub and installed all the different features.
+
+And as you can see, these are the command references that are now available for you with 
+each explaining what it does.
+
+Now if I want to check to make sure that this is available for me, all I have to do is type slash 
+and search for sales.
+
+And there you go.
+
+All of these slash commands are now available for me.
+
+
+
+We just earlier ran sales prospect.
+
+Now I'm going to show you exactly what are the other commands that are super useful that 
+are available here for you.
+
+So let's go ahead and run because last time we ran it on Loom.com.
+
+Loom.com is a pretty big company still, but let's go ahead and run it on some kind of a small 
+startup or it doesn't have to be small again, let's just do whatever smart app.
+
+So I just this linear.
+
+I don't know how big they are, to be honest.
+
+I was just like searching to see what would be a good company to run with.
+
+They're just a product development system for teams and agents.
+
+So I'm going to go ahead and just literally run this with on Linear App.
+
+So again, feel free to run this on any website or any company you're prospecting and you 
+know, trying to test out here.
+
+So we're going to do is same thing, go back to our Visual Studio code here and then I'm 
+going to go ahead and run let's run sales contact.
+
+Let's say I want to find out the contacts for this company.
+
+Right?
+
+So all I have to do is come to this command, press 10 and we're going to do Linear App.
+
+Whoops, that's not what I meant to do.
+
+Linear App.
+
+I'm going to press Enter.
+
+So now what clock code is going to do is it's going to look inside the Sales contact skills file, 
+which is basically an instruction.
+
+So if I go inside my AI sales team, inside the skills folder we just ran Sales Contact Skill md.
+
+
+
+So cloud code is basically going to run based on this instruction.
+
+So it's saying Decision Maker Intelligence and Contact Strategy.
+
+Your Decision maker intelligence engine for sales contact URL, which is going to be that 
+linear app or whatever website you're using.
+
+You identify the buying community, map the organization hierarchy, find personal anchors 
+for each contact and build a multi thread engagement strategy.
+
+So all of this instruction is inside the Skills MD file and all of this is basically that sales 
+contacts slash command that we just ran.
+
+Right.
+
+So if I go back to my oh, you got to make sure you're allowing for it to fetch URL and search 
+the different things that you need to search for.
+
+So that's something that obviously Claude is going to ask you, but it's going to now go ahead 
+and find out also the all those details based on again the instructions that are inside our 
+Skills MD file right here.
+
+So let's go ahead and let this finish.
+
+All right, There you go.
+
+So it finished, as you can see, Decision Maker Intelligence complete.
+
+By the way we can.
+
+It also created this nice little file on the left hand side says Decision Makers md.
+
+So let me actually get rid of this terminal so you can see this better.
+
+Of course this could be generated in a PDF as well, but essentially it gives you a nice little 
+executive summary.
+
+It gives you the buying committee map, the organization chart.
+
+Again, this is the one that actually replaces your Zoom info or LinkedIn Sales Navigator 
+subscription for you.
+
+
+
+Right.
+
+Because it maps out the entire buying committee.
+
+Who's the economic buyer?
+
+Who's the champion?
+
+Like right here, as you can see, it says recommended approach lead with Casey Burtonhall, 
+champion for sales and Ops tools or Christina Cordova.
+
+Right.
+
+So it gives you all of that information.
+
+Who's the technical evaluator, who might be a blocker.
+
+Right.
+
+And for each person, it finds personalized anchors for you on things they have posted about,
+talks they have given, projects they're working on.
+
+So your outreach doesn't sound like a template.
+
+Right.
+
+It's everything is personalized for you.
+
+And of course it gives you recommended approaches.
+
+It gives you the priority three.
+
+Right.
+
+Like and a bunch of other information that again would take you or take a salesperson 
+manually using multiple different tools several hours to do this.
+
+So again, that's just one of the skills that's available inside this.
+
+So now let's go ahead and run another one quickly so now I'm going to type slash sales 
+again and this time we're going to do outreach.
+
+Okay.
+
+
+
+So I'm going to do outreach.
+
+I'm just going to.
+
+I don't have to type the.
+
+The linear app again is going to automatically figure that out by itself.
+
+So what this one is going to do, this is going to take everything from that research and the 
+contact and turn it into five email cold outreach sequences.
+
+Right.
+
+And again, all of this is based on the instructions that's inside our Skill MD file.
+
+So if I go back to my skills again and click on the sales outreach Skill md.
+
+So these are all of the instructions that it's going to go ahead and do a cold outreach 
+sequence generated for you.
+
+Right.
+
+Based on the web research for the different topics, the executive queries.
+
+Right.
+
+These are things that it's going to execute.
+
+The funding, product launch, hiring, partnership announcement, expansions, new CEO 
+interview, and all sorts of other instructions that are inside the skills that I'm defiled that 
+Claude is going to follow to generate a nice outreach sales outreach for us.
+
+So let's go ahead and let this thing finish.
+
+All right, perfect.
+
+So it finished and now let's go ahead and click on this outreach sequence right here.
+
+And there you go.
+
+All right.
+
+
+
+So personalized research again.
+
+This is not high.
+
+I noticed your company is doing great things.
+
+This is like hyper personalized based on actual intel that the agents gathered here.
+
+Right.
+
+And also gives you LinkedIn touch points between emails and AB variation for testing.
+
+So as you can see right here, the first email it generated for you, it says the hook day one.
+
+Right.
+
+Subject linear's agent era.
+
+Your name.
+
+February 26th launch caught my eye.
+
+Christina.
+
+Linear's rebound around agentic workflows last week is a real signal.
+
+New era, same craft is a precise way to frame what's happening to the whole dev tooling 
+category.
+
+Your company helps again.
+
+This will be your company helps similar SaaS companies again.
+
+Whatever stage you're in, handle the specific problem that emerges during this kind of 
+transition.
+
+Right.
+
+One sentence metrics teams typically save X hours per week or we helped case study 
+whatever case study you've had in your company do.
+
+Why worth 15 minutes to see if timing makes sense.
+
+
+
+Right?
+
+Your name, title, company phone call.
+
+So that's kind of your first cold email outreach template.
+
+Second one, Christina send a note on Monday, wanted to share something regardless of 
+timing.
+
+Right.
+
+So as you can see right here, this is the value add on day three and then afterwards it shows 
+you exactly what to do.
+
+The social proof on day seven right.
+
+So it's giving you really step by step approaches and then what to do next if the prospect 
+doesn't respond.
+
+So even on day 21 you got Christina, sounds like the timing isn't right.
+
+No worries if this specific problem becomes a priority as you scale with GTM team, your 
+product, whatever your product is, is the easiest way to reach me.
+
+Email left a resource in the link and if it's useful down the road, right, things like this.
+
+So again very step by step day to day guide on what to do and how to do.
+
+Cold outreach, same thing.
+
+The second sequence is going to be to Casey, head of sales, right.
+
+This is going to be specifically to him based on what he has proposed and Based on his 
+LinkedIn post and based the research that the agent completed for Casey personally.
+
+Right.
+
+So it says Casey, you joined GONG when it was tiny and stayed through the 200, 200 million 
+ARR.
+
+You have watched what a great sales stack actually looks like at every stage of your journey.
+
+Your company, whatever your company is built for the exact moment linear is in right now, 
+
+
+
+right past product market fit moving up mark, small sales team trying to punch above its 
+weight, blah blah blah.
+
+So you can see it gives you specific emails, cold emails for the person that you're targeting.
+
+And not only that, it gives you what to do on day one, what to do on day three, day seven, 
+day 21, so on and so forth.
+
+As you can see, this is specifically personalized and well made for whatever company you're
+searching for.
+
+Again, this will save your entire if it's a company that has a sales teams, it will save them 
+hundreds of hours combined if you run tools like this.
+
+So check it out.
+
+Again, there's a bunch of other, of course there's a bunch of other skills here.
+
+Things like, you know, qualifying the lead, generating the sales report, doing an entire sales 
+report from start to finish sales research, follow ups, competitor analysis, ICP objections and
+everything else.
+
+And of course if, let's say they jump on a call with you, right, you can run this little sales prep
+command and it'll give you exactly what to do.
+
+It gives you the competitive landscape, the industry contacts and everything else you need 
+in order for you to have this nice little cheat sheet so that way you can be prepared for that 
+meeting.
+
+So yeah, check out the GitHub here.
+
+And again, hopefully you found this video helpful.
+
+Again, if you're interested in checking out the community where we talk about how to reach
+out to actual clients, if you're selling geo SEO or marketing or the sales team with cloud code
+and a bunch of other, you know, content that we have in the classroom.
+
+If you're starting your AI agency, we have an entire five week program, day to day 
+accountability on how to start your AI agency based on my own personal experience that 
+I've run the agency for a while.
+
+So all of the content in there is for complete beginners.
+
+
+
+You don't need to know code or anything like that.
+
+Check out the community.
+
+If not, thanks for watching and make sure you like subscribe and I'll see you on the next one.

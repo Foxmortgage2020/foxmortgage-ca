@@ -118,6 +118,11 @@ describe('session 8 role baselines', () => {
       'shadow.score',
       'conditions.decide',
       'commitment.upload',
+      // N-06 (2026-07-29): running the native Lender Notes Generator against
+      // the Zoho file overwrites Lender_Notes on the CRM record of truth, so
+      // it joins this list rather than riding notes.generate, which is a
+      // workbench draft that sends nothing.
+      'notes.crm.write',
       'approvals.conditions.decide',
       'knowledge.contact.manage',
       'comms.decide',

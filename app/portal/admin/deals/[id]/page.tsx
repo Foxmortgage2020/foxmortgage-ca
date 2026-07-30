@@ -55,6 +55,7 @@ import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
 import CommitmentUploader from '@/components/admin/CommitmentUploader'
 import DocumentUploader from '@/components/admin/DocumentUploader'
 import LenderNotesCard from '@/components/admin/LenderNotesCard'
+import { lenderNotesBridgeConfigured } from '@/lib/lender-notes-bridge'
 import ComplianceCard from '@/components/admin/ComplianceCard'
 import ClientConstraints from '@/components/admin/ClientConstraints'
 import ClientPortalCard from '@/components/admin/ClientPortalCard'
@@ -427,6 +428,10 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // The submission strip actions (pull / set target / insured / rate / save
   // edit). Like generate, NOT gated on demo: the client lib no-ops in demo.
   const canManageSubmission = can(user, 'submission.set')
+  // N-06: running the native generator against the Zoho file. Unlike generate,
+  // this one IS demo-gated in the card, because it writes to the CRM record of
+  // truth (the route refuses in demo as well).
+  const canCrmWriteNotes = can(user, 'notes.crm.write')
 
   // "A commitment is present" is a REAL-provenance fact: a retired
   // synthetic/rejected commitment never counts (guardrail 20), so it can never
@@ -839,6 +844,9 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                   }}
                   canGenerate={canGenerateNotes}
                   canManage={canManageSubmission}
+                  canCrmWrite={canCrmWriteNotes}
+                  crmLinked={Boolean(deal.zohoPotentialId || deal.finmoAppId)}
+                  crmConfigured={lenderNotesBridgeConfigured()}
                   demo={isDemoMode()}
                 />
               </Sub>

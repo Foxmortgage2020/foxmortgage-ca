@@ -145,6 +145,34 @@ files carry it per the closing ritual.
   (presently admin-only by the tested authority posture; widening to agents is a coordinated
   additive change if wanted).
 
+### Lender notes: TWO paths, and they are not the same thing (N-06, 2026-07-29)
+Confusing these is the easy mistake, so they are stated together.
+- **The DRAFT path (2026-07-15, unchanged).** `LenderNotesCard` "Generate" ->
+  `/api/portal/admin/gates/deals/[dealId]/lender-notes` -> `lib/gates.ts
+  generateLenderNotes` -> Gates API `POST /api/deals/{workbenchUuid}/lender-notes`
+  on a browser-minted Clerk token, key `notes.generate`. Lands an editable draft
+  in the workbench `lender_notes` table. NOTHING IS SENT ANYWHERE.
+- **The CRM WRITE path (N-06).** `LenderNotesCard` "Write to the Zoho file" ->
+  `/api/portal/admin/underwriting/lender-notes/[dealId]` -> `lib/lender-notes-bridge.ts`
+  -> fox-underwriting `POST /api/bridge/lender-notes-generate` on the
+  BRIDGE_SECRET machine path, key `notes.crm.write` (admin only, PORTAL-LOCAL, not
+  a gates key). This is the ported n8n generator (model pinned claude-opus-4-7).
+  A real run does three ordered Zoho writes: previous Lender_Notes copied to a
+  history Note, Lender_Notes overwritten, a log Note appended. `dry_run` does
+  everything and stops before all three. No gates token rides this call and none
+  should: generation records no human actor by design (guardrail 19); the human is
+  gated on the portal side.
+- `lib/lender-notes-bridge.ts` is the ONLY module here that calls that endpoint,
+  server-side only. `UW_BRIDGE_SECRET` is byte-identical to fox-underwriting's
+  `BRIDGE_SECRET` (verified 2026-07-29). The URL prefers `UW_LENDER_NOTES_URL` and
+  otherwise derives from `UW_BRIDGE_URL` by swapping `/api/bridge/rooms`; an
+  unrecognised shape refuses rather than guessing.
+- THE BROWSER NEVER NAMES THE ZOHO RECORD. The card posts the workbench deal id;
+  the route reads `zoho_potential_id` / `finmo_app_id` off the row. Unit-tested.
+- The n8n workflow `dGtxpNedIDTJhwro` never had a caller in this repo and is left
+  active and untouched; its retirement follows Michael's first successful card
+  press, in the chat lane.
+
 ### Nav IA (names are stable; renames need a note here)
 Home | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
 Changelog (S4, under Knowledge) | Compliance (S6) | Revenue (S7) |

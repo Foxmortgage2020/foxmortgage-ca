@@ -1,0 +1,249 @@
+
+
+
+
+Cloud Cowork has completely changed the way me and my team do sales.
+
+We can now automate anything from prospecting to lead nurturing to sales analytics by simply prompting Cloud.
+
+So in this video I'll show you how to use Cowork to automate any prospecting research or outreach task, show you how to automate, lead nurturing and follow ups, and show you how to use Cloud for automatic call preps and sales analytics.
+
+If you don't know it yet, Claude recently launched Cowork, which is now available on the Cloud desktop app in the second tab here and and in Cowork we can now give Claude access to folders on our computer and connect Claude to our entire software stack.
+
+But the real unlock is Skills and Skills are basically automations we can create by simply prompting Claude.
+
+Now Anthropic has also launched a sales plugin with pre made skills which you can find here in Browse Plugins.
+
+You go to the bottom and you click on install.
+
+You'll now have the Anthropic sales plugin and they'll already have some skills prepared for you like the account research, the call prep, call summary, competitive intelligence, et cetera.
+
+Now some of these are useful especially if you start customizing them, which I'll show you later, but as these tend to be more generic, the real unlock is building or customizing these for your own specific sales workflows.
+
+For example, we've built our entire own sales plugin with skills for CRM, prospect mining, email personalization, lead intelligence, lead qualification, LinkedIn, post engager, pipeline review, Sales Rep analyzer and win Loss analysis.
+
+Now I'll show you examples of all of these skills, how we've built them, and which connectors you need for all of these common sales tasks.
+
+And I think it will give you a good idea on how to build skills for your own sales workflows.
+
+And if you want access to all of the skills that me and my team are building out, including these and unlimited one on one tech help and workshops where we dive a lot deeper into these tools.
+
+You can also check out my AI accelerator in the link in the description below.
+
+I also have a full video breaking down skills if you're still unfamiliar with it, which I'll make sure to link in Description below too.
+
+But even if you don't know it yet, you should be able to follow this video.
+
+So let's start with using Cowork for prospecting, lead qualification and research.
+
+Now as most people have unique qualifications prospecting workflows, I'll just show you an example of a prospecting skill we've built, how we've built it, and the connectors that are most useful for prospecting because I think it will give you a good idea of how to do this for your own workflows.
+
+For example, here I built a skill out of a workflow that can scrape LinkedIn post engagers, qualify them against my ICP, and enrich the qualified leads, and even do personalized outreach on LinkedIn.
+
+So you see here I called the skill by just using a slash command here with LinkedIn post engagers.
+
+That's how we can use skills by just using the slash and using the skill here.
+
+Then I added someone else's LinkedIn post to scrape the engagers from and I added the qualification criteria.
+
+And because the skill already has the workflow on how to do this embedded, it already went ahead and found the last LinkedIn post of Chris Long.
+
+It then scraped all the engagers from that post using Apify and identified 127 unique engagers.
+
+17 Were qualified according to my criteria.
+
+And it also enriched the data with the company size, a company Description and the LinkedIn post they engaged with.
+
+And it gave me the information of those leads with the enriched data in a CSV sheet, as you can see here.
+
+So we have the LinkedIn public URL, the about the company size, the company website, company description and the post they engaged with.
+
+Now this skill stops here, but we can now run another skill to actually make personalized outreach messages and actually do the outreach on LinkedIn.
+
+Now the point of this is you can build skills like this for any repetitive prospecting, qualification or research workflow you might have through building these skills.
+
+And I'll show you in a second how I built this one.
+
+But whether you get prospects or data from LinkedIn, Google Maps, Apollo, your CRM, or any other social media, we do need the right connectors to actually let Claude access the data on these platforms.
+
+So the key connectors you want to have installed in cloud cowork for any prospecting, research or outreach task is first of all apify.
+
+If you don't know apify, apify is basically a marketplace with scrapers that can scrape any social media like LinkedIn profiles, LinkedIn posts, LinkedIn post engagers, X Instagram, or any other social media.
+
+They can even scrape some lead databases like Apollo.
+
+So this is really one of the most important to install for any lead prospecting or lead enrichment.
+
+You can start for free with apify and they also have a native integration with cloud coworkers.
+
+You can just set up new Connections by going here to the plus sign and go to Browse Connections and then I can choose apify and you can do the setup.
+
+You can also connect it with for example Apollo or any other lead database you might use. You can now also connect it with Clay as they have a native integration if you use Clay.
+And another one that's really interesting to explore if you're looking for lead data is Vibe Prospecting, which is an API purely made to give to AI agents that to provide you with more data on leads.
+
+And if you do outreach you can connect it to your email outreach platform like instantly.
+
+Or if you do LinkedIn outreach, I recommend using the Unipow connection which can Automate outreach on LinkedIn, WhatsApp, Facebook and X for you of course for some of the other sales skills that I'm going to show you a connection with your CRM.
+
+In my case ATEO is of course very important and what I highly recommend is to have a meeting transcriber.
+
+In my case Fireflies.
+
+And lastly of course you want to have it connected to probably your calendar and your email.
+
+So how did I build that skill that I showed you?
+
+I basically went through the workflow once together with Clav and then asked it to build a skill out of it so already knows and went through the process and knows what to save as the workflow.
+
+So here I said I want you to scrape the most recent 10 posts of Ben's profile, extract the post commenters and engagers data and present them in CSV along with the link profile, URL name, headline and the post that they engaged with.
+
+In this case I specified the specific apify scraper that it should use, but it can figure this out itself too.
+
+In this case I already knew so I specified it to make the process a bit quicker. I then gave it my LinkedIn profile to scrape the post from.
+It then went ahead and used the Apify scraper to scrape the post engagers and it found 154 unique people who engaged with this post.
+
+Then of course I want to qualify these according to my ICP criteria.
+
+I then noticed it didn't actually use the LinkedIn scraper to base the qualification on.
+
+So I specified to use an Apify scraper to scrape the LinkedIn and get specific data points like the about section, company name and website.
+
+And that's the point of giving these instructions.
+
+If you do it once then build a skill you will already know how to do it next time so you don't
+
+have to correct then actually scraped the LinkedIn profiles and created an enriched CSV with potential leads for my business.
+
+And then I asked it to build a skill out of this process and I gave it a little bit of extra context on how the skill should be built.
+
+Claude then built the skill as you can see here, which you can add to your library and as you can see here in the skill itself which is just an MD file in this case it's just a step by step process on how to do this and which scrapers from Apify to use.
+
+For example, you can see step one scrape post with engagement data, use this Apify actor. Step two extract and deduplicate engagers.
+Step three ICP qualification and step four full LinkedIn profile scrape and step five company LinkedIn profile scrape.
+
+And lastly the final output which is in a CSV.
+
+You can of course add steps here where you actually generate personalized outreach messages.
+
+But we have these separated into different skills.
+
+Now the second use case we've been using it for is lead nurturing and follow ups.
+
+Often some of the low hanging fruit are just leads that were lost or not properly followed up with before.
+
+So we built a skill that's called Prospect Miner and and it basically goes through the last lead column of our CRM and it researches all of these leads, scrapes their LinkedIn and prioritizes them based on our ICP criteria and checks all the email communications we had with this lead to understand how we could follow up.
+
+So here I said run the CRM prospect mining scale for my CRM. It then asked me for my criteria to find potential opportunities. I gave it the criteria.
+It then found 160 records in that column.
+
+It then researched these leads and found their LinkedIn profile and started scraping their
+
+LinkedIn profiles with Apify again.
+
+And then it went through the email communications to identify the last communications with each of these clients.
+
+And it gave me a CSV sheet prioritizing the lost leads based on company size and my ICP criteria and the comms communication summary.
+
+Again based on this of course we can start drafting potential follow up messages and actually send them out through the Gmail connector.
+
+So for this one specifically we use the Gmail apify and our CRM connector which is Ateo in our case.
+
+So how do we build this one? Again, same thing.
+We just did the process once together with cloud and asked it to create a skill around it. So I just told it here to go through Ateo, my CRM.
+It's wrongly spelled but it understood told it what to do and I also told it to launch sub agents for this and give each sub agent 15 leads to analyze.
+
+Now this is important when you're running bulk tasks. You can now run sub agents also in cloud Cowork.
+And the big advantage of this is the sub agents can run in parallel and this means that the context window here doesn't get overloaded because they a lot of the research is done by these sub agents and because they run in parallel it can be done far faster.
+
+And this is a big advantage we have in Cowork now too.
+
+We can actually run bulk tasks on lead list of 100 to 200, which was previously hard to do with the normal cloud chat, but you do sometimes have to specifically mention to use sub agents when you're running bulk tasks.
+
+And then again I asked it here to I need to create a skill around this process with some extra context and it gave me the CRM prospect mining skill which I can just copy to my library.
+
+And the third use case that I think is very useful, especially with the new feature in Cowork
+
+of Scheduled task, which I'll show you in a second, is the call preparation skill, which is one we customized from Anthropic skills.
+
+So you can see here I run the call prep for my meeting with a client on Monday.
+
+The skill then used my CRM to find a lead and then started researching the email communications with this lead, any past fireflies transcripts, and researching the lead on the web.
+
+And then based on the research it did, it gave me a call prep brief in HTML format which is a nice sort of dashboard here with the company overview, an account snapshot, what they do, the interaction history, the suggested agenda and discovery question suggestions.
+
+Now of course we can customize this scale from Anthropic by adding more data on how you want your call preps to be structured, what data points you should look for in the research, etc.
+
+Now you can customize these anthropic built in skills really easily by just telling Claude.
+
+For example, you can say I want to customize the anthropic call prep scale according to how my company does call preps.
+
+You can then give it all the context you need and what you want to change and Clark can then instantly create a new skill that's adapted and customized to your specific way of working.
+
+Now these kinds of use cases become especially powerful now that we have scheduled tasks here in the sidebar in Cowork and here we can basically schedule our skills or tasks to run at a specific time interval, for example every morning at 7am so for this one I could say something like Every morning at 7am Check my CRM and go through all of the meetings I have today and use the Call Prep scale for each of the meetings I have today.
+
+Present all the call prep briefs in a nice HTML dashboard for me to go through every morning.
+
+I can then decide the frequency daily at 7am and as soon as you open your coworker in the morning you'll start running this skill and preparing all your calls for today.
+
+Then for sales analytics, Cloud Cowork can become really powerful too.
+
+For example, we've used it for win Loss analysis and sales rep performance analysis.
+
+You can see here I run it by calling the Win Loss Analysis Scale and this scale basically goes
+
+through all of our leads in our Win column and in our loss column in our CRM.
+
+It researches both of these types of leads but also the meeting transcripts from all of these leads and the email communication.
+
+And based on that it makes an extremely comprehensive win Loss analysis report in a Google Docs that gives us an overview of the win rate, the key findings of our best and worst performing customer profiles, common objections patterns on actions we tend to take with converted leads like Engagement Depth predicts outcomes, it shows us deals won and lost by company type and by pricing, gives us case studies on won leads and why they were won.
+
+It does a full analysis on lost deals and you can see that we have to get far better at follow ups which Cowork will hopefully help us with.
+
+Then the key differentiators between won versus lost deals and red flags and early disqualification criteria for us.
+
+Honestly this was extremely insightful and pretty impressive to read this report and of course we can now run this through scheduled tasks on a monthly basis to analyze our wins and losses over the last month.
+
+And again this one was built by just doing the process once manually with cloud and then saving it as a skill at the end.
+
+And one more sales analysis skill we built is for a sales rep performance analytics by going through past transcripts, CRM data and email communication.
+
+So here I ran that skill on one of our sales reps and it gave me a full Google Docs with a full performance report.
+
+So it gives an overall grade, the top three strengths, the top three improvement areas and a full performance scorecard per client.
+
+It also grades across different stages in the sales pipeline like discovery, demo, objection handling, pricing follow ups, etc.
+
+And the top five recommendations for this sales rep to start focusing on improving.
+
+Then lastly, I think another very useful one for most sales reps is the Review Sales Pipeline skill which we also customized from Anthropic's built in skills.
+
+Now this can be very useful to run on a daily basis too with scheduled tasks, because you
+
+can basically check your pipeline on a day to day basis and give you a brief on all the important leads to focus on today by analyzing your sales pipeline, email communication and past transcripts.
+
+So you see why these connectors become so important because you give Claude all the context it needs to actually come up with really strategic advice for you.
+
+So here I ran it with the Pipeline review command and then it asked me questions on which pipeline it should review, which what stage I want to focus on, and where to send the pipeline summary.
+
+In this case I told it to DM me on Slack, it then sent me a full report to Slack and also present it here in the chat and it basically gives me an overview of the leads I have to focus on today because they're hot or we might risk losing them.
+
+You can also adapt this to even include pipeline hygiene so it can automatically start updating your pipeline, which is of course a big pain point for anyone who's in sales because it can now analyze your email communications, your transcripts and the pipeline itself.
+
+It can make your pipeline automatically update itself when changes happen. But I think you get the point.
+You can really start automating any repetitive tasks you have around sales.
+
+I really highly recommend starting to experiment more and more with cowork and building skills because it's really going to make a big impact on your productivity.
+
+Now again, if you want to use or customize some of the skills we've built, you can check out my AI accelerator in the link in description below.
+
+Besides these skills, we also do weekly Q&As with me and my team.
+
+We do AI workshops where we dive a lot deeper into these tools and we have unlimited live one on one tech help available to help you out with any issues you might have.
+
+Also, we have blueprints on starting your own AI business, so if any of that's interesting to you, I highly recommend checking it out.
+
+Thank you so much for watching.
+
+And if you want to learn more about cowork and cloth skills, you can also check out the video here above.
+
+

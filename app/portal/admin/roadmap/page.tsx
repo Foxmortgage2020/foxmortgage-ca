@@ -18,6 +18,20 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'N-06',
+    title: 'Lender notes: the CRM write moves into the deal room',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'The n8n Lender Notes Generator had no caller in this repo at all (grep-verified at the tip: the webhook id, the workflow id, and the n8n host all return nothing for lender notes). So this was not a repoint. The native engine shipped in fox-underwriting by N-05 simply had no portal caller, and now it has one',
+      'The existing Generate button is untouched. It still produces a workbench DRAFT through the gates path and still sends nothing. The new control is a separate block that runs the ported generator against the CRM file: previous notes copied to a history note, Lender_Notes overwritten, a log note appended, and each of the three reported by name so a partial run reads as partial',
+      'Preview is the identical call with dry_run, so what the preview shows is exactly what a write would put on the file. Proven live against a real in-progress deal: 200 in 18.4 seconds, a 2,206 character note, all three write flags false, nothing touched',
+      'Its own admin-only key (notes.crm.write) rather than notes.generate, whose label promises "draft only, nothing sent". Hidden in demo, two taps to write, and a forced second press offered when the engine skips a file noted inside the last ten minutes',
+      'The browser never names the Zoho record: the card posts the workbench deal id and the route reads the Zoho and Finmo identifiers off the row through the read-only role. The bridge secret stays server-side and is the one already here for the room bridge',
+      'Outstanding: the first real write is Michael’s press on a file he picks, DRAFT mode. Retiring the n8n workflow follows that press',
+    ],
+  },
+  {
     n: 'Today v1',
     title: 'Today, the morning operating page',
     status: 'shipped',

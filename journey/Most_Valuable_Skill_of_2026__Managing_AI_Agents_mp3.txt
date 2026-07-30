@@ -1,0 +1,659 @@
+I don't think it's crazy to say that the people who know how to run teams of AI agents are
+going to be able to outperform everyone else in this AI age we're in.
+So how do you actually run teams of AI agents? What does this mean?
+What's the step by step way to actually do this and what are the tools you need to know, like
+Devon AI to actually go and do this?
+Well, on today's episode I brought on Ryan Carson and he clearly explains all of this for you.
+He even gives you a tour of his insane setup for how he manages his AI agents.
+So by the end of this episode, you're going to understand what cloud agents are, how you
+can set up automations, how you can create a software factory that creates software 24 7.
+And you're going to be able to understand it just really clearly because he does such a good
+job at explaining all this.
+So enjoy the episode, I'll see you at the end and have a creative day.
+Ryan Carson back on the pod by the end of this episode, Ryan, what are people going to get
+out of this?
+So you're going to be able to do three things really well.
+You're going to be able to run cloud agents, you're going to be able to do automations, and
+you're going to be able to ship faster.
+So whether you're a founder, a solopreneur, a stay at home parent, you're just going to
+become an agent pro by the time we're done.
+Okay.
+Because I think a lot of people listening to this might have, they've played with agents, cloud
+agents, but you're going to help them just get the confidence basically to be world class.
+You know, I think that's what I'm trying to, that's what I've been thinking a lot about.
+
+It's like, okay, there's a bunch of people who have played with agents, but how do we
+become world class agent operators?
+Yeah, essentially you are a manager of agents now.
+So, so no matter what you used to do, whether it was a people manager, an ic, you are going
+to become a manager of agents now.
+And you need to be the best in the world.
+And it doesn't matter whether you're a vc, a founder, an ic, a mom, a dad, like a college
+student, you should manage agents and be the best at it.
+And we're gonna show you some tips for that.
+Okay, so where do we start?
+Okay, so let me give some context, right? So people understand what, where is this coming
+from?
+So I'VE been a founder CEO for like 25 years. I'm working on my fourth company now.
+My last company, Treehouse, which was acquired, we had I think up to like 110 full time
+employees.
+Taught a million people how to code, you know, so I've done the whole build organization
+thing and manage organization thing and you learn a lot about managing people on that.
+And now this startup which I'm running it, I am one employee right now.
+So we've raised the seed round, we're scaling really fast.
+Our revenue probably is going to 4x this month and I'm probably going to be hiring my first
+employees.
+We are essentially an AI divorce agent for divorce firms.
+So we do the dirty topic that no one seems to want to tackle, which is family law.
+So I've learned a lot about how to scale me. Right. And so I'm gonna help folks understand.
+How do you manage a lot of agents? Well, how do you check the work, how do you automate
+things?
+
+How do you work from your phone?
+You know, I do almost 50%, probably more of my work from my phone and it's pretty wild.
+So that's where we're gonna take you.
+And I will say as well, like this is gonna change every three to six months.
+So we're going to share a lot with you. Get your hands dirty. Try it.
+And the best way to learn is to do.
+Cool.
+Yeah, I'm particularly interested in the phone stuff because I actually do 0% of my stuff on
+the phone.
+What?
+Yeah.
+Okay, let's talk. So let me start by just showing you.
+Well, when I'm at my desk, what is the world like?
+Right.
+So right now I'm in my home office.
+I, I work from Connecticut and I do all my desk work here and I've got this big 52 inch Dell
+monitor.
+I used to have a couple monitors and I was like, screw it, I just want a huge monitor.
+So let me share my screen. All right.
+So what I do is I set up eight screens on my monitor and I also enjoy food and snacks as I
+code.
+But the key is to have eight things up at once because I have to multitask a lot of agents at
+once.
+
+I also use a paper system to keep track of some of my to dos, which is a little bit weird.
+I use the UG Monk system which is kind of fun. And I've got a killer Razer mouse.
+I was getting a lot of wrist pain actually, so I decided to go vertical mouse on that.
+I also have a button which actually is connected to Whisper Flow.
+So I almost use Whisper Flow for all of my stuff. So I've got Slack in the top left.
+That's where I get notified notifications and things about what my agents are doing or what
+is happening.
+That's the primary thing I use Slack for. And then what I do is I lay out various other
+screens.
+So I've got one password always set up.
+It's very important to keep your keys safe, secure, and separated from the agent, right?
+So I've got all my prod right keys in one password. I do not give my agents prod right keys.
+So production writing is dangerous and your agents will do something bad.
+And so you need to set up a system where they ask you for the key when they need to write
+to prod, and then you go into one password, you copy and paste it into the session, and
+you're both very clear about what you're doing.
+So that's one tip. Keep your keys secure. And then I use Devin. So Devin is created by
+Cognition.
+I think it's one of the best software factories in the industry. It's not cheap, but it's good.
+The things I'm talking about today are not Devin specific, but they do work very well in
+Devin.
+And one of the keys is cloud agents.
+Then I usually have two screens set up where I am testing my app. It's just a lot of testing.
+And then of course, I've got X in the top left and top right.
+And then on the right I've got Codex, which we'll talk a bit more how I do most of my work
+
+in cloud in Devon.
+And a lot of that work, like we talked about, 50% is probably on my phone.
+And then whenever I do desktop or whenever I'm doing things locally, I'll do it in Codex.
+Usually that's in the bottom right. So that's kind of my.
+When I'm at my desk, my setup and what I do when I'm here.
+But the truth is I do a lot of work from this, my iPhone, this is my beautiful wife.
+It's just I get a lot of stuff done.
+I'll be in the shower and I'm thinking, okay, I need to check on that pr, or maybe I want to
+land that pr, right?
+Grab it, talk to Devin, which is just done in a browser on my mobile.
+And I get a lot of stuff done that way. So that's my setup.
+So I keep hearing this, that Devin is almost the most powerful coding agent. And can you
+just.
+For folks who haven't heard of Devin, or who haven't played with it. Why is that?
+What is going on?
+So about two years ago, maybe two and a half years ago, Devin came out and they pitched it
+as this idea of like, it's a software engineer, right?
+And honestly, it didn't work very well, right? The models were just not good enough.
+And no matter how good the harness was, the models just weren't there.
+And then Fast forward to 2026. The models are definitely good enough.
+And when you have a good harness that is cloud based, it's really good.
+So think of it as you've got your choices, right?
+So if you're using agents to build things, you're probably using codecs from OpenAI or using
+Claude code from Anthropic, or you're using one of the indie, I call them the indie agent
+
+harnesses.
+You've got amp, you've got Cursor, which is not independent anymore, but sort of owned by
+Elon.
+And then you've got Cognition, which makes Devin. You've got Factory as another one as
+well.
+So you've got these choices, right? And so I thought, okay, I want to scale myself
+horizontally.
+Like, I want to be able to run as many agents as I possibly can.
+And I don't want to be working on my laptop and trying to figure out which code is colliding
+which work tree.
+Am I on a lot of technical stuff that really, it keeps you from shipping.
+I know there's a lot of different folks that listen to the show.
+You might have solopreneurs who are newer to coding.
+They don't have computer science degrees, they're not super technical, but they're building
+things.
+Then you may have software engineers who are multiplying themselves 10 to 100x.
+They have deep understanding of software and architecture.
+And then you have founders who are coding but are abstracting themselves.
+And you have VCs who are coding. But everybody's going to learn a couple skills.
+And what's interesting is. I'll sort of zoom out for a second.
+I think we all thought that engineering and being technical was going away, but actually
+what's happening is the more you become a better agent manager, actually the more
+technical you become.
+And I think a good analogy is that you are basically an engineering manager, right?
+And so to be a good manager of many agents, you do need to become technical, right?
+
+There's this reality of you have to understand what postgres is.
+You have to understand the production environment versus a dev environment.
+You have to understand migrations, like, but the truth is you'll learn all that by using agents.
+Right.
+And so I am way more technical than I have ever been in my whole life.
+And so I think the idea has become more and more technical, therefore. Okay, so let's back
+up.
+Why, Devin, what is it? It's a really good agent.
+They have their cloud environment really nailed down.
+So that's the first takeaway I want to talk about today is cloud.
+Okay, um, how can you run more agents, get more done?
+And the answer is you work in the cloud, not on your local machine.
+Now, for the folks that aren't super technical, sort of explain, what does that mean?
+So when you're writing code or you're building things, you are editing code, right.
+That code has to be edited and then hosted somewhere.
+Right.
+And.
+And usually what we used to do is we used to all work on our Macs, and that's called local
+development.
+And you have to set up your whole local development environment.
+You have to have your database, you have to have your authentication, you have to have
+everything local.
+You have to have your dev server set up. And then what happens if you want to do two
+things at once?
+
+You have to either use git work trees, which is pretty technical and hard to understand, or
+you have to literally make another copy of your code in another directory.
+So then to work on two things at once, you have to have two copies of your code, which is.
+And then what about three or four? What if you want to do five or ten things? It just doesn't
+work.
+So what Devin does, and I think a lot of good independent agent harnesses like Cursor is
+doing this.
+Now, I think Codex is starting to do this. Okay.
+Is they create what's called a VM or a virtual machine in the cloud, and it's basically a little
+server, and it is your development environment, and you click a button and it spins up and
+all of a sudden you can code in there.
+And the beautiful thing is if you can create infinite numbers of these things.
+So I often have at least five cloud agents working at once, often 10.
+And there's no risk that the code is going to collide.
+So what it does is it takes away all of the mental overhead of trying to coordinate these
+things.
+Like, I want to work on this part of the code, but what if it overlaps this part of the code?
+Or what if I want to do that? Have I synchronized and pulled the latest? I don't know.
+And when I work in the cloud, I literally just open up my browser and I click new session
+and a new VM spins up and I never ever have to think about it.
+So I think if you are working locally, I honestly think you are a caveman.
+Like I think you are holding yourself back and you are shipping 10x less than you could be.
+And it is not smart.
+No matter if you think the cool people work locally and all the smart eng, it's not true
+anymore.
+
+You work in the cloud.
+Yeah, I mean there are a lot of people like on X who are sort of like local maxis who look at
+people who spin up virtual machines and cloud agents as sort of like amateurish.
+What do you say to people like that?
+They are not doing real work. Here's the deal, right?
+So as soon as we hit PMF with untangle and we started acquiring real customers and having
+to ship real fixes, real features, like I had to probably 50x my output.
+Right.
+And you just can't do it if you're working locally.
+So I think it's nice to work locally and sometimes you have to if you're doing heavy front end
+stuff.
+So say you're shipping a brand new feature with a lot of ui, like a lot of new ui, right?
+Then yes, of course you're probably going to spin up a local agent and you're going to do
+some light front end, probably wireframing.
+But as quickly as you can, you want to move that into the cloud and then let a cloud agent
+take over.
+So I think this is happening to a lot of people.
+I think a lot of the traditional knowledge of how to work is out of date. That's where we're
+at.
+Okay, so if you do start using cloud agents and you do 50x outputs, in some ways that is a
+little stressful because you have so much stuff going on and now all of a sudden you have to
+manage more.
+So how do you structure a system so you don't go absolutely crazy?
+So it's interesting. I think first of all you have to shift your expectation of what your work is.
+And what your work is now is making high stakes decisions almost all day.
+So in the past we all had the luxury of making probably at most maybe two to three high
+
+stakes decisions per day.
+You'd have an important meeting with your key team or with a customer and you'd make a
+couple important decisions and you would communicate those decisions and then they
+would get done over two weeks.
+I think you have to sort of mentally pace yourself to say probably by lunch you're Gonna
+have made 10 to 20 high stakes decisions.
+And so you have to learn how to do that. Which is your question, how do you do that?
+And I think there's a couple simple things, right?
+So when I'm working with my agents, I actually have to organize my threads and I pin the
+ones that are the most important work we're getting done today, right.
+Because there's a lot of quick bug fixes or small things you're shipping and you kind of learn
+to separate into two buckets.
+What are the big, big important things I'm getting done today? Pin those.
+And then the other thing is just let them rip and get back to them when you can.
+And then set yourself this kind of almost timer, right?
+Where you're like, okay, I'm going to go crazy if I just click through my threads like this all
+day.
+You just get completely wiped out. Right?
+And so it's almost this discipline of saying I'm actually, you know that the phrasing
+smoothest, slowest, smooth and smooth is fast.
+Yeah, I think there's a little bit of that where you realize I can only check on my agents and
+make high stake decisions probably every 25 minutes.
+And so what you might do is settle into this cadence where you check on your high stakes
+threads like every 25 minutes just so you can like literally mentally rest.
+And then the other side of that is just understand that this is the world we live in and it is
+kind of exhausting and that is kind of where we're at.
+And in order to survive in this new world, you're going to work a lot more, not a lot less.
+
+And on that note, I'll share my screen because there is essentially a world we live in now
+where you're going to ship probably.
+So this is my prs. And we're looking, these are days.
+And you can see the average here is sort of this, 22 to 25 PRs a day and sometimes 40 a day.
+Most of these are being merged, right. A couple are being closed.
+And what's funny is what happened this day? I went hiking with my son.
+Which day is that? Kenti or cursor?
+Oh, it's the, was the 18th. 18Th.
+And so we went and climbed Mount Washington and I literally couldn't access my phone,
+but notice immediately the morning of.
+Right.
+You know, while he was sleeping, I, I shipped.
+What is that?
+Eight PRs. So this is kind of the world we live in now. And we could talk about that.
+But let's zoom out to the lessons here. You've got to go Cloud.
+You have to understand in order to compete in this new world, you're going to be working
+half the time from your phone and it is tiring, but it's like going to the gym.
+Okay.
+I have this new muscle like I never had to exercise before and it turns out this weird back
+muscle, it turns out like that's the most important muscle in the world.
+And if you don't do it, you're not going to win.
+So the way to do that is in set some sort of cadence for yourself.
+Pin your most important threads, write it down.
+
+So this, you know what I'm going to sort of flash up on the screen. Here is my written to do
+list.
+Every day, you know, I use this hilarious analog system to like to remind myself what are
+the most important things we're gonna ship today?
+Because there's gonna be 10 probably PRs that we ship that are fire, you know, putting out
+fires and you can get distracted and exhausted.
+So cloud and then exercise this new weird back muscle which is making high stakes
+decisions all day, including on your phone.
+Right. We were basically saying is like you're gonna. Because of the velocity of.
+You knowledge work.
+Knowledge work. And you'll have stuff going on and you will need to be there to say yes.
+No, actually this giving feedback in real time. And your point is?
+Why wait until you're in front of your Mac to give feedback?
+It makes no sense.
+If you're trying to hit product market fit and if you're trying to forex revenue in a month or
+whatever it is.
+Why Gotta be available.
+Gotta be available.
+And I think it's easy to think of these things as humans, right?
+Like you have a team now that is infinitely scalable.
+They're gonna do work very fast and they're gonna be blocked by you making important
+decisions.
+Right.
+And you can't delegate the decisions yet.
+I think we're still very much even if you use Fable, like this is a trick is use a Fable thread as
+
+kind of the manager and then ask it to spin up children.
+And I do this a lot.
+So I'll spin up a Fable thread and I'll say, okay, we want to accomplish these five things.
+Spin up five child Devin sessions. Don't use Fable. I use Fusion for that, which is a cheaper
+model.
+It's cool.
+It's like their new model where they've got Fable is kind of the parent and they've got a
+sidekick.
+Point is you're not going to.
+It's not viable to run Fable or any super premium model all the time, but have a sort of a
+parent, very intelligent model run children.
+You can do these things. But in the end, you're going to have to pay attention.
+And it's just like if you ran a big team and you were out to lunch on your boat all the time.
+You got to get in the office and the office is your phone and so get it done.
+So, Greg, this is my homework for you.
+Next time we talk, I want you to be doing more than 50% of your work on your phone.
+Yeah. I mean, that's why you're here, right? Like, you're.
+A lot of people ask me like, how do you choose guests and why do you explore topics,
+certain topics, over other topics?
+And it's really, it's for everyone.
+I love arming people with the information, the tactics, the systems, but I'm also everyone.
+I'm a part of that. Right?
+A part of that is I know that you're doing this and I want to understand why you're doing it.
+And I also want to understand.
+
+One of the takeaways I have is your system for dealing with tasks is not too dissimilar to a
+very organized person.
+Pre AI like the idea of like pinning, you know, your most important things, like it's on one
+hand it's pretty obvious, but on the other hand if no one tells you, like, hey, you know the
+way to do this so you stay sane is via that system.
+You're you. It's overwhelming.
+Yeah, it is funny. It's like back to the basics, right?
+Yeah.
+It's just in an agent age and it turns out like being a very, very good engineering manager is
+probably one of the most valuable skills you can teach yourself.
+And you know, I have the honor of sort of mentoring my nephew right now and he's coming
+to me and asking me how do I win?
+You know, he's just come out of college soon, how do I win in this new world?
+Right?
+And you know, I basically teaching him what we're talking about in the show, it's like, okay,
+your job is going to be managing as many agents as you possibly can.
+Get good at that, right? Which means, you know, you need to start to adopt these, these
+behaviors.
+Right?
+Work in the cloud, prioritize what you're doing, learn how to make high stakes decisions
+quickly, get technical.
+It is a farce that engineering is going away.
+If anybody tells you engineers are going away or becoming less technical, they're just not
+doing the work.
+And it's like being a carpenter. Say you had robot carpenters around.
+If you are a real carpenter, you'd be a much better manager of those robot Carpenters
+
+because you understand how to make the cut, where to put the nail.
+And so it's important so to back up.
+And if you're listening to the show, the thing I want you to walk away is cloud agents.
+Get your reps in, figure out how that works, try it a couple times, do it from your phone and
+get comfortable looking at your small phone interface and learning how to work that way.
+So I think that's thing one. It's very important.
+The second thing I want to dive into is automations.
+Okay, so say you're working in the cloud, well done.
+You're starting to separate yourself from the crowd. The second thing is automations.
+You need to sort of think about things that you would have normally had a meeting with
+once a week with your team where you check on something or daily you check on
+something and build an automation.
+Well, what does that mean?
+So the first thing to do is go back to your agent, start a session and say, okay, I want you to
+automate this task every X amount of days.
+And so one of them that I do, it's really simple, is that I want to automate the test of signing
+up for untangle, creating a case, onboarding a client, having that client go through discovery,
+basically our user experience.
+But I want that to be automated in a browser.
+This is not rocket science, this is basic user testing.
+But it turns out that good agents can do this.
+The big unlock is set up your agents so that they can make themselves better instead of you
+trying to build these systems.
+And so I set that up and then in Devon, it's really cool, it's called a playbook.
+But the idea is it's sort of like here's how to do this thing. It's different than a skill.
+
+It's more of a list of things to do, how to do them correctly.
+And I have a, it's called end to end signup test and that runs three times a week because it is
+expensive.
+It's probably 60 bucks in tokens because it's doing a lot of browser testing.
+And I think that's sort of a side point I want to explain here is it's now vital that your agent
+can properly browser test and it really should work out of the box.
+Right?
+This is part of the reason I use Devin is because they've been using cloud agents that can do
+browser testing for two years now.
+It's so good, it records a video, it annotates the video, it then looks at its own video and it
+fixes, fixes bugs that it sees Right.
+So you have this agentic loop that is specifically around browser testing that then is
+automated three times a week.
+Right. And then what do you do with that? And then you need to trigger a triage based off of
+that.
+So say that it's like, oh wow, the third test failed in this automation.
+I'm going to spin up a Devin session or an agent session to then fix it.
+And then you have to figure out where do you know that that failed?
+How do you know, did the agent just kind of silently fail and then fix itself?
+What about the PR that was created?
+So you have to start thinking about how do you see these things when they happen? Right.
+As the manager of all these agents, how do you know what's failing and what's not?
+And that's again, we should talk to your agent and say, okay, we've got this end to end test.
+I understand it runs Monday, Wednesday, Friday. I understand triggers a child triage
+session.
+
+If anything goes wrong, how do I know about it?
+And then your agent might say, well, why don't I post in Slack?
+And you could say, well, okay, how are you going to do that? Well, we need to connect the
+mcp.
+How am I going to know? Look in that channel.
+There's just all this machinery that you need to automate and figure out and work through
+to build that system of automation so that you are doing less of the work.
+So this specific automation, is this more of a bug testing QA automation or is it more of a UX
+QA perspective?
+This one is more about finding bugs that have been introduced to Prod that somehow we
+missed in our user tests in our automated test suite.
+So that one in particular is like, hey, we just can't have signups go down and not know about
+it.
+But sometimes your automated test suite just, it doesn't catch everything.
+But a good old fashioned clicking through the site in a browser catches that.
+It is not really about the ux. I think that there's, there's no.
+One thing I will say is there's no substitute and we probably won't have a substitute for a
+while of you using your own app.
+There just isn't a good substitute right now.
+So right now every so often I literally go through our entire app myself and then I obviously
+quickly spin up sessions to fix bugs.
+I find. But we're just so far from agents still.
+The smartest models in the world still lack this sense of obvious intelligence where you're
+like, why did you think that was okay?
+Well yeah, I think the bigger question is if there's a division of labor between human beings
+and agents, what are the tasks that you as the human being are going to be doing?
+
+What are the sets of tasks and what are the sets of tasks that the agents are going to be
+doing that you're okay with them doing and keeping you in the loop?
+So my question for you around automations is beyond qa, what are some other automations
+that a founder could be implementing?
+So let me pull up my list for you.
+So the kind of automations that I have are clearly qa bug fix, fine.
+The other is what I call my production watchdog.
+So we've got a lot of real law firms using untangle.
+We've got a lot of real clients going through discovery and we've got.
+With just a huge amount of activity.
+And honestly, I can't keep track of it mentally by just looking through logs.
+And so what I do is every day at 9am I have what's called a production watchdog
+automation, which what it does is it goes through all of the events in the database that
+happen for our paid customers and it summarizes that in a JSON file and then that JSON file
+is in our admin.
+And then I know every morning I go in and I click on the production watchdog and I read
+through the summary of what the customers did and it's so valuable.
+So it's sort of like you can imagine your chief of staff showing up and saying, all right, Greg,
+here's the important stuff that happened yesterday for our customers, right?
+And I'm going to roll it up and explain the things that went well and a couple bugs that we
+saw.
+So that's an automation, essentially what happened yesterday that was important.
+So that one, that's a big one.
+Yeah, that's honestly a big one.
+Like, it's like one of those ones that sounds small but is a big one.
+Because you're going, you think you know what's going on, but you don't.
+
+Really, you don't. I mean, and it's, it's so shocking to me.
+Like, yeah, the amount of times I'm like, oh, and this is the other trick, man.
+So use a Production Watchdog automation, pick your most important customers and then
+make sure that in that report, it's like the customer did X.
+Here's a link to view that, right?
+And so I actually have a production instance where you click it and you actually see what
+the customer was doing.
+And then I'll be like, whoa, that's weird.
+Like, and we have this amazing Ability that, you know, over, you know, millions of years of
+evolution and very quickly picking up things that are off.
+And so there's a couple times I'm like, that's weird.
+And I click into it and it turns out, oh, the user experience that the agent built on, that wasn't
+quite what I thought it was.
+And so, yeah, production watchdog automation that links out to real UI is just, man, that's a
+game changer.
+So that's a big automation. This is a really important, a self improvement loop. How does
+this work?
+Okay, everyone's talking about self improvement, right?
+So in Untangle we have an agent called Grace and she is essentially a paralegal and she has a
+lot of chats with both our customers who are attorneys, our customers who are paralegals,
+and our customers and their customers who are clients that are getting divorced.
+So how do I actually grade those chats and then improve them without managing the fine
+details?
+So what I do is every day I have an automation that looks at these chats and then grades
+them on a rubric.
+And again, just talk to your agent about this.
+
+You pick the most important part of your app that you want to self improve and say, here's
+how you agent judge whether this thing that happens is good or bad.
+And then every day I want this automation to kick off, look at those things for us.
+They're conversations that Grace is having. And then I want you to grade them.
+And then if anything is bad or below this score, I want you to kick off a child session and fix
+it.
+And it is shocking to me the number of small fine UX details that have been picked up by this
+loop and have been fixed.
+And honestly, there are things that I just wouldn't bother doing.
+Either I didn't know about them or I'd be like, meh, it's a paper cut.
+Are we really going to ship a fix to that?
+But because the agent already identified it, spun up a PR and it's ready to ship, I just go ship
+it.
+And we probably ship, I would say probably three of these a day.
+Wow. Yeah, that's huge. And you know, a lot of the backlash on loops is just that it's
+expensive.
+How have you. With Devin specifically, has it been like absurdly expensive?
+Like what are we talking?
+No. Well, so here's the thing.
+So last month I spent probably 20 grand in tokens, which is just too much. Like it's not
+viable.
+I think all of us are in a place where we're getting to the spot where it's realizing okay, for
+real engineering work per employee, you're looking at probably five grand a month.
+That's probably where we're going to shake out here.
+And anything more than that, you really need to figure out model routing.
+
+And so thankfully Cognition knows this and everyone's figuring this out.
+Whether it's cursor cognition, I would say factory amp.
+All of the independent agent labs understand our customers have a limit.
+They are not going to pay infinite token budgets. And then you have the. This is me ranting a
+bit.
+But it's like you have cloud code and Codex who are just severely, they're funding tokens
+and making it seem cheap.
+But this is not going to work long term.
+And so what I do is basically I have learned how to use the right model for the right task.
+And so these reinforcement loops, they use what's called swe 1.7.
+It's a fine tuned model that Cognition has specifically built for coding.
+It's super cheap compared to opus. 4.8 GPT, 5.6.
+And so a lot of these loops happen with this cheaper, finely tuned model and we're just
+going to see more of that.
+So you're talking, I don't know, you know, actually I could probably, I could probably look
+and dig it out, but you're probably talking like 5 bucks a session on that.
+Okay, that's not bad.
+I mean, and if you're not willing to pay 15 bucks a day to improve one of the core, you know,
+feature sets of your, like, what are you doing?
+Like, either it's not a real company or you don't care.
+Yeah, totally.
+Spend the money like, and, and then, you know, figure out the system to reduce your token
+costs.
+I will say this is why I don't understand why anybody would build their engineering on a
+Frontier lab stack.
+
+Like, I'm just going to call it out.
+If your whole engineering motion is happening inside of Claude Code or inside of Codex,
+what are you doing?
+Because they are not incentivized to make it reasonable for you long term.
+They're going to lock you into their models to their process.
+Whereas if you use an independent agent lab, like an amp, like a Devon, like a factory, like
+sort of a cursor.
+But they're kind of weird.
+Now those systems are going to optimize for affordable engineering long term.
+And I don't think you want to be locked in to Anthropic or OpenAI solely.
+I mean, to be clear, you can still use their models within some of these products, right?
+So you're not abandoning ship?
+No, it's actually so it's yes and right.
+So the beautiful thing is if you pay an independent agent lab like a factory, like a cursor, like
+a cognition, like an amp, et cetera, they're incentivized to figure out how do I give you the
+best results for the lowest price.
+So they'll say okay, we're going to use GPT 56 SOL on extra high for this type of task.
+And then we're going to route, you know, to a Swe 1.7, you know, and then we're gonna
+have it check with a fable like they're gonna figure out that hard stuff.
+And the other thing I will say is if you're trying to build a software factory for yourself, stop.
+Like you know, the reason why you see ramp launch inspect which is their custom in house
+agent is because they got to a size where they had to build their software factory in house.
+And if you get to a certain size you will do that.
+But now if you're a one person shop and you're just building something, it's just you, you
+can probably get away with this $200 a month, you know, angle on a pick your frontier lab.
+
+But as soon as you graduate into okay, we're building a real product, we have product
+market fit, we're going to start hiring people.
+You got to build a software factory and at that point you want to be on an independent
+agent lab.
+Like otherwise you're going to have to build it yourself, which is stupid or you're going to
+pay and be locked into you know, a walled garden and you can't do that.
+The analogy I use for it is, you know, working with an independent lab is sort of like a, like
+working with like a mortgage broker or travel agent.
+Like they're going to make a lot of calls to make sure to get you the best price and stuff like
+that.
+Um, that's great.
+Yeah, to me I use both. You know, I, I'm in cloud code but I'm also, I use cursor personally.
+Although Devin I'm interested in.
+I might, if people are interested I might just do like a whole breakdown on Devin if people, if
+people want to, want to do that.
+Devin's so good now. You know, I just, it's so good, it's amazing.
+But I will say I do use codecs, right.
+The Mac app is so beautiful and they are subsidizing the tokens so much that if you want an
+agent on your machine just to do really cool helpful stuff, open browser tabs and create
+Google Docs and check your email and do all this information work and basically get it for
+free.
+I mean you're paying 200 bucks and you get almost infinite tokens. Like awesome.
+But don't build your company software factory on that. Like it.
+I just think it's bonkers to do that.
+We've covered a lot today. Is there anything else you wanted to cover?
+I feel like I'm just vomiting, you know, all, all the stuff in my head.
+
+Well, no, it's important that like this is what I wanted.
+I wanted you just to vomit everywhere because like it's sort of like advice that you, you
+would give to your, to your nephew, I think or 22 year old, you know, a 22 year old fresh out
+of college.
+It's like what are the minds I need to know in terms of managing agents?
+So is there anything else that people need to know? Cloud agents Automations.
+Yeah, cloud automations. Like those are the two that I want people to walk away from.
+I guess the third is really you will be using a software factory and what I mean is the agents
+are going to be writing 100% of your code, reviewing 100% of your code, shipping 100% of
+your code.
+That's where we're going. And so the more you can get there, the better.
+Thing one, thing two, I think thing three is it is important to build a credible reputation for
+yourself.
+And I will say the work I put in over, you know, the last 20 years on X, like it really pays
+dividends.
+And what I mean by that is if you, if you share what you're learning publicly and you
+generally give like write very helpful articles on X and obviously the algo really does reward
+articles still.
+So you should be writing articles on X, you should absolutely be on X, no matter how you
+feel about Elon Musk, because sharing your knowledge really does build up credibility
+which will pay dividends.
+And I don't mean just like getting paid to post, I mean the network and the relationships.
+I mean the reason why I'm on the show is because we built a relationship over X.
+And so I would encourage people take the time to share what you're learning.
+It doesn't have to be super polished, but get out there and be useful to people and it will
+open up doors.
+So you know more than you think. Just get out there and share it and you'll reap the
+rewards.
+
+Not immediately, but eventually.
+I mean even if you don't know, you can just say I don't know. And that's your strategy, right?
+And that's interesting too.
+Amen. And if you don't know, then ask an agent to help you.
+Yeah, I mean, my original co host of this show was Sahil Bloom.
+Sahil Bloom worked in private equity and during COVID he just started writing about topics
+he was interested in.
+Like he would be like just finance topics or you know, a particular individual who was
+interesting.
+And it, like, it read as like Wikipedia articles, but really focused on Twitter specifically like
+optimized for Twitter.
+And that was his thing.
+And he wasn't saying I know everything, he was just saying like, I'm learning this thing.
+Here's the thing I'm learning.
+He grew his audience, over a million Twitter followers, wrote a New York Times best selling
+book, started companies on top of it, raised a fund on top of it.
+So anything is possible for sure on X. Yep.
+Just, just get out there and do, do, do, do and learn.
+You know, there, there's no try, there's only do as Yoda says. Right.
+So totally Ryan Carson. I feel smarter and that was my goal.
+And speaking of X, you're a wonderful follow.
+I'll include links where you can follow Ryan across the Internet, including X.
+He's a must follow, so please do that. Thank you for coming on, sharing your generous
+thoughts.
+
+Incredible setup. And is there anything you want to leave people with?
+No. Thanks, Greg. Thanks for having me.
+The show, I appreciate you putting out the constant knowledge and sharing.
+It really makes the Internet a better place. So happy to be here and thanks for having me.
+All right, I'll see you next time. Take care.
+
+

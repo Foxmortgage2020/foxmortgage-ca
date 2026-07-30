@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-07-29',
+    title: 'Lender notes can be written to the Zoho file from the deal room',
+    detail:
+      'The deal room already had a Generate button that writes a draft you can read and copy out, and that has not changed. What is new sits underneath it: a control that runs the full lender notes generator against the CRM file and puts the finished note in Lender Notes on the Deal itself. It keeps whatever was there before as a history note first, then writes the new one, then adds a short log note recording the run, and it tells you which of those three actually landed rather than just saying it worked. Preview does the whole job and stops before writing anything, so you can read the exact text that would go on the file and then decide. This is the same generator that used to run as an outside automation, now called straight from the portal, so there is one fewer moving part between you and the note. It is admin only, it never appears in demo mode, and it needs two taps to write. If you press it twice inside ten minutes it will tell you it skipped and offer to go ahead anyway.',
+  },
+  {
     date: '2026-07-28',
     title: 'The booking reminders now run on their own clock',
     detail:

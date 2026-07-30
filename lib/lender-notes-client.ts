@@ -165,3 +165,90 @@ export function runSubmissionSet(args: {
 export function runNoteEdit(args: { dealId: string; text: string; demo: boolean; mintToken: () => Promise<string | null>; gatesTokenHeader: string; fetchImpl?: typeof fetch }): Promise<ActionResult> {
   return postAction(`/api/portal/admin/gates/deals/${args.dealId}/lender-notes/edit`, { text: args.text }, args, 'Demo: pretend-saved the edit.')
 }
+
+// ─── The Zoho write (N-06, 2026-07-29) ──────────────────────────────────────
+// The native Lender Notes Generator, the button's half. This is NOT the draft
+// above: it runs the ported n8n generator, and on a real run the note lands on
+// the Zoho Deal itself. Two things follow from that.
+//
+// NO TOKEN IS MINTED HERE. The other actions forward a browser-minted gates
+// token because the workbench records a human against them. Generation is a
+// machine path that records no human actor by design, so the only gate is the
+// portal's own session on the server route. Minting a token would be theatre.
+//
+// A DRY RUN IS THE SAME CALL WITH dry_run. It does every fetch and the whole
+// generation and stops before the three writes, so the card can prove the
+// chain and show the exact note without touching the file.
+
+export interface CrmWriteResult {
+  ok: boolean
+  message?: string
+  demo?: boolean
+  dryRun?: boolean
+  /** 'generated' | 'skipped_recent' | 'not_found' | 'generation_failed' */
+  outcome?: string
+  note?: string | null
+  dealName?: string | null
+  writes?: { history_note: boolean; lender_notes: boolean; log_note: boolean }
+  /** Non-fatal facts the engine reported (a thin section, a failed log note). */
+  engineNotes?: string[]
+  errors?: string[]
+  /** The engine refused because a note was written under 10 minutes ago. The
+   *  card offers an explicit forced second press rather than retrying quietly. */
+  skippedRecent?: boolean
+}
+
+// The engine states this in the skip note; the card keys the forced-retry
+// offer off the outcome, and this is only a belt for a reworded message.
+const RECENT_SKIP_OUTCOME = 'skipped_recent'
+
+export async function runLenderNotesCrmWrite(args: {
+  dealId: string
+  /** false performs the three Zoho writes. The card defaults to a dry run. */
+  dryRun: boolean
+  /** Regenerate inside the engine's 10 minute recency window. */
+  force?: boolean
+  demo: boolean
+  fetchImpl?: typeof fetch
+}): Promise<CrmWriteResult> {
+  if (args.demo) {
+    // Belt for the card, which hides the control in demo entirely: a demo
+    // press can never reach a real file, and never claims a write happened.
+    return {
+      ok: true, demo: true, dryRun: true, outcome: 'generated',
+      note: DEMO_LENDER_NOTE, dealName: 'Demo file',
+      writes: { history_note: false, lender_notes: false, log_note: false },
+      message: 'Demo: nothing was written to any file.',
+    }
+  }
+  const doFetch = args.fetchImpl ?? fetch
+  let res: Response
+  try {
+    res = await doFetch(`/api/portal/admin/underwriting/lender-notes/${args.dealId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'DRAFT',
+        dry_run: args.dryRun || undefined,
+        force: args.force || undefined,
+      }),
+    })
+  } catch {
+    return { ok: false, message: 'Could not reach the server. The run may still be going. Check the Zoho file before retrying.' }
+  }
+  const json = await res.json().catch(() => null)
+  const run = json?.run ?? null
+  const base: CrmWriteResult = {
+    ok: Boolean(json?.ok),
+    dryRun: run?.dryRun === true,
+    outcome: run?.outcome,
+    note: run?.note ?? null,
+    dealName: run?.dealName ?? null,
+    writes: run?.writes,
+    engineNotes: Array.isArray(run?.notes) ? run.notes : undefined,
+    errors: Array.isArray(run?.errors) && run.errors.length ? run.errors : undefined,
+    skippedRecent: run?.outcome === RECENT_SKIP_OUTCOME,
+  }
+  if (json?.ok) return base
+  return { ...base, ok: false, message: json?.message ?? `The generator failed (HTTP ${res.status}).` }
+}

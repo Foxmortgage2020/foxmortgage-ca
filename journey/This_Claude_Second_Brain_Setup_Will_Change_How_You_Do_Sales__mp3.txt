@@ -1,0 +1,441 @@
+Claude has entirely transformed the way me and my team do sales.
+We now automate a large part of our sales operation, up to a point that our sales reps are
+barely in the CRM anymore.
+But in order to make AI actually useful for sales, we need more than just an AI tool like
+Claude with some skills.
+We need to give AI access to up to date context and sales intelligence to actually automate
+work reliably.
+So in this video, I'll show you how we set up an AI sales operating system that that
+automates almost our entire sales process from lead gen to call preps, to CRM updates to
+follow ups and analytics.
+I'll show you exactly how to set it up through a combination of connectors, cloth skills, a
+sales second brain, and personalized sales dashboards.
+And I'll show you an easy way you can set this up today, even if you're completely new to
+this.
+Now, before showing you the sales dashboard from which we work on now, the skills that
+help us automate our entire sales process and a second brain setup that makes this all
+possible, let me first explain how this system works, because I think all of this will make a
+lot more sense to you, especially if you're new to some of these concepts.
+Now, firstly, if you think about it, essentially, sales really comes down to two things.
+One is gathering sales intelligence and two, based on the sales intelligence do the work.
+Because without the lead research, we can't actually prepare for a call.
+Without the ICP criteria, we can't qualify leads and, and without sales metrics, we can't
+create a good sales strategy.
+And the same applies to AI.
+But many people have been using AI for sales, have been mostly focused on point 2, trying
+
+to let AI do some of their work, maybe with skills, without actually giving the AI the
+intelligence and the data to do that work well and reliably.
+So essentially, the system we built automates both of these and the setup really consists of
+five different parts.
+Now, it might look overwhelming, especially if you're not familiar with some of these
+concepts, but I'm going to break them down one by one and show you an easy way you can
+set this up in a couple of hours.
+Now, in the center we have the sales second brain, where of course all of the sales
+intelligence lives, our metrics, our meeting transcripts, the status of the leads, and all of the
+other important data around our sales.
+Now that data gets automatically updated by of course, all of the data that lives in our sales
+software, which is the bottom layer where basically the raw data lives.
+And then we have One AI layer in the middle that basically filters that raw data and adds
+only the relevant things to the second brain on a daily basis.
+And we do that through scheduled tasks or routines.
+Again, if you're not familiar with these concepts, I'm going to explain it later in this video.
+And then on top of that intelligence layer in the sales second brain, we first of all have a
+personalized sales dashboard, which basically serves as the control center for the sales rep
+or sales manager or business owner, where it gets all the relevant intelligence for him or her
+to know what to do and what to act upon today.
+And we have the AI tool which also gets fed from the intelligence of the second brain to
+actually automate some work for us.
+And that can be through skills, through scheduled tasks or routines to automate work
+autonomously or can also be used, of course, if you just prompt Claude and give it access to
+this second brain and because it has access to that up to date information about your sales,
+it's going to give you far better and more relevant outputs.
+There's actually one arrow missing which is this AI tool with the automations it runs of
+course also feeds back into the second brain so we can show that data on the personalized
+dashboard.
+So let me start with the sales dashboard.
+
+So again, this is where our team or a specific sales rep can see all of the automated sales
+intelligence and has everything it needs to basically know what to do and act upon today.
+So we have different tabs here and in the first tab, the today tab, we basically get to see
+exactly what to focus on today with intelligence on upcoming calls, together with pre
+prepared call prep briefs where we can get a quick overview of this lead, get automatic
+qualification scores and all the relevant links from this lead.
+And we get an overview of exactly what to focus on today, the top tasks and leads.
+Then we get another tab with the general pipeline overview with important metrics.
+Now these metrics are not real.
+I change them for the video.
+I wish they were true, but not yet.
+Then we get the CRM snapshot with deals by stage.
+We get pipeline trends, meetings booked per week, revenue and commission per week.
+We get the close rates and the rep scores by dimension.
+We have another tab where all of the important documents for sales live, like the offer
+document, positioning and objections, the icp.
+So any of the sales reps can just look into it whenever they need it, the sales process, the
+tone of voice, etc.
+Then we have a tab with the entire tech stack this sales OS is connected to, which of course
+are all of the softwares that we use in sales, our CRM, in our case, a TIO proposal,
+generators, meeting transcription tools, scrapers to lead databases and outreach platforms.
+And then we have one more tab that shows all of the automations that are running across
+our sales.
+And also on a monthly basis, we get a monthly sales report with basically an overview of all
+the important metrics for, for this sales rep over the last month.
+And this sales dashboard we've implemented a month ago.
+And it essentially has eliminated entirely the need for this sales rep to even be in the CRM or
+
+in many of the other sales softwares, because even the CRM is automatically updated.
+And he has all the intelligence here to know what to do and focus on each day.
+And of course, this entire dashboard can be customized for each team member.
+It can be customized for sales managers to have much more intelligence.
+That's the whole point of this.
+And I'm going to show you exactly how to do that for yourself.
+Now, all of the data for that dashboard, of course comes from the Second Brain.
+And if you're not familiar with the concept of a second brain yet, it might sound fancy or
+complicated, but it really is not.
+All this really is, it's just a folder on your computer.
+As you can see here.
+This is exactly what you see in the Second Brain here.
+It's just a folder with lots of text files or MD files that of course are AIs created around all
+these things.
+And then this tool is just Obsidian, which is a free desktop app that helps you visualize
+folders on your computer and text documents in a little bit of a nicer way.
+And this graph view just shows the connections between these different documents.
+So what data do we have here in the sales Second brain?
+First we have a subfolder here with calls where basically all the call transcript get get logged
+together with a summary of the call and a sales call score.
+But it's basically scores the performance of the sales rep on this call.
+And we have another folder with general context files, the one that I also showed in the, in
+the dashboard with the general important documents for every business and every sales
+team, which is the ICP document, a document around me, the offer positioning, sales
+process, et cetera.
+
+And these are just extremely relevant to get better outputs from AI.
+Then we have another subfolder here with deals, which is basically a summary of the entire
+history of each lead.
+You can kind of see this as the CRM but for AI.
+And we have an intelligent subfolder with a quarterly and monthly reports live, another
+folder with our lead gen campaigns that Basically tracks every outreach campaign we've
+done with the metrics, the results and the sales sequence.
+And then a folder with all the skills inside of this system and common templates around our
+sales, like email templates, NDA1 pager, pitch deck and proposal.
+Now again, this might look like a lot, but we started a couple of months ago with a couple of
+documents and this grew to hundreds of documents.
+And this context compounds, right?
+The earlier you start using this, the better the system and the more intelligence it will have
+in one month or two months.
+So the most important thing with these setups is to get started as soon as possible.
+And I'll show you exactly how to get started with this pretty fast.
+And then the third big part of this system, of course, is the AI tool or the AI agent that
+actually automates the work for us.
+Now, there are two ways we use this second brain to automate sales work.
+The first is for repetitive sales use cases.
+We have built skills for basically all of them, like a call Prep skill, a client one pager scale,
+lead generation skill, a LinkedIn scraper skill to get new leads, outreach skill, pipeline
+review, a follow up skill, a sales generator skill.
+And the nice thing is using these skills in combination with our second brain is of course,
+when we use a proposal generator, it can actually get the intelligence of that lead from the
+second brain to create a proposal that's actually good and based on real data, real objections
+that the client gave and things like this.
+So the output just become far better for these skills.
+
+So for example, here I said, can you run the client one pager for my call with Tim tonight?
+Of course it's going to use the one pager skill, then ran the skill to get the SOP for this
+workflow.
+You can see it first goes through relevant reference files to figure out who Tim is, and now it
+can actually go and look through that second brain to get up to date information on this lead
+to get a far better client one pager out.
+We then get a personalized sales deck, basically which we can use in our sales call.
+Now, again, this is just one example.
+We have skills set up for all of these common sales workflows.
+If you want to see all of them, we have made them all accessible in my AI accelerator
+together with all the other skills me and my team are building out across all business
+departments.
+So if you're interested in seeing or customizing these for yourself, you can also check out my
+AI accelerator in the first link in the description below.
+Of course, also many of these workflows or Skills don't have to be triggered by us.
+So we have also set up many routines which basically can be scheduled to be triggered
+when an event happens.
+For example, a call prep we automatically run when a new meeting is booked.
+And a proposal generation we automatically run after a meeting is finished.
+For example, here we have a routine set up that automatically runs after a meeting is
+finished to create an email draft with a follow up and a proposal.
+But we might sometimes also have one off tasks, things that are not necessarily repetitive or
+automatable.
+In that case, we can just open a new chat or of course select the folder of that second brain.
+Because when we select it, cloud always has complete context on all the sales intelligence
+and all the leads that live in that second brain.
+
+And I can tell you, if your AI tool actually has access to that intelligence of the second brain,
+you'll be surprised how much better your outputs and your skills become.
+And while most people are still focused on this and automating the work, which is good,
+right?
+Creating some skills using AI, et cetera.
+But creating this infrastructure and to have this intelligence is really the fundamental step
+in my opinion, because again, in order for AI or humans to actually automate work, we need
+to have the sales intelligence and this entire infrastructure we only have to set up once.
+And all of this becomes instantly far more powerful.
+So let me show you exactly how to set this up and how to go about this.
+But if you're interested in making this setup become a lot easier for yourself, we've set up
+an entire sales OS plugin with a set of 10 skills.
+All of our skills that automate repetitive workflows which you can use or customize for
+yourself.
+But the most important one, and the one we spend the most time on, is the setup skill that
+basically helps you set up this entire infrastructure, the connectors to setting up the
+scheduled tasks and routines to update the intelligence layer in your second brain.
+It will set up your second brain according to the same folder structure that we have.
+It will then create even an entire sales dashboard for you that that's personalized and
+customized to your need.
+And of course in the plugin you'll also find the skills we use to automate our workflows.
+So you can basically just install and use this setup skill.
+It will then start asking you lots of questions, you want to probably sit down for an hour or
+two, and based on the questions you answer, etc.
+It will create this entire infrastructure for you, including the second brain, the scheduled
+tasks and routines that you need to automatically update it, and it creates a personalized
+dashboard for you.
+So we've spent a lot of time building this skill to make this setup process a lot easier for you.
+
+So if you're interested, it's available in the AI accelerator together with unlimited one on one
+live tech calls and AI consulting and weekly Q&As with me and my team.
+So if you have any problems, of course you can just get them resolved fast through one on
+one calls.
+So again, if you're interested, this will be the easiest way to set it up, but I will show you also
+how to do this without the skill.
+Also, if you're actually interested in me and my team setting this up for you in a
+personalized and custom way for you or your team, we.
+We also offer a service where we do exactly that together with AI training and AI consulting,
+which you can check out in the second or third link in the description below.
+And if you book in a call, you'll basically see our automated sales process in action, because
+this is exactly the service we've applied this entire system to.
+Now, even if you're planning to use the skill, it's still good to stick with me here just to
+understand the infrastructure for this setup.
+So let me start with the connector layer and then we'll work upwards to show you exactly
+how to build this AI sales os.
+Now, you're basically going to need two types of connectors connected in your cloud
+account or any other AI tool you use.
+First, your existing softwares, of course, your existing sales softwares.
+And the second is connectors that can scrape data from the Internet so we can actually do
+research on leads.
+So for your own softwares, you of course want to have your CRM connected.
+In my case, that's ateo.
+The key one of course is also to have a meeting transcription tool, in our case, Fireflies.
+If you don't have that yet, that's probably the first one you want to start implementing.
+We also have PandaDoc, our proposal tool, which can basically track when proposals are
+signed.
+
+Of course you want to have your Google workspace connectors like your Gmail Calendar,
+Google Sheets, etc.
+If you use cloud code, I recommend using the Google Workspace cli, which basically
+connects all of these Google softwares in one connector.
+Then we have Aircall, our calling platform, we have Slack, and lastly we have Vercel, which
+basically allows us to host this dashboard on a live URL, which we can then share across the
+team.
+So basically your core sales stack.
+Second, of course, if you do outreach, you want to have some Outreach platforms.
+The key one you need anyway, whether you do outreach or not, is Apify.
+Because Apify allows you to scrape data from LinkedIn or any other social media and the
+Internet, meaning this is the key one to have installed to automate your lead research, call
+preparation, company research, et cetera.
+So if you do cold outreach, of course you might want to explore some of these other
+connectors like Vibe Prospecting, which is lead database.
+You can of course use Apollo or LinkedIn sales navigator.
+And if you do outreach on email, et cetera, or LinkedIn, you can also connect those
+softwares there.
+Now, once you have your softwares connected to your cloud account, the next thing you
+want to do is set up a folder where our sales second brain is going to live, because this is
+what these scheduled tasks and routines here are going to update.
+Of course, if you're going to use the OS setup skill, it will help you set up this entire folder
+structure the way we've set it up for the sales os.
+Also, if you already have a second brain, you can easily incorporate this sales OS into your
+existing second brain by adding it as a subfolder or somewhere in the brain.
+For example, in our entire company Second brain, the sales OS is in a subfolder of the team
+member responsible for sales.
+So with us it lives in teams, but it can live somewhere else too.
+
+Now again, if you're completely new to this and this goes a bit too fast for you, I have a full
+beginner tutorial on setting up a second brain.
+So if it's hard to follow, make sure to check it out.
+I'll make sure to link it in the description below too.
+But all you really need to do is create a folder that you can call Sales OS or whatever you
+want.
+Sales Second Brain, you probably want to have a similar folder structure as we have.
+You can create these subfolders.
+It's good to have the second brain separated by subfolders, so you basically organize it
+better for your AI so it can navigate the second brain easier.
+You can also do this together with an AI tool like Claude by just opening a folder and telling
+it you want to recreate a sil Second Brain folder structure and then it can create all of these
+subfolders for you now.
+And then we have basically have two types of documents living in this second brain, right?
+Of course we are going to update it with real time intelligence from our softwares, but
+there's another type of context that is just sort of permanent and is really important context
+about you and your business.
+Like the ICP Doc, the offer doc, positioning, the sales process, stack and voice.
+These are the first ones you want to create because they're going to make the biggest impact
+when you're trying to automate work with cloud, because it instantly gets context around
+what you offer, your icp, et cetera, and your outputs will get far better.
+So, first things first, you want to really put some effort in creating these types of docs.
+Again, our OS setup skill will help you do this by asking you some questions around all of
+these things and then setting up and creating these docs directly into your second brain.
+You can of course also do this yourself.
+Maybe you already have some documents or you can create them together with Claude by
+just telling Claude something like ask me some questions.
+
+I want to create an ICP doc, a positioning doc, et cetera.
+Now, next thing you want to do is also create a Claude MD file for your second brain.
+Now, if you're not familiar with a Claude md, it's this one, which is a document that lives at
+the root of your second brain.
+And basically it's the map for your AI tool to understand the folder structure and where
+information lives.
+So it knows where to pull and save context from, depending on what you ask it.
+This is the first thing your AI tool is going to read or your cloud is going to read to know
+where to find data.
+So you can see it as a routing table to know which context lives where and some rules on
+how to navigate the second brain.
+And then you also want to set up a cloud MD for each of the subfolders to basically know
+how to also inside of the subfolder which documents contain which information.
+So you can see for each of the subfolders we have a separate Cloud MD.
+Again, you can ask Claude to create these Cloud MDs once you have your folder structure set
+up and the map selected, the folder selected by just telling Claude.
+Right, please create me a cloud MD for each of the subfolders and for the entire folder.
+Now, generally, there are some best practices to creating good cloud MDs, but just to get
+started, what you'll get out of a quick prompt with Cloud is probably good enough to get
+started.
+Again, you can, if you're going to use the setup scale, it will help you set up these cloud MDs
+according to best practices automatically.
+Now, once you have that, we can actually start populating the second brain with some sales
+intelligence from your software, which of course we're going to do by setting up some
+scheduled tasks or routines, so we make sure this gets updated every day.
+Now, again, if you're going to use the OSS setup skill.
+It will help you set up these scheduled tasks automatically, as you can see here, but I'll walk
+
+you through quickly how you would do it without.
+Now, we basically have two possibilities here.
+We can do it through scheduled tasks or.
+Or you can do it through cloud code routines.
+Essentially the difference is that in these cloud routines, they will run in the cloud, meaning
+they will always run no matter whether your laptop's open or not.
+And the scheduled tasks will only run if your cloud desktop is open.
+So we set these up through routines, but if you're not completely familiar with it, it'll make it
+a little bit more complex.
+So I recommend starting with scheduled tasks if you don't have experience setting up
+routines yet.
+So basically you want to set up sort of three main scheduled tasks or routines to make sure
+it automatically updates your brain.
+And the first one is the Sales OS morning routine, which basically goes through everything
+that happened over the last 20 or four hours in your calendar, email, sales calls, et cetera,
+and updates the second brain with that info.
+So here you can see we have the salesos morning routine that runs every day.
+Now, the prompt for this one is pretty in depth, as you can see here.
+I've also prepared a free guide here with all of the prompts of all of the routines that are
+running inside of this system.
+So you can check them out in more detail, maybe customize them for yourself or use them
+like this.
+But you can see it walks through a process of putting the calendar, putting today's calls,
+prepping each call if there are new calls for yesterday's calls and meeting transcript, take all
+of that data and reconcile.
+It does a hygiene routine and logs what it has done.
+So this basically updates this sort of subfolder, the call folder, of course, the log folder, the
+
+daily folder where it logs what is done each day.
+It preps for calls, of course, which we see on the sales dashboard and adds a new deal if
+there was a new client that came in or new prospect.
+But again, you can read it in detail in the free resource, in the link in the description below,
+or if you're going to use the skill, it will help you set this up for you.
+In the second one, the Sales CRM Sync, it goes through the software to make sure that our
+CRM is up to date and the status of each lead is correct.
+And it also updates information about the status of each lead inside of the second brain in
+that deal folder.
+So you can see in this one, it first checks our proposal Generator tool to check for the status
+of proposals, if they're signed or not.
+It cleans the deal fields, it freezes one and lost deals, it flags cold deals, it checks metrics,
+creates a snapshot on the deal.
+But again you can read the full prompt in the free resource and then the last one, which is
+optional, which is what we have.
+It's basically a sales call scoring routine that looks at the all the sales meetings and
+transcripts we've done over the past days and then grades the sales call performance which
+is also logged in the call folder with each of the transcripts.
+And this basically helps our sales reps get some coaching to to improve their, their, their
+sales calls.
+And then we actually have three more which are more for the long term.
+You shouldn't have to worry about when setting this up, but these are going to be useful
+when you're using it long term, which is the monthly report, the quarterly report, and the
+sales OS campaign metrics, which is very useful if you do outbound campaigns.
+Now again, the OS setup skill will help you set up these too.
+And I'll add all the prompts in the free resource too if you want to check these out too.
+Now once you've done this, you'll basically have this part already built which is the most
+important part.
+
+And you'll now have an up to date sales second brain that is compounding and getting more
+sales intelligence by the day.
+Now once you've set this up, of course now you can use the second brain inside of your AI
+tool.
+All you need to do is select the folder whenever you start, prompting Claude to instantly
+give it access to that intelligence.
+And if you build skills, all you need to do is reference with where it can find the intelligence
+inside of the skill in the second brain.
+Again, all the skills we use you can also find in that OS sales plugin inside of my accelerator.
+And then the last part of course is setting up that sales dashboard.
+Now essentially there are two parts to creating the sales dashboard is first, we need to
+create that dashboard once and then once we have created it, we need to make sure it's
+updated every day with the latest information with one more scheduled task or routine.
+Our OS setup skill will also help you set up that scheduled task or routine automatically to
+make sure your dashboard's updated.
+And it'll create an entire dashboard for you, customized and personalized to your brand
+style, but also to the information you want to show on your dashboard.
+But if you're going to do it yourself, all you need to do is go to Cloud code, open a new
+session, select your Second Brain folder, and then you can literally just tell Cloud, I want to,
+in plain language, I want to build a dashboard on top of my sales second brain and I want to,
+on top of the data that you can find in the folder, you can go back and forth with Claude to
+build you that dashboard.
+And then you have two options for deploying this dashboard.
+You can use cloud's feature of artifacts, live artifacts, which would be something like this,
+looks something like this.
+It will live on a URL here.
+The only thing you want to keep in mind here is that you can only share this with members
+in your team that are also in your Cloud team account.
+And the second option we've used, which is you can deploy it on a live URL through a
+
+connector called Vercell, right?
+Which is free to use.
+You can use this on the free plan to basically just host whatever you've built onto a live URL,
+which means you can now share it with anyone without them having to have access to your
+to your Claude account or being the team plan.
+All you need to do is connect Vercel to Claude and tell it to deploy it onto a live URL through
+Vercel.
+Then you also want to tell cloud to save the HTML, to save what it's created the dashboard
+inside of the second brain.
+And then once you have done that, of course we need to make sure it's updated every day.
+So we have to set up one more scheduled task or routine.
+It's again, I've added a prompt for this scheduled task or routine also in the free resources,
+so you can check it out in more detail.
+But basically what it does is it goes through your existing page that you already created,
+then it goes through the latest information in your Second brain and then basically rebuilds
+the page based on the new data that's in there and then redeploys it onto that URL.
+And this is how we make sure that every time you open it, it's updated to the latest
+information.
+And that's really it.
+That's how the sales OS works and how you can set it up again.
+It might look a little bit overwhelming if some of these things are new to you, but I highly
+recommend sitting down for a couple of hours and trying this out, because if you can get to
+a setup like this, it can really drastically change the way you and your team do sales.
+It looks very complicated at the start and intimidating, but really once you get this set up
+and running, especially this entire infrastructure, there's not that much maintenance.
+Again, if you're interested, you can use the Sales OS setup skill.
+We put a lot of effort in this to make this entire process a lot easier for you.
+
+It will still take you a couple of hours, but you don't have to worry that much about the
+technicalities.
+You mostly want to start answering questions to cloud so you can personalize and create
+this entire system so it works best for you.
+So again, if that's interesting, you can check it out.
+In my AI accelerator we also help with unlimited one on one live tech help and AI
+consulting.
+We also have a community with many other sales professionals, business owners, sales
+managers that are rolling out AI and full courses on cloud and setting up your second brain.
+Also, again, if you're interested in me and my team actually setting this entire infrastructure
+up for you together with training and consulting, you can also check out the third link in the
+description below and book a free meeting with us.
+Thank you so much for watching.
+And if you want to learn more on how to set up a second brain, you can also check out the
+video here above.
+
+

@@ -115,6 +115,14 @@ export const PERMISSIONS = {
   // button feeds the deal's own data through the lender-notes skill and lands
   // a draft; nothing is sent. Admin only on both sides.
   'notes.generate': ['admin'],
+  // Run the native Lender Notes Generator against the Zoho file (N-06,
+  // 2026-07-29). PORTAL-LOCAL, not a gates key: this one rides the workbench
+  // BRIDGE_SECRET machine path, so the gates API never sees it. Deliberately
+  // separate from notes.generate, whose whole promise is "draft only, nothing
+  // sent" — this action overwrites Lender_Notes on the CRM record of truth
+  // (previous notes copied to a history Note first) and appends a log Note.
+  // One key covering both would make the other key's label a lie. Admin only.
+  'notes.crm.write': ['admin'],
   // The submission substrate (finmo-substrate session, 2026-07-15). CONTRACT
   // keys with the workbench. finmo.snapshot.pull fetches the Finmo application
   // (the DATA write audits as system there); submission.set records the target
@@ -221,6 +229,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'commitment.upload': 'Upload a commitment or amendment (conditions stay pending until the list is approved)',
   'document.upload': 'Upload a borrower document to a deal room (indexed and matched against conditions)',
   'notes.generate': 'Generate a lender submission-note draft for a deal (draft only, nothing sent)',
+  'notes.crm.write': 'Write the generated lender notes onto the Zoho file (overwrites Lender_Notes, keeps the previous version as a history note)',
   'finmo.snapshot.pull': 'Pull the Finmo application into a structured, cited snapshot for a deal',
   'submission.set': 'Set the target lender, insured status, or rate override on a deal',
   'notes.edit': 'Save an in-place edit of a lender submission-note draft',

@@ -1,0 +1,1237 @@
+﻿Here we are, we are live. Let's see if we can get the first people in here. I'm excited.
+
+First time using a new technology and I'll give everyone a, a second to get in here and to 
+actually get on board in here.
+
+And then if you're watching and you can see me, you can hear me, if you would give me a 
+quick comment in the chat, please.
+
+Maybe a little thumbs up something.
+
+As I said, we're switching to a different tool, which I'm very excited about, but I just want to 
+make sure everything is working.
+
+So a little thumbs up, a little. Yes, we can hear you. That would be very much appreciated.
+
+Echoing someone says all right then I'm trying to think what that could be.
+
+So you're watching on LinkedIn someone that says all good. So it could be on your end.
+
+Yeah, most people are saying that it's all good with the audio and video, so that is good.
+
+I'm a little underweather, I have a cold.
+
+So if I'm going to be sipping some extra water, coughing, sneezing, all that, then I do 
+apologize in advance.
+
+But that is unfortunately what happens when you have young kids at school.
+
+So I see a lot of people here, LinkedIn, YouTube, mostly LinkedIn. I'm just, you know, trying 
+to.
+
+So we have instantly AI/Academy says live.
+
+So I just posted a link there where you can also watch it just in case maybe you're having 
+issues with audio, video, what have you, or even the future.
+
+We have a live event and you're not 100 sure where to go, then that is our page.
+
+
+
+So the Instantly Live base and then as you're on the Academy appreciable, I think that's 
+pronounced full.
+
+It says live. So I'm gonna, I want to check that out.
+
+Then Dane says the room echo could be the things that when I have the microphone this 
+close to our mouth is, is usually all right.
+
+But I'll, I'll see if there's something I can do in the near future about that.
+
+Unfortunately, now is not the time to start making my room more soundproof.
+
+So I'm looking at the Instantly Academy and I'm live on there. That's good.
+
+So for anyone who's going to ask about replays, future learning sessions, how to learn more 
+about this, that type of thing, then the Instantly Academy is the place for you, is the place 
+where you want to be and where you can learn all about outbound AI agents, GTM 
+engineering, how to get more results, etc, so that is where you want to go.
+
+So Instantly AI Slash Academy is where you can learn all of this at your own pace.
+
+Right, so now we are, we are live, which is good.
+
+I really like this format, but I understand that sometimes it might be going a little bit fast or 
+you just want to, you know, rewind something, watch it again.
+
+And then you know, the Instantly Academy is the place for you to learn at your own base.
+
+You have some very interesting courses on there right now coming as well.
+
+Very interesting stuff is coming there. So definitely make sure you check that regularly.
+
+Then let's see, I'll give everyone one more minute and then we can, we can get started just 
+for everyone to join.
+
+Now, the, there's the most common questions that I always get.
+
+I'm going to address the, the first two first. So will there be a replay? Don't leave.
+
+But yes, there will be a replay on first of all on your preferred channel.
+
+If you're watching on LinkedIn on the event, you will get the replay.
+
+
+
+On YouTube you can find a replay.
+
+And then on the instant, the Academy will post the replay ASAP as well.
+
+So yes, there will be a replay.
+
+And then as for other questions that you may have, just go ahead and drop them in the chat.
+
+I read all of them, but I always take them in the last, let's say 15 minutes of the webinar 
+because otherwise this breaks up the flow too much.
+
+So I just take the questions by the end of, of our session here. Now we're scheduled for an 
+hour.
+
+I think this could be the, the shortest webinar that I will ever do.
+
+Just because the setup of what I'm about to show you is just absolutely so flipping 
+straightforward and easy that it really.
+
+I could do the whole webinar in two minutes. I'm not gonna, I'm gonna.
+
+I did a setup video not long ago last week, I think, where that just took, you know, just 
+literally one minute to, to set everything up.
+
+And I'm going to go into a little bit more detail here today and then we'll do a full AI sales 
+agent course for the Academy soon as well.
+
+So again, you can learn at your own pace.
+
+So I'm going to start jumping in, I'm going to start sharing my screen before we get started.
+
+I'm just curious if anyone has any, you know, questions about AI sales agents outreach in 
+general that you may want to get out of the way.
+
+Then maybe I can answer some questions and that will give some other people the, the time 
+to join as well.
+
+Then I will start sharing my screen. We can jump into it so William.
+
+Hey, William, he's asking, are these AI sales agents industry exclusive or can they dep.
+
+Can they be deployed or more traditional services? Absolutely.
+
+
+
+So how it works, what you want to do is have a quick look at Instantly Supersearch.
+
+If your leads are in there, then yes, you can deploy the AI sales agent for your industry as 
+well.
+
+So we use our own database for this as that, you know, as the data source. So have a look.
+
+There are your leads in there. Great. Get the AI agent going and then you're, you're good to 
+go.
+
+Then you'll be.
+
+So it really is as easy as just having a quick look at the, at the SuperSearch database.
+
+So any other questions, drop me in the comments. I see all of them.
+
+I will take them by the end of the webinar.
+
+I'm going to start sharing my screen, have a sip of water and then we're good to go.
+
+We're going to get started with AI sales agent.
+
+Again, apologies for me being a bit under the weather. Jeffrey, just start.
+
+Yeah, I got you, Jeffrey. Don't you worry. People are, are very excited, just like Jeffrey.
+
+I appreciate it, Jeffrey. Let me see. So I'm just gonna get. There we go.
+
+You're unfortunately no longer able to see me. But hey, that, you know, is what it is.
+
+But at least you're able to see the important part.
+
+So this is instantly now, if you're not familiar, we did some reshuffling here in the navigation
+bar and you can navigate here to AI agents.
+
+Then if you do that, you'll see two different options.
+
+When you click Add new, so you want to click Add New, then you have the AI sales agent 
+and the AI reply agent.
+
+So the AI reply agent you potentially already saw, if you haven't, then definitely.
+
+And if you haven't used it yet, definitely check it out.
+
+
+
+And also check out the course that I did on that and how to set that up.
+
+It makes your life a lot easier for where, where it manages your replies.
+
+So you're getting, you know, you're sending cold emails, getting replies. Great.
+
+Then reply agent handle this handles that for you. But now we ship the AI sales agent first.
+
+A big question usually is, okay, how much does that cost?
+
+So we made that very clear here on the front end.
+
+It will cost you five credits per lead that is being processed and that is a lead that is being 
+processed end to end.
+
+Meaning that these are leads that we find the email, we write the email, send the email, 
+reply to them, book the demo, everything end to end.
+
+5 Friday so I think that's a phenomenal price just to have this set up an autopilot and as you 
+can see, it finds icp, match leads, crafts the emails, then builds the multi step outreach 
+sequences, then itself optimizes from reply patterns, which I think is something that is 
+absolutely killer.
+
+So it will look at, okay, what's working, what isn't and then self optimized based on that, 
+which is a huge time suck usually when you know where you have to babysit your 
+campaigns.
+
+And now with AI sales agent, that's no longer the case.
+
+So we're going to select the AI sales agent and what we're going to do.
+
+So all you have to do is plug in your company URL or you can drop in manual instructions.
+
+So if you're saying, okay, my website maybe doesn't have enough context or maybe okay, I 
+have a website, but we have a, you know, a new product that we want to launch or just you 
+want to use this AI sales agent just for this specific product, then great, have Claude or I 
+don't know who write your, you know, product description, target audience and all that, 
+drop it in there and, and then you're good to go as well.
+
+But in our case we want to do outreach for the entire product suite that we have instantly 
+AI.
+
+
+
+You hit accept the AI sales agent terms and that's it. It really honestly is that easy.
+
+Now what it's doing under, you know, let's say under the hood behind the scenes is it 
+actually scrapes your website and then uses your website to build a, let's call the Go to 
+market strategy or the go to market playbook where it looks at, okay, what is that this 
+company does and what is likely to be the main vertical that they want to go after, Main 
+Persona, the ICP that they want to go after.
+
+So it's already finding initial prospects, preparing initial campaigns.
+
+Now what that looks like is it wrote a business description.
+
+So it looked at, okay, instantly, this is what they do great.
+
+And then obviously it uses that further along in the process to actually write outreach, right,
+Emails, et cetera.
+
+And then there are different business offers that you have here and excuse me, when you 
+click into them, you can see the whole thing.
+
+So instantly helps sales teams at B2B companies book more meetings instantly, VIP helps 
+enterprise and agencies book more sales meetings.
+
+And then there's a lead finder as well.
+
+So here you can say, okay, these business offers are great, but maybe for this quarter or for 
+these specific campaigns we just want to focus on instantly.
+
+Vip, for example, which is a killer service that we have or add a new one and then it will just 
+use that business offer at that angle for reaching out, which is again very helpful.
+
+Then under customer profiles there are different profiles you can see.
+
+Again you can say we just want to use the instantly VIP servers that we have for marketing 
+and sales managers at mid size agencies.
+
+And when you click into this, there's more under it, more behind it.
+
+As you can see, it goes down a lot and you can actually edit all of this.
+
+So let me run you through really quickly.
+
+So again, just to quickly recap, these are the icps that I will start reaching out to.
+
+
+
+First it says, okay, these are the different business offers.
+
+You can select the different business offers and then these are the icps that it will start 
+looking for.
+
+So this is just the name that you see when you click into will start looking at, okay, what 
+problems do we actually solve?
+
+And again, that is obviously something that it will use to write the emails and you can just 
+delete them where you're saying, okay, it's great that I found this.
+
+But you know, us actually talking to these customers, we realized that this is a better angle.
+
+That is a better angle. Or you know what, it didn't 100% capture what we really do here.
+
+That's completely fine. You add it and then it will start doing that going forward.
+
+But in this case, looking at sales managers of mid sized agencies, for example, some of the 
+problems that VIP solves for them is they have limited resources, they have challenges in 
+actually creating the outreach themselves, difficulty managing follow ups.
+
+Email deliverability is obviously a big one.
+
+I already saw a question about that in the chat and I will get to that in just a second.
+
+And then there's tying everything together. Now there are main benefits here.
+
+As you can see some of these benefits, they are around the platform.
+
+So AI copilot, if we want to reach out for vip, maybe I want to take out the AI copilot one 
+and, and I would just want to add, okay, fully managed prospecting service, for example.
+
+Right. So I will add that one and then it will focus on that. It's a one time setup.
+
+It usually is just good, let's say off the shelf, out of the box, but just quickly skim through it 
+and the more context you give it, the better it will be.
+
+Right again, out of the box is good, but you could add these little tweaks and these little 
+insights in the context that you only have because in the end it's your business and you 
+know, you have a pretty Decent idea of what works and what doesn't.
+
+The best part of the AI sales agent is that the moment you set it up, it will do everything for 
+
+
+
+you.
+
+This makes your whole life a whole lot easier.
+
+So then unique selling points, that's pretty straightforward.
+
+So only one platform then customer goals that they have.
+
+So based on, you know, the problems that we solve, what are some of the, the goals that they
+have?
+
+And then it will say, okay, these are problems that they have. These are the goals that they 
+have.
+
+How can our solution tie into that? Just be that bridge in between and solve that.
+
+That's how it actually writes the emails where it says, okay, we have a marketing agency, 
+sales leader, this is a problem that they have.
+
+This is our solution. Great, how do we tie all that together?
+
+And it will write the email for every single prospect. So these aren't sequences.
+
+It will actually write, let's call it one by one email.
+
+So every single prospect, based on what it is that their company does and what they do, gets
+unique email based on this entire playbook that we see here.
+
+Then it pulls in success stories as well. Now this is a case study from our website.
+
+And then that is actually a case study.
+
+It can then just let's say name drop or mention a social proof in the email, which is obviously
+a great thing to have in there.
+
+And then that is up until success stories and below that.
+
+So the keywords, this is the actual targeting.
+
+So this is the actual targeting it will use with Super Search. Right.
+
+It will start looking at, you know, industries, company sizes.
+
+
+
+And again this, you can fully edit this and if you say, okay, great, but actually, you know, we 
+can go after the bigger guys as well.
+
+Great, just add it and it will start doing that. It really is that easy.
+
+And then, you know, industries, that makes sense. The job titles, all of that makes sense.
+
+Maybe we don't want to go after the freelancers. That's completely fine.
+
+All of this, the moment you're saying, okay, that looks good, save it, you can add new ICPs 
+obviously and then that is good to go.
+
+Then we have guidance here. And that is the last thing that you can add here.
+
+I'm not going to go too deep into this because this is all very, is a very broad scope of the 
+things that you can add here.
+
+But it can be something as, as simple as write in UK English or just custom rules that you 
+want to set up here as you can add up to 10 different smart rules to store, you know, 
+additional instructions for the AI sales agent.
+
+My advice here is don't go, don't go bonkers at the beginning. Just have it run.
+
+And then as you're seeing the performance and as you're seeing how it runs and what it 
+does, then maybe you can say, oh, you know what, I like how it does that.
+
+But I think that maybe could be a little bit different. Great.
+
+You add a different smart rule here on the guidance and you keep, you know, you keep 
+building and compounding as the agent actually runs.
+
+So that's my recommendation for the additional guidance. So there we have it.
+
+That was under the memory tab. Now it knows all there is to know about your business.
+
+What does in our case instantly do? What are the separate, the different offers that they 
+have?
+
+What are different customer profiles that we sell into?
+
+What are, you know, the, the problems that we sold for them. Great.
+
+That gives us everything that we need to write good call emails.
+
+
+
+And that is exactly what it will start doing.
+
+Then here you can actually set up some of the settings. So I'm just gonna quickly run 
+through them.
+
+In my case, I'm a big fan of autopilot mode and as you can see well, and also auto reply to 
+responses, which is the same as the AI reply agent that you already know and love.
+
+So it's kind of the two things baked in one. Right. Which is very, very helpful.
+
+It doesn't just send emails and then that's it.
+
+It actually sends emails and then it keeps the conversation going and then actually tries and,
+and actually book the meetings under here.
+
+You can, you can actually drop in the accounts that you want to use.
+
+Maybe you want to set some, you know, some accounts aside just for an AI as an experiment
+or if you're saying, hey, you know what, I'm ready to hand off all of my outreach to the AI 
+agent.
+
+Great. Then just select all your accounts and that's it. Then you can set a schedule sending 
+limit.
+
+Now, this isn't something that is, you know, that is too exciting and you can play around 
+with this.
+
+You can obviously just, you know, set, you know, a limit that is realistic with how many 
+inboxes that you have and then a schedule that makes sense for the ICP that you're going 
+after.
+
+So keep this in mind a little bit.
+
+Maybe if you're going after, you know, UK markets and US markets, then it might be a good 
+idea to set up two different agents.
+
+Then each agent goes after a different geo. Right.
+
+So after, you know, North America and uk, so you can optimize your sending schedule then 
+here I recommend leaving all of this toggled on just to quickly run you through.
+
+So disable open tracking. That's kind of, you know, best practice these days.
+
+
+
+You can leave it on, but there's no real reason to leave it on, honestly. Then enable ESP 
+matching.
+
+If that's not something you're familiar with, what it does, it looks okay.
+
+Imagine that you as a sender, you have a Outlook inbox for sending and a G Suite inbox for 
+sending.
+
+Like you probably have a 10 and 10 for example, and the recipient has an Outlook inbox.
+
+Then it will try and send from the Outlook inbox to the Outlook inbox and vice versa.
+
+If your prospect has a G Suite inbox, it will try and send from the G suite inbox.
+
+That's just proven to get, you know, into the inbox more often. Helps with deliverability.
+
+So we'll automatically do that.
+
+Which is a pretty like it's a small future, but it's definitely one that makes a, makes a big 
+difference.
+
+Prioritize new leads. That is honestly one of my favorite ones. It's a really small city one.
+
+But what it does and if you haven't read it yet on our website, we not long ago published the
+cold email benchmark report.
+
+And you can clearly see that if you know the first email is where you get most of your replies
+and then by the second email, sure you get some replies but after that it's just, it drops off a 
+cliff.
+
+What that does is it will first imagine you have a thousand leads.
+
+It will first send the first email to all thousand and then all the follow ups to 1000 instead of 
+on, you know, day three, for example, it will send the first email to 10 leads and the follow 
+up to another 10 leads instead.
+
+It just does it, you know, one by one if you will.
+
+And that, that is one of my favorite future as well because then you can just get, get more 
+people that first email and you can just get more, more replies.
+
+Let's say early on text based opt out which adds that plain text unsubscribe link to every 
+
+
+
+email saying hey, and I'm sure you've seen it.
+
+Like it will say if you, you know, if you don't want to hear from me anymore or if this isn't a 
+good fit, just let me know and I will unsubscribe you.
+
+So we'll add that. Excuse me. And then the Slack integration. So that's pretty 
+straightforward.
+
+So select the Slack channel and you will get notifications there as well as a daily report of 
+activities which is very helpful where it will show you okay, you know, contacted this many 
+people, this many replies, et cetera, and you can just keep tabs on things a little bit.
+
+So definitely recommend setting up Slack and that's it. So let's have a look at the live feed.
+
+So it found 10 leads so far, which, you know, which is great. And we can have a quick look.
+
+One really small, you know, really small future that I like is the map here where it shows 
+you exactly where the leads are, who we're targeting, and also shows you where the replies 
+come from.
+
+So who knows, maybe you're saying, okay, all of my replies are coming from New York and 
+you can actually do a New York campaign.
+
+But it's a small thing and, and I thought it was pretty neat, pretty cool.
+
+But you'll usually be looking at this where, okay, you can just keep tabs.
+
+And again, you get this in Slack as well.
+
+But it's always good just to look at it and visualize things where you can see the status.
+
+Right now it's learning, so it's looking. Okay, let's set something up.
+
+Let's find some leads, let's see what's working.
+
+And then the leads are actually in here, so you can see the actual leads and it will actually 
+enrich them fully.
+
+So for those of you who already have worked in, in Supersearch, you'll know that we have a 
+lot of data in there, like a lot of different signals that you can look for.
+
+So it will get company news, funding, etc. And all of that can be used for the email, right?
+
+
+
+All of that is relevant to write the email. So we'll see.
+
+Okay, this, for example, this company has been in business for 50 years.
+
+As of 2023, it has raised up to Series B, I think maybe got acquired by, you know, by venture 
+capital at some point.
+
+Those are all things that once you throw all of that context into the AI Blender, you will get 
+better messaging, right?
+
+So you have all of that context, then you have the problems that you solve, the solutions that
+you have.
+
+All of that, again, is into the AI Blender. That just makes for good messages.
+
+So you get your company description and then all of that turns into initial email, initial 
+subject, and these subject lines, those are all things that we've optimized after sending, 
+seeing literally billions of data points.
+
+So billions of emails that we're seeing, and we're seeing what works and what doesn't.
+
+And based on that, okay, these are the types of subject lines that actually work.
+
+All lowercase, you know, three words usually. And those are the ones that Just really work.
+
+Look like let's say an internal email then.
+
+So initial email follow up 1, follow up 2, follow up 3 after that it's, you know, the chance of 
+getting reply pretty much aren't there.
+
+Then as you can see it writes the whole email based on all of that context.
+
+And then the sentence I talked about, the opt out sentence that I mentioned, then here, all 
+the, you know, all the emails, I'm not going to read through all of them but initial email, then 
+there's the follow up and it takes a different angle based on, you know, there's the first angle
+here, initial email, different angle for the follow up, different angle for, for the second follow 
+up.
+
+And then the third follow up is, you know what we call a, well I call it like a, let's say Hail 
+Mary email, like a sequence saver where you know, where you really like you're letting 
+them know, okay, you know, this is the last one that you get from, I'll pause here, this is the 
+end of things.
+
+
+
+But you know, this is what we do.
+
+And then you'll be surprised how many replies you still get from just by saying, okay, you 
+know, this is the last time.
+
+Like it's that, you know, people don't really want to lose anything.
+
+Like it's a FOMO type thing and people actually respond to that pretty well.
+
+So I'm a big fan of that angle.
+
+That said, these are the emails, they're very strong because of all the additional context that 
+we usually have.
+
+Now obviously someone asked me earlier, does it work for local businesses, lawnmowers, 
+that type of thing?
+
+Like yes, it does, but we're not going to find too much company news or anything too 
+exciting about those businesses.
+
+Right.
+
+So the, the types of emails that you're going to find that we're going to write for those, 
+they're very, very solid.
+
+They just don't have as much rich input usually as for, you know, for well funded startups, 
+for example.
+
+Then again the email writer that we have here trained on so much data that even from just a
+website or company description is able to come up with some really, really strong and solid 
+emails.
+
+Again, this is based on billions of data points.
+
+So there's always, you know, there's always something there. Then that's honestly 
+everything.
+
+As I said, it could have been a two minute webinar.
+
+We're at 20 minutes and the setup really is that easy. I do see a lot of questions.
+
+So we're in a pretty unique spot where usually only have like 10, 15 minutes for questions.
+
+
+
+Now we can take, you know, some more questions, which I think is, is good and exciting.
+
+So this is the AI sales agent.
+
+I very much encourage everyone to try it out, test it out and just, you know, play around 
+with it for a bit and then set it maybe on human loop first and then later on autopilot and 
+you'll be surprised by how well it runs.
+
+So I'm gonna go through some questions.
+
+If you have any questions, then just, you know, drop them in the chat, keep them coming.
+
+And I see some, some business deals taking place in the comments as well, which is, which is
+always positive.
+
+I see everyone here's having a good time. All right, let me see.
+
+So William, you asked about, you know, the landscape and cleaning, etc.
+
+I hope I've addressed your question. Then Ryan is asking.
+
+I feel overwhelmed with having or having to get so many domains and emails for this to 
+work.
+
+What's the minimum? That very much depends on your goals, on your market size, on.
+
+Imagine it's just you and you want to book some sales appointments, then sending 2,000 
+emails per day is not going to work because you're going to get a bunch of appointments.
+
+Then you have to pause the campaigns and then you have to start them again.
+
+And it just doesn't make a lot of sense to just try and blast through your entire market that 
+way.
+
+So instead just say, okay, just try and reverse engineer it a bit and say, what am I looking to 
+achieve here?
+
+How many demos appointments can I realistically take? What is my close rate from Cold 
+Outbound?
+
+How many clients does that mean I will add per month? Great.
+
+Then you're a Verge engineer that you see how many emails you should be sending based 
+
+
+
+on what currently your average reply rate is.
+
+If you don't have that metric yet, maybe go with let's say a 2%, which is a conservative 
+number in a lot of cases, not in all of them.
+
+And then just do the, like crunch the numbers.
+
+If you need to send, for example, 100 emails per day, then with between 15 to 20 inboxes, 
+you're good to go.
+
+And you can get done with a couple of domains.
+
+So it really just depends on, you know, the, the metrics that you're working with.
+
+Then it is asking, can we upload the leads manually? Not for now. For now.
+
+It really is a fully automated process, so end to end.
+
+And there's no option yet to bring your own leads. I'm not sure that's on the roadmap.
+
+For now, it really is. The focus really is on the end to end. Prospecting flow.
+
+Then does it validate the emails? Yes, it validates the email as well.
+
+Finds the emails using our waterfall method, then validates them.
+
+So definitely then the credits are charged if the agent is able to successfully execute the end 
+to end task email reply book.
+
+Now the credit is charged when the agent is able to successfully send the sequence.
+
+As in, we find the lead, find the email, validate the email, write the sequence, send the 
+sequence.
+
+So it's not a five credits per book meeting. Think that would be unfortunately too good to be 
+true.
+
+Then let's see.
+
+Does that mean if we use AI Sales agent, we don't have to use Super Search to find emails, 
+verify and Rich Profile?
+
+No, it does it automatically for you and it charges the same credits. Right.
+
+
+
+So the credits that you're using now for SuperSearch, it uses them for the AI sales agent. But 
+no.
+
+Exactly.
+
+You don't have to go into supersearch, find the emails and drop them into the AI sales agent.
+
+You just tell the AI sales agent, this is who I want to go after, or this is my business.
+
+AI Sales agent tells you who you should be going after and it does all of that for you.
+
+Then Andrew's asking, does this also work with LinkedIn outreach? Not for now.
+
+We do have those integrations, as you are probably aware of, with Heyreach, AIM Forks and 
+Valley, but unfortunately those aren't in here yet.
+
+Then again, this is still the first launch of the AI Sales agent with many more new launches 
+yet to come.
+
+Then excuse me, what if I have a companion process which is my first one?
+
+Would I just start a new campaign? Yes. So it's not able to take over existing campaigns.
+
+Just go ahead and start a new campaign with a sales agent then.
+
+Dane, distracted by the Pokeball extension. Yeah, I'm a big fan of the. Of that scraper.
+
+If you don't know what it is, then shoot me a dm. Does each rep have their own AI sales 
+agent?
+
+Or how does this distribute the leads across the company? It's pro Workspace.
+
+Now, if you go under settings and then under accounts to use, then you could for example, 
+say, okay, this sales agent gets these accounts from rep number one.
+
+Let's call them John. Right. So AI Sales agent, you name it.
+
+John gets all the accounts from John and maybe gets his territory as well.
+
+Then, you know, Caroline, Caroline, you get, you know, you set up your inboxes with Sales 
+Agent 2 and then that is all for your ICP or for your territory, for example.
+
+
+
+So you can set up different agents and then Give them different inboxes for the different, 
+different reps that you have in your team.
+
+I have. Let's see. Dennis, this might be a bit of a tricky question to answer on here. Let me 
+see.
+
+I have two email addresses warming up RTOB7 so you need help syncing instantly with 
+Mailerlite? Yes.
+
+So definitely reach out to support or check the Slack community that we have.
+
+If you're not in there yet, check out the Slack community.
+
+We have channels in there where you can ask your questions and we can jump in there and 
+help you with your specific integration question.
+
+Then can you add HTML email formats for the AI agent to send? Not currently.
+
+You don't have now going back to deliverability, this is the control that you have over the 
+emails.
+
+We really fall back to let's say cold email best practices by saying we're going to try and 
+send especially if you disable open tracking, send us plain text, text based op outs, opt out, 
+not links, etc.
+
+But, but we write the email so you cannot actually insert HTML or add images or any of that.
+
+So that's not an option currently. Is this better than Apollo Donna? In my personal 
+experience, yes.
+
+Then again that's up to you to find out.
+
+But definitely reach out if you want to do a full comparison we're happy to show you.
+
+And in most cases the answer it depends.
+
+It could be that you have a very very specific workflow that may be better with a different 
+tool but generally speaking instantly is absolutely at the top of the food chain.
+
+Then once our agent is live can we export CSV files of the emails found as records to track?
+
+That is a great question. You can currently not export them.
+
+
+
+You do have full insights and you can set up a webhooks for example where if you go to to 
+automation integration you can set up webhooks there for now that there's honestly a real 
+question because I tried it today I'm not 100% sure if that also gets the AI sales agent 
+emails.
+
+So that is a very good question that honestly I would have to answer later.
+
+So if you don't mind shoot me a DM on LinkedIn I will ask the team and then I can answer 
+that better for you.
+
+You. That's a great question. Then Simon says my AI agent doesn't do the follow ups.
+
+That is very very odd because there's not something I've heard before.
+
+So definitely reach out in the chat or in the Slack community better in the chat usually 
+because then the support team can directly look into your workspace into your account and 
+see what might be going on.
+
+It could be that maybe your your inboxes aren't connected or showing an error.
+
+So first look at your email accounts and if all looks fine there definitely reach out.
+
+We'll get you sorted then how does it send emails on autopilot?
+
+It just does it use your inboxes and just automatically sends the emails for you just like an AI
+agent then.
+
+So other metrics that I have to know so I can know how good or bad are my campaigns.
+
+Definitely check out our cold email benchmark report and you can use that for 
+benchmarking.
+
+So that is if you go to Instantly AI and then in the main navigation you can see they're called 
+email benchmark report.
+
+Then will there be a teams integration? What about bidirectional sync with HubSpot?
+
+We already have Bisenc with HubSpot as far as I know that sort of goes back to the question 
+earlier.
+
+As far as I know that currently doesn't cover the AI sales agent but definitely reach out on 
+LinkedIn because I'm going to ask the team about this after we jump off here just to make 
+sure that you know that, that I'm fixing to get my knowledge.
+
+
+
+But if it's, you know, if you, if you're talking about instantly.
+
+Generally speaking we already have hospital integration as well. Webhooks, zapier, all of 
+that.
+
+So you're able to solve most of your sync and integration issues.
+
+Then when it comes to AI sales agent, I will figure it out for you.
+
+Then other integrations are being asked. We're adding integration at a very, very rapid 
+speed.
+
+So definitely stay tuned for other integrations.
+
+Then Sean's asking, can you configure the leads, find it to a specific territory only? Yes, you 
+can.
+
+You can do that based on geographic targeting.
+
+So jump into Supersearch and see what you have available there.
+
+When it comes to the different, you know, geographic targets you can do per city, per, you 
+know, per region etc, so have a look at that and what you see in there is what the AI sales 
+agent has access to as well then so you've connected on LinkedIn that's good.
+
+I appreciate that. When we get a copy of this recording. Yes, I see you're watching it on 
+LinkedIn.
+
+Just when this event finishes, it will be right then and there on LinkedIn and then soon also 
+instantly AI Academy then this is my first time tuning in.
+
+I appreciate it. Theresa, how do I get started?
+
+Head over to Instantly AI and sign up there or book a demo and if you want to start learning 
+for yourself, head over to Insulator AI Academy and you can just get started learning about 
+code outbound and you can actually get started on the right foot then.
+
+Has anyone tried instantly reach out to PI attorneys?
+
+I personally haven't but Instantly has thousands and thousands of users so I'm confident 
+people have.
+
+
+
+Then can we manually upload a list of leads? Not for the time being.
+
+Do you need to set AI reply agent at the same time too for to follow up? No.
+
+So that is let's say baked into the whole experience. So that is.
+
+It's a package deal, let's put it that way. So just end to end management. So reply for you.
+
+How much will it cost in dollars, not tokens?
+
+That depends on how many tokens or credits you're buying.
+
+If you're buying more credits then the per credit price goes down.
+
+So then naturally the price, the dollar price of it goes down as well.
+
+So definitely check out Instantly AI slash pricing and you can have a look for yourself then 
+does instantly AI sales agent only pull Google MX record emails?
+
+I'm not 100% sure what you mean by that, so yeah, reach out to me and clarify that for me.
+
+If you wouldn't, I'll be very happy to answer. Then where are the emails sent out from?
+
+The idea is that you either add your own email account or accounts or. Or you buy them 
+from us.
+
+That way you protect your main domain and those email accounts.
+
+Those will be used to actually send the emails and the AI agent will manage everything end 
+to end for you.
+
+Then can you run outreach for multiple companies through one account?
+
+Yes, because it is like the memory is per agent. Right.
+
+So if we're quickly going back to the first setup, we dropped an Instantly I as a domain that 
+is one agent.
+
+So that is you know the instantly the AI sales agent.
+
+You can then just add, you know Microsoft.com and that is the Microsoft.com AI sales agent 
+and so on.
+
+
+
+So yes, that works.
+
+Just make sure that when you go to settings and accounts to use that is using the right 
+accounts.
+
+Then does 5 credits include the email information? Yes, that includes everything.
+
+Then can we get the list of leads to using all the platforms to reinforce the outreach as in 
+multi channel outreach?
+
+Not currently, but again we do have that already into our platform.
+
+So to add that to the AI sales agent isn't a huge step and definitely something that we're 
+investigating.
+
+We don't have a timeline for it yet unfortunately.
+
+I mean Instantly Vip this is already being used now. You get the VIP service.
+
+That means that we have our GTM engineers actively managing your accounts.
+
+So you get something even better, which is, you know, highly trade humans actually using it 
+then looks very promising.
+
+Leads count seems a little low.
+
+That's because it's the first in that, you know, first initial learning phase and it's just a quick 
+demo.
+
+We have users sending hundreds or thousands of leads or emails with this per week.
+
+Then we've not at the conference instantly alone could cover our leads needs.
+
+Then we have millions, hundreds of millions of leads in the database.
+
+So it really just depends on who you're targeting.
+
+If you're targeting someone, an ICP that's very specific, it might be a different conversation.
+
+But if you're saying hey we can target fairly broadly, then instantly can very, very likely help
+you definitely reach out for a demo.
+
+And then we can just quickly run through your ICP and actually, you know, look at some 
+
+
+
+numbers and I'm confident we're able to help you.
+
+Then can the agent write in different languages? Not currently.
+
+You can try that with, you know, with a different, you know, instructions.
+
+But for now English is the main supported language.
+
+Then can instantly scrape data from person's website or write personalized emails?
+
+Yes, that's exactly what it does. Then do you need to set AI place? I already answered that 
+one.
+
+No, that is actually baked into it. If the leads are not relevant, can we delete them? Not for 
+now.
+
+However, you can adjust all the targeting.
+
+So if we go back to customer profiles here and you look at the icp, so you can just really, you 
+know, tweak this and most of all tweak, this is where we can start, you know, excluding 
+keywords, titles, all of that.
+
+And then it will just really get you a very, very targeted icp.
+
+Meaning that the leads will in, I'm not going to say in all cases, but in most cases be very, 
+very relevant.
+
+Then what if you want to send them straight through to self service sign up then you can 
+add that under guidance here and you can say always make the CTA about signing up at the 
+website XYZ.com for example.
+
+Then does the AI sales agent come with the growth plan? It comes with every plan.
+
+It just uses create credit. So whichever plan you're on, you can use the AI sales agents.
+
+Then what are the data providers with which you partner?
+
+Spartan Waterfall Enrichment we have a lot from find email to contact out to Lead Magic to 
+our own email finder.
+
+So we have a lot.
+
+You can add your own API keys, you can set up different ones, you can change the order.
+
+
+
+So have a look at Supersearch. We have a lot of different integrations.
+
+Can I bring my enrich list with custom emails from Vibe prospecting?
+
+Not for a time being, unfortunately, but you can obviously add those in your normal 
+campaigns.
+
+You can then ask Copilot to write a sequence for you, or you can import them into Super 
+Search and then use the AI write email function to write a personalized email to every single
+lead there.
+
+So just quickly circling back to all the people asking them to bring my own leads.
+
+Add your own leads to Super Search, Use the AI email writer so that it will write emails for 
+every single prospect and then it's turn on the reply agent and that way you can contact 
+your own leads.
+
+It's not the.
+
+It's not the same experience, but it will get the job done and it's, you know, as close as it gets
+to this whole full autopilot experience.
+
+Then let's see.
+
+Are the agents that the agent find the leads that the agent find the same as super shirts? 
+Exactly.
+
+Those are the same ones. Then let's see. Right.
+
+So Matt, monetary cost, that depends on how many credits you're buying.
+
+So just have a look at the pricing page, see how many credits you want to buy and then let's 
+say the, the token value changes based on how many you buy.
+
+Then it is better than a day at the park. The good thing is you can have both, right?
+
+You set it up and then you go to the park. So let's see. I see multiple people.
+
+So does that mean all the emails are going to sound exactly the same?
+
+Right, so no is the straightforward answer there.
+
+
+
+Just because the context for every lead is very different.
+
+So Louis, you said okay, spoke with a prospect, booked a meeting.
+
+A prospect showed me an email exactly the same with the same subject line.
+
+I would love to investigate that because having the exact same email from different 
+outbound teams is extremely hard.
+
+So if not impossible.
+
+So I would really like to dig into that and investigate that because that's very odd to me.
+
+So shoot me screenshots. Happy to have a look at it.
+
+But no, just because every context for every lead is different and we use the same structure 
+for emails.
+
+But no, if company A is reaching out to leading, company B is reaching out to a lead, it will 
+look different just because what you're selling is not the same as what someone else is 
+selling.
+
+So unless there's no. Unless there's, There's.
+
+The emails will not be the same simply because it always writes new emails for every 
+prospect the context for every prospect different and the context for what you and your 
+business do, that's different as well.
+
+Then so what the credit costs 5 credits per lead and complete sequence.
+
+Then see last couple of questions and then we have to start putting an end to this.
+
+So do we still have to set up each email box for outbound email campaigns first before using 
+the tool?
+
+It does need email inboxes.
+
+You could say I'm going to use instantly done for you email accounts and then you don't 
+have to do any setup and it was automatically select them.
+
+Or you can set up your own email inboxes and add them to the Insta platform. Both work.
+
+I definitely recommend going with, you know, I Recommend Going with Dom4You.
+
+
+
+So how do we get access to AI sales agents? Is that the AI agents tab? Yes.
+
+So you go to AI agents here, then add new and then AI sales agent. That is the one.
+
+Then if you don't see the live feed etc, then it might still be populating.
+
+So just give it a second and then you should be able to see all that. If not yet, then reach out.
+
+But that should populate in just a second. Excuse me. Then you're welcome.
+
+William and Orissa then William. So another question about the context.
+
+Just definitely, you know, upload them into, add them to a list within the super search tab 
+and then have AI write emails and add them to a campaign.
+
+You don't need the sales agent for that because you have the reply agent to do that for you.
+
+Then let me see. A lot of thumbs up like good, someone joined late. So that is five credits per.
+
+Then let's see.
+
+And then Lima Don, I think this question right here and then that is probably the last 
+question I'm taking because I think this question covers the other questions very well.
+
+So about editing prospects for now, everything is, you know, end to end, let's say done for 
+you now at the time there's no, there's no way to edit what is going out.
+
+But if you know, you're looking at the initial emails, at the first emails and you're not a big 
+fan, then definitely go under, you know, memory and guidance and add some guidance 
+there.
+
+Say, okay, I want the emails to be a bit shorter, a bit longer, mention this or don't mention 
+that.
+
+So you can, you definitely have influence over the general guidance on how things are being 
+written.
+
+So if you know, if you have internal writing guidelines, then definitely add them in here and 
+then it will pick up on that and use that to influence the emails that are being written now, it
+doesn't like.
+
+We still use a lot of our own guardrails and frameworks just to make sure that, you know, 
+
+
+
+we write solid emails and nothing breaks.
+
+But you're able to influence how everything is being written.
+
+So definitely have a look at that and hopefully that is helpful.
+
+And then, Robert, will there be recording of this presentation? Yes.
+
+So I see you're watching this on LinkedIn.
+
+The moment I close this live stream, which will be in about a minute or two, then just wait a 
+second and then you will have the replay right then and there in the LinkedIn event, it will 
+also be on instantly AI Academy, where you can learn more about AI agents and everything 
+else that we do instantly, as well as call outreach.
+
+And if you're watching this on YouTube, the same goes. You will catch it on YouTube.
+
+So I hope that was helpful.
+
+I see some people asking about, let's see, you know, like a little love from the support team, 
+definitely.
+
+So I think you, you asked earlier about, you know, the lead count, reach out to support or 
+drop something in Slack or shoot me your, your, let's say, ICP requirements and I can have a 
+quick look within super search.
+
+And then if you're saying, okay, we're definitely a little bit more niche now, that's something
+that's definitely worth, you know, worth looking into and seeing how well the coverage is 
+there.
+
+For now, the support team hopefully can help you and if not, shoot me a message on 
+LinkedIn.
+
+We can have a look. Thanks very much for tuning in.
+
+My apologies again for the excessive coughing and sneezing. But I hope you learned 
+something.
+
+I hope you're able and excited to set up your first AI sales agent that actually does outreach 
+for you.
+
+Someone asked if it's better than a day in the park.
+
+
+
+The best thing is, as I said, you can have both. You can set this up.
+
+There's no more babysitting your campaigns. There's no more thinking, oh, are we actually 
+sending.
+
+There's no more, oh, I need to add new leads to my campaigns. There's no more.
+
+Okay, what's working, what isn't. There's all that for you off the shelf, out of the box.
+
+It will run your outbound for you and you can either go to the park, go fishing, or actually 
+run your business and not be worried about outbound, about results.
+
+So everyone, thanks for joining.
+
+For more learnings, for more webinars, for more live sessions, definitely check out Instantly
+AI Academy.
+
+You can see a lot more from me if that's what you're looking for.
+
+But most of all, you can learn a lot about instantly about cold reads for now.
+
+Thanks everyone very much for watching and I will see you in the next stream. Bye bye.

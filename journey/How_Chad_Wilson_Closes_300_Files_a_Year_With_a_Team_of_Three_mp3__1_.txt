@@ -1,0 +1,611 @@
+
+
+
+
+Closes 250 to 300 mortgages a year with one staff member on compliance and one on renewals.
+
+Most brokers need a team of five to that many mortgages. Chad Wilson is a 9 to 5 mortgage broker Monday to Friday.
+He's been a broker in Winnipeg for 23 years and he's built a 10,000 client database that currently drives 60% of his business.
+
+You hear why he refuses to do pre qualifications, how clients made him the most recommended broker on Reddit as well as without him posting a single thing and a five minute phone call that starts every single file.
+
+Hey, I'm Scott Beckford, this is out of Mortgage Brokering podcast.
+
+Excited to chat with my friend Chad. Before we jump into this episode, a couple more highlights.
+
+Talks about his 10,000 client machine built a homemade CRM on Daylight Zapier and Mailchimp has 40% renewal conversion, how a 45 minute planning session turns renewals into closed files and why he does no pre qualifications and no chasing.
+
+Before we jump into this episode, I want to share a shout out to our sponsor, Omwell. Omwell is an amazing tool for Canadian brokers.
+It's it creates these monthly reports that shows buying power home equity and they got a very high open rate, 60 to 70%.
+
+And they also bull comb through your database to find opportunities for people to save money.
+
+Check them out at Omwell CA Scott and check out this conversation with Chad. Hey Chad, welcome to the show.
+Thanks for having me, Scott.
+
+So tell me a little bit about yourself and how you got into the mortgage biz. Well, I've always had a strong interest in finance.
+Never really grew up to want to be a mortgage broker, but went to business school.
+
+I worked for an investment firm, learned a lot about the mortgage investment side for a few years and now I'm in Winnipeg, so there weren't a lot of options here.
+
+I'd have to go to Toronto to work in that space.
+
+So I thought I'll try this mortgage broker thing back in 2003, back before. Anybody was doing it and before it was cool.
+Yeah, that's for sure. I call this really my first serious job and I was going to give it a year. And here we are 23 years later.
+Right. So I know that we had chat before you turned on the recorder.
+
+You averaged something 250 to 300 files a year. But you have a very small team.
+
+And I have found that people like yourself that are in markets with smaller mortgages are incredibly efficient at mortgages compared to against the guys and girls in the other Markets that have big mortgages.
+
+But I'd love to ask some questions about what you do specifically to be able to manage that many files.
+
+And you still have all your hair, which is credible, sort of great, but still there.
+
+Yeah, so is mine. All right, so you're handling these 300. Where's your business come from? Let's start there. Where's your primary lead sources?
+If you were to think about the buckets they come from, where does that look like right now?
+
+You know, there's an interesting one I'll bring up here at the end that I would have never thought of in a hundred years.
+
+But my business comes from very calculated sources.
+
+I don't want to have a bus bench with everybody at Winnipeg calling me that has a mortgage because my phone will ring for the wrong reasons.
+
+So I would say the majority of my business, 20%, comes new business from Realtors. We're not building relationships with those Realtors.
+They just know who we are and that we do a good job. 60% Plus comes from existing clients.
+
+We're starting to get more and more business from places like Reddit. Interesting.
+Yeah, Ask every client. You know, how did you hear of us?
+
+And I don't know, there's been at least 50 or 20 this year alone that have said, hey, did you know you're like the most recommended guy on Reddit?
+
+And I'm like, I barely go on Reddit, so.
+
+Right. But customers do. Interesting. Okay, so you've got Reddit, you've got your past.
+
+And when you say past clients, what percent of that 60% is repeat clients or referrals from your database?
+
+Yeah, they're either referrals or we're redoing the existing client.
+
+I've been in the business a long time, so now starting to do business of my clients. Clients. Kids, right? Do you have idea of how big is your database of past clients? Yeah, it's a little more than 10,000.
+Okay. That's a monstrous database. People would kill for. I know people that would kill for that.
+
+So if 60% of your business is coming from that database, what are the things that you're doing for them to not forget about you?
+
+Yeah, so I'm not a drip email marketer type guy. I think there's a lot of really great tools.
+
+I've actually gone down a rabbit hole and exactly what Ketaki would in recent years.
+
+There's a lot of amazing tools in front of us these days where clients only want to hear from us when we have something valuable to say, at least in My opinion.
+
+So, you know, we ask them how they want to hear from us. If they want a monthly newsletter.
+
+Well, click the monthly newsletter campaign. They've asked for it, they generally open it.
+
+But for the most part we're just every year trying to pull out certain data from clients and running opportunities.
+
+So sometimes there's an opportunity, sometimes there isn't.
+
+These, some of these technologies like OwnWell and some of the calculator sites that we've got, even if there isn't value, is a really good opportunity to reach out and say, listen, we've looked at your file.
+
+There isn't any value.
+
+Right. And even that somebody in your team that does this. Right. It's not you specifically making those calls,.
+Or is it A lot of times it's me. Okay.
+Yeah.
+
+How do you know who to call if you've got 10,000 people? So I'm having the.
+And this is where the filters come in grade and some of the technology out there right now I can throw my database into some calculations and it will spit out opportunities that I can drill down.
+
+So I'm hitting the opportunities within that find first. And on my own one's maybe just getting a drip.
+
+This sounds a lot like what Jim Trelucas does. So what tool are you using?
+
+What software or combination of software tools are you using for managing this database? I actually am not using a lot of the tools.
+I've looked at Property Fox, I've looked at ownwell, I've looked at a few of these other ones. I'm an old school guy that has a whole pile of spreadsheets.
+My CRM that I use is actually one I built out myself.
+
+It wasn't because I thought, you know, I'm not a tech guy, but there was really no great options back in the early days.
+
+So I use a program called Daylight.
+
+It's an app with Apple and I've just kind of built this out and I run a pile of zaps in there to just pull up data as I need it so I can write a zap to pull out whatever information I.
+
+So you use Daylight as the anchor point and then you can run campaigns.
+
+Jim Tolucas does it off a spreadsheet, by the way, with similar number of clients.
+
+You don't need to have sophisticated tools if you can get the data you need and then you act on the data.
+
+A lot of people don't act on the data you're using Daylight, it'll identify people that have an opportunity and then that's the ones you're going to prioritize, reaching out to correct.
+
+Yeah.
+
+The way that I've built out Daylight is there are certain cells within Daylight that I want that are.
+
+We're diligent making sure are up to date as a file closes and we do our compliance. So I can use Zapier to pull out certain data or write that data into another program. Zapiers are such a powerful tool.
+You can really nail down whatever it is that you're looking to execute on.
+
+We all have a general idea.
+
+You know, certain clients within a certain range at a certain rate probably have a good opportunity while we can pull that data out.
+
+So you pull out that data and then how do you run these campaigns?
+
+Like what is a campaign that you ran recently that was very effective. What was the specific.
+
+I'm going to get a bit nerdy here, but what was the specific sort of parameters you went in to look for in order to find opportunities in that database?
+
+I'll give a shout out to Matthew Imhoff on this one.
+
+I think it was at an, Was it an MPC event And he, he's like, hey, did you know that there's like no interest rate differentials at TD bank right now?
+
+It was this moment in time where I was like, you know, I'd done some TD business.
+
+I thought, what an opportunity to reach out to clients. And sure enough, he was right. You know, that window time didn't last very long.
+But that was a good example of point in time where I just recognized a certain type of client would potentially have value.
+
+I love this because if you have the data and you have the ability to go source it like you're doing, you, you can run specific campaigns.
+
+Do you have a rough idea of how many files that translated into for you? I don't. I probably should do a better job of measuring my reach outs.
+I didn't tell you I was going to ask any of this. You're just gracious to. Come on. I said, let me just ask you some questions and see where we go.
+I use mailchimp.
+
+Scott and I could go into and I have all those numbers because mailchimp does a great job on that kind of stuff.
+
+But I just, I just don't look at them Right. And so, okay, then the data is held in daylight.
+
+You're using Zapier and campaigns to pull out specific targeted lists.
+
+You're sending messages to that group through mailchimp. Is that correct? Yes. And is it. Then book a call with me. What if they don't book a call? Do you call them Then.
+Or is it just you send them the email and then if they put their hand up, then you talk to them?
+
+I don't follow it up, I send it out.
+
+I've told that client right from the onset that I'm only going to reach out to you if I have something for them to say.
+
+I'm not going to try and pitch you anything. So I just kind of leave it in their hands.
+
+And what I found is sometimes they respond to me in a week and sometimes they respond to me when it's too late.
+
+Still a good opportunity to connect with that client. Right.
+Once you've identified this prospect, you send them a message via email and that's your number one way that you would actually then get them to put their hand up and they'd say, hey, let's chat.
+
+Chad.
+
+Yeah, yeah, there's probably better ways to.
+
+Do it, but that's, that's. No, no, it's. Dude, it's working. Could you optimize?
+
+I say the same thing to Jim Tras. If he put some technology around it, he could do even. But there's a point where it's like it doesn't matter. You're going to have to expend more.
+You probably make your overhead. Is it worth the trade off? I don't know. Maybe it's not broken.
+
+You don't need to fix it, in my opinion. Now what about on your referral partners?
+
+You said real estate agents are referring because they know you. What do you think? Why are they referring you and what's working for you with real estate agents?
+Yeah. So we have pipelines that we put deals into that have senses of urgency on them.
+
+We live in a market where financing conditions are, you know, if they exist, they exist for sometimes a day or two.
+
+Yeah, I heard your guys market is what it was like during COVID Everywhere. Else it's just wild and it hasn't given up in a very long time.
+So we have lenders that we're committed to working with and there's a bit of a trade off there too.
+
+So there isn't a year where I've been in this business, my funding ratio hasn't been well above 90%.
+
+With all lenders, we're delivering small deals to these lenders.
+
+We don't want to waste the time on them. But in return we're giving you all docs up front. We'd like a quick turnaround time and that's just the market that we're in.
+So there are lenders that will do that for us.
+
+Realtors recognize that and we get a reputation for it. So.
+So although we don't want one day or two day financing conditions, we deliver on them. Right.
+So in the market right now, that's what's working because it's the biggest pain point for your real estate partners.
+
+Yeah, you know, we're there in that pipeline.
+
+When a file comes in, we're there to make that realtor look amazing for referring us.
+
+Not only are we going to deliver on the timeline for financing, but we're going to spend the
+
+time with the client and lay out exactly what our process is, deliver our promise, and, you know, just try and create an overall good experience.
+
+Right. So walk me through.
+
+A lead comes into your business, say it's from a real estate agent, what happens, who reaches out?
+
+Walk me through that process.
+
+Five minute phone call is what I want from everybody. And I do that myself for the most part.
+
+That's just. You are the Jim Trelucas of Manitoba, you know. Really? I don't know about that.
+He's seven. He's seven minutes. So you.
+
+Yeah, I mean, in five minutes I've got that kind of scripted pretty well. And, and it's just basically, hey, I'm Chad. This is how I operate.
+Here's my promise, my experience, and here's what to expect. And then from there, the ball's in their court.
+They get an email from me and there's two steps in that email and it says, click a link, fill out some basic information, authorize your consent.
+
+We've got some smart docs built in. Upload some documents.
+
+The minute you submit that thing with the documents that I'm looking for, I want you to use the second link.
+
+Take some right into my calendar. They can schedule a 15 minute review of what I'm seeing. I mean, that process can all be done within an hour so we can get them answers quickly.
+And then you require all docs up front. Obviously you've been doing this a long time. It's harder for somebody who's new because they may not know what they need.
+
+But you, you know what you need 99.9% of the time.
+
+How are you ensuring you're getting all those documents?
+
+If I'm your client, how do you convince me other than the fact, okay, I gotta get financing in 24 hours?
+
+That would be pretty convincing, but if I didn't have that constraint, how are you convincing me to get new documents?
+
+They called me for a reason. They want answers.
+
+I can't give them answers without the proper information. So I don't do pre qualifications. If you want pre qualification, there's lots of Internet sites you can go to.
+But I'm going to send you out there to make the biggest financial decision of your life. Let's be prepared.
+So even that right there, that is unique in that I don't do pre qualifications. We do approvals. That's strong language in a good way.
+Yeah, sometimes they scare people away, I'll say that.
+
+But there may be clients I would have not wanted to work with to begin with.
+
+I mean, if I've got a struggle with them to, you know, obtain a pay stub or a letter of employment or certain tax doctor, they're like, they just, I don't have time for this.
+
+And that first five minute call, I'm really trying to lay out the importance of having all those evidence so I can do a good job for.
+
+If you don't mind me asking, what are some of the things that you would say to if you're in that five minute, what are the things.
+
+If I'm your customer, what are you saying to me?
+
+I'm a mortgage broker. I have access to a variety of different lenders. I have favored lenders for sure, and here's why.
+
+And I'll give them a little bit of a pitch on that, you know, helping them understand that they're going to get into some aggressive timelines.
+
+Certain lenders will act more quickly than others, so you'll have some decisions to make upfront.
+
+But when you get that offer in place, we want to be able to hit the ground running. So help us prepare for that.
+Right. And then do you explain what happens next or the process? What does that look like? I'm a buyer that came to you from a real estate agent.
+When the offer is accepted, we'll send a pre approval letter.
+
+The real estate agent gets a copy of that and it just basically directs them to send us the offer to purchase an MLS listing and we'll be in touch within an hour of receiving it.
+
+We'll clean up some conversations on product in the current markets and we'll submit it to the lender on their behalf.
+
+So if you get an offer that you get back to all offers within an hour? Yes, always.
+How do you do that when you only have two other. How many staff members do you have for 300 files?
+
+Three of you? Well, yeah, there's.
+Well, one just does compliance and the other one actually just looks after some existing renewal follow ups.
+
+So, yeah, no, it's generally me. I mean, it's not crazy like you know, I just reached out. The work is already done.
+Right. You've got all the docs and if they don't get it to you, you just, you don't chase. Right. I suspect you do not chase at all.
+
+If they're not going to jump through the hoops, you are not chasing them. No, I don't sell anything. I try and provide value.
+Right, right.
+
+Okay, so then at the end of that, you submit to the lender, you get the turnaround fast. Is there anything that you do in your process outside of that?
+Sending a thank you text, any other communications that you find useful?
+
+Yeah, we're following up with them once a month throughout that renewal process to check in, make sure there's no stopping shopping.
+
+But we have a calendly booking that we provide to every client from the onset.
+
+So before they get into the decision making, the final decision making, they have the ability to do a planning session with me.
+
+So I think this is where I feel at least I'm different than many others. I have a background in finance.
+I'm a student of the business, not only on the mortgage lending side, but on the mortgage securitization side.
+
+People don't understand why fixed rates and variable rates are different.
+
+Understanding the business cycle in its most fundamental form is a really important thing to help guide your clients.
+
+They have my ear for 45 minutes at any point in time before that final decision comes. And we'll beat up that conversation so that we can move quickly when the time comes.
+Okay, so this is a renewal. You'll do a 45 minute conversation with somebody on a renewal.
+
+That's why I do have a hired hand that has those conversations because oftentimes they're, you know, we're closing, we're making money, I'll say at about 40% rate on real contacts that we make, but overall it's still worth it.
+
+So you're converting 40% of your renewals? Yeah.
+Dude, that's insanely high on renewals. I think so. It's very challenging on renewal. Unless there's a. Yeah, that's a good number.
+I mean, there's probably some people out there listening. I'm doing that, Scott, but I would argue.
+
+Are you doing it on 300 files? Probably not.
+
+A small number of people might be, but it's a high percentage, I think.
+
+Yeah, like I know that number from last year and I'll say this, there was a lot of renewals that came up last year.
+
+So it was a kind of a good measurements. A lot of those refinances were re amortizations. Right. Just for payment purposes.
+What do you do with somebody that you know doesn't make sense to do anything? What is your scripting or plan from customer?
+And it's better for me to just renew with my existing lender?
+
+Well, every morning I chime into the I Love Mortgage Brokering Facebook group and I hear about what these banks are offering their renewal clients.
+
+So if it's an RBC client that's calling me or a certain lender or Scotia or whoever it may be, I might take a page out of I Love Mortgage Brokering and say, listen, I think you should go back to the bank and ask for this.
+
+I send them on their merry way. Right. You don't waste time on them.
+No, but it's amazing how many times they'll refer me for just being transparent.
+
+Right. And of your business in this year, how much of it is purchase versus refi renewal?
+
+I can tell you that right now.
+
+So at this given time in our pipeline, we have a sort of a pipeline with different stages. We get 59 purchases in my book of business here, going on 38 refinances.
+Those refinance numbers are way bigger than they've been in the past.
+
+Right. That's incredible. Is there anything else that you do throughout the loan process? So everything's condition signed. You'd probably doing digital signatures after that.
+Is there anything you do with the lawyers?
+
+Is there any sort of communication points that you found to be useful? Yeah, so we sent a copy of the documentation.
+Even though it might be redundant, we send copy the communication to the law office. We let them know what to expect.
+We started doing this because we found that with some of our model lines, some lawyers were coming back and saying, oh, you're not using Internet bank and we're going to charge you an extra 300 bucks.
+
+So I just call the lawyers and get ahead of it and say, listen, like these are wonderful lenders.
+
+They move quickly. They have their own funding departments, despite what you might think.
+
+And you know, if you have questions, don't call anybody but me.
+
+Yeah, I want that sort of touch point so that they don't spoil all the work that we've done with that client.
+
+When a client comes to you, do you typically refer them?
+
+How many of your clients would use your recommended lawyers versus their own?
+
+Oh, man, like probably 10, 15%. Usually they have somebody they've been referred already. But 85% are using your people?
+
+No, no, we refer 10 to 50%. The rest are.
+
+Oh, I see. They already have somebody. I see not a big percent of them are okay. It's the opposite.
+
+What about on mpp? Do you guys do the credit insurance and what does that look like? We've been big supporters of MPP for many years. We send an onboarding email.
+So after we get an accepted offer to purchase, we get a loan commitment from a lender. The next steps are really literally mortgage next steps. And it outlines touchpoints. Civil.
+We could probably do this a little better, but right now we still use the old manual MPP paper form.
+
+We send it to them in advance for review, we give them some links, some house insurance stuff.
+
+And you know, by the time we get the E signature documents and we go through the documents, hopefully they've absorbed what we've told them to review in advance.
+
+Okay, I want to just make sure I understand what you're saying. I'm a customer.
+
+You're going to send me a PDF version of the MPP insurance to review and then my approval comes back.
+
+And then when you do the approval, are you sending a signing package? Is it just signed? Do you talk to them? What happens?
+So they get a signing package with a link to a calendly signature.
+
+Appointments that can be either zoom phone call or in person. Nobody chooses in person anymore.
+
+It's rare, but I feel like I still live in a market that I have to have that as an option offer. Yeah. You offer it? Yep.
+Yeah, yeah, we offer it, but nobody uses it. Yeah, so I will.
+
+It's surprising how many people just click, click, click, click, click, done. It blows my mind, actually.
+So if you send out, what percentage of your clients will do a signature appointment with you versus just sign?
+
+30%.
+
+30% Want an appointment?
+
+Yes. And the ones that aren't. That was a shocker to me when we started doing digital signatures.
+
+I really do try and reach out to the ones that don't to say, do you understand what you just signed?
+
+Is there anything you want to go over?
+
+Because it's just surprising to me how reactive people are with E signatures.
+
+So they just click the button, send it to you. You know what your stats are on your MPP? Yeah, about 30%. They could probably give you that number better than me.
+It's not something I used to pay a lot of attention to. I currently have an account.
+
+I just puts it in front of me a little more often, but I think about 30%, where they call it the protection rate.
+
+Yeah, but that's 90 files a year approximately. Right? 70 To 90 files a year, depending on your year.
+What do you say to them, when you send the PDF, is there communication? What's the. Because I got to admit the PDF itself doesn't, doesn't sell itself very well.
+No, no, no, no. We have a script. So it's sitting at the end of an email as an attachment. We're scripting it over to them just to say like, it's part of our commitment to you.
+We want to make sure that you've got proper protection in place.
+
+Please take the time to look at what you're.
+
+Because, I mean, people always think they have too much, you know, enough work insurance.
+
+So like take a look at it. You're making a big financial commitment here.
+
+It's nothing fancy really, it's just, it's important to consider this stuff. Here's why. Here's a quote at the end. We believe in this product. We've used it for a long time.
+We're going to be carrying on deeper conversation during our meetings. So please take a look at it.
+
+So if it's a purchase, when does that email get sent out? At what point? So I'm going to have the five minute call with you from that.
+You're going to send me a link with documents and you know, FIMO app. If I don't do it, it doesn't sound like you care. Next.
+But if I fill it out, when am I getting that MPP link and when am I doing another call with you?
+
+Yeah, the minute we get a mortgage commitment.
+
+So the minute we know we can do a mortgage for you and it's been approved, that next steps email goes out, which includes the mvp.
+
+I see after the five minute call and I send you my link and my documents.
+
+Is there a call that happens after that where you talk to me through how it works and everything?
+
+Yeah. So we provide them with that onboarded email. There's two steps in it. Number one is click a link, getting some documents. The next one is book a meeting. Let's do some planning.
+And during that planning meeting, we're making some decisions, talking about, you know,
+
+where we are in the business cycle and fixed rates versus variable rates, trying to answer all the questions.
+
+I know it was.
+
+How long is that meeting? Is that the 45 minute meeting?
+
+Yeah. There's two options. One 15 minute meeting and one 45 minute meeting. What percentage of. And I'm getting very nerdy here. I love this, by the way.
+What percentage of your people actually book one of those 15 or 45 minutes after they've sent you the app in docs?
+
+Is it everybody or is it not everybody?
+
+You know, like, I think I talked about it early on, like 30% of the people are just like boom, boom, boom, click.
+
+You know, sign the stuff and then they'll book the meeting to go through what they've just signed, which is a little bit backwards to me.
+
+But overall it's probably not what you would do. But you're not your customer. Right, right. But we're getting here of 75, 80%.
+Of them are there customers that do a five minute call with you and then never talk to you again and they just sign the papers and take.
+
+Does that happen?
+
+Yeah, yeah, we're reaching out to those ones because we feel like they just signed something that they don't understand.
+
+If you do a hundred files, how many people would actually do that? I'm interested in this. You know what, we have a lot of repeat clients that have worked with us for years.
+If it's repeat, it's different. They're just going to say, tell me what to do, Chad. And then they'll just do it.
+And oftentimes I'll reach out to them and say, hey, like, do you want to go through any of
+
+this stuff?
+
+It's like, no, I've dealt with it for 25 years. Like, just carry on. What's the best change you made to your business in the last year? Last year. Geez, that's a tough one.
+I feel like there's always changes I could make to make myself more efficient and just an overall better provider.
+
+What's the biggest change? Can I talk a little bit? Just in life general?
+
+Because I think, yeah, it doesn't have to be work, it could be life. That's a great segue. You know what, I am committed.
+I have teenage children that I feel like are going to be out of the house at some point in time.
+
+Here in the, in the near future, I'm home for dinner every night. I don't miss any hockey games.
+
+When I was early in my career I did and I just constantly lived with anxiety because of it. So, yeah, biggest change I've made in my business.
+It's been going on for a couple of years, but I don't miss family stuff at all, ever. For any excuse.
+Right.
+
+When you have this many files you're working on, do people call you outside work hours and if they do, what do you do?
+
+Yeah, I protect my space and I make it clear to people that I deal with that either refer us business or clients that we're working with that if I don't answer my Phone.
+
+It's okay to read a message.
+
+You send me a text message at nine o' clock at night and I don't respond, it's okay, I will get back to you.
+
+But I've got family time and I'm on their time. It's their time.
+
+I see you're not jumping on the call every. If somebody calls you get back to them. And then what does your day look like? So when do you start?
+And do you have your day broken into certain types of activities or you just show up and just get to work?
+
+Yeah, I'm very, very much a routine.
+
+I was so scared when I came into this business all those years ago. I knew how to work 9 to 5.
+
+So you know, I probably came in 7 to 7 back in those days.
+
+But I got up, put a suit on, I came to work and I feel like I'm still to this day, maybe not that many hours on Monday to Friday, sort of nine to five and it's routine.
+
+I'm in the office. I used to wear a suit. I used to wear a suit jacket. I stopped doing that. The pandemic like many.
+Do you have any certain times that you'll reach out for new business versus existing files?
+
+How do you prioritize what to work on when you have, you know, what are you almost a hundred files in your pipeline plus you got these database campaigns you can run.
+
+How are you prioritizing what to do.
+
+When everything's pretty pipeline driven? It's in a pipeline and people got jobs to do.
+
+So I pull up my board and I look at different stages and I know where I need to get for the day.
+
+So I just started working and I finish when I finish.
+
+You know, it sounds terrible to say, but I haven't had to go and look for business in a long time.
+
+Well, that's because you've done a good job. I know people that are in business 25 years. Every year is a struggle. Time doesn't equal better. But obviously you've done something
+
+right.
+
+If people are coming back to you and referring you and you're reaping the benefit of the work you did a decade ago.
+
+Yeah, I take the business very seriously.
+
+I'm a firm believer that this is not a job you can do part time.
+
+I don't think a part time mortgage broker really highlights the professionalism of our overall industry, to be honest with you.
+
+And you got to just stay committed and have a process and have a routine. Really? That's amazing. Well, is there anything that I didn't ask you.
+That you think our audience would find valuable. Yeah.
+And I think, like, honestly, like, I don't know what makes me any different from anybody else told.
+
+I've had a little bit of success, I guess, and in my own mind, I think I have.
+
+At the end of the day, if there's one thing that's made me different than anybody else, it's discipline and knowledge.
+
+Like, I don't know much about how to fix somebody's teeth or car or anything else, but be a student of the business, understand what our lender's pain is and understand what the client's needs are, read the client, and then try to deliver a good experience.
+
+Right.
+
+That's amazing. Where can people find you Online? Are you even online? Yeah, I have a terrible social media presence, but. Chad Wilson, Mortgage. You'll find me on any of the.
+Any of the social links that I check in once in a while, but, you know, for the most part. Yeah, just your website. I mean, I guess on Reddit, they tell me.
+
+Reddit, apparently. Reddit, yes. We didn't ask about that. But you don't even know how you're short.
+
+It's just because your customers love you, so they talk about you. And it's very consumer. It's not big brands on there talking about themselves, which is why I think people trust it.
+Yeah. I think, you know, the bus bench thing, you know, is referred to. It's the bus bench thing.
+
+But, you know, average people who might buy an ad or pay for Google leads to generate business and get the phone calls, get the phone ringing, can stay pretty busy and make no money.
+
+I really feel that it's pretty easy as a mortgage professional to get in front of at least one client you love and fund a mortgage.
+
+And if you articulate that specific client why you liked working with them, guess what, they have friends just like them.
+
+Yeah.
+
+So, you know, if you can identify your centers of influence and spend marketing dollars on those people, it's worked well for me.
+
+I have one last question for you.
+
+Do you ask for referrals or reviews or does it just happen organically? And when and how do you do it?
+We ask for referrals, particularly when we're sending that straight renewal back to the bank branch and I just spend 15 minutes with them.
+
+We're asking for business for sure. That's smart.
+And. Yeah. And anytime we get the opportunity before signing to.
+
+To ask for business, if they've been happy because, you know, they're giving you feedback.
+
+Yeah.
+
+It's a great opportunity to ask for Business?
+
+Yeah. How do you ask? So if I'm your customer and I'm happy with you. What, Just curious. What would your phrasing be if you were to say to me?
+I mean, I have my way to say it, but I want to hear yours.
+
+Yeah. Have you been happy with the business? I make them answer their own questions. Really?
+
+Right. And I say, yeah, it's been amazing. Yeah, yeah, it's been amazing.
+Do you have any friends or family that you think would find value in my services? And then what will they typically say? What kind of answers do you get from that?
+They say, yeah, you know, we'll either keep you in mind or how should they reach out to you?
+
+I'm a big fan of the Canadian Mortgage app.
+
+We didn't touch on that very much, but I have hundreds of installs in the Canadian Mortgage app and my existing clients will refer me oftentimes through that app.
+
+And you get everybody to install it, as many people as you can anyway,.
+
+At the pre approval stage when they get that sort of few minute conversation, they get their pre approval letter, they get a calculator with a scenario that I've just built for them.
+
+So they want to buy a $500,000 house with a $25,000 down payment. We talked about this rate, that rate.
+Then they're getting an invitation to the app with their scenario on it.
+
+And as they're shopping for homes or looking at scenarios, they're creating the comparison. Analysis that also reduces the number of emails you get because they're not emailing you
+
+asking you to do this for themselves.
+
+Yeah, see, I'm glad I asked this question. Well Chad, thanks so much man.
+
+I really appreciate you chatting with me and I'll see you at the next NPC event in Calgary this year.
+
+Encounter this year.
+
+Thanks brother. Take care. Bye bye. Hey, thanks again for listening.
+
+And you know, Chad's whole business runs on a few simple systems, a five minute call, docs upfront and a database he actually uses.
+
+You want to build systems in your business? I recommend check out Island Mortgage Brokering.
+
+You know we've got so many episodes on here to help you out in this business. We're working on putting some of those together into our academy for you.
+So just hit me up on social if it's not there yet. You'll see this coming out soon.
+
+Very excited to share with the simple stuff that we're going to be doing in the coming months.
+
+And if you want to get on my email list, Beckford's playbook.
+
+Every week I share with you, strategies, tactics as well as anything that we are finding useful.
+
+Thanks for listening.
+
+And as I always say, there's no problem in your mortgage business that someone else hasn't already solved.
+
+Your problem is finding the answer when you need it. This podcast designed to provide some of those answers. Thanks for listening and I will see you on the next episode.
