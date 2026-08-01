@@ -9,6 +9,7 @@ historical.
 - `/Users/user/Desktop/fox-underwriting/CLAUDE.md` — the workbench repo, sibling to this one
 - `docs/JOURNEY.md` — the client journey operating document
 - `docs/ledger/` — dated session history, one file per month, load on demand
+  (`2026-07.md`, `2026-08.md`)
 
 Session headers and dated narrative notes moved verbatim to `docs/ledger/2026-07.md`.
 
@@ -173,8 +174,57 @@ Confusing these is the easy mistake, so they are stated together.
   active and untouched; its retirement follows Michael's first successful card
   press, in the chat lane.
 
+### Native tasks: TWO task surfaces, and they are not the same thing (A2, 2026-08-01)
+Confusing these is the easy mistake, so they are stated together — the same
+shape as the lender-notes pair above.
+- **The ZOHO card (legacy, unchanged).** The Tasks card on `/portal/admin`
+  (Today) -> `POST /api/portal/admin/tasks/[id]/status` -> `lib/zoho-admin.ts`
+  `setZohoTaskStatus`, key `tasks.complete`. WRITES TO ZOHO. Zoho stays the
+  source of truth; who and when land in FOXCA `task_action_events`.
+- **The NATIVE page (A2).** `/portal/admin/tasks` -> the workbench's own task
+  store. Keys `tasks.view` (admin, ops, underwriting-reviewer, agent) and
+  `tasks.manage` (admin). **WRITES NOTHING TO ZOHO, on any path.** Both keys
+  are MIRRORED from fox-underwriting's `config/authority.ts` (block A1) and are
+  a CONTRACT with it: additive changes only, and a widening here without one
+  there just produces 403s from the gates API.
+- Both are live ON PURPOSE. Zoho Tasks remain Michael's operating list until he
+  declares the flip; A3 repoints the machine writers. Do not turn off, hide, or
+  de-link the Zoho card, and never add a sync-back path in either direction.
+- **Read:** `GET /api/portal/admin/tasks/today` (behind `tasks.view`) forwards a
+  browser-minted gates token to the workbench's `GET /api/tasks/today`.
+  Four buckets with counts, `as_of`, `timezone`, `due_this_week_through`,
+  `truncated`. `lib/gates.ts getTasksToday`.
+- **THE COUNT IS THE TRUE BUCKET SIZE; THE ARRAY MAY BE SHORTER.** Buckets are
+  capped at 200 rows server-side and capped ones name themselves in
+  `truncated`. Never render `rows.length` as the count — A1 shipped and fixed
+  exactly that defect (276 overdue reported as 200). Pinned in
+  `tests/today-tasks.test.ts`.
+- **Paging past the cap** is `GET /api/portal/admin/tasks/overdue?asOf=&offset=`
+  -> `lib/underwriting.ts getOverdueTasksPage`, a read through `portal_readonly`
+  (`tasks` is granted by migration 0057; the 20th granted table). The endpoint
+  takes no paging params and A2 may not modify fox-underwriting, so this is the
+  only way to the other 76 rows. **`asOf` is the endpoint's own value, passed
+  back verbatim** — nothing here or in the browser recomputes "today", and a
+  missing or malformed `asOf` is refused rather than defaulted. If
+  fox-underwriting's `bucketOf` rule changes, this filter changes with it.
+- **`due_this_week` is a ROLLING SEVEN DAYS**, not the calendar week; render
+  `due_this_week_through`. `as_of` is resolved in America/Toronto. 409 means
+  already-decided, not an error. Dismiss requires a reason (min 3) and is STICKY
+  across re-imports, so the reason is the only record of it.
+- **Writes** are the four gate proxies under `app/api/portal/admin/gates/tasks/`
+  (create, `[taskId]/complete|defer|dismiss`), all behind `tasks.manage`, all
+  through `lib/gates.ts`. `tasks.completed/deferred/dismissed` are HUMAN_ONLY in
+  the workbench. **Bulk complete and bulk dismiss call these SAME per-task
+  endpoints in sequence** — no bulk endpoint exists and none should, because
+  one call per row is what keeps one audit entry per row with the real human on
+  it (guardrail 19).
+- **A1's four gate writes were still unproven live as of the end of A2.** The
+  dev Clerk instance carries ZERO JWT templates, so no `gates` token can be
+  minted there; closing that item needs an attended run on production Clerk.
+  Fabricating an identity to close it is what A1 refused.
+
 ### Nav IA (names are stable; renames need a note here)
-Home | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
+Home | Tasks (A2, native task list) | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
 Changelog (S4, under Knowledge) | Compliance (S6) | Revenue (S7) |
 Partners (S7 health ranking over the existing management pages) |
 Directory (S4) | Bookkeeping (nav link to existing /portal/bookkeeping,

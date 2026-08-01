@@ -85,6 +85,10 @@ import {
   demoCommsSettings,
 } from '@/lib/demo-fixtures'
 import { COMMS_TOUCH_KINDS, type CommsTouchKind, type CommsSettingsRow } from '@/lib/comms'
+// The native task row shape and its column list live with the gates client
+// (the endpoint that owns them). Both this module's paged read and that
+// module's endpoint read return the identical projection.
+import { TASK_ROW_SELECT, type TaskRow } from '@/lib/gates'
 
 export type UwResult<T> =
   | { configured: false }
@@ -3097,6 +3101,65 @@ export interface UnresolvedCall {
   numberMasked: string | null
   summary: string | null
   transcript: string | null
+}
+
+// ─── Native tasks: the overdue page past the endpoint's 200-row cap (A2) ────
+//
+// WHY THIS EXISTS AND WHY IT IS NOT A SECOND SOURCE OF TRUTH.
+// GET /api/tasks/today (fox-underwriting block A1) caps every bucket at 200
+// rows and takes no paging params. On the first live read overdue was 276, so
+// 76 tasks were unreachable from that endpoint alone — and A2 must not modify
+// fox-underwriting. `tasks` is a granted table for portal_readonly (migration
+// 0057), so the rest of the bucket is reachable through this repo's existing
+// GET-only read path.
+//
+// THE ENDPOINT REMAINS AUTHORITATIVE. `asOf` is passed in VERBATIM from the
+// response's own `as_of` — the browser never recomputes "today", and neither
+// does this function. Overdue is the endpoint's own rule (`due_date < today`
+// on open rows), applied to the same date the endpoint resolved in
+// America/Toronto. Change the rule in fox-underwriting's `bucketOf` and this
+// filter has to change with it; that coupling is stated here on purpose.
+//
+// Tenancy is the same agent_id filter every other fetcher in this module
+// applies (rule 4). Note the endpoint scopes to the CALLING human's agent row
+// while this repo resolves Michael's by WORKBENCH_AGENT_EMAIL — identical for
+// him, and the portal's whole workbench surface already reads his book.
+export interface OverdueTaskPage {
+  rows: TaskRow[]
+  total: number | null
+}
+
+export async function getOverdueTasksPage(
+  agentId: string,
+  asOf: string,
+  limit: number,
+  offset: number,
+): Promise<UwResult<OverdueTaskPage>> {
+  // Demo mode never reaches the workbench: the fixture's overdue bucket is
+  // served whole by lib/gates.ts getTasksToday, and paging past it is empty.
+  if (isDemoMode()) return demoResult({ rows: [] as TaskRow[], total: 0 })
+  // A malformed date would become an unbounded filter, so refuse rather than
+  // widen the read.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
+    return { configured: true, ok: false, error: 'A task page needs the endpoint’s as_of date' }
+  }
+  const res = await uwFetch<TaskRow>(
+    'tasks',
+    {
+      select: TASK_ROW_SELECT,
+      agent_id: `eq.${agentId}`,
+      status: 'eq.open',
+      due_date: `lt.${asOf}`,
+      // id tiebreak: offset pages are unstable under equal sort keys without
+      // one (many tasks share a due_date), which duplicates and drops rows.
+      order: 'due_date.asc,id.asc',
+      limit: String(limit),
+      offset: String(offset),
+    },
+    true,
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: { rows: res.data, total: res.total } }
 }
 
 export async function getUnresolvedCalls(agentId: string): Promise<UwResult<UnresolvedCall[]>> {

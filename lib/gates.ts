@@ -25,7 +25,7 @@
 // rates-reference GETs stay real — they are reference material, not
 // borrower data — so a demo walkthrough still shows live lender knowledge.
 import { isDemoMode, DemoWriteBlocked } from '@/lib/demo'
-import { demoLenderContacts } from '@/lib/demo-fixtures'
+import { demoLenderContacts, demoTasksToday } from '@/lib/demo-fixtures'
 import type { LenderContactCard, ContactDraft } from '@/lib/lender-contacts'
 import { KNOWLEDGE_UPLOAD_KINDS, type KnowledgeUploadKind } from '@/lib/knowledge-claims'
 
@@ -1081,6 +1081,154 @@ export function getKnowledgeOffers(token: string | null): Promise<GateResult<{ a
 // components can share it without importing this server-only module.
 export function getRatesReference(token: string | null): Promise<GateResult<Record<string, unknown>>> {
   return gateGet('/api/knowledge/rates-reference', token)
+}
+
+// ─── The native task system (A2; fox-underwriting block A1) ─────────────────
+// The Zoho exit's tasks lane. NOTHING HERE TOUCHES ZOHO — the read is the
+// workbench's own `tasks` table and the four writes are gates decisions. The
+// legacy Zoho Tasks card (lib/tasks.ts, tasks.complete) is a separate surface
+// and stays live until Michael declares the flip; see config/authority.ts.
+//
+// Contract: fox-underwriting docs/gates-api.md, "The native task system".
+
+export type TaskBucket = 'overdue' | 'due_today' | 'due_this_week' | 'no_date'
+export const TASK_BUCKETS: readonly TaskBucket[] = ['overdue', 'due_today', 'due_this_week', 'no_date']
+
+export type TaskPriority = 'highest' | 'high' | 'normal' | 'low' | 'lowest'
+export const TASK_PRIORITIES: readonly TaskPriority[] = ['highest', 'high', 'normal', 'low', 'lowest']
+
+// The TASK_SELECT projection in fox-underwriting src/tasks/types.ts, verbatim.
+// Also the column list lib/underwriting.ts selects when it pages the overdue
+// bucket past the endpoint's cap, so both paths return the identical shape.
+export const TASK_ROW_SELECT =
+  'id,title,body,status,due_date,priority,source,zoho_task_id,zoho_status,' +
+  'linked_module,linked_zoho_id,linked_native_id,completed_at,dismissed_at,' +
+  'dismissed_reason,deferred_from,created_by,created_at,updated_at'
+
+export interface TaskRow {
+  id: string
+  title: string
+  body: string | null
+  status: 'open' | 'completed' | 'dismissed'
+  due_date: string | null
+  priority: TaskPriority | string
+  source: string
+  zoho_task_id: string | null
+  zoho_status: string | null
+  linked_module: string | null
+  linked_zoho_id: string | null
+  linked_native_id: string | null
+  completed_at: string | null
+  dismissed_at: string | null
+  dismissed_reason: string | null
+  deferred_from: string | null
+  created_by: 'system' | 'portal' | string
+  created_at: string
+  updated_at: string
+}
+
+export interface TasksTodayResponse {
+  // Resolved in America/Toronto by the workbench. NEVER recompute this in the
+  // browser: at 20:00 Toronto it is already tomorrow in UTC, so a browser
+  // "today" marks every task due today as overdue for the last four hours of
+  // every working day.
+  as_of: string
+  timezone: string
+  // The rolling seven-day window's last day — NOT a calendar week. Render this
+  // date; do not relabel the bucket "this week" and let a Sunday boundary be
+  // inferred that is not there.
+  due_this_week_through: string
+  // TRUE bucket sizes, taken before the 200-row cap. The arrays may be shorter.
+  counts: Record<TaskBucket, number> & { open_total: number }
+  buckets: Record<TaskBucket, TaskRow[]>
+  // Buckets whose ARRAY is capped. On the first live read this was ['overdue']
+  // at 276 against 200 rows.
+  truncated: TaskBucket[]
+}
+
+export function getTasksToday(token: string | null): Promise<GateResult<TasksTodayResponse>> {
+  // Task titles carry client names in the real store, so demo mode replaces
+  // the read at the boundary, before any network call (Session 9 posture).
+  if (isDemoMode()) return Promise.resolve({ ok: true, data: demoTasksToday() })
+  return gateGet('/api/tasks/today', token)
+}
+
+// Every write returns this shape. auditId is the append-only audit entry that
+// records WHO did it — the identity record (guardrail 19); the row itself
+// carries no completed_by/dismissed_by column by design.
+export interface TaskWriteResponse {
+  taskId: string
+  action: string
+  task: TaskRow
+  auditId: string
+}
+
+export interface TaskCreateBody {
+  title: string
+  body?: string
+  due_date?: string
+  priority?: TaskPriority
+  linked_module?: string
+  linked_zoho_id?: string
+  note?: string
+}
+
+export function createTask(
+  body: TaskCreateBody,
+  token: string | null,
+): Promise<GateResult<TaskWriteResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('tasks.create'))
+  // Bodies are .strict() server-side: send only keys that carry a value, so an
+  // empty optional never reads as an attempt to smuggle a field.
+  const payload: Record<string, unknown> = { title: body.title.trim() }
+  if (body.body?.trim()) payload.body = body.body.trim()
+  if (body.due_date) payload.due_date = body.due_date
+  if (body.priority) payload.priority = body.priority
+  if (body.linked_module) payload.linked_module = body.linked_module
+  if (body.linked_zoho_id) payload.linked_zoho_id = body.linked_zoho_id
+  return gateCall('/api/gates/tasks/create', withNote(payload, body.note), token)
+}
+
+export function completeTask(
+  taskId: string,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<TaskWriteResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('tasks.complete'))
+  return gateCall(
+    `/api/gates/tasks/${encodeURIComponent(taskId)}/complete`,
+    withNote({}, note),
+    token,
+  )
+}
+
+export function deferTask(
+  taskId: string,
+  dueDate: string,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<TaskWriteResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('tasks.defer'))
+  return gateCall(
+    `/api/gates/tasks/${encodeURIComponent(taskId)}/defer`,
+    withNote({ due_date: dueDate }, note),
+    token,
+  )
+}
+
+export function dismissTask(
+  taskId: string,
+  reason: string,
+  token: string | null,
+): Promise<GateResult<TaskWriteResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('tasks.dismiss'))
+  // reason is REQUIRED (min 3) and is not a note: dismissal is sticky across
+  // re-imports because Zoho cannot express it, so the reason is the record.
+  return gateCall(
+    `/api/gates/tasks/${encodeURIComponent(taskId)}/dismiss`,
+    { reason: reason.trim() },
+    token,
+  )
 }
 
 // ─── Health (Status page) ───────────────────────────────────────────────────

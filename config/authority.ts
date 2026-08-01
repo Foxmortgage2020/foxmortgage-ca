@@ -180,6 +180,20 @@ export const PERMISSIONS = {
   // machine path to this write — only a verified Clerk admin session reaches
   // the gated route.
   'tasks.complete': ['admin'],
+  // A2 (2026-08-01): the NATIVE task store — the Zoho exit's tasks lane.
+  // MIRRORED from fox-underwriting's config/authority.ts (block A1), verified
+  // against that file rather than assumed: tasks.view is every internal role,
+  // tasks.manage is admin only. The two files are a CONTRACT; additive
+  // changes only, and a widening here without one there just produces 403s
+  // from the gates API.
+  //
+  // DELIBERATELY SEPARATE from tasks.complete above, which is the LEGACY Zoho
+  // path and writes to Zoho. These two keys never write to Zoho at all. Both
+  // surfaces are live on purpose: Zoho Tasks stay Michael's operating list
+  // until he declares the flip (A3), and one key covering both would make
+  // tasks.complete's "(writes to Zoho)" label a lie on half its calls.
+  'tasks.view': ['admin', 'ops', 'underwriting-reviewer', 'agent'],
+  'tasks.manage': ['admin'],
   // Session (SMM Opportunities): the opportunities board carries client PII
   // (monitored mortgages), so it stays admin-only. opportunities.manage gates
   // the CSV upload, the Zoho backfill proposals/executes, and the portal-side
@@ -250,6 +264,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'renewals.view': 'See the Renewal Radar (funded deals by maturity window)',
   'renewals.decide': 'Record a renewal status action (writes to Zoho)',
   'tasks.complete': 'Complete or reopen a Zoho task from Today (writes to Zoho)',
+  'tasks.view': 'See the native task list (overdue, due today, this week, no date)',
+  'tasks.manage': 'Create, complete, defer, and dismiss native tasks (never writes to Zoho)',
   'opportunities.view': 'See the Strategic Mortgage Monitoring opportunity board',
   'opportunities.manage': 'Upload the monitoring export, backfill Zoho, and set opportunity status',
   'constraints.manage': 'Record and retire per-client lender constraints and restricted-product pin confirmations',
