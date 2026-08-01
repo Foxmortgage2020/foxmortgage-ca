@@ -218,10 +218,27 @@ shape as the lender-notes pair above.
   endpoints in sequence** — no bulk endpoint exists and none should, because
   one call per row is what keeps one audit entry per row with the real human on
   it (guardrail 19).
-- **A1's four gate writes were still unproven live as of the end of A2.** The
-  dev Clerk instance carries ZERO JWT templates, so no `gates` token can be
-  minted there; closing that item needs an attended run on production Clerk.
-  Fabricating an identity to close it is what A1 refused.
+- **A1's gate writes: THREE of four proven live (2026-08-01), defer is not.**
+  Michael exercised them through the deployed page on production Clerk. Audit
+  ids, all carrying `actor='portal'` + his real Clerk id/email
+  (`user_3BamhsuiOxaSkRFj0vDyOTkzSce` / mfox@foxmortgage.ca): `tasks.completed`
+  `a011023c-d422-4157-8a17-006f50a1f6ee`, `tasks.created`
+  `fe0b92fc-9573-4169-b5f5-50a73b22cc66`, `tasks.dismissed`
+  `41965410-666c-4e65-a1f3-8fb645153fbf`.
+  **`tasks.deferred` has ZERO audit rows all time and no row anywhere carries
+  `deferred_from`** — the verb has never executed successfully. Likely a 409
+  no-op (deferring to the date already held writes no audit row) rather than a
+  wiring fault, since complete and dismiss ride the identical client path. Still
+  open; do not record it as proven.
+- **The dev Clerk instance carries ZERO JWT templates** (`GET /v1/jwt_templates`
+  returns `[]`), so no `gates` token can be minted there and NO gate write can be
+  exercised from local dev. Production carries the template. Any future session
+  planning a live gate proof must budget for production, not localhost.
+- **KNOWN UX DEFECT (unfixed):** `components/admin/TasksToday.tsx` drops a row on
+  409, which is right for complete and dismiss (the row is terminal) but wrong
+  for defer (409 there means no-op or non-open, and the row is still open). It
+  self-heals on the refetch that follows; the fix is to branch 409 handling by
+  verb.
 
 ### Nav IA (names are stable; renames need a note here)
 Home | Tasks (A2, native task list) | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
