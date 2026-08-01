@@ -17,7 +17,7 @@
 //      window's real end date so nobody infers a Sunday boundary that is not
 //      there.
 
-import type { TaskBucket, TaskRow } from '@/lib/gates'
+import type { TaskBucket, TaskRow } from '@/lib/tasks-shape'
 
 // ─── Bucket presentation ────────────────────────────────────────────────────
 

@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
-import type { TaskBucket, TaskRow, TasksTodayResponse } from '@/lib/gates'
+import type { TaskBucket, TaskRow, TasksTodayResponse } from '@/lib/tasks-shape'
 import {
   BUCKET_LABELS,
   BUCKET_ORDER,

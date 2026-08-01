@@ -85,10 +85,11 @@ import {
   demoCommsSettings,
 } from '@/lib/demo-fixtures'
 import { COMMS_TOUCH_KINDS, type CommsTouchKind, type CommsSettingsRow } from '@/lib/comms'
-// The native task row shape and its column list live with the gates client
-// (the endpoint that owns them). Both this module's paged read and that
-// module's endpoint read return the identical projection.
-import { TASK_ROW_SELECT, type TaskRow } from '@/lib/gates'
+// The native task row shape and its column list live in a LEAF module, not in
+// lib/gates.ts: this module is reached from the public client-file page, and
+// importing the gates client here would pull it into that page's graph for the
+// sake of one const. Both read paths return the identical projection.
+import { TASK_ROW_SELECT, type TaskRow } from '@/lib/tasks-shape'
 
 export type UwResult<T> =
   | { configured: false }

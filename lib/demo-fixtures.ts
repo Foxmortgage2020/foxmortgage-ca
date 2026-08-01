@@ -19,9 +19,7 @@ import { clientJourneyFor, journeyForStage } from '@/config/lifecycle'
 // header rule at the top), or it cycles back through lib/zoho.
 import { AGENT_MEMBER } from '@/lib/client-team'
 import type { ClientFileView } from '@/lib/client-file'
-// Type-only (the header rule): lib/gates.ts imports data FROM here, so a
-// runtime import back would cycle. Types are erased, so this one cannot.
-import type { TaskRow, TasksTodayResponse } from '@/lib/gates'
+import type { TaskRow, TasksTodayResponse } from '@/lib/tasks-shape'
 // The presentation model + rubric are PURE (no fetchers, no cycle back to
 // here), so demo scenarios/offers carry REAL engine-computed figures and REAL
 // rubric grades — a faithful demo, not hand-waved numbers.

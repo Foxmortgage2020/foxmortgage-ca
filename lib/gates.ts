@@ -1091,76 +1091,27 @@ export function getRatesReference(token: string | null): Promise<GateResult<Reco
 //
 // Contract: fox-underwriting docs/gates-api.md, "The native task system".
 
-export type TaskBucket = 'overdue' | 'due_today' | 'due_this_week' | 'no_date'
-export const TASK_BUCKETS: readonly TaskBucket[] = ['overdue', 'due_today', 'due_this_week', 'no_date']
-
-export type TaskPriority = 'highest' | 'high' | 'normal' | 'low' | 'lowest'
-export const TASK_PRIORITIES: readonly TaskPriority[] = ['highest', 'high', 'normal', 'low', 'lowest']
-
-// The TASK_SELECT projection in fox-underwriting src/tasks/types.ts, verbatim.
-// Also the column list lib/underwriting.ts selects when it pages the overdue
-// bucket past the endpoint's cap, so both paths return the identical shape.
-export const TASK_ROW_SELECT =
-  'id,title,body,status,due_date,priority,source,zoho_task_id,zoho_status,' +
-  'linked_module,linked_zoho_id,linked_native_id,completed_at,dismissed_at,' +
-  'dismissed_reason,deferred_from,created_by,created_at,updated_at'
-
-export interface TaskRow {
-  id: string
-  title: string
-  body: string | null
-  status: 'open' | 'completed' | 'dismissed'
-  due_date: string | null
-  priority: TaskPriority | string
-  source: string
-  zoho_task_id: string | null
-  zoho_status: string | null
-  linked_module: string | null
-  linked_zoho_id: string | null
-  linked_native_id: string | null
-  completed_at: string | null
-  dismissed_at: string | null
-  dismissed_reason: string | null
-  deferred_from: string | null
-  created_by: 'system' | 'portal' | string
-  created_at: string
-  updated_at: string
-}
-
-export interface TasksTodayResponse {
-  // Resolved in America/Toronto by the workbench. NEVER recompute this in the
-  // browser: at 20:00 Toronto it is already tomorrow in UTC, so a browser
-  // "today" marks every task due today as overdue for the last four hours of
-  // every working day.
-  as_of: string
-  timezone: string
-  // The rolling seven-day window's last day — NOT a calendar week. Render this
-  // date; do not relabel the bucket "this week" and let a Sunday boundary be
-  // inferred that is not there.
-  due_this_week_through: string
-  // TRUE bucket sizes, taken before the 200-row cap. The arrays may be shorter.
-  counts: Record<TaskBucket, number> & { open_total: number }
-  buckets: Record<TaskBucket, TaskRow[]>
-  // Buckets whose ARRAY is capped. On the first live read this was ['overdue']
-  // at 276 against 200 rows.
-  truncated: TaskBucket[]
-}
+// Shapes live in the leaf lib/tasks-shape.ts so lib/underwriting.ts can share
+// the projection without pulling this whole module into the public client-file
+// page's import graph. Re-exported here because the gates client is where a
+// caller looks for them.
+export {
+  TASK_BUCKETS,
+  TASK_PRIORITIES,
+  TASK_ROW_SELECT,
+  type TaskBucket,
+  type TaskPriority,
+  type TaskRow,
+  type TasksTodayResponse,
+  type TaskWriteResponse,
+} from '@/lib/tasks-shape'
+import type { TaskPriority, TasksTodayResponse, TaskWriteResponse } from '@/lib/tasks-shape'
 
 export function getTasksToday(token: string | null): Promise<GateResult<TasksTodayResponse>> {
   // Task titles carry client names in the real store, so demo mode replaces
   // the read at the boundary, before any network call (Session 9 posture).
   if (isDemoMode()) return Promise.resolve({ ok: true, data: demoTasksToday() })
   return gateGet('/api/tasks/today', token)
-}
-
-// Every write returns this shape. auditId is the append-only audit entry that
-// records WHO did it — the identity record (guardrail 19); the row itself
-// carries no completed_by/dismissed_by column by design.
-export interface TaskWriteResponse {
-  taskId: string
-  action: string
-  task: TaskRow
-  auditId: string
 }
 
 export interface TaskCreateBody {

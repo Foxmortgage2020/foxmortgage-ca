@@ -29,7 +29,7 @@ import {
   weekWindowLabel,
   type BulkOutcome,
 } from '../lib/today-tasks'
-import type { TaskBucket, TaskRow } from '../lib/gates'
+import type { TaskBucket, TaskRow } from '../lib/tasks-shape'
 
 const task = (over: Partial<TaskRow> = {}): TaskRow => ({
   id: 't1',
