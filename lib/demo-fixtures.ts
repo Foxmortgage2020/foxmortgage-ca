@@ -19,6 +19,7 @@ import { clientJourneyFor, journeyForStage } from '@/config/lifecycle'
 // header rule at the top), or it cycles back through lib/zoho.
 import { AGENT_MEMBER } from '@/lib/client-team'
 import type { ClientFileView } from '@/lib/client-file'
+import type { TaskRow, TasksTodayResponse } from '@/lib/tasks-shape'
 // The presentation model + rubric are PURE (no fetchers, no cycle back to
 // here), so demo scenarios/offers carry REAL engine-computed figures and REAL
 // rubric grades — a faithful demo, not hand-waved numbers.
@@ -242,6 +243,66 @@ export const demoOpenTasks: OpenTask[] = [
   { id: 'demo-t-2', subject: 'Send commitment to Ada Testwell (DEMO-F0002)', dueDate: '2026-07-20', priority: 'High', status: 'In Progress', overdue: false },
   { id: 'demo-t-3', subject: 'Follow up on the appraisal for Example Estates', dueDate: '2026-07-20', priority: 'Normal', status: 'Not Started', overdue: false },
 ]
+
+// ─── The native task store: a synthetic Today view (A2) ─────────────────────
+// Stands in for GET /api/tasks/today. Task titles carry client names in the
+// real store, so demo must never show them. Deliberately TRUNCATED on overdue
+// with a count far above the array length, so a demo walkthrough exercises the
+// same paging affordance the live page shows at 276-against-200 — a demo that
+// hides the hard case is not a demo of this page.
+export function demoTasksToday(): TasksTodayResponse {
+  const asOf = '2026-08-01'
+  const row = (
+    n: number,
+    title: string,
+    dueDate: string | null,
+    priority: string,
+  ): TaskRow => ({
+    id: `demo-task-${n}`,
+    title,
+    body: null,
+    status: 'open',
+    due_date: dueDate,
+    priority,
+    source: 'zoho_import',
+    zoho_task_id: `demo-zoho-${n}`,
+    zoho_status: 'Not Started',
+    linked_module: 'Deals',
+    linked_zoho_id: `demo-deal-${n}`,
+    linked_native_id: null,
+    completed_at: null,
+    dismissed_at: null,
+    dismissed_reason: null,
+    deferred_from: null,
+    created_by: 'system',
+    created_at: '2026-06-01T12:00:00Z',
+    updated_at: '2026-06-01T12:00:00Z',
+  })
+  return {
+    as_of: asOf,
+    timezone: 'America/Toronto',
+    due_this_week_through: '2026-08-08',
+    counts: { overdue: 34, due_today: 2, due_this_week: 2, no_date: 1, open_total: 39 },
+    buckets: {
+      overdue: [
+        row(1, 'Collect T4 from Marty McFixture (DEMO-F0001)', '2026-07-15', 'high'),
+        row(2, 'Chase the appraisal for Example Estates (DEMO-F0003)', '2026-07-22', 'normal'),
+        row(3, 'Confirm the lawyer file opened (DEMO-F0002)', '2026-07-29', 'normal'),
+      ],
+      due_today: [
+        row(4, 'Send the commitment to Ada Testwell (DEMO-F0002)', asOf, 'highest'),
+        row(5, 'Review the rate sheet sitting (Sample Bank)', asOf, 'normal'),
+      ],
+      due_this_week: [
+        row(6, 'Call Sample Borrower about the renewal window', '2026-08-05', 'high'),
+        row(7, 'Send the monitoring report batch', '2026-08-07', 'low'),
+      ],
+      no_date: [row(8, 'Tidy the lender contact directory', null, 'lowest')],
+    },
+    // The overdue ARRAY is 3 against a count of 34 — the truncated case.
+    truncated: ['overdue'],
+  }
+}
 
 // ─── Microsoft calendar: a synthetic day ────────────────────────────────────
 // Canned events for the "Your day" band in demo mode (getTodayCalendar's demo

@@ -43,6 +43,19 @@ export const ADMIN_NAV: AdminNavItem[] = [
     group: 'today',
     description: 'Exception-first daily command centre for the practice.',
   },
+  {
+    // A2 (2026-08-01): the native task list, the Zoho exit's tasks lane. Sits
+    // beside Today because it IS a daily surface — it replaces the Zoho Tasks
+    // list Michael runs his day from. Distinct from the Zoho Tasks card on the
+    // Today page, which stays live until he declares the flip (block A3).
+    label: 'Tasks',
+    href: '/portal/admin/tasks',
+    iconKey: 'ListChecks',
+    permission: 'tasks.view',
+    group: 'today',
+    description:
+      'Everything open by when it is due: overdue, due today, the rolling week, and no date.',
+  },
   // ── The book ──────────────────────────────────────────────────────────
   {
     label: 'Deals',

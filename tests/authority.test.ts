@@ -78,6 +78,9 @@ describe('session 8 role baselines', () => {
         // Analysis session: opening a deal document for an analysis citation is
         // a read, open to every internal role (tenancy-scoped in the workbench).
         'document.view',
+        // A2: the native task list is a read for every internal role, matching
+        // fox-underwriting's own tasks.view grant.
+        'tasks.view',
       ].sort(),
     )
   })
@@ -94,6 +97,7 @@ describe('session 8 role baselines', () => {
         'agent.use',
         'conditions.recompute',
         'document.view',
+        'tasks.view',
       ].sort(),
     )
   })
@@ -106,7 +110,15 @@ describe('session 8 role baselines', () => {
 
   it('agent baseline: their own scope', () => {
     expect(grantSet('agent')).toEqual(
-      ['deals.view', 'knowledge.view', 'agent.use', 'roadmap.view', 'conditions.recompute', 'document.view'].sort(),
+      [
+        'deals.view',
+        'knowledge.view',
+        'agent.use',
+        'roadmap.view',
+        'conditions.recompute',
+        'document.view',
+        'tasks.view',
+      ].sort(),
     )
   })
 
@@ -130,6 +142,11 @@ describe('session 8 role baselines', () => {
       'compliance.manage',
       'constraints.manage',
       'tasks.complete',
+      // A2: the native task writes. MIRRORS fox-underwriting's own
+      // PERMISSIONS['tasks.manage'] === ['admin'] — the two files are a
+      // contract, and a widening here without one there just produces 403s
+      // from the gates API.
+      'tasks.manage',
       'status.acknowledge',
       'people.manage',
       'agents.provision',

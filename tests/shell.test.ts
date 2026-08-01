@@ -136,10 +136,16 @@ describe('route inventory: every admin route stays on the map', () => {
   // exists to make exactly this change visible. Its longer-term home may be a
   // tab under Approvals, which is already "one queue ... decided through the
   // gates API"; that consolidation was out of CC-03's scope.
-  it('the working nav is nine destinations across two honest groups (B3 + CC-03)', () => {
+  // A2 (2026-08-01) adds a tenth, "Tasks", beside Today in the same group:
+  // it is the native task list that replaces the Zoho Tasks list Michael runs
+  // his day from, so it is a daily destination rather than a section page.
+  // Noted here for the same reason CC-03 noted its addition — this assertion
+  // exists to make exactly this change visible, not to be relaxed silently.
+  it('the working nav is ten destinations across two honest groups (B3 + CC-03 + A2)', () => {
     const working = ADMIN_NAV.filter(i => i.group !== 'system')
     expect(working.map(i => i.label)).toEqual([
       'Today',
+      'Tasks',
       'Deals',
       'Approvals',
       'Beyond funding',

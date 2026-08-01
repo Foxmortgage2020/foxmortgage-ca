@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-08-01',
+    title: 'A Tasks page that can hold your whole list, not just the first screen of it',
+    detail:
+      'There is a new Tasks page beside Today. It shows everything open in four groups, what is overdue, what is due today, what is due in the next seven days, and what has no date at all, with the real number on each heading. That last part matters more than it sounds: the list itself arrives capped at two hundred rows a group, so a page that counted what it had received would tell you two hundred overdue when the truth is nearer three hundred. This one shows the true number, says plainly how many of them it is showing, and gives you a button to pull in the rest. You can complete, put off, or dismiss anything, and add a new one. Putting something off asks for the new date, and dismissing asks why, because a dismissal sticks and the reason is the only record of it. With a backlog this size, doing one at a time is not a plan, so you can tick as many as you like and complete or dismiss the lot in one go, watching it count through them and telling you honestly if any did not take. It is built for a phone first, since that is where you will check it between appointments. Nothing on this page writes to Zoho. Your Zoho task list is untouched and stays the one you run your day from until you decide otherwise.',
+  },
+  {
     date: '2026-07-29',
     title: 'Lender notes can be written to the Zoho file from the deal room',
     detail:

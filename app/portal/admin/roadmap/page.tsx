@@ -18,6 +18,21 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'A2',
+    title: 'The Tasks page: the native task list, the Zoho exit’s tasks lane',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'A Tasks page beside Today reading the workbench’s native task store through GET /api/tasks/today (fox-underwriting block A1). Four buckets — overdue, due today, the rolling seven days, no date — each headed by the TRUE count, never the length of the array that arrived',
+      'That distinction is the whole point: the endpoint caps a bucket at 200 rows and names the capped ones. A1 shipped and fixed a defect where the count was computed after the cap, so 276 overdue reported as 200. The page states "showing N of M" and pulls the remainder through a paged read on the read-only role, ordered consistently and deduped, because the endpoint accepts no paging params and A2 may not modify that repo',
+      'All four gate verbs on every row: complete, defer (asks for the date), dismiss (asks for the reason — dismissal sticks across re-imports, so the reason is the only record), plus create from the page',
+      'Bulk triage, because 276 rows one at a time is a page that gets abandoned. Multi-select, then bulk complete or bulk dismiss calling the EXISTING per-task endpoints in sequence — no bulk endpoint invented, so every row keeps its own audit entry with the real human on it. Progress counts through, and a mixed run reports the failures first rather than assuming success. A 409 counts as already-done, never as an error',
+      'tasks.view (every internal role) and tasks.manage (admin only) mirrored from fox-underwriting’s matrix. Verified live on the dev instance: an ops session reads the page and renders ZERO action controls, and the server refuses complete and create with 403 — the UI hiding a control is not the enforcement',
+      'Phone first: 44px targets, nothing hover-dependent, proven at 375px and 1280px with zero horizontal overflow',
+      'Nothing on this page writes to Zoho. The Zoho Tasks card on Today is a separate surface and stays live until Michael declares the flip (block A3)',
+    ],
+  },
+  {
     n: 'N-06',
     title: 'Lender notes: the CRM write moves into the deal room',
     status: 'shipped',
