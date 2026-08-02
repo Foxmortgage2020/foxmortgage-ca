@@ -18,6 +18,23 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Deals (Beta) v2',
+    title: 'Five phases, every sub-stage, and colour that carries meaning',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'B0c moved the record layer underneath the page: five phases in rec.phases, 27 active stages, a new is_gate column, rec.phase_returns and rec.attract_sources. The shape was read live before anything was written, and the database was taken as authoritative over both the brief and the design docs (which still describe four phases)',
+      'Attract joins the bar in front of Intake. It has no stages by design — rec.phases says so structurally with is_ordered false and level "source" — so it renders its five sources rather than steps, because nobody moves through a source',
+      'EVERY sub-stage renders whether or not it holds anything: Intake 7, Advise 6, Fund 6, Monitor 5. An empty column is information and a missing column is a lie about the process',
+      'THREE units now, never added: Attract counts arrivals, Intake and Monitor count people, Advise and Fund count files with a dollar total. phaseTotals returns null rather than zero for anything not deal-level, which makes "0 files" on a people-counting phase impossible rather than merely avoided',
+      'COLOUR MEANS TWO THINGS AND NO MORE: hue says which phase (a cyan-to-magenta sweep in funnel order), depth says how far along (the accent deepens across a phase, computed from position so a new stage extends the ramp with no code change). Never one arbitrary colour per stage — that is the one thing in the Broki screenshot not worth copying',
+      'Teal was tried for Monitor and rejected on looking at it: at 165 degrees it renders green-dominant, and green on this page means "this needs you". A test now enforces that no phase hue and no deal-type hue sits in the green band. Lime stays spent on the You chip alone',
+      'The return rail reads rec.phase_returns and draws BOTH paths — Decided back to Advise at the strategy session, and Decided feeding Attract as a source. The first build drew only the renewal return and understated the loop',
+      'An Archive view for the three terminal outcomes, which belong to no phase and so rendered nowhere before. The outcome leads each row because lost-to-a-competitor is a remarketing lead and cancelled is not. Empty today: no file has ended yet, so it lists the outcomes instead of showing a blank panel',
+      'Two defects found by looking rather than by testing: the dollar total was louder than the stage name, and contact-level columns rendered an empty tray that read as "something should be here". Both fixed',
+    ],
+  },
+  {
     n: 'Deals (Beta)',
     title: 'The four-phase board over the September record layer',
     status: 'shipped',

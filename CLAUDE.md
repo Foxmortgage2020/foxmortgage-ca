@@ -240,7 +240,40 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
-### Deals (Beta): the four-phase board over `rec` (2026-08-01)
+### Deals (Beta): FIVE phases as of B0c (2026-08-02)
+The record layer moved; the page moved with it. `lib/four-phase.ts` is GONE,
+replaced by `lib/phase-model.ts` (rules) + `lib/phase-palette.ts` (colour).
+- **Phases are rows now.** `rec.phases` (5: attract, intake, advise, fund,
+  monitor) carries `unit`, `counts_dollars`, `is_ordered` and `level`. READ
+  THOSE — never branch on a phase's name. THREE units exist (arrivals, people,
+  files) and `phaseTotals` returns **null**, not zero, for anything not
+  deal-level, so a caller cannot render "0 files" for a phase that counts
+  people. Nothing sums across units and no function exists that could.
+- **EVERY SUB-STAGE RENDERS, occupied or not** (intake 7, advise 6, fund 6,
+  monitor 5). An empty column is information; a missing column is a lie about
+  the process. Never filter columns by occupancy.
+- **Attract has no stages, structurally** — `is_ordered` false, `level`
+  `source`. It renders `rec.attract_sources` (5) instead. Do not give it a board.
+- **Gates** come from `deal_stages.is_gate` (4: routed, proceeding, funded,
+  decided) and render as a dashed accent plus a small label.
+- **The return rail reads `rec.phase_returns` (2 rows)** — Decided → Advise
+  (strategy session) AND Decided → Attract (the book). Drawing only the renewal
+  return understates the loop; both are configuration, never hardcoded.
+- **The Archive** (`?view=archive`) is a VIEW, not a sixth phase card. The three
+  `terminal_lost` stages belong to no phase, so lost files rendered nowhere
+  before. The outcome leads each row: lost-to-competitor is a remarketing lead
+  and cancelled is not. **Empty today — no deal sits in a terminal stage.**
+- **COLOUR MEANS EXACTLY TWO THINGS**: hue = which phase (a cyan→magenta sweep,
+  195/215/250/285/320), depth = how far along (the accent alpha ramps 0.35→1.0
+  across a phase's columns, computed from POSITION so a new stage extends the
+  ramp with no code change). Never one arbitrary colour per stage. Every hue is
+  outside the 60–140° green band, enforced by test, because **lime means only
+  "this needs you"** and is spent on the You chip alone. Deal types are a
+  SEPARATE channel — outlined chips, not fills — so hue reuse cannot confuse.
+- **The one-screen constraint is withdrawn.** Columns are 264px min and the
+  board scrolls sideways; a readable card beats a crammed column.
+
+### Deals (Beta): the four-phase board over `rec` (2026-08-01, superseded above)
 A READ-ONLY surface at `/portal/admin/deals-beta` for judging the September
 record layer beside the live setup. The live Deals area at
 `/portal/admin/underwriting` is untouched and stays the daily driver.

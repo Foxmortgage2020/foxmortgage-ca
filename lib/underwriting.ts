@@ -3124,8 +3124,27 @@ export interface UnresolvedCall {
 // rec.deals.agent_id matches Michael's public.agents.id, so the existing
 // getAgentIdByEmail(WORKBENCH_AGENT_EMAIL) is the right anchor.
 
-/** A configured stage. `phase` is null for stages outside the four-phase
- * model; the board renders only the non-null ones, ordered by sort_order.
+/** A configured phase (B0c, five-phase model). EVERYTHING about how a phase
+ * behaves is a column here, not a decision in code: `unit` is the noun it
+ * counts (arrivals | people | files), `counts_dollars` says whether a money
+ * total is meaningful, `is_ordered` false means the phase has no steps to move
+ * through, and `level` says what a row even is (source | contact | deal). Read
+ * these rather than branching per phase name. */
+export interface RecPhase {
+  code: string
+  label: string
+  description: string | null
+  sort_order: number
+  unit: string
+  counts_dollars: boolean
+  is_ordered: boolean
+  level: string
+  is_active: boolean
+}
+
+/** A configured stage. `phase` is null for the terminal stages (which belong
+ * to no phase and render in the Archive) and for retired stages. `is_gate`
+ * marks a decision point rather than somewhere a file rests.
  * Stages are CONFIGURATION — never hardcode this list. Adding a stage row
  * adds a column with no code change, which is the whole point. */
 export interface RecStage {
@@ -3136,6 +3155,33 @@ export interface RecStage {
   phase: string | null
   category: string
   is_active: boolean
+  is_gate: boolean
+}
+
+/** Where the loop closes. Both returns out of Monitor's Decided gate are rows
+ * here — one back into Advise at the strategy session, one feeding Attract as
+ * a source — so the rail draws what the record layer says rather than what a
+ * component remembers. */
+export interface RecPhaseReturn {
+  code: string
+  label: string
+  description: string | null
+  from_phase: string
+  from_stage_code: string | null
+  to_phase: string
+  to_stage_code: string | null
+  to_source_code: string | null
+  sort_order: number
+}
+
+/** Attract has sources, not steps — people arrive from somewhere rather than
+ * moving through anything, which is why rec.phases marks it is_ordered false. */
+export interface RecAttractSource {
+  code: string
+  label: string
+  description: string | null
+  channel_group: string | null
+  sort_order: number
 }
 
 export interface RecDeal {
@@ -3167,12 +3213,61 @@ export interface RecDealClient {
   full_name: string | null
 }
 
+export async function getRecPhases(): Promise<UwResult<RecPhase[]>> {
+  if (isDemoMode()) return demoResult([] as RecPhase[])
+  const res = await uwFetch<RecPhase>(
+    'phases',
+    {
+      select: 'code,label,description,sort_order,unit,counts_dollars,is_ordered,level,is_active',
+      is_active: 'is.true',
+      order: 'sort_order.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
 export async function getRecStages(): Promise<UwResult<RecStage[]>> {
   if (isDemoMode()) return demoResult([] as RecStage[])
   const res = await uwFetch<RecStage>(
     'deal_stages',
     {
-      select: 'code,label,description,sort_order,phase,category,is_active',
+      select: 'code,label,description,sort_order,phase,category,is_active,is_gate',
+      is_active: 'is.true',
+      order: 'sort_order.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
+export async function getRecPhaseReturns(): Promise<UwResult<RecPhaseReturn[]>> {
+  if (isDemoMode()) return demoResult([] as RecPhaseReturn[])
+  const res = await uwFetch<RecPhaseReturn>(
+    'phase_returns',
+    {
+      select:
+        'code,label,description,from_phase,from_stage_code,to_phase,to_stage_code,to_source_code,sort_order',
+      is_active: 'is.true',
+      order: 'sort_order.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
+export async function getRecAttractSources(): Promise<UwResult<RecAttractSource[]>> {
+  if (isDemoMode()) return demoResult([] as RecAttractSource[])
+  const res = await uwFetch<RecAttractSource>(
+    'attract_sources',
+    {
+      select: 'code,label,description,channel_group,sort_order',
       is_active: 'is.true',
       order: 'sort_order.asc',
     },

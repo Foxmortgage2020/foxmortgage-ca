@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-08-02',
+    title: 'Deals (Beta) gets the fifth phase, every sub-stage, and colour that means something',
+    detail:
+      'The record layer moved underneath this page, so the page moved with it. There are five phases across the top now rather than four: Attract has been added in front of Intake, because where people come from is a real part of the business and it was missing. Every sub-stage is on screen whether or not anything sits in it, so Intake shows all seven steps, Advise six, Fund six and Monitor five. That is deliberate. An empty column tells you something and a column that is not there tells you nothing, and you cannot judge a process you can only see half of. Attract is different in kind and is drawn differently: it has sources rather than steps, because nobody moves through a source. Intake and Monitor show their steps with the explanation under each one but no numbers, and say once, plainly, that nobody is placed in them yet. The colour is the other half of this. Your verdict was that the page was plain and bland with nothing separating one stage from another, and that was fair. Each phase now has its own colour family and the columns deepen in that colour as a file moves through the phase, so a glance tells you which phase you are in and roughly how far along without reading a word. Colour is not handed out per stage at random, which is what the other software does and what makes it something you have to memorise instead of something you can read. Purchase, Renewal and Refinance were grey and are now coloured too, since that is a real distinction you read all day. Green still means one thing only, that something is waiting on you, and nothing else on the page is allowed to use it. Columns are wider and the board scrolls sideways rather than squeezing everything onto one screen, because a card you can actually read is worth more than a column you can only count. There is also an Archive now, reachable from the same page, for files that ended. It keeps the outcome visible, so a file lost to another broker reads differently from one that was cancelled, which matters because only one of those is worth contacting again. It is empty today.',
+  },
+  {
     date: '2026-08-01',
     title: 'A second Deals page, marked Beta, for looking at the new record layer',
     detail:
