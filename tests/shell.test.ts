@@ -369,11 +369,15 @@ function walkAdminSources(): string[] {
 //   - ApprovalsDesk: the armed queue decide buttons.
 //   - AgentChat: the confirm-card execute tap.
 //   - DealsList: the single-lime action button (list + phone card branches).
-//   - DealsBetaBoard: the "You" blocked-by chip, and ONLY that chip. It is the
-//     one card field that answers what to do today — scanning a board for the
-//     highlighted You chips is the whole reason the field exists. Client,
+//   - deals-beta/DealCard: the "You" blocked-by chip, and ONLY that chip. It is
+//     the one card field that answers what to do today — scanning a board for
+//     the highlighted You chips is the whole reason the field exists. Client,
 //     Lender and Lawyer are information rather than a queued decision, so they
 //     stay in the cool family (asserted below, not merely intended).
+//     NOTE (2026-08-02c): the card moved into its own module precisely so this
+//     path-keyed audit ENFORCES the zone rule — lime may render on a card and
+//     nowhere else on that board, and the orchestrator, the column footers and
+//     the insights strip are now structurally unable to acquire one.
 const DECISION_ALLOWED: Record<string, RegExp> = {
   'components/admin/AdminShell.tsx':
     /outline-decision|bg-decision\b|text-decision-ink/,
@@ -387,7 +391,7 @@ const DECISION_ALLOWED: Record<string, RegExp> = {
   'components/admin/AgentChat.tsx': /bg-decision\b|text-decision-ink/,
   'components/admin/deals/DealsList.tsx':
     /bg-decision\b|border-decision|text-decision-ink/,
-  'components/admin/DealsBetaBoard.tsx': /bg-decision\b|text-decision-ink/,
+  'components/admin/deals-beta/DealCard.tsx': /bg-decision\b|text-decision-ink/,
 }
 
 // One brand-mark exception: the Practice History export slide draws the Fox
@@ -433,7 +437,7 @@ describe('lime is attention currency (the exhaustive B4 audit)', () => {
   // queued decision — the You chip only means something because the others
   // stay quiet.
   it('on the Beta board only the You chip is lime', () => {
-    const src = readFileSync('components/admin/DealsBetaBoard.tsx', 'utf8')
+    const src = readFileSync('components/admin/deals-beta/DealCard.tsx', 'utf8')
     expect(src).toMatch(/isActionableChip\(chip\)\s*\n?\s*\?\s*'bg-decision text-decision-ink'/)
     for (const other of ['Client', 'Lender', 'Lawyer']) {
       const line = src.split('\n').find(l => l.includes(`'${other}'`) && /decision/.test(l))

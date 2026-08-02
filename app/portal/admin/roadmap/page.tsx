@@ -18,6 +18,19 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Deals (Beta) v4',
+    title: 'Projection green, the honest age tile, and the deal preview panel',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'The hatch behind projected figures is gone. Michael was right that the digits inside it were hard to read, and the reason generalises: on the practice-history chart the number sits OUTSIDE the bar so texture costs nothing, but here it sits INSIDE the fill and ran through the digits. Hatch works behind a bar, not behind type',
+      'Replaced with a solid light tint of a BRX-family green (hue 152). A tint rather than full strength, because full strength needs reversed-out white digits and a row of dark-green blocks in every footer reads as alarm rather than information. NOTE: this repo carries no BRX brand hex, so the exact shade is a single constant to correct if it is wrong',
+      'THE TWO-GREEN ZONE RULE, enforced by construction: the card moved into its own module and the projected figure into another, so projection green and needs-you lime are separated by a file boundary rather than by discipline. The path-keyed lime audit was repointed at the card module and now enforces "lime on cards only" for free. Verified live: zero lime outside a card, zero projection green on one',
+      'The deal age tile is back, honestly. It measures days since a file first moved through a stage, not since its row was created, and is labelled for exactly that rather than as "average deal age" with a different formula underneath. It reports 58 days over 5 of 7 files and carries that coverage on its face',
+      'A preview panel opens beside the board when a card is clicked: borrowers, purpose, amount, stage with its description, days in stage, blocked-by, probability, milestones and every condition on the file. It kept the page a SERVER component — selection rides searchParams like collapse does — so client JS is unchanged at 195 B. Proved the soft navigation rather than assuming it: a variable set before the click survived both open and close',
+    ],
+  },
+  {
     n: 'Deals (Beta) v3',
     title: 'The rebuild: probability, insights, collapsing columns, tags and the Archive',
     status: 'shipped',

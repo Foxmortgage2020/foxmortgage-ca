@@ -501,6 +501,9 @@ export interface InsightTile {
   /** Projections render differently from actuals — never merely labelled. */
   isProjection: boolean
   note: string | null
+  /** 'money' unless stated. A tile measuring days must not be formatted as
+   * dollars, so the unit travels with the figure rather than being inferred. */
+  unit?: 'money' | 'days'
 }
 
 export interface Insights {
@@ -517,9 +520,36 @@ export interface Insights {
  * deals that carry one; deals with no amount are excluded from a figure rather
  * than counted as zero.
  */
+/**
+ * Days since a deal's FIRST recorded stage event, or null when it has none.
+ *
+ * Deliberately NOT "deal age". Every row's `created_at` is the date the record
+ * layer was seeded, so an age from it measures the migration; this measures
+ * something real instead — how long ago the file first moved. The tile that
+ * uses it is labelled for that, because a familiar label over a changed
+ * calculation is worse than an absent tile.
+ */
+export function daysSinceFirstEvent(
+  deal: DealLike,
+  events: readonly StageEventLike[],
+  nowISO: string,
+): number | null {
+  let earliest: string | null = null
+  for (const e of events) {
+    if (e.deal_id !== deal.id || !e.changed_at) continue
+    if (earliest === null || e.changed_at < earliest) earliest = e.changed_at
+  }
+  if (earliest === null) return null
+  const ms = Date.parse(nowISO) - Date.parse(earliest)
+  if (!Number.isFinite(ms)) return null
+  return Math.max(0, Math.floor(ms / 86_400_000))
+}
+
 export function buildInsights(
   deals: readonly DealLike[],
   stages: readonly StageLike[],
+  events: readonly StageEventLike[] = [],
+  nowISO: string = '',
 ): Insights {
   const byCode = new Map(stages.map(s => [s.code, s]))
   const amountOf = (d: DealLike) =>
@@ -588,16 +618,95 @@ export function buildInsights(
     },
   ]
 
-  const omitted = [
-    {
-      label: 'Average deal age',
-      // The honest reason, stated rather than worked around.
-      reason:
-        'every deal row carries the same created_at, the date the record layer was seeded, so an age computed from it measures the migration rather than the file',
-    },
-  ]
+  // Age since the file FIRST MOVED, not since its row was created. The tile is
+  // labelled for what it measures and carries its own coverage, so a five-of-
+  // seven average can never be read as a seven-of-seven one. Built only when
+  // there is something to measure; an empty average is not a zero.
+  const omitted: { label: string; reason: string }[] = []
+  const ages = deals
+    .map(d => daysSinceFirstEvent(d, events, nowISO))
+    .filter((n): n is number => n !== null)
+  if (ages.length > 0) {
+    const mean = ages.reduce((a, b) => a + b, 0) / ages.length
+    tiles.push({
+      key: 'age',
+      label: 'Average days since first stage event',
+      value: mean,
+      perDeal: null,
+      counted: ages.length,
+      total: deals.length,
+      isProjection: false,
+      note: 'files with recorded stage history',
+      unit: 'days',
+    })
+  } else {
+    omitted.push({
+      label: 'Average days since first stage event',
+      reason: 'no deal has a recorded stage event, so there is nothing to measure',
+    })
+  }
 
   return { tiles, omitted }
+}
+
+// ─── The preview panel ──────────────────────────────────────────────────────
+
+export interface ConditionLike {
+  deal_id: string
+  cond_number: string | null
+  text: string | null
+  status: string | null
+  category: string | null
+  owner: string | null
+  due_date: string | null
+  load_bearing: boolean | null
+}
+
+/** Conditions on one file, open ones first so the outstanding work leads.
+ * Nothing is invented: a file with none simply has none. */
+export function conditionsForDeal(
+  deal: DealLike,
+  conditions: readonly ConditionLike[],
+): ConditionLike[] {
+  return conditions
+    .filter(c => c.deal_id === deal.id)
+    .slice()
+    .sort((a, b) => {
+      const openA = a.status === 'open' ? 0 : 1
+      const openB = b.status === 'open' ? 0 : 1
+      return openA - openB || (a.cond_number ?? '').localeCompare(b.cond_number ?? '')
+    })
+}
+
+/** Resolve the selected deal from the URL. Matches on file_ref (what the card
+ * shows and what makes a shareable link readable), falling back to the row id.
+ * An unknown value selects nothing rather than erroring. */
+export function findDealByRef(
+  deals: readonly DealLike[],
+  ref: string | null | undefined,
+): DealLike | null {
+  if (!ref) return null
+  return deals.find(d => d.file_ref === ref) ?? deals.find(d => d.id === ref) ?? null
+}
+
+/** Role words for a condition's owner. An unrecognised owner keeps its own
+ * value rather than being relabelled as something it is not. */
+export function ownerLabel(owner: string | null): string {
+  if (!owner) return 'unassigned'
+  const map: Record<string, string> = {
+    broker: 'broker',
+    borrower: 'borrower',
+    lender: 'lender',
+    lawyer: 'lawyer',
+    underwriting: 'underwriting',
+  }
+  return map[owner] ?? owner.replace(/_/g, ' ')
+}
+
+/** Condition categories render as words, same rule. */
+export function conditionCategoryLabel(category: string | null): string | null {
+  if (!category) return null
+  return category.replace(/_/g, ' ')
 }
 
 // ─── Blocked by ─────────────────────────────────────────────────────────────

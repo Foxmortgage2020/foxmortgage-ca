@@ -3320,6 +3320,35 @@ export async function getRecAttractSources(): Promise<UwResult<RecAttractSource[
 
 /** Only ACTIVE tags. `large_deal` is inactive AND carries no threshold, so it
  * is excluded here before it can reach a card. */
+/** Conditions on a deal, for the preview panel. `rec.conditions` links on
+ * `deal_id` directly, so no join to the workbench is needed. Read-only. */
+export interface RecCondition {
+  deal_id: string
+  cond_number: string | null
+  text: string | null
+  status: string | null
+  category: string | null
+  owner: string | null
+  due_date: string | null
+  load_bearing: boolean | null
+}
+
+export async function getRecConditions(agentId: string): Promise<UwResult<RecCondition[]>> {
+  if (isDemoMode()) return demoResult([] as RecCondition[])
+  const res = await uwFetch<RecCondition>(
+    'conditions',
+    {
+      select: 'deal_id,cond_number,text,status,category,owner,due_date,load_bearing',
+      agent_id: `eq.${agentId}`,
+      order: 'cond_number.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
 export async function getRecCardTags(): Promise<UwResult<RecCardTag[]>> {
   if (isDemoMode()) return demoResult([] as RecCardTag[])
   const res = await uwFetch<RecCardTag>(

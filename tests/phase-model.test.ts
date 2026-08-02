@@ -16,9 +16,12 @@ import {
   columnTotals,
   columnWeight,
   columnsForPhase,
+  conditionsForDeal,
   daysInStage,
+  daysSinceFirstEvent,
   dealsInStage,
   defaultPhaseCode,
+  findDealByRef,
   evaluateTag,
   findPhase,
   fmtCompact,
@@ -46,7 +49,8 @@ import {
   type StageEventLike,
   type StageLike,
 } from '../lib/phase-model'
-import { PHASE_HUES, columnSkin, hueFor, phaseAccent, rampPosition, typeSkin } from '../lib/phase-palette'
+import { PHASE_HUES, PROJECTION_GREEN, columnSkin, hueFor, phaseAccent, rampPosition, typeSkin } from '../lib/phase-palette'
+import { readFileSync } from 'node:fs'
 
 const PHASES: PhaseLike[] = [
   { code: 'attract', label: 'Attract', description: null, sort_order: 10, unit: 'arrivals', counts_dollars: false, is_ordered: false, level: 'source' },
@@ -253,11 +257,13 @@ describe('counts and insights', () => {
     expect(ins.tiles.filter(t => t.isProjection).map(t => t.key)).toEqual(['weighted'])
   })
 
-  it('average deal age is omitted, with the reason carried', () => {
-    const ins = buildInsights(LIVE, STAGES)
-    expect(ins.tiles.map(t => t.key)).not.toContain('age')
-    expect(ins.omitted.map(o => o.label)).toContain('Average deal age')
-    expect(ins.omitted[0].reason).toMatch(/created_at/)
+  it('no tile is ever labelled "average deal age" — created_at is the seed date', () => {
+    // The tile that replaced it measures days since the first stage event and
+    // says so; see the dedicated block below. A familiar label over a changed
+    // calculation is worse than an absent tile, so the old label must not
+    // reappear anywhere.
+    const ins = buildInsights(LIVE, STAGES, [], '2026-08-02T00:00:00.000Z')
+    for (const t of ins.tiles) expect(t.label.toLowerCase()).not.toContain('deal age')
   })
 })
 
@@ -521,5 +527,152 @@ describe('colour carries phase and progress, and nothing else', () => {
     expect(new Set(['purchase', 'refinance', 'renewal'].map(t => typeSkin(t)!.fg)).size).toBe(3)
     expect(typeSkin(null)).toBeNull()
     expect(phaseAccent('underwriting')).not.toBe(phaseAccent('fulfilment'))
+  })
+})
+
+
+// ─── The projection colour and the zone rule ────────────────────────────────
+
+describe('projection green, and the zone that keeps it apart from lime', () => {
+  const CARD = 'components/admin/deals-beta/DealCard.tsx'
+  const FIGURE = 'components/admin/deals-beta/ProjectionFigure.tsx'
+  const PREVIEW = 'components/admin/deals-beta/DealPreview.tsx'
+  const BOARD = 'components/admin/DealsBetaBoard.tsx'
+  const read = (p: string) => readFileSync(p, 'utf8')
+  /** Import statements only — a header comment may name a token it must not
+   * import, and explaining the rule is not breaking it. */
+  const imports = (src: string) =>
+    src.split('\n').filter(l => /^\s*import\b/.test(l) || /^\s+[A-Za-z{}, ]+from '/.test(l)).join('\n')
+
+  it('the hatch is gone everywhere — it ran through the digits', () => {
+    for (const f of [BOARD, CARD, FIGURE, PREVIEW, 'lib/phase-palette.ts']) {
+      expect(read(f), `${f} still hatches`).not.toMatch(/repeating-linear-gradient\(45deg/)
+    }
+    expect(read('lib/phase-palette.ts')).not.toContain('projectionHatch')
+    expect(read('lib/phase-palette.ts')).not.toContain('NEUTRAL_HATCH')
+  })
+
+  it('the projection green is a solid fill, well clear of the Fox lime', () => {
+    // Lime is hue 78, a bright yellow-green. This is 152, a forest green.
+    for (const v of Object.values(PROJECTION_GREEN)) expect(v).toMatch(/^hsl\(152 /)
+    expect(PROJECTION_GREEN.fill).not.toContain('gradient')
+  })
+
+  // THE ZONE RULE, asserted from both sides.
+  it('a CARD may carry lime and can never carry projection green', () => {
+    const src = read(CARD)
+    expect(src).toMatch(/bg-decision/)
+    // Assert on the IMPORT, not on any mention: the file's header comment
+    // explains the zone rule and names both tokens on purpose.
+    expect(imports(src)).not.toMatch(/PROJECTION_GREEN|ProjectionFigure/)
+  })
+
+  it('the PROJECTION FIGURE may carry green and can never carry lime', () => {
+    const src = read(FIGURE)
+    expect(imports(src)).toContain('PROJECTION_GREEN')
+    expect(src).not.toMatch(/bg-decision|text-decision-ink/)
+  })
+
+  it('the orchestrator and the preview carry NO lime at all', () => {
+    // Lime lives on cards only. The board, its footers, the strip and the
+    // preview panel are structurally unable to acquire one.
+    for (const f of [BOARD, PREVIEW]) {
+      expect(read(f), `${f} must not render lime`).not.toMatch(/bg-decision|text-decision-ink/)
+    }
+  })
+
+  it('the preview panel carries no projection green either', () => {
+    // It shows ONE file, which puts it on the card side of the zone.
+    const src = read(PREVIEW)
+    expect(imports(src)).not.toMatch(/PROJECTION_GREEN|ProjectionFigure/)
+  })
+
+  it('colour never carries the meaning alone — the word rides with it', () => {
+    const board = read(BOARD)
+    expect(board).toMatch(/ProjectionLabel>\{weight\.probability\}% weighted/)
+    expect(board).toMatch(/<ProjectionLabel>projected<\/ProjectionLabel>/)
+  })
+
+  it('the preview panel has no edit control of any kind', () => {
+    const src = read(PREVIEW)
+    for (const bad of ['<form', 'onSubmit', 'onClick', "method: 'POST'", '<button', '<input', '<textarea', '<select']) {
+      expect(src, `preview must not contain ${bad}`).not.toContain(bad)
+    }
+  })
+})
+
+// ─── The deal age tile ──────────────────────────────────────────────────────
+
+describe('age since first stage event', () => {
+  const NOW = '2026-08-02T00:00:00.000Z'
+  const EV: StageEventLike[] = [
+    { deal_id: '1', to_stage: 'submitted', changed_at: '2026-05-21T00:00:00.000Z' },
+    { deal_id: '1', to_stage: 'lender_response', changed_at: '2026-07-01T00:00:00.000Z' },
+    { deal_id: '3', to_stage: 'submitted', changed_at: '2026-07-28T00:00:00.000Z' },
+  ]
+
+  it('measures from the EARLIEST event, not the latest', () => {
+    expect(daysSinceFirstEvent(deal({ id: '1' }), EV, NOW)).toBe(73)
+    expect(daysSinceFirstEvent(deal({ id: '3' }), EV, NOW)).toBe(5)
+  })
+
+  it('a deal with no events contributes nothing rather than a zero', () => {
+    expect(daysSinceFirstEvent(deal({ id: 'none' }), EV, NOW)).toBeNull()
+  })
+
+  it('the tile is labelled for what it MEASURES, not as "deal age"', () => {
+    const ins = buildInsights(LIVE, STAGES, EV, NOW)
+    const age = ins.tiles.find(t => t.key === 'age')!
+    expect(age.label).toBe('Average days since first stage event')
+    // A familiar label over a changed calculation is worse than an absent tile.
+    expect(age.label.toLowerCase()).not.toContain('deal age')
+    expect(age.unit).toBe('days')
+    expect(age.isProjection).toBe(false)
+  })
+
+  it('it carries its own coverage, so 2 of 7 never reads as 7 of 7', () => {
+    const ins = buildInsights(LIVE, STAGES, EV, NOW)
+    const age = ins.tiles.find(t => t.key === 'age')!
+    expect(age.counted).toBe(2)
+    expect(age.total).toBe(7)
+    expect(age.value).toBe(39) // (73 + 5) / 2
+  })
+
+  it('the omission note is gone once the tile exists', () => {
+    const ins = buildInsights(LIVE, STAGES, EV, NOW)
+    expect(ins.omitted).toEqual([])
+  })
+
+  it('with no events at all the tile is omitted rather than shown as zero', () => {
+    const ins = buildInsights(LIVE, STAGES, [], NOW)
+    expect(ins.tiles.map(t => t.key)).not.toContain('age')
+    expect(ins.omitted[0].label).toBe('Average days since first stage event')
+  })
+})
+
+// ─── The preview panel's data ───────────────────────────────────────────────
+
+describe('preview selection and conditions', () => {
+  const CONDS = [
+    { deal_id: '4', cond_number: 'c-2', text: 'b', status: 'satisfied', category: 'general_verification', owner: 'broker', due_date: null, load_bearing: false },
+    { deal_id: '4', cond_number: 'c-1', text: 'a', status: 'open', category: 'general_verification', owner: 'borrower', due_date: '2026-06-04', load_bearing: true },
+    { deal_id: '1', cond_number: 'x-1', text: 'other', status: 'open', category: null, owner: null, due_date: null, load_bearing: null },
+  ]
+
+  it('selects by file ref, falls back to id, and ignores an unknown ref', () => {
+    expect(findDealByRef(LIVE, 'BRXM-F057400')?.id).toBe('4')
+    expect(findDealByRef(LIVE, '4')?.id).toBe('4')
+    expect(findDealByRef(LIVE, 'nope')).toBeNull()
+    expect(findDealByRef(LIVE, null)).toBeNull()
+  })
+
+  it('shows only that file’s conditions, open ones first', () => {
+    const rows = conditionsForDeal(deal({ id: '4' }), CONDS)
+    expect(rows.map(c => c.cond_number)).toEqual(['c-1', 'c-2'])
+    expect(rows.every(c => c.deal_id === '4')).toBe(true)
+  })
+
+  it('a file with no conditions has none rather than an invented zero row', () => {
+    expect(conditionsForDeal(deal({ id: '7' }), CONDS)).toEqual([])
   })
 })

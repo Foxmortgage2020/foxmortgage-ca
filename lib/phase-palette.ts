@@ -147,18 +147,45 @@ export function phaseTint(phaseCode: string): string {
 /** A 45-degree hatch in the given hue, for the ground behind a weighted
  * figure. Deliberately the same idea as the chart, so the two surfaces teach
  * the same convention. */
-export function projectionHatch(phaseCode: string): string {
-  const { h, s } = hueFor(phaseCode)
-  // 0.42 rather than 0.30: at 0.30 the texture was there on inspection but not
-  // at a glance, and "at a glance" is the whole requirement — a label is read,
-  // a texture is seen.
-  const line = `hsl(${h} ${s}% 48% / 0.42)`
-  return `repeating-linear-gradient(45deg, ${line} 0 3px, transparent 3px 6px)`
-}
+// WHY THE HATCH IS GONE (2026-08-02c). It was tried and it failed, for a
+// reason worth carrying so it does not recur: on the practice-history chart the
+// number sits OUTSIDE the bar, so texture behind the bar costs nothing. Here
+// the number sits INSIDE the fill, so the hatch ran straight through the
+// digits. A hatch works behind a bar. It does not work behind type.
+//
+// The replacement is a solid fill in the BRX Mortgage green family. A LIGHT
+// TINT of it rather than full strength: at full strength the fill is dark
+// enough to need reversed-out white digits, and a row of solid dark-green
+// blocks in every column footer reads as alarm rather than as information. The
+// tint keeps the figure calm and the digits crisp.
+//
+// THE ZONE RULE. There are now two greens on this page carrying two meanings,
+// so they are separated by WHERE they may appear rather than by shade:
+//
+//     projection green  →  column footers and the insights strip. NEVER a card.
+//     needs-you lime    →  cards. NEVER a footer or the strip.
+//
+// They therefore cannot sit beside each other. This is enforced by
+// construction: the projection tokens live here and are imported only by
+// components/admin/deals-beta/ProjectionFigure.tsx, the lime lives only in
+// components/admin/deals-beta/DealCard.tsx, and tests/shell.test.ts (the
+// exhaustive lime audit) plus tests/phase-model.test.ts assert both halves
+// against the source. A file that breaks the zone fails the suite.
 
-/** The neutral hatch, for the insights strip where no phase owns the figure. */
-export const NEUTRAL_HATCH =
-  'repeating-linear-gradient(45deg, hsl(215 22% 52% / 0.38) 0 3px, transparent 3px 6px)'
+/** The BRX Mortgage green family. NOTE FOR MICHAEL: this repo carries no BRX
+ * brand hex anywhere, so this is a deep green chosen to sit in that family and
+ * well away from the Fox lime (#95D600, hue 78) — this is hue 152, a forest
+ * green rather than a yellow-green. If BRX's exact hex differs, it is one
+ * change here and nothing else moves. */
+export const PROJECTION_GREEN = {
+  /** Full strength — used for the digits and the label, never as the fill. */
+  ink: 'hsl(152 58% 22%)',
+  /** The fill behind the figure. Light enough that dark-green digits stay
+   * crisp; saturated enough that it is unmistakably green at a glance. */
+  fill: 'hsl(152 44% 91%)',
+  /** A hairline so the fill has an edge on a white card. */
+  border: 'hsl(152 34% 78%)',
+} as const
 
 // ─── Deal type ──────────────────────────────────────────────────────────────
 //

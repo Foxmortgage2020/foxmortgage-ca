@@ -15,8 +15,15 @@
 //
 // THREE THINGS THIS FILE REFUSES TO DO:
 //   1. Render a null probability as 0, or let one into a weighted total.
-//   2. Draw a projection like an actual — weighted figures sit on a hatch.
+//   2. Draw a projection like an actual — weighted figures take the projection
+//      green, in ProjectionFigure.tsx, and always carry the word `weighted`.
 //   3. Evaluate a tag whose field the deal row does not carry.
+//
+// THE ZONE RULE. Two greens carry two meanings here and are separated by
+// module, not by discipline: the card (DealCard.tsx) may render the needs-you
+// lime and never the projection green; the footer and strip render the
+// projection green (ProjectionFigure.tsx) and never the lime. This orchestrator
+// imports both and puts each in its own place, and tests assert both halves.
 
 import Link from 'next/link'
 import {
@@ -49,7 +56,9 @@ import {
   toggleCollapsed,
   unevaluableTags,
   type AttractSourceLike,
+  findDealByRef,
   type CardTagLike,
+  type ConditionLike,
   type DealClientLike,
   type DealLike,
   type DealMilestoneLike,
@@ -60,14 +69,10 @@ import {
   type StageEventLike,
   type StageLike,
 } from '@/lib/phase-model'
-import {
-  NEUTRAL_HATCH,
-  columnSkin,
-  phaseAccent,
-  phaseTint,
-  projectionHatch,
-  typeSkin,
-} from '@/lib/phase-palette'
+import { columnSkin, phaseAccent, phaseTint, typeSkin } from '@/lib/phase-palette'
+import DealCard from '@/components/admin/deals-beta/DealCard'
+import DealPreview from '@/components/admin/deals-beta/DealPreview'
+import ProjectionFigure, { ProjectionLabel } from '@/components/admin/deals-beta/ProjectionFigure'
 
 interface Props {
   phases: PhaseLike[]
@@ -81,10 +86,12 @@ interface Props {
   tags: CardTagLike[]
   milestoneTypes: MilestoneTypeLike[]
   milestones: DealMilestoneLike[]
+  conditions: ConditionLike[]
   insights: Insights
   activePhase: string | null
   archive: boolean
   collapsedRaw: string | null
+  selectedRef: string | null
   nowISO: string
 }
 
@@ -101,6 +108,9 @@ export default function DealsBetaBoard(props: Props) {
   const { phases, stages, deals, archive, activePhase } = props
   const ordered = orderedPhases(phases)
   const active = ordered.find(p => p.code === activePhase) ?? null
+  // Selection rides the URL, like phase, view and collapse. An unknown ref
+  // selects nothing rather than erroring.
+  const selected = archive ? null : findDealByRef(props.boardDeals, props.selectedRef)
 
   return (
     <div className="mt-5">
@@ -116,7 +126,31 @@ export default function DealsBetaBoard(props: Props) {
       {archive ? (
         <ArchiveView stages={stages} deals={deals} clients={props.clients} />
       ) : active ? (
-        <PhaseBody phase={active} {...props} />
+        // The preview sits BESIDE the board rather than over it, so the column
+        // a file came from stays visible while it is being read.
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1">
+            <PhaseBody phase={active} {...props} />
+          </div>
+          {selected && (
+            <DealPreview
+              deal={selected}
+              stage={stages.find(st => st.code === selected.stage_code) ?? null}
+              phase={
+                ordered.find(
+                  ph => ph.code === stages.find(st => st.code === selected.stage_code)?.phase,
+                ) ?? null
+              }
+              events={props.events}
+              clients={props.clients}
+              conditions={props.conditions}
+              milestoneTypes={props.milestoneTypes}
+              milestones={props.milestones}
+              nowISO={props.nowISO}
+              closeHref={href({ phase: props.activePhase, collapsed: props.collapsedRaw })}
+            />
+          )}
+        </div>
       ) : (
         <Panel>No phases are configured, so there is nothing to show. Phases live in rec.phases.</Panel>
       )}
@@ -146,22 +180,22 @@ function InsightsStrip({ insights }: { insights: Insights }) {
             data-testid={`beta-tile-${t.key}`}
           >
             <div className="flex items-baseline gap-2">
-              <p className="font-heading text-[10px] font-bold uppercase tracking-[1.2px] text-cool-600">
+              <p className="flex-1 font-heading text-[10px] font-bold uppercase tracking-[1.2px] text-cool-600">
                 {t.label}
               </p>
-              {/* A projection says so in words AND in texture. The word alone
-                  is read; the hatch is seen. */}
-              {t.isProjection && (
-                <span className="ml-auto rounded-sm border border-cool-300 px-1 text-[9px] uppercase tracking-wide text-cool-600">
-                  projected
+              {/* Colour never carries the meaning alone: the word rides with
+                  the figure so a reader who does not know the convention can
+                  still read the page. */}
+              {t.isProjection && <ProjectionLabel>projected</ProjectionLabel>}
+            </div>
+            <p className="mt-1.5">
+              {t.isProjection ? (
+                <ProjectionFigure size="lg">{fmtTotal(t.value)}</ProjectionFigure>
+              ) : (
+                <span className="font-heading text-xl leading-tight text-navy tabular-nums">
+                  {t.unit === 'days' ? `${Math.round(t.value)} days` : fmtTotal(t.value)}
                 </span>
               )}
-            </div>
-            <p
-              className="mt-1.5 inline-block px-1 font-heading text-xl leading-none text-navy tabular-nums"
-              style={t.isProjection ? { backgroundImage: NEUTRAL_HATCH } : undefined}
-            >
-              {fmtTotal(t.value)}
             </p>
             <p className="mt-1.5 text-[11px] text-cool-600 tabular-nums">
               {t.perDeal !== null && <>{fmtCompact(t.perDeal)} per file · </>}
@@ -510,15 +544,11 @@ function StageColumn(
           className="border-t px-3 py-1.5"
           style={{ borderColor: skin.border, background: skin.surface }}
         >
-          <p className="text-[10px] uppercase tracking-wide text-cool-600 tabular-nums">
-            {weight.probability}% weighted
-          </p>
-          <p
-            className="mt-0.5 inline-block px-1 font-heading text-sm font-semibold text-navy tabular-nums"
-            style={{ backgroundImage: projectionHatch(phase.code) }}
-            title="A projection, not a recorded figure"
-          >
-            {fmtTotal(weight.weighted)}
+          <ProjectionLabel>{weight.probability}% weighted</ProjectionLabel>
+          <p className="mt-0.5">
+            <ProjectionFigure testId={`beta-weighted-${stage.code}`}>
+              {fmtTotal(weight.weighted)}
+            </ProjectionFigure>
           </p>
         </div>
       )}
@@ -529,7 +559,26 @@ function StageColumn(
             // Calm. An empty column is a fact about the week, not a failure.
             <p className="px-1 py-3 text-xs text-cool-500">No files in this stage.</p>
           ) : (
-            inColumn.map(d => <DealCard key={d.id} {...props} deal={d} />)
+            inColumn.map(d => (
+              <DealCard
+                key={d.id}
+                deal={d}
+                events={props.events}
+                clients={props.clients}
+                tags={props.tags}
+                milestoneTypes={props.milestoneTypes}
+                milestones={props.milestones}
+                nowISO={props.nowISO}
+                selected={(d.file_ref ?? d.id) === props.selectedRef}
+                // Clicking a card selects it in the URL; clicking the selected
+                // one again clears it. Soft navigation, no page load, no state.
+                href={href({
+                  phase: props.activePhase,
+                  collapsed: props.collapsedRaw,
+                  deal: (d.file_ref ?? d.id) === props.selectedRef ? null : d.file_ref ?? d.id,
+                })}
+              />
+            ))
           )}
         </div>
       )}
@@ -666,124 +715,5 @@ function ArchiveView({
         </div>
       )}
     </section>
-  )
-}
-
-// ─── One card ───────────────────────────────────────────────────────────────
-
-function DealCard(props: Props & { deal: DealLike }) {
-  const { deal, events, clients, tags, milestoneTypes, milestones, nowISO } = props
-  const borrowers = borrowersFor(deal, clients)
-  const days = daysInStage(deal, events, nowISO)
-  const chip = blockedByChip(deal.blocked_by)
-  const amount = fmtAmount(deal.mortgage_amount)
-  const type = purposeLabel(deal.deal_type)
-  const t = typeSkin(deal.deal_type)
-  const activeTags = tagsForDeal(tags, deal)
-  const marks = milestonesForDeal(deal, milestones, milestoneTypes)
-
-  return (
-    <article
-      className="rounded-[7px] border border-cool-200 bg-white p-3 shadow-[0_1px_2px_rgba(10,27,46,.05)]"
-      data-testid={`beta-deal-${deal.file_ref ?? deal.id}`}
-    >
-      <div className="flex items-start gap-2">
-        <span className="font-heading text-[11px] tabular-nums text-cool-600">
-          {deal.file_ref ?? 'no file ref'}
-        </span>
-        {/* Deal type is a real distinction and gets meaning-carrying colour.
-            OUTLINED, because phases own filled tints — a different channel, so
-            the two palettes cannot be confused for one another. */}
-        {type && t && (
-          <span
-            className="ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-            style={{ color: t.fg, borderColor: t.border, background: t.bg }}
-          >
-            {type}
-          </span>
-        )}
-      </div>
-
-      {borrowers.length > 0 ? (
-        <div className="mt-1.5">
-          {borrowers.map(b => (
-            <p key={`${b.name}-${b.role}`} className="text-sm leading-snug text-navy">
-              {b.name}
-              <span className="ml-1.5 text-[10px] uppercase tracking-wide text-cool-500">
-                {b.role}
-              </span>
-            </p>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-1.5 text-sm text-cool-500">no borrower recorded</p>
-      )}
-
-      {amount && (
-        <p className="mt-1.5 font-heading text-base font-semibold text-navy tabular-nums">
-          {amount}
-        </p>
-      )}
-
-      {/* Card tags, from rules the record layer owns. Only ACTIVE verdicts
-          render; a rule that cannot be evaluated produces nothing here and is
-          named once above the board instead. */}
-      {activeTags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {activeTags.map(tag => (
-            <span
-              key={tag.code}
-              title={tag.description ?? undefined}
-              className="rounded-sm border border-caution/40 bg-caution-bg px-1.5 py-0.5 text-[10px] font-semibold text-caution"
-              data-testid={`beta-tag-${tag.code}`}
-            >
-              {tag.label}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Milestones: small dated markers, not stages. Zero rows today; this
-          renders when `lawyer_instructed` lands on a file in Conditions. */}
-      {marks.length > 0 && (
-        <div className="mt-2 space-y-0.5">
-          {marks.map(m => (
-            <p key={m.code} className="text-[10px] text-cool-600 tabular-nums">
-              <span className="mr-1 text-cool-400">◆</span>
-              {m.label}
-              {m.occurred_at && <span className="ml-1">{m.occurred_at.slice(0, 10)}</span>}
-            </p>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-        {/* Lime has exactly one meaning on this page: this needs Michael. Only
-            the You chip carries it; Client, Lender and Lawyer are information
-            and stay quiet, which is the only reason You means anything.
-            Nothing renders at all when blocked_by is null. */}
-        {chip && (
-          <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-              isActionableChip(chip) ? 'bg-decision text-decision-ink' : 'bg-cool-100 text-cool-700'
-            }`}
-          >
-            {BLOCKED_BY_LABELS[chip]}
-          </span>
-        )}
-        {days.known ? (
-          <span
-            className="ml-auto text-[10px] tabular-nums text-cool-600"
-            title={`Entered this stage on ${days.since}`}
-          >
-            {days.days}d in stage
-          </span>
-        ) : (
-          <span className="ml-auto text-[10px] italic text-cool-500">
-            {DAYS_UNKNOWN_COPY[days.reason]}
-          </span>
-        )}
-      </div>
-    </article>
   )
 }

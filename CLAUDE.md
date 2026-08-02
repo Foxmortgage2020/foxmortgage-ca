@@ -258,11 +258,31 @@ Supersedes the two sections below. `lib/phase-model.ts` (rules) +
   `columnWeight` return **null** rather than a zero so a caller cannot add
   what it never received. Contact-level columns therefore carry NO footer at
   all, which is the visible proof.
-- **A PROJECTION IS NEVER DRAWN LIKE AN ACTUAL.** Every weighted figure sits
-  on a 45° hatch (`projectionHatch` / `NEUTRAL_HATCH`), matching the
-  practice-history chart's convention. A label is read; a texture is seen.
+- **A PROJECTION IS NEVER DRAWN LIKE AN ACTUAL**, and as of 2026-08-02c it is
+  a SOLID FILL, not a hatch. The hatch was tried and failed: the number sits
+  INSIDE the fill here, so the texture ran through the digits. On the
+  practice-history chart the number sits OUTSIDE the bar, which is why it works
+  there. **Hatch behind a bar, never behind type.** The replacement is
+  `PROJECTION_GREEN` (hue 152, a light tint with dark-green digits).
   `Weighted` and `ColumnWeight` carry `isProjection: true` so a caller cannot
-  destructure the number without meeting the flag.
+  destructure the number without meeting the flag, and the word `weighted` or
+  `projected` always rides with the figure — colour never carries meaning alone.
+- **THE TWO-GREEN ZONE RULE, enforced by construction.** Projection green and
+  needs-you lime are separated by MODULE so they can never sit side by side:
+  `components/admin/deals-beta/ProjectionFigure.tsx` owns the green and imports
+  no decision token; `components/admin/deals-beta/DealCard.tsx` owns the lime
+  and imports no projection token. The card moved into its own file precisely
+  so the path-keyed lime audit in `tests/shell.test.ts` enforces "lime on cards
+  only", and `tests/phase-model.test.ts` asserts both halves on the imports
+  (not on mentions — the headers explain the rule and name both tokens).
+  **Green = footers and the insights strip. Lime = cards. Never the reverse.**
+- **The preview panel** (`?deal=<file_ref>`) is a server component like the
+  rest: selection rides searchParams, so opening and closing is a Next soft
+  navigation with no page load and the board stays at **195 B** of client JS.
+  Read-only with a close control and nothing else — a test greps it for form,
+  button, input, select, textarea, onClick and onSubmit. It shows ONE file, so
+  it sits on the card side of the zone and carries no projection green;
+  probability is stated as a plain percentage there.
 - **CARD TAGS ARE THREE SCALAR COLUMNS AND MUST STAY THAT WAY** (field,
   operator, value). They cannot express a conjunction, a join or a time
   window; wanting one is a record-layer change, never a rules engine here.
@@ -276,12 +296,16 @@ Supersedes the two sections below. `lib/phase-model.ts` (rules) +
   never as stages. The link column is **`milestone_type`, not
   `milestone_code`**. Built for `lawyer_instructed` landing on a file in
   Conditions.
-- **Insights strip: four tiles, one omitted.** Total / open / closed won are
-  actuals; weighted pipeline is a projection over OPEN files only (a funded
-  deal is an actual, and folding a certainty into a forecast is how forecasts
-  start lying). **Average deal age is OMITTED** because every row's
-  `created_at` is the seed date — an age from it measures the migration. The
-  omission is stated on the page, not silently dropped.
+- **Insights strip: five tiles.** Total / open / closed won are actuals;
+  weighted pipeline is a projection over OPEN files only (a funded deal is an
+  actual, and folding a certainty into a forecast is how forecasts start
+  lying). The fifth is **"Average days since first stage event"**, which
+  replaced the omitted average-deal-age tile (2026-08-02c): `created_at` is the
+  seed date on every row, so age from it measures the migration. The tile is
+  labelled for WHAT IT MEASURES rather than as deal age with a different
+  formula underneath, and carries its own coverage (5 of 7 files) so a partial
+  average is never read as a whole one. It is omitted entirely if no deal has a
+  stage event.
 - **Collapse rides `?collapsed=` in the URL**, so the board is still a SERVER
   component with 195 B of client JS and no handler, form or drag target. A
   collapsed column keeps its name, count, total and weighted footer.

@@ -30,6 +30,7 @@ import {
   getRecCardTags,
   getRecDealClients,
   getRecDealMilestones,
+  getRecConditions,
   getRecDeals,
   getRecMilestoneTypes,
   getRecPhaseReturns,
@@ -71,7 +72,7 @@ function Notice({ children }: { children: React.ReactNode }) {
 export default async function DealsBetaPage({
   searchParams,
 }: {
-  searchParams?: { phase?: string; view?: string; collapsed?: string }
+  searchParams?: { phase?: string; view?: string; collapsed?: string; deal?: string }
 }) {
   await requirePermission('deals.view')
 
@@ -117,6 +118,7 @@ export default async function DealsBetaPage({
     tagsRes,
     milestoneTypesRes,
     milestonesRes,
+    conditionsRes,
   ] = await Promise.all([
     getRecPhases(),
     getRecStages(),
@@ -128,6 +130,7 @@ export default async function DealsBetaPage({
     getRecCardTags(),
     getRecMilestoneTypes(),
     getRecDealMilestones(agentId),
+    getRecConditions(agentId),
   ])
 
   // A read that fails is stated, never rendered as an empty board. An empty
@@ -143,6 +146,7 @@ export default async function DealsBetaPage({
     tagsRes,
     milestoneTypesRes,
     milestonesRes,
+    conditionsRes,
   ]
   if (all.some(r => !r.configured || !r.ok)) {
     return (
@@ -168,11 +172,16 @@ export default async function DealsBetaPage({
   const tags = ok(tagsRes, [] as any[])
   const milestoneTypes = ok(milestoneTypesRes, [] as any[])
   const milestones = ok(milestonesRes, [] as any[])
+  const conditions = ok(conditionsRes, [] as any[])
 
   const archive = searchParams?.view === 'archive'
   // The requested phase must be one the record layer configures; an unknown
   // value falls back rather than rendering an empty unnamed phase. This is what
   // absorbed the advise -> underwriting rename without a broken page.
+  // One instant for the whole render: the insights strip, every card and the
+  // preview all measure against the same clock.
+  const nowISO = new Date().toISOString()
+
   const known = new Set(orderedPhases(phases).map(p => p.code))
   const requested = searchParams?.phase
   const activePhase = requested && known.has(requested) ? requested : defaultPhaseCode(phases)
@@ -191,13 +200,15 @@ export default async function DealsBetaPage({
         tags={tags}
         milestoneTypes={milestoneTypes}
         milestones={milestones}
-        insights={buildInsights(deals, stages)}
+        conditions={conditions}
+        insights={buildInsights(deals, stages, events, nowISO)}
         activePhase={activePhase}
         archive={archive}
         collapsedRaw={searchParams?.collapsed ?? null}
+        selectedRef={searchParams?.deal ?? null}
         // Resolved on the server so every card measures against one instant,
         // and so the model itself never reads a clock.
-        nowISO={new Date().toISOString()}
+        nowISO={nowISO}
       />
     </Shell>
   )
