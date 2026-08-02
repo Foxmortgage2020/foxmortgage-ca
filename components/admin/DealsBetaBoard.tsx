@@ -1,26 +1,22 @@
-// The Deals (Beta) phase board — five phases (2026-08-02).
+// The Deals (Beta) phase board — rebuild for the five-phase record layer
+// (2026-08-02b).
 //
-// A SERVER COMPONENT ON PURPOSE. Phase and view selection ride searchParams
-// through plain links, so this page ships no client JavaScript at all. There
-// is no handler, no fetch, no form and no drag target anywhere in the tree —
-// the read-only promise is a property of its shape rather than a rule someone
-// has to remember.
+// A SERVER COMPONENT ON PURPOSE, and still one after gaining a collapse
+// control: collapse rides searchParams through plain links, exactly as phase
+// and view selection do. The page therefore ships no client JavaScript, has no
+// handler, no form and no drag target, and its read-only promise stays a
+// property of its shape rather than a rule someone has to remember.
 //
-// NOTHING ABOUT THE MODEL IS HARDCODED. The phase bar renders whatever
-// rec.phases holds, in its order; each phase's unit, whether it carries money,
-// and whether it has steps at all come from that row. Columns come from
-// rec.deal_stages, gates from is_gate, the return rail from rec.phase_returns,
-// and Attract's sources from rec.attract_sources. Adding a phase or a stage in
-// the record layer changes this page with no code change.
+// NOTHING ABOUT THE MODEL IS HARDCODED. Phases, stages, units, gates,
+// probabilities, tag rules, milestone types, Attract's sources and the return
+// paths are all rows read at runtime. `advise` and `fund` were renamed to
+// `underwriting` and `fulfilment` in the record layer and no branch here
+// noticed, which is the property this page exists to demonstrate.
 //
-// EVERY SUB-STAGE RENDERS, occupied or not. An empty column is information;
-// a missing column is a lie about the process.
-//
-// THREE UNITS, NEVER ADDED. Attract counts arrivals, Intake and Monitor count
-// people, Advise and Fund count files with a dollar total. lib/phase-model.ts
-// phaseTotals returns null rather than zero for anything that is not
-// deal-level, so a caller cannot render "0 files" for a phase that does not
-// count files.
+// THREE THINGS THIS FILE REFUSES TO DO:
+//   1. Render a null probability as 0, or let one into a weighted total.
+//   2. Draw a projection like an actual — weighted figures sit on a hatch.
+//   3. Evaluate a tag whose field the deal row does not carry.
 
 import Link from 'next/link'
 import {
@@ -30,81 +26,160 @@ import {
   blockedByChip,
   borrowersFor,
   columnTotals,
+  columnWeight,
   columnsForPhase,
   daysInStage,
   dealsInStage,
   fmtAmount,
+  fmtCompact,
   fmtTotal,
   hasSteps,
   isActionableChip,
   isDealLevel,
   isGate,
+  milestonesForDeal,
   orderedPhases,
   orderedReturns,
+  parseCollapsed,
   phaseTotals,
   purposeLabel,
   returnTarget,
+  tagsForDeal,
   terminalStages,
+  toggleCollapsed,
+  unevaluableTags,
   type AttractSourceLike,
+  type CardTagLike,
   type DealClientLike,
   type DealLike,
+  type DealMilestoneLike,
+  type Insights,
+  type MilestoneTypeLike,
   type PhaseLike,
   type PhaseReturnLike,
   type StageEventLike,
   type StageLike,
 } from '@/lib/phase-model'
-import { columnSkin, phaseAccent, phaseTint, typeSkin } from '@/lib/phase-palette'
+import {
+  NEUTRAL_HATCH,
+  columnSkin,
+  phaseAccent,
+  phaseTint,
+  projectionHatch,
+  typeSkin,
+} from '@/lib/phase-palette'
 
 interface Props {
   phases: PhaseLike[]
   stages: StageLike[]
   deals: DealLike[]
+  boardDeals: DealLike[]
   events: StageEventLike[]
   clients: DealClientLike[]
   returns: PhaseReturnLike[]
   sources: AttractSourceLike[]
+  tags: CardTagLike[]
+  milestoneTypes: MilestoneTypeLike[]
+  milestones: DealMilestoneLike[]
+  insights: Insights
   activePhase: string | null
   archive: boolean
+  collapsedRaw: string | null
   nowISO: string
 }
 
 const BASE = '/portal/admin/deals-beta'
 
-export default function DealsBetaBoard({
-  phases,
-  stages,
-  deals,
-  events,
-  clients,
-  returns,
-  sources,
-  activePhase,
-  archive,
-  nowISO,
-}: Props) {
+function href(params: Record<string, string | null | undefined>): string {
+  const q = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) if (v) q.set(k, v)
+  const s = q.toString()
+  return s ? `${BASE}?${s}` : BASE
+}
+
+export default function DealsBetaBoard(props: Props) {
+  const { phases, stages, deals, archive, activePhase } = props
   const ordered = orderedPhases(phases)
   const active = ordered.find(p => p.code === activePhase) ?? null
 
   return (
     <div className="mt-5">
-      <PhaseBar phases={ordered} stages={stages} deals={deals} activeCode={archive ? null : active?.code ?? null} />
-      <ReturnRail returns={returns} phases={ordered} stages={stages} sources={sources} />
+      <InsightsStrip insights={props.insights} />
+      <PhaseBar
+        phases={ordered}
+        stages={stages}
+        deals={props.boardDeals}
+        activeCode={archive ? null : active?.code ?? null}
+      />
+      <ReturnRail returns={props.returns} phases={ordered} stages={stages} sources={props.sources} />
       <ViewSwitch stages={stages} deals={deals} archive={archive} activeCode={active?.code ?? null} />
       {archive ? (
-        <ArchiveView stages={stages} deals={deals} clients={clients} />
+        <ArchiveView stages={stages} deals={deals} clients={props.clients} />
       ) : active ? (
-        <PhaseBody
-          phase={active}
-          stages={stages}
-          deals={deals}
-          events={events}
-          clients={clients}
-          sources={sources}
-          nowISO={nowISO}
-        />
+        <PhaseBody phase={active} {...props} />
       ) : (
-        <p className="rounded-[9px] border border-cool-200 bg-white p-5 text-sm text-cool-700">
-          No phases are configured, so there is nothing to show. Phases live in rec.phases.
+        <Panel>No phases are configured, so there is nothing to show. Phases live in rec.phases.</Panel>
+      )}
+    </div>
+  )
+}
+
+function Panel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-[9px] border border-cool-200 bg-white p-5 text-sm text-cool-700">
+      {children}
+    </p>
+  )
+}
+
+// ─── The insights strip ─────────────────────────────────────────────────────
+
+function InsightsStrip({ insights }: { insights: Insights }) {
+  if (insights.tiles.length === 0) return null
+  return (
+    <div className="mb-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+        {insights.tiles.map(t => (
+          <div
+            key={t.key}
+            className="rounded-[9px] border border-cool-200 bg-white p-3"
+            data-testid={`beta-tile-${t.key}`}
+          >
+            <div className="flex items-baseline gap-2">
+              <p className="font-heading text-[10px] font-bold uppercase tracking-[1.2px] text-cool-600">
+                {t.label}
+              </p>
+              {/* A projection says so in words AND in texture. The word alone
+                  is read; the hatch is seen. */}
+              {t.isProjection && (
+                <span className="ml-auto rounded-sm border border-cool-300 px-1 text-[9px] uppercase tracking-wide text-cool-600">
+                  projected
+                </span>
+              )}
+            </div>
+            <p
+              className="mt-1.5 inline-block px-1 font-heading text-xl leading-none text-navy tabular-nums"
+              style={t.isProjection ? { backgroundImage: NEUTRAL_HATCH } : undefined}
+            >
+              {fmtTotal(t.value)}
+            </p>
+            <p className="mt-1.5 text-[11px] text-cool-600 tabular-nums">
+              {t.perDeal !== null && <>{fmtCompact(t.perDeal)} per file · </>}
+              {t.counted} of {t.total} files
+              {t.note && <> · {t.note}</>}
+            </p>
+          </div>
+        ))}
+      </div>
+      {/* What is NOT here, and why. An omitted tile stated is worth more than
+          a placeholder shown. */}
+      {insights.omitted.length > 0 && (
+        <p className="mt-2 text-[11px] text-cool-500">
+          {insights.omitted.map(o => (
+            <span key={o.label}>
+              <span className="font-semibold">{o.label}</span> is not shown: {o.reason}.
+            </span>
+          ))}
         </p>
       )}
     </div>
@@ -133,26 +208,24 @@ function PhaseBar({
         const isActive = p.code === activeCode
         const dealLevel = isDealLevel(p)
         const totals = phaseTotals(p, stages, deals)
-        const accent = phaseAccent(p.code)
         const stepCount = columnsForPhase(stages, p.code).length
         return (
           <Link
             key={p.code}
-            href={`${BASE}?phase=${p.code}`}
+            href={href({ phase: p.code })}
             aria-current={isActive ? 'page' : undefined}
-            className={`group block overflow-hidden rounded-[9px] bg-white motion-safe:transition-shadow hover:shadow-card ${
-              // Solid = counts files. Dashed = counts people or arrivals. The
-              // difference is what stops the counts reading as one pipeline.
+            className={`block overflow-hidden rounded-[9px] bg-white motion-safe:transition-shadow hover:shadow-card ${
+              // Solid = counts files. Dashed = counts people or arrivals.
               dealLevel ? 'border border-cool-300' : 'border-2 border-dashed border-cool-300'
             } ${isActive ? 'ring-2 ring-navy' : ''}`}
           >
-            <div className="h-1" style={{ background: accent }} aria-hidden="true" />
+            <div className="h-1" style={{ background: phaseAccent(p.code) }} aria-hidden="true" />
             <div className="p-3" style={{ background: isActive ? phaseTint(p.code) : undefined }}>
               <div className="flex items-baseline gap-2">
                 <span className="font-heading text-[11px] font-bold uppercase tracking-[1.3px] text-navy">
                   {p.label}
                 </span>
-                {/* The unit is the phase's own word, read from rec.phases. */}
+                {/* The unit is the phase's own word, from rec.phases. */}
                 <span className="ml-auto text-[10px] uppercase tracking-wide text-cool-500">
                   {p.unit}
                 </span>
@@ -175,9 +248,10 @@ function PhaseBar({
                   )}
                 </>
               ) : (
-                // Never invent a number. Nothing is placed in the contact-level
-                // phases yet and no arrivals are recorded, so the card says the
-                // shape of the phase instead of a figure that would look measured.
+                // Never invent a number: nothing is placed in the contact-level
+                // phases and no arrivals are recorded, so the card says the
+                // shape of the phase instead of a figure that would look
+                // measured.
                 <>
                   <p className="mt-1.5 font-heading text-sm leading-tight text-cool-500">
                     not counted yet
@@ -198,11 +272,6 @@ function PhaseBar({
 }
 
 // ─── The return rail ────────────────────────────────────────────────────────
-// Both returns out of Monitor's Decided gate are rows in rec.phase_returns —
-// one back into Advise at the strategy session (a renewal needs the advice, not
-// another application form), one feeding Attract as a source (the book brings
-// its own work). Drawing only the first understates the loop, which is what
-// the previous build did.
 
 function ReturnRail({
   returns,
@@ -218,7 +287,6 @@ function ReturnRail({
   const rows = orderedReturns(returns)
     .map(r => ({ r, target: returnTarget(r, phases, stages, sources) }))
     .filter(x => x.target !== null)
-
   if (rows.length === 0) return <div className="mt-4" />
 
   return (
@@ -242,8 +310,6 @@ function ReturnRail({
 }
 
 // ─── Board / Archive switch ─────────────────────────────────────────────────
-// The Archive is a VIEW, not a sixth phase — terminal files belong to no phase
-// and putting them in the bar would say they are part of the flow.
 
 function ViewSwitch({
   stages,
@@ -260,7 +326,7 @@ function ViewSwitch({
   return (
     <div className="mb-4 flex items-center gap-2">
       <Link
-        href={activeCode ? `${BASE}?phase=${activeCode}` : BASE}
+        href={href({ phase: activeCode })}
         className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${
           archive ? 'border-cool-300 bg-white text-cool-700' : 'border-navy bg-navy text-white'
         }`}
@@ -268,7 +334,7 @@ function ViewSwitch({
         Board
       </Link>
       <Link
-        href={`${BASE}?view=archive`}
+        href={href({ view: 'archive' })}
         className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${
           archive ? 'border-navy bg-navy text-white' : 'border-cool-300 bg-white text-cool-700'
         }`}
@@ -281,25 +347,12 @@ function ViewSwitch({
 
 // ─── The body ───────────────────────────────────────────────────────────────
 
-function PhaseBody({
-  phase,
-  stages,
-  deals,
-  events,
-  clients,
-  sources,
-  nowISO,
-}: {
-  phase: PhaseLike
-  stages: StageLike[]
-  deals: DealLike[]
-  events: StageEventLike[]
-  clients: DealClientLike[]
-  sources: AttractSourceLike[]
-  nowISO: string
-}) {
+function PhaseBody(props: Props & { phase: PhaseLike }) {
+  const { phase, stages, boardDeals: deals, sources, tags, collapsedRaw } = props
   const columns = columnsForPhase(stages, phase.code)
   const dealLevel = isDealLevel(phase)
+  const collapsed = parseCollapsed(collapsedRaw)
+  const unevaluable = dealLevel ? unevaluableTags(tags, deals) : []
 
   return (
     <section>
@@ -310,15 +363,13 @@ function PhaseBody({
         )}
       </div>
 
-      {/* Attract has no steps at all — rec.phases says so structurally with
-          is_ordered false and level 'source'. It gets sources, not a board. */}
       {!hasSteps(phase) ? (
         <SourceList phase={phase} sources={sources} />
       ) : columns.length === 0 ? (
-        <p className="rounded-[9px] border border-cool-200 bg-white p-5 text-sm text-cool-700">
+        <Panel>
           No stages are configured for {phase.label}. Stages are configuration: adding one to
           rec.deal_stages adds a column here.
-        </p>
+        </Panel>
       ) : (
         <>
           {/* Said once, plainly, rather than as a fake zero on every column. */}
@@ -328,26 +379,35 @@ function PhaseBody({
               {phase.unit}, and there is no contact-level stage data in the record layer so far.
             </p>
           )}
-          {/* The one-screen constraint is withdrawn: cards get room and the
-              board scrolls sideways. Six columns at a readable width beats
-              eleven crammed. */}
-          <div className="-mx-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0">
-            <div
-              className="grid gap-3"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(264px, 1fr))` }}
+          {/* A tag rule that cannot be evaluated is named rather than silently
+              dropped, because "no tag" and "cannot tell" are different facts. */}
+          {unevaluable.map(u => (
+            <p
+              key={u.tag.code}
+              className="mb-3 rounded-[9px] border border-cool-200 bg-white px-4 py-2.5 text-sm text-cool-700"
             >
+              The <span className="font-semibold">{u.tag.label}</span> tag is not shown: its rule
+              reads <span className="font-mono text-[12px]">{u.tag.rule_field}</span>, which no deal
+              row carries. Marking every file with it would invent a signal out of a field nobody
+              records.
+            </p>
+          ))}
+          {/* The one-screen constraint is withdrawn. Cards get a readable width
+              and the board scrolls; collapsing a column is the real answer to a
+              phase that does not fit, and it beats shrinking every card. */}
+          <div className="-mx-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0">
+            <div className="flex items-start gap-3">
               {columns.map((col, i) => (
                 <StageColumn
                   key={col.code}
-                  phase={phase}
+                  {...props}
                   stage={col}
                   index={i}
                   total={columns.length}
-                  deals={dealLevel ? dealsInStage(deals, col.code) : []}
+                  inColumn={dealLevel ? dealsInStage(deals, col.code) : []}
                   showCounts={dealLevel}
-                  events={events}
-                  clients={clients}
-                  nowISO={nowISO}
+                  collapsed={collapsed.has(col.code)}
+                  collapsedRaw={collapsedRaw}
                 />
               ))}
             </div>
@@ -358,40 +418,38 @@ function PhaseBody({
   )
 }
 
-function StageColumn({
-  phase,
-  stage,
-  index,
-  total,
-  deals,
-  showCounts,
-  events,
-  clients,
-  nowISO,
-}: {
-  phase: PhaseLike
-  stage: StageLike
-  index: number
-  total: number
-  deals: DealLike[]
-  showCounts: boolean
-  events: StageEventLike[]
-  clients: DealClientLike[]
-  nowISO: string
-}) {
+function StageColumn(
+  props: Props & {
+    phase: PhaseLike
+    stage: StageLike
+    index: number
+    total: number
+    inColumn: DealLike[]
+    showCounts: boolean
+    collapsed: boolean
+  },
+) {
+  const { phase, stage, index, total, inColumn, showCounts, collapsed, collapsedRaw, activePhase } =
+    props
   const skin = columnSkin(phase.code, index, total)
-  const totals = columnTotals(deals)
+  const totals = columnTotals(inColumn)
   const gate = isGate(stage)
+  const weight = showCounts ? columnWeight(stage, inColumn) : null
+
+  const toggleHref = href({
+    phase: activePhase,
+    collapsed: toggleCollapsed(parseCollapsed(collapsedRaw), stage.code) || null,
+  })
 
   return (
     <div
-      className="overflow-hidden rounded-[9px]"
+      className={`shrink-0 overflow-hidden rounded-[9px] ${collapsed ? 'w-[132px]' : 'w-[280px]'}`}
       style={{ background: skin.surface, border: `1px solid ${skin.border}` }}
       data-testid={`beta-col-${stage.code}`}
+      data-collapsed={collapsed ? 'true' : 'false'}
     >
-      {/* The accent deepens across the phase: hue says which phase, depth says
-          how far along. A gate is dashed rather than solid — a decision point
-          is not somewhere a file rests. */}
+      {/* Hue says which phase, depth says how far along. A gate is dashed
+          rather than solid: a decision point is not somewhere a file rests. */}
       <div
         className="h-[3px]"
         style={
@@ -404,15 +462,11 @@ function StageColumn({
         aria-hidden="true"
       />
       <div className="px-3 py-2.5" style={{ background: skin.header }}>
-        {/* Hierarchy, deliberately ordered: the stage NAME is the loudest thing
-            in the header, and the dollar total is second. The first build had
-            that inverted — an 11px label under an 18px figure — so the eye
-            landed on money before it knew which stage it was looking at. */}
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-1.5">
           <h3 className="font-heading text-sm font-bold uppercase leading-tight tracking-[0.06em] text-navy">
             {stage.label}
           </h3>
-          {gate && (
+          {gate && !collapsed && (
             <span className="shrink-0 rounded-sm border border-navy/25 px-1 text-[9px] uppercase tracking-wide text-navy/70">
               gate
             </span>
@@ -422,7 +476,19 @@ function StageColumn({
               {totals.count}
             </span>
           )}
+          <Link
+            href={toggleHref}
+            aria-label={collapsed ? `Expand ${stage.label}` : `Collapse ${stage.label}`}
+            title={collapsed ? 'Expand' : 'Collapse'}
+            className={`shrink-0 rounded-sm px-1 text-[11px] leading-none text-cool-600 hover:bg-white/60 hover:text-navy ${
+              showCounts ? '' : 'ml-auto'
+            }`}
+            data-testid={`beta-collapse-${stage.code}`}
+          >
+            {collapsed ? '»' : '«'}
+          </Link>
         </div>
+        {/* A collapsed column still carries its name, count and total. */}
         {showCounts && (
           <p className="mt-1 font-heading text-base font-semibold leading-none text-navy tabular-nums">
             {fmtTotal(totals.amount)}
@@ -431,28 +497,39 @@ function StageColumn({
             )}
           </p>
         )}
-        {/* The description line — how a new agent learns the process by reading
-            the board. It carries to every phase, including the ones with no data. */}
-        {stage.description && (
+        {stage.description && !collapsed && (
           <p className="mt-1.5 text-[11px] leading-snug text-cool-700">{stage.description}</p>
         )}
       </div>
 
-      {/* Contact-level phases get no body at all rather than an empty tray.
-          Nothing is placed in these steps yet, and an empty padded box below
-          each description reads as "something should be here" — which is a
-          different claim from "these are the steps", and the wrong one. The
-          absence is stated once, above the row. */}
-      {showCounts && (
+      {/* The footer: the stage's probability and what it makes of the column.
+          Only where a probability exists — a null carries no footer at all
+          rather than a zeroed one. */}
+      {weight && (
+        <div
+          className="border-t px-3 py-1.5"
+          style={{ borderColor: skin.border, background: skin.surface }}
+        >
+          <p className="text-[10px] uppercase tracking-wide text-cool-600 tabular-nums">
+            {weight.probability}% weighted
+          </p>
+          <p
+            className="mt-0.5 inline-block px-1 font-heading text-sm font-semibold text-navy tabular-nums"
+            style={{ backgroundImage: projectionHatch(phase.code) }}
+            title="A projection, not a recorded figure"
+          >
+            {fmtTotal(weight.weighted)}
+          </p>
+        </div>
+      )}
+
+      {showCounts && !collapsed && (
         <div className="space-y-2 p-2">
-          {deals.length === 0 ? (
-            // Calm. An empty column is a fact about the week, not a failure:
-            // plain grey, no icon, no amber, nothing that reads as broken.
+          {inColumn.length === 0 ? (
+            // Calm. An empty column is a fact about the week, not a failure.
             <p className="px-1 py-3 text-xs text-cool-500">No files in this stage.</p>
           ) : (
-            deals.map(d => (
-              <DealCard key={d.id} deal={d} events={events} clients={clients} nowISO={nowISO} />
-            ))
+            inColumn.map(d => <DealCard key={d.id} {...props} deal={d} />)
           )}
         </div>
       )}
@@ -464,11 +541,7 @@ function StageColumn({
 
 function SourceList({ phase, sources }: { phase: PhaseLike; sources: AttractSourceLike[] }) {
   if (sources.length === 0) {
-    return (
-      <p className="rounded-[9px] border border-cool-200 bg-white p-5 text-sm text-cool-700">
-        No sources are configured. Sources live in rec.attract_sources.
-      </p>
-    )
+    return <Panel>No sources are configured. Sources live in rec.attract_sources.</Panel>
   }
   return (
     <>
@@ -563,8 +636,8 @@ function ArchiveView({
                 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-cool-100 px-4 py-3 last:border-b-0"
                 data-testid={`beta-archive-${deal.file_ref ?? deal.id}`}
               >
-                {/* The outcome leads the row, because it is the thing that
-                    decides whether this person is worth contacting again. */}
+                {/* The outcome leads the row: it decides whether this person is
+                    worth contacting again. */}
                 <span className="min-w-[13rem] font-heading text-sm font-semibold text-navy">
                   {stage.label}
                 </span>
@@ -598,23 +671,16 @@ function ArchiveView({
 
 // ─── One card ───────────────────────────────────────────────────────────────
 
-function DealCard({
-  deal,
-  events,
-  clients,
-  nowISO,
-}: {
-  deal: DealLike
-  events: StageEventLike[]
-  clients: DealClientLike[]
-  nowISO: string
-}) {
+function DealCard(props: Props & { deal: DealLike }) {
+  const { deal, events, clients, tags, milestoneTypes, milestones, nowISO } = props
   const borrowers = borrowersFor(deal, clients)
   const days = daysInStage(deal, events, nowISO)
   const chip = blockedByChip(deal.blocked_by)
   const amount = fmtAmount(deal.mortgage_amount)
   const type = purposeLabel(deal.deal_type)
   const t = typeSkin(deal.deal_type)
+  const activeTags = tagsForDeal(tags, deal)
+  const marks = milestonesForDeal(deal, milestones, milestoneTypes)
 
   return (
     <article
@@ -659,25 +725,52 @@ function DealCard({
         </p>
       )}
 
+      {/* Card tags, from rules the record layer owns. Only ACTIVE verdicts
+          render; a rule that cannot be evaluated produces nothing here and is
+          named once above the board instead. */}
+      {activeTags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {activeTags.map(tag => (
+            <span
+              key={tag.code}
+              title={tag.description ?? undefined}
+              className="rounded-sm border border-caution/40 bg-caution-bg px-1.5 py-0.5 text-[10px] font-semibold text-caution"
+              data-testid={`beta-tag-${tag.code}`}
+            >
+              {tag.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Milestones: small dated markers, not stages. Zero rows today; this
+          renders when `lawyer_instructed` lands on a file in Conditions. */}
+      {marks.length > 0 && (
+        <div className="mt-2 space-y-0.5">
+          {marks.map(m => (
+            <p key={m.code} className="text-[10px] text-cool-600 tabular-nums">
+              <span className="mr-1 text-cool-400">◆</span>
+              {m.label}
+              {m.occurred_at && <span className="ml-1">{m.occurred_at.slice(0, 10)}</span>}
+            </p>
+          ))}
+        </div>
+      )}
+
       <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-        {/* Lime has exactly one meaning on this page: this needs you. Only the
-            You chip carries it; Client, Lender and Lawyer are information and
-            stay quiet, which is the only reason You means anything. Nothing
-            renders at all when blocked_by is null — the chip is never guessed. */}
+        {/* Lime has exactly one meaning on this page: this needs Michael. Only
+            the You chip carries it; Client, Lender and Lawyer are information
+            and stay quiet, which is the only reason You means anything.
+            Nothing renders at all when blocked_by is null. */}
         {chip && (
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-              isActionableChip(chip)
-                ? 'bg-decision text-decision-ink'
-                : 'bg-cool-100 text-cool-700'
+              isActionableChip(chip) ? 'bg-decision text-decision-ink' : 'bg-cool-100 text-cool-700'
             }`}
           >
             {BLOCKED_BY_LABELS[chip]}
           </span>
         )}
-        {/* Days in stage, or words saying why there is none. Never a 0 and
-            never a dash: a deal that has not moved since March must not read as
-            0 days, and a dash reads as zero. */}
         {days.known ? (
           <span
             className="ml-auto text-[10px] tabular-nums text-cool-600"

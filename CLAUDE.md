@@ -240,7 +240,55 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
-### Deals (Beta): FIVE phases as of B0c (2026-08-02)
+### Deals (Beta): the rebuild (2026-08-02b) — READ THIS ONE
+Supersedes the two sections below. `lib/phase-model.ts` (rules) +
+`lib/phase-palette.ts` (colour); `lib/four-phase.ts` has not existed since
+2026-08-02.
+- **THE PHASE CODES CHANGED.** `advise` → `underwriting`, `fund` →
+  `fulfilment`; the old rows are `is_active: false`. Monitor grew 5 → 7 steps,
+  Fulfilment is 5 (commitment retired), 28 active stages. Nothing in this repo
+  needed editing for the rename except the palette's hue keys, because every
+  code path reads codes from `rec.phases` / `rec.deal_stages` at runtime. If a
+  future rename breaks something, that something is hardcoded and is the bug.
+- **PROBABILITY (`rec.deal_stages.probability`).** Present on underwriting
+  (20→44) and fulfilment (45→100); **NULL on intake and monitor, and null is
+  NOT zero** — those phases count people, and 0 is what a LOST deal means
+  (the three terminals carry 0). A null never renders as 0, never enters a
+  sum, and never puts its phase in a weighted total. `phaseTotals` and
+  `columnWeight` return **null** rather than a zero so a caller cannot add
+  what it never received. Contact-level columns therefore carry NO footer at
+  all, which is the visible proof.
+- **A PROJECTION IS NEVER DRAWN LIKE AN ACTUAL.** Every weighted figure sits
+  on a 45° hatch (`projectionHatch` / `NEUTRAL_HATCH`), matching the
+  practice-history chart's convention. A label is read; a texture is seen.
+  `Weighted` and `ColumnWeight` carry `isProjection: true` so a caller cannot
+  destructure the number without meeting the flag.
+- **CARD TAGS ARE THREE SCALAR COLUMNS AND MUST STAY THAT WAY** (field,
+  operator, value). They cannot express a conjunction, a join or a time
+  window; wanting one is a record-layer change, never a rules engine here.
+  **`no_next_step` is active but UNEVALUABLE: `rec.deals` has no
+  `next_activity_at` column** (Postgres 42703). A rule naming a field the row
+  does not carry returns `unevaluable`, renders nothing, and is named once
+  above the board — treating absent-as-null would tag all seven files and
+  invent a signal out of a field nobody records. `large_deal` is inactive AND
+  has a null threshold; it is filtered at the query.
+- **Milestones** (`rec.deal_milestones`, 0 rows) render as small dated markers,
+  never as stages. The link column is **`milestone_type`, not
+  `milestone_code`**. Built for `lawyer_instructed` landing on a file in
+  Conditions.
+- **Insights strip: four tiles, one omitted.** Total / open / closed won are
+  actuals; weighted pipeline is a projection over OPEN files only (a funded
+  deal is an actual, and folding a certainty into a forecast is how forecasts
+  start lying). **Average deal age is OMITTED** because every row's
+  `created_at` is the seed date — an age from it measures the migration. The
+  omission is stated on the page, not silently dropped.
+- **Collapse rides `?collapsed=` in the URL**, so the board is still a SERVER
+  component with 195 B of client JS and no handler, form or drag target. A
+  collapsed column keeps its name, count, total and weighted footer.
+- The one-screen constraint stays withdrawn: 280px columns, board scrolls,
+  collapse is the answer to a phase that will not fit.
+
+### Deals (Beta): FIVE phases as of B0c (2026-08-02, superseded by the rebuild above)
 The record layer moved; the page moved with it. `lib/four-phase.ts` is GONE,
 replaced by `lib/phase-model.ts` (rules) + `lib/phase-palette.ts` (colour).
 - **Phases are rows now.** `rec.phases` (5: attract, intake, advise, fund,

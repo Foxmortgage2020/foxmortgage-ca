@@ -61,9 +61,11 @@ export const PHASE_HUES: Record<string, PhaseHue> = {
   // Coolest and least committed: nobody here is anyone to us yet.
   attract: { h: 195, s: 44, name: 'cyan' },
   intake: { h: 215, s: 46, name: 'blue' },
-  // The phase the business runs on sits in the middle of the sweep.
-  advise: { h: 250, s: 46, name: 'indigo' },
-  fund: { h: 285, s: 42, name: 'violet' },
+  // The phase the business runs on sits in the middle of the sweep. Renamed
+  // from `advise` in the record layer; the hue travelled with the meaning.
+  underwriting: { h: 250, s: 46, name: 'indigo' },
+  // Renamed from `fund`.
+  fulfilment: { h: 285, s: 42, name: 'violet' },
   // Warmest of the five, so the loop's end reads as a different kind of work
   // from its beginning without ever becoming amber or red.
   monitor: { h: 320, s: 40, name: 'magenta' },
@@ -133,6 +135,30 @@ export function phaseTint(phaseCode: string): string {
   const { h, s } = hueFor(phaseCode)
   return `hsl(${h} ${s * 0.7}% 96.5%)`
 }
+
+// ─── Projections ────────────────────────────────────────────────────────────
+//
+// A PROJECTION IS NEVER DRAWN LIKE AN ACTUAL. Michael's own practice-history
+// chart draws funded volume solid and the weighted pipeline HATCHED above it,
+// with a caption saying a forecast is not a result. The same convention holds
+// here: any weighted figure sits on a hatched ground, so it is distinguishable
+// at a glance rather than merely labelled. Labels are read; texture is seen.
+
+/** A 45-degree hatch in the given hue, for the ground behind a weighted
+ * figure. Deliberately the same idea as the chart, so the two surfaces teach
+ * the same convention. */
+export function projectionHatch(phaseCode: string): string {
+  const { h, s } = hueFor(phaseCode)
+  // 0.42 rather than 0.30: at 0.30 the texture was there on inspection but not
+  // at a glance, and "at a glance" is the whole requirement — a label is read,
+  // a texture is seen.
+  const line = `hsl(${h} ${s}% 48% / 0.42)`
+  return `repeating-linear-gradient(45deg, ${line} 0 3px, transparent 3px 6px)`
+}
+
+/** The neutral hatch, for the insights strip where no phase owns the figure. */
+export const NEUTRAL_HATCH =
+  'repeating-linear-gradient(45deg, hsl(215 22% 52% / 0.38) 0 3px, transparent 3px 6px)'
 
 // ─── Deal type ──────────────────────────────────────────────────────────────
 //

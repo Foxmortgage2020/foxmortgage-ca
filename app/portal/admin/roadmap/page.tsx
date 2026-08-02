@@ -18,6 +18,21 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Deals (Beta) v3',
+    title: 'The rebuild: probability, insights, collapsing columns, tags and the Archive',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'The record layer moved a third time and the page was rebuilt on it rather than patched: advise and fund are now underwriting and fulfilment, Monitor grew from five steps to seven, and there are 28 active stages. The rename cost exactly one edit — the palette hue keys — because every other path reads codes from rec.phases and rec.deal_stages at runtime',
+      'Stages carry a probability now, so Underwriting and Fulfilment columns show a footer with the stage percentage and what the column is worth weighted. Intake and Monitor carry NULL and get no footer at all rather than a zero, because null is not zero: those phases count people and 0 is what a lost deal means',
+      'A projection is never drawn like an actual. Every weighted figure sits on a 45-degree hatch, the same convention the practice-history chart uses for forecast-over-funded. Raised from 0.30 to 0.42 alpha after looking at it, because at 0.30 it read on inspection but not at a glance',
+      'An insights strip with the four figures that are real: total, open, closed won, and weighted pipeline over OPEN files only (a funded deal is an actual, and folding a certainty into a forecast is how forecasts start lying). Average deal age is omitted and the page says why — every row carries the same created_at, the seed date, so an age from it measures the migration',
+      'FINDING: the active no_next_step tag cannot be evaluated. Its rule reads next_activity_at and rec.deals has no such column (Postgres 42703), with no activities table anywhere in rec. Treating an absent column as null would have tagged all seven files, inventing a signal from a field nobody records. It renders nothing and the page names the tag and the reason once. The three-column tag format was not extended',
+      'Card tags and milestones render from rec.card_tags and rec.milestone_types. deal_milestones is empty today so nothing shows, but the rendering exists for lawyer_instructed landing on a file in Conditions. The link column is milestone_type, not milestone_code',
+      'Every column header gained a collapse control, and it is the right answer to a six-column phase: 280px columns overflow by 588px at 1512, and collapsing the four empty ones brings it to zero. Collapse rides the URL so the board is still a server component at 195 B of client JS with no handler, form or drag target',
+    ],
+  },
+  {
     n: 'Deals (Beta) v2',
     title: 'Five phases, every sub-stage, and colour that carries meaning',
     status: 'shipped',

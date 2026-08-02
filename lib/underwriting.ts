@@ -3156,6 +3156,46 @@ export interface RecStage {
   category: string
   is_active: boolean
   is_gate: boolean
+  /** Percent chance a file in this stage funds. NULL on contact-level phases
+   * (Intake, Monitor), and null is NOT zero: those phases count people, and 0
+   * is what a lost deal means. Never render a null as 0, never sum across it,
+   * never let a null-probability phase into a weighted total. */
+  probability: number | null
+}
+
+/** A card tag definition. THREE SCALAR COLUMNS BY DESIGN — field, operator,
+ * value — which cannot express a conjunction, a join, or a time window. That
+ * limit is deliberate and must not be extended here: a tag needing more than
+ * this is a record-layer decision, not a portal one. */
+export interface RecCardTag {
+  code: string
+  label: string
+  description: string | null
+  colour_token: string | null
+  rule_field: string
+  rule_operator: string
+  rule_value: string | null
+  sort_order: number
+}
+
+/** A milestone is a small dated marker on a card, not a stage. Some move the
+ * file (`moves_stage`), which is recorded here but decided in the workbench. */
+export interface RecMilestoneType {
+  code: string
+  label: string
+  description: string | null
+  moves_stage: boolean
+  moves_to_stage_code: string | null
+  sort_order: number
+}
+
+export interface RecDealMilestone {
+  deal_id: string
+  /** The column is `milestone_type`, NOT `milestone_code` — verified against
+   * Postgres, which answers 42703 for the latter. */
+  milestone_type: string
+  occurred_at: string | null
+  note: string | null
 }
 
 /** Where the loop closes. Both returns out of Monitor's Decided gate are rows
@@ -3234,7 +3274,7 @@ export async function getRecStages(): Promise<UwResult<RecStage[]>> {
   const res = await uwFetch<RecStage>(
     'deal_stages',
     {
-      select: 'code,label,description,sort_order,phase,category,is_active,is_gate',
+      select: 'code,label,description,sort_order,phase,category,is_active,is_gate,probability',
       is_active: 'is.true',
       order: 'sort_order.asc',
     },
@@ -3270,6 +3310,59 @@ export async function getRecAttractSources(): Promise<UwResult<RecAttractSource[
       select: 'code,label,description,channel_group,sort_order',
       is_active: 'is.true',
       order: 'sort_order.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
+/** Only ACTIVE tags. `large_deal` is inactive AND carries no threshold, so it
+ * is excluded here before it can reach a card. */
+export async function getRecCardTags(): Promise<UwResult<RecCardTag[]>> {
+  if (isDemoMode()) return demoResult([] as RecCardTag[])
+  const res = await uwFetch<RecCardTag>(
+    'card_tags',
+    {
+      select: 'code,label,description,colour_token,rule_field,rule_operator,rule_value,sort_order',
+      is_active: 'is.true',
+      order: 'sort_order.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
+export async function getRecMilestoneTypes(): Promise<UwResult<RecMilestoneType[]>> {
+  if (isDemoMode()) return demoResult([] as RecMilestoneType[])
+  const res = await uwFetch<RecMilestoneType>(
+    'milestone_types',
+    {
+      select: 'code,label,description,moves_stage,moves_to_stage_code,sort_order',
+      is_active: 'is.true',
+      order: 'sort_order.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
+/** Zero rows today. The rendering exists anyway because `lawyer_instructed`
+ * will land on files sitting in Conditions, which is the case the design is
+ * for. */
+export async function getRecDealMilestones(agentId: string): Promise<UwResult<RecDealMilestone[]>> {
+  if (isDemoMode()) return demoResult([] as RecDealMilestone[])
+  const res = await uwFetch<RecDealMilestone>(
+    'deal_milestones',
+    {
+      select: 'deal_id,milestone_type,occurred_at,note',
+      agent_id: `eq.${agentId}`,
+      order: 'occurred_at.asc',
     },
     false,
     'rec',
