@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Deals (Beta)',
+    title: 'The four-phase board over the September record layer',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'A read-only board at /portal/admin/deals-beta, nav item directly beneath the live Deals item and labelled Beta so there is never a doubt about which page is which. The live Deals area is untouched: not its route, not its code, not its behaviour',
+      'A persistent four-card phase bar — Intake, Advise, Fund, Monitor. Contact-level phases are DASHED and count people; deal-level phases are SOLID and count files with a dollar total. lib/four-phase.ts deliberately exposes no function that returns a combined total, so the two units cannot be added even by accident',
+      'A dashed return rail from Monitor back to Advise. A renewing client takes the 45 minute session with no application on file (JG-1), so they re-enter two thirds along rather than at the top — drawn rather than written down, so a new agent learns the loop without being told',
+      'Columns come from rec.deal_stages where phase is not null, ordered by sort_order and read at runtime. No stage list is hardcoded anywhere: adding a stage row adds a column with no code change, which a test pins. Each header carries the label, count, dollar total, and the stage description as a line beneath — the one thing worth copying outright from Broki',
+      'NEVER INVENT A NUMBER, enforced rather than intended. Days in stage is measured only from the event that entered the deal’s CURRENT stage. Two of seven deals have no stage history, and two more have history that stops at `submitted` while they now sit in `lender_response` — falling back to their latest event would print a real-looking figure for the wrong stage. All four show words instead, and the two states are distinguished ("no stage history" vs "stage entry not recorded")',
+      'The blocked-by chip renders only for the four known values and nothing at all for null or anything unrecognised. Only You takes the attention colour, registered in the lime audit as a ninth surface with a test asserting Client, Lender and Lawyer stay quiet',
+      'Read-only by construction: a server component with no client JavaScript, no form, no handler and no drag target, reading through portal_readonly, which holds SELECT and nothing else — an INSERT against rec.deals answers 403 / 42501, verified live',
+      'Intake and Monitor render as honest placeholders naming what they wait on: Intake needs capture and consent fields that do not exist (rec.consents holds zero rows, read live and stated), and Monitor should embed the existing Opportunities engine rather than be rebuilt',
+    ],
+  },
+  {
     n: 'A2',
     title: 'The Tasks page: the native task list, the Zoho exit’s tasks lane',
     status: 'shipped',

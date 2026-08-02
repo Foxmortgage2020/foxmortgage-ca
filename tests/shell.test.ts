@@ -141,12 +141,18 @@ describe('route inventory: every admin route stays on the map', () => {
   // his day from, so it is a daily destination rather than a section page.
   // Noted here for the same reason CC-03 noted its addition — this assertion
   // exists to make exactly this change visible, not to be relaxed silently.
-  it('the working nav is ten destinations across two honest groups (B3 + CC-03 + A2)', () => {
+  // Deals (Beta) (2026-08-01) makes eleven, and unlike the last two additions
+  // this one is EXPLICITLY TEMPORARY: it is a beta surface for judging the
+  // September record layer, and it retires when that layer ships or is
+  // rejected. The count is asserted rather than capped so the growth stays
+  // visible — see the ledger entry for the standing cap question.
+  it('the working nav is eleven destinations across two honest groups (B3 + CC-03 + A2 + Beta)', () => {
     const working = ADMIN_NAV.filter(i => i.group !== 'system')
     expect(working.map(i => i.label)).toEqual([
       'Today',
       'Tasks',
       'Deals',
+      'Deals (Beta)',
       'Approvals',
       'Beyond funding',
       'Lenders',
@@ -363,6 +369,11 @@ function walkAdminSources(): string[] {
 //   - ApprovalsDesk: the armed queue decide buttons.
 //   - AgentChat: the confirm-card execute tap.
 //   - DealsList: the single-lime action button (list + phone card branches).
+//   - DealsBetaBoard: the "You" blocked-by chip, and ONLY that chip. It is the
+//     one card field that answers what to do today — scanning a board for the
+//     highlighted You chips is the whole reason the field exists. Client,
+//     Lender and Lawyer are information rather than a queued decision, so they
+//     stay in the cool family (asserted below, not merely intended).
 const DECISION_ALLOWED: Record<string, RegExp> = {
   'components/admin/AdminShell.tsx':
     /outline-decision|bg-decision\b|text-decision-ink/,
@@ -376,6 +387,7 @@ const DECISION_ALLOWED: Record<string, RegExp> = {
   'components/admin/AgentChat.tsx': /bg-decision\b|text-decision-ink/,
   'components/admin/deals/DealsList.tsx':
     /bg-decision\b|border-decision|text-decision-ink/,
+  'components/admin/DealsBetaBoard.tsx': /bg-decision\b|text-decision-ink/,
 }
 
 // One brand-mark exception: the Practice History export slide draws the Fox
@@ -413,6 +425,19 @@ describe('lime is attention currency (the exhaustive B4 audit)', () => {
           ).toBe(false)
         }
       }
+    }
+  })
+
+  // The Beta board's lime is granted for ONE chip. Assert the grant is not
+  // quietly spent on the other three, which are information rather than a
+  // queued decision — the You chip only means something because the others
+  // stay quiet.
+  it('on the Beta board only the You chip is lime', () => {
+    const src = readFileSync('components/admin/DealsBetaBoard.tsx', 'utf8')
+    expect(src).toMatch(/isActionableChip\(chip\)\s*\n?\s*\?\s*'bg-decision text-decision-ink'/)
+    for (const other of ['Client', 'Lender', 'Lawyer']) {
+      const line = src.split('\n').find(l => l.includes(`'${other}'`) && /decision/.test(l))
+      expect(line, `${other} must not carry the decision token`).toBeUndefined()
     }
   })
 

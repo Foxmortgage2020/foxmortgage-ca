@@ -67,6 +67,22 @@ export const ADMIN_NAV: AdminNavItem[] = [
       'Every live file by lifecycle phase, with the next action on each row, as a list or a board.',
   },
   {
+    // Deals (Beta), 2026-08-01. The four-phase board over the September record
+    // layer, read-only, sitting directly beneath the live Deals item so
+    // Michael can judge the new shape beside the one he actually runs his day
+    // out of. The word Beta is LOAD-BEARING: he must never be uncertain which
+    // of the two he is in, so it is in the nav label itself and not only on
+    // the page. Retire this item when the record layer either ships or is
+    // rejected; it is not meant to be permanent.
+    label: 'Deals (Beta)',
+    href: '/portal/admin/deals-beta',
+    iconKey: 'LayoutGrid',
+    permission: 'deals.view',
+    group: 'book',
+    description:
+      'The four-phase model over the September record layer, read-only, beside the live Deals page.',
+  },
+  {
     label: 'Approvals',
     href: '/portal/admin/approvals',
     iconKey: 'ClipboardList',

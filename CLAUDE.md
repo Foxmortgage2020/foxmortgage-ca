@@ -240,8 +240,40 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### Deals (Beta): the four-phase board over `rec` (2026-08-01)
+A READ-ONLY surface at `/portal/admin/deals-beta` for judging the September
+record layer beside the live setup. The live Deals area at
+`/portal/admin/underwriting` is untouched and stays the daily driver.
+- **Read-only by construction.** A server component: phase selection rides
+  `searchParams` through links, so it ships no client JS and has no form,
+  handler, or drag target. Reads go through `lib/underwriting.ts` as
+  `portal_readonly`. `POST rec.deals` answers **403 / 42501** (verified live).
+  No service role key, ever.
+- **`rec` is reached with `Accept-Profile`**, an optional argument on `uwFetch`.
+  Its write-side twin `Content-Profile` is NEVER sent — that is the header that
+  would make a write possible, and its absence is the guarantee.
+- **Stages are CONFIGURATION.** Columns come from `rec.deal_stages` where
+  `phase` is not null, ordered by `sort_order`, read at runtime. Never hardcode
+  a stage list: adding a row adds a column with no code change (tested).
+- **DAYS IN STAGE IS NEVER INVENTED.** A figure renders only when an event's
+  `to_stage` equals the deal's CURRENT `stage_code`. The timestamp column is
+  `changed_at`, not `occurred_at`. Live data has deals whose only event is entry
+  into `submitted` while they now sit in `lender_response` — falling back to the
+  latest event would print a real-looking number for the wrong stage. The two
+  absent states are distinguished on the card (`no stage history` vs
+  `stage entry not recorded`). Pinned in `tests/four-phase.test.ts`.
+- **The two units are never added.** Contact-level phases (Intake, Monitor) are
+  dashed and count people; deal-level (Advise, Fund) are solid and count files
+  with a dollar total. `lib/four-phase.ts` exposes no combined total by design.
+- **The `You` chip is the ninth lime surface**, registered in the
+  `tests/shell.test.ts` audit; Client, Lender and Lawyer stay cool (asserted).
+- Intake and Monitor are honest placeholders: `rec.consents` holds zero rows,
+  and Monitor should EMBED the existing Opportunities engine, never rebuild it.
+- **Temporary by intent.** Retire the page and its nav item when the record
+  layer ships or is rejected; that also returns the working nav to ten.
+
 ### Nav IA (names are stable; renames need a note here)
-Home | Tasks (A2, native task list) | Deals (S3) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
+Home | Tasks (A2, native task list) | Deals (S3) | Deals (Beta) (rec four-phase board, temporary) | Approvals (S3) | Rates (S4) | Intel (S4) | Knowledge (S4) |
 Changelog (S4, under Knowledge) | Compliance (S6) | Revenue (S7) |
 Partners (S7 health ranking over the existing management pages) |
 Directory (S4) | Bookkeeping (nav link to existing /portal/bookkeeping,

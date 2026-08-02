@@ -36,6 +36,7 @@ import {
   FolderOpen,
   History,
   LayoutDashboard,
+  LayoutGrid,
   ListChecks,
   LogOut,
   Map,
@@ -57,6 +58,7 @@ import {
 
 const ICONS: Record<string, typeof LayoutDashboard> = {
   LayoutDashboard,
+  LayoutGrid,
   ListChecks,
   PhoneIncoming,
   FolderOpen,

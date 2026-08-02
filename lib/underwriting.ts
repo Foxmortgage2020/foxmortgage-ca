@@ -125,10 +125,16 @@ export function workbenchConfigured(): boolean {
 // shape — no method other than GET ever leaves this module. withCount adds
 // Prefer: count=exact and reads the total from Content-Range (still a GET;
 // the audit viewer's pagination needs it).
+//
+// `schema` sends Accept-Profile, which is how PostgREST reaches a non-public
+// schema. Accept-Profile is a READ-side header only; its write-side twin is
+// Content-Profile, which this module never sends because it never writes.
+// Used for the September record layer (`rec`), read by the Deals (Beta) page.
 async function uwFetch<T>(
   table: string,
   params: Record<string, string>,
   withCount = false,
+  schema?: string,
 ): Promise<
   | { configured: false }
   | { configured: true; ok: false; error: string; status?: number }
@@ -144,6 +150,7 @@ async function uwFetch<T>(
       Authorization: `Bearer ${env.bearer}`,
     }
     if (withCount) headers.Prefer = 'count=exact'
+    if (schema) headers['Accept-Profile'] = schema
     const res = await fetch(`${env.url}/rest/v1/${table}?${qs}`, {
       headers,
       cache: 'no-store',
@@ -166,7 +173,7 @@ async function uwFetch<T>(
       const m = range?.match(/\/(\d+)$/)
       if (m) total = Number(m[1])
     }
-    console.log(`[uw] ${table} rows=${Array.isArray(data) ? data.length : 0} ms=${ms}`)
+    console.log(`[uw] ${schema ? schema + '.' : ''}${table} rows=${Array.isArray(data) ? data.length : 0} ms=${ms}`)
     return { configured: true, ok: true, data, total }
   } catch {
     console.error(`[uw] ${table} unreachable ms=${Date.now() - started}`)
@@ -3102,6 +3109,149 @@ export interface UnresolvedCall {
   numberMasked: string | null
   summary: string | null
   transcript: string | null
+}
+
+// ─── The `rec` record layer (Deals Beta, 2026-08-01) ────────────────────────
+//
+// The September record layer, read beside Michael's live setup so he can judge
+// its shape before the migration commits to one. READ ONLY, and structurally
+// so: these go through the same uwFetch GET as everything else in this module,
+// under the same portal_readonly role, which holds SELECT and nothing else. An
+// INSERT against rec.deals answers 403 / 42501 "permission denied for table
+// deals" (verified live 2026-08-01).
+//
+// Tenancy is the same agent_id filter every other fetcher applies (rule 4).
+// rec.deals.agent_id matches Michael's public.agents.id, so the existing
+// getAgentIdByEmail(WORKBENCH_AGENT_EMAIL) is the right anchor.
+
+/** A configured stage. `phase` is null for stages outside the four-phase
+ * model; the board renders only the non-null ones, ordered by sort_order.
+ * Stages are CONFIGURATION — never hardcode this list. Adding a stage row
+ * adds a column with no code change, which is the whole point. */
+export interface RecStage {
+  code: string
+  label: string
+  description: string | null
+  sort_order: number
+  phase: string | null
+  category: string
+  is_active: boolean
+}
+
+export interface RecDeal {
+  id: string
+  file_ref: string | null
+  deal_type: string | null
+  stage_code: string | null
+  status: string | null
+  mortgage_amount: number | null
+  blocked_by: string | null
+  closing_date: string | null
+}
+
+/** One stage transition. `changed_at` is the column name (NOT occurred_at),
+ * and `to_stage` is what matters: days in stage is measured from the event
+ * that entered the deal's CURRENT stage, never from the latest event of any
+ * kind. See lib/four-phase.ts daysInStage for why that distinction decides
+ * whether a figure may be shown at all. */
+export interface RecStageEvent {
+  deal_id: string
+  to_stage: string | null
+  changed_at: string | null
+}
+
+/** Borrower name and role for a deal, joined through rec.deal_clients. */
+export interface RecDealClient {
+  deal_id: string
+  role: string | null
+  full_name: string | null
+}
+
+export async function getRecStages(): Promise<UwResult<RecStage[]>> {
+  if (isDemoMode()) return demoResult([] as RecStage[])
+  const res = await uwFetch<RecStage>(
+    'deal_stages',
+    {
+      select: 'code,label,description,sort_order,phase,category,is_active',
+      is_active: 'is.true',
+      order: 'sort_order.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
+export async function getRecDeals(agentId: string): Promise<UwResult<RecDeal[]>> {
+  if (isDemoMode()) return demoResult([] as RecDeal[])
+  const res = await uwFetch<RecDeal>(
+    'deals',
+    {
+      select: 'id,file_ref,deal_type,stage_code,status,mortgage_amount,blocked_by,closing_date',
+      agent_id: `eq.${agentId}`,
+      order: 'created_at.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return {
+    configured: true,
+    ok: true,
+    data: res.data.map(d => ({ ...d, mortgage_amount: numOrNull(d.mortgage_amount) })),
+  }
+}
+
+export async function getRecStageEvents(agentId: string): Promise<UwResult<RecStageEvent[]>> {
+  if (isDemoMode()) return demoResult([] as RecStageEvent[])
+  const res = await uwFetch<RecStageEvent>(
+    'deal_stage_events',
+    {
+      select: 'deal_id,to_stage,changed_at',
+      agent_id: `eq.${agentId}`,
+      order: 'changed_at.asc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
+}
+
+/** Names come through the join table with the client embedded, so one request
+ * serves every card. PostgREST embeds via the foreign key: clients(full_name). */
+export async function getRecDealClients(agentId: string): Promise<UwResult<RecDealClient[]>> {
+  if (isDemoMode()) return demoResult([] as RecDealClient[])
+  const res = await uwFetch<{ deal_id: string; role: string | null; clients: { full_name: string | null } | null }>(
+    'deal_clients',
+    {
+      select: 'deal_id,role,clients(full_name)',
+      agent_id: `eq.${agentId}`,
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return {
+    configured: true,
+    ok: true,
+    data: res.data.map(r => ({
+      deal_id: r.deal_id,
+      role: r.role,
+      full_name: r.clients?.full_name ?? null,
+    })),
+  }
+}
+
+/** Row count on rec.consents, the field Intake is waiting on. Rendered as a
+ * fact on the Intake placeholder rather than asserted from the brief — if it
+ * ever stops being zero, the page says so on its own. */
+export async function getRecConsentCount(): Promise<UwResult<number>> {
+  if (isDemoMode()) return demoResult(0)
+  const res = await uwFetch<unknown>('consents', { select: 'id' }, true, 'rec')
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.total ?? res.data.length }
 }
 
 // ─── Native tasks: the overdue page past the endpoint's 200-row cap (A2) ────
