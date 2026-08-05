@@ -504,6 +504,29 @@ export interface ConditionRow {
   condNumber: string | null
 }
 
+// ─── The two axes on a condition, and why every reader must name both ───────
+//
+// A condition carries TWO INDEPENDENT axes and filtering on one is not
+// filtering at all:
+//   status      — the workflow axis: open, pre_checked, evidence_attached,
+//                 satisfied, waived. "Have we collected it yet?"
+//   gate_status — the DECISION axis: pending, approved, superseded, rejected.
+//                 "Is this row part of the live checklist at all?"
+//
+// Supersession RETIRES a row rather than removing it, and it must: the audit
+// trail depends on those rows surviving. So a re-extracted commitment leaves
+// the old set behind at gate_status='superseded' with status STILL 'open' —
+// they were never collected, and they never will be. A reader that filters
+// only on status therefore counts every retired row as live work.
+//
+// BRXM-F057400 is the proof and was the first file to show it: 157 rows, all
+// status='open', splitting 12 approved / 124 superseded / 21 rejected across
+// thirteen extraction runs and two human rejections. The correct answer is 12.
+//
+// THIS IS INVISIBLE ON ANY FILE THAT HAS NEVER BEEN AMENDED, which is most of
+// them — so the guard is a test over a fixture that HAS been, not a live read.
+export const APPROVED_CONDITION_GATE = 'eq.approved'
+
 export interface ConditionsDue {
   overdue: ConditionRow[]
   dueSoon: ConditionRow[]
@@ -519,6 +542,15 @@ export async function getConditionsDue(
   const res = await uwSelect<any>('conditions', {
     select: 'id,text,owner,status,due_date,cond_number,deals(file_ref,stage,status)',
     agent_id: `eq.${agentId}`,
+    // Today is a CHASE list, so it reads the approved population and nothing
+    // else. A superseded row is not work; a pending row is a DECISION, not a
+    // chase, and chasing a document for a condition that may yet be rejected
+    // wastes the client's time. Pending stays visible where it is actionable:
+    // the deal room's amber banner, which force-opens its section.
+    // It must match getOpenConditionCounts below — the Closings card renders
+    // "N open" from that one and "N overdue" from this one, so a drift between
+    // them puts two contradictory numbers on the same row.
+    gate_status: APPROVED_CONDITION_GATE,
     status: 'not.in.(satisfied,waived)',
     order: 'due_date.asc.nullslast',
     limit: '500',
@@ -565,7 +597,9 @@ export async function getOpenConditionCounts(
     agent_id: `eq.${agentId}`,
     // Phase B2: a pending (un-approved) commitment condition is not the
     // checklist, so it must not inflate the "N conditions open" card line.
-    gate_status: 'eq.approved',
+    // Shares the constant with getConditionsDue above — same card, same
+    // population, and they can no longer drift apart.
+    gate_status: APPROVED_CONDITION_GATE,
     status: 'not.in.(satisfied,waived)',
     limit: '1000',
   })
@@ -1385,6 +1419,10 @@ export async function getComplianceAttentionDeals(
       select: 'deal_id,category,status,due_date,deals(file_ref)',
       agent_id: `eq.${agentId}`,
       category: `in.(${complianceCategories.join(',')})`,
+      // A retired row is not a compliance gap. Without this, a re-extracted
+      // commitment makes the same file read as failing compliance once per
+      // superseded solicitor condition (33 reasons instead of 8 on F057400).
+      gate_status: APPROVED_CONDITION_GATE,
       status: 'not.in.(satisfied,waived)',
       limit: '500',
     }),

@@ -300,6 +300,51 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### Conditions carry TWO axes, and reading one is not reading the file (handoff 44, 2026-08-05)
+- `status` is the WORKFLOW axis (open, pre_checked, evidence_attached,
+  satisfied, waived): "have we collected it yet?" `gate_status` is the
+  DECISION axis (pending, approved, superseded, rejected): "is this row part of
+  the live checklist at all?" **A reader that filters only on `status` counts
+  every retired row as outstanding work.**
+- **Supersession RETIRES a row, it never removes one** — the audit trail
+  depends on those rows surviving (guardrail 21). So a re-extracted commitment
+  leaves the previous set at `gate_status='superseded'` with `status` STILL
+  `'open'`: never collected, never going to be.
+- **BRXM-F057400 is the proof**: 157 rows, ALL `status='open'`, splitting
+  **12 approved / 124 superseded / 21 rejected** across thirteen extraction
+  runs and two human rejections. The correct answer is 12. It is the ONLY file
+  in the book with any supersession (established by reading the gate split for
+  every file, not by assuming it was unique).
+- **THE DEAL ROOM WAS ALWAYS RIGHT.** `getApprovedConditions` has filtered
+  `gate_status=eq.approved` since Phase B2; the room read "Conditions (12 open
+  of 12)" before this session and after it. So did the Deals list, Ask Fox and
+  the Closings open-count. **Two readers were wrong and both were on Today /
+  Compliance, not the room.**
+- **FIXED:** `getConditionsDue` (Today's chase rail) and
+  `getComplianceAttentionDeals`. Today's exceptions line read **"146 overdue
+  conditions"** on F057400 and now reads **"1 overdue condition"**; the
+  compliance reasons list over-counted 33 to 8.
+- **`APPROVED_CONDITION_GATE` is one shared constant** because the Closings
+  card renders "N open" from `getOpenConditionCounts` and "N overdue" from
+  `getConditionsDue` — two literals could drift and put contradictory numbers
+  on the same row; one constant cannot.
+- **PENDING IS A DECISION, NOT A CHASE.** Today reads the approved population
+  only. A pending condition must not be chased (it may yet be rejected) and
+  must not be hidden either — it stays visible where it is actionable, in the
+  deal room's amber banner, whose section force-opens. There are ZERO pending
+  conditions in the book today, so this is a forward-looking rule. **If Michael
+  wants "a commitment is waiting on your decision" on Today, that is a new
+  tile, not a filter change** — noted, not built.
+- **`rec.conditions` has NO `gate_status` column at all** (Postgres 42703), so
+  the Deals (Beta) board is structurally unaffected. Untouched this session.
+- **The guard is `tests/conditions-gate.test.ts`, and it is a SOURCE scan, not
+  a live assertion.** The defect is invisible on any file that has never been
+  amended, so a live check would pass today and keep passing until the next
+  amendment. The test parses every `uwSelect('conditions'` block out of
+  lib/underwriting.ts and fails any that omits `gate_status` — including one a
+  future session has not written yet — and separately proves the filter reaches
+  PostgREST. Verified to fail (4 tests) when the filter is removed.
+
 ### Deals (Beta): the file page, and the guarantee that changed (handoff 42, 2026-08-05)
 The board had NO file-level surface: one route, no `[id]`, no API route, 195 B
 of client JS. A file-level feature therefore had nowhere on this board to live,
