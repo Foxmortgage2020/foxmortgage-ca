@@ -33,6 +33,7 @@ import { useRouter } from 'next/navigation'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import {
   REEXTRACT_PENDING_COPY,
+  REEXTRACT_REFUSED_COPY,
   REEXTRACT_TERMS_COPY,
   checkReextractReason,
 } from '@/lib/reextract'
@@ -64,6 +65,8 @@ export default function ReextractControl({
   const [error, setError] = useState('')
   /** The successful dry run's forecast. Its existence is what unlocks apply. */
   const [forecast, setForecast] = useState<ForecastCondition[] | null>(null)
+  /** The extractor's own honesty notes, rendered verbatim under the list. */
+  const [notes, setNotes] = useState<string[]>([])
   /** Terminal states. Set once, never cleared: success or conflict both end
    *  this mount's story, and the refresh brings back the true state. */
   const [done, setDone] = useState<string | null>(null)
@@ -115,14 +118,19 @@ export default function ReextractControl({
     if (!out) return
     const { json } = out
     if (json?.ok) {
-      const rows = Array.isArray(json.data?.conditions) ? json.data.conditions : []
-      setForecast(rows)
+      // THE FORECAST LIVES UNDER `preview` — established empirically on
+      // 2026-08-05 by capturing the production response. The first cut read
+      // `data.conditions` and rendered zero rows over a twelve-row dry run.
+      const p = json.data?.preview
+      setForecast(Array.isArray(p?.conditions) ? p.conditions : [])
+      setNotes(Array.isArray(p?.coverage_notes) ? p.coverage_notes.map(String) : [])
       return
     }
     if (json?.kind === 'conflict') {
-      // The safety property, not a fault: a succeeded attempt already exists
-      // on this document, so there is nothing a retry may do.
-      setRefused(json?.message ?? 'This document already has a succeeded extraction, so a retry is refused.')
+      // The safety property, not a fault. The gates client's generic conflict
+      // copy is "Already decided.", which is wrong here: nothing was decided,
+      // the extraction succeeded. The module's own sentence renders instead.
+      setRefused(REEXTRACT_REFUSED_COPY)
       return
     }
     setError(json?.message ?? 'The preview did not answer. Nothing was written.')
@@ -134,7 +142,16 @@ export default function ReextractControl({
     if (!out) return
     const { json } = out
     if (json?.ok) {
-      const n = typeof json.data?.drafted === 'number' ? json.data.drafted : forecast?.length ?? 0
+      // The apply half of the response has never been observed live, so this
+      // reads it tolerantly: any numeric drafted count it can find, else the
+      // forecast length the gate itself reported.
+      const applied = json.data?.applied
+      const n =
+        typeof applied?.drafted === 'number'
+          ? applied.drafted
+          : typeof json.data?.drafted === 'number'
+            ? json.data.drafted
+            : forecast?.length ?? 0
       setDone(
         `Drafted ${n} conditions as pending. They are now waiting on the condition list gate, on the Conditions tab.`,
       )
@@ -142,7 +159,7 @@ export default function ReextractControl({
       return
     }
     if (json?.kind === 'conflict') {
-      setDone(json?.message ?? 'That was already decided. Refreshing to show where it stands.')
+      setDone(REEXTRACT_REFUSED_COPY)
       router.refresh()
       return
     }
@@ -236,6 +253,21 @@ export default function ReextractControl({
                     </li>
                   ))}
                 </ol>
+              )}
+              {/* The extractor's own notes about how it read the document
+                  (format fallback, sanity gate, cross-page caveat). Verbatim,
+                  because the reader is deciding whether to trust the list. */}
+              {notes.length > 0 && (
+                <ul
+                  className="mt-3 max-w-prose space-y-1 border-t border-cool-100 pt-2"
+                  data-testid="beta-reextract-notes"
+                >
+                  {notes.map((n, i) => (
+                    <li key={i} className="text-[11px] leading-relaxed text-cool-500 font-ui">
+                      {n}
+                    </li>
+                  ))}
+                </ul>
               )}
 
               <div className="mt-4 border-t border-cool-100 pt-3">

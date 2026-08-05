@@ -34,6 +34,14 @@ export const REEXTRACT_PENDING_COPY =
 export const REEXTRACT_TERMS_COPY =
   'The approved committed terms are untouched. A re-extraction never overwrites an approved term row, so what is already decided cannot be damaged from here.'
 
+/** What a conflict MEANS on this endpoint, established empirically (handoff
+ *  54 probes): the document already has a succeeded extraction. The gates
+ *  client's generic conflict copy is "Already decided.", which is wrong here,
+ *  because nothing was decided. This sentence renders instead, on preview and
+ *  on apply alike. */
+export const REEXTRACT_REFUSED_COPY =
+  'This commitment already has a succeeded extraction, so there is nothing to retry. The refusal is the gate protecting the checklist from a duplicate draft.'
+
 /** The apply reason: required, trimmed, sent exactly as written or refused. */
 export function checkReextractReason(
   raw: unknown,
