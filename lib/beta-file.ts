@@ -277,7 +277,9 @@ export function propertyAddress(p: PropertyLike | null): string | null {
   const line = fieldValue(p.address_line1) ?? (composed || null)
   const city = fieldValue(p.city)
   const prov = fieldValue(p.province)
-  const street = line ? `${unit ? `${unit}–` : ''}${line}` : null
+  // A plain hyphen, not an en dash: the copy gate forbids en dashes in
+  // anything rendered, and a unit separator is rendered text like any other.
+  const street = line ? `${unit ? `${unit}-` : ''}${line}` : null
   const parts = [street, city, prov].filter(Boolean)
   return parts.length > 0 ? parts.join(', ') : null
 }
@@ -427,7 +429,7 @@ export const FILE_TABS: readonly TabDef[] = [
     key: 'qualification',
     label: 'Qualification',
     purpose:
-      'What this client can afford and on what assumptions — income, debts, and the stress-tested figure.',
+      'What this client can afford and on what assumptions, including income, debts, and the stress-tested figure.',
     today: 'Until this tab is built, qualification is on the Deals file page.',
     built: false,
   },

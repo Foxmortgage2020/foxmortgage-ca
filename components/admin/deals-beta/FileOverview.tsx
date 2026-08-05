@@ -206,7 +206,7 @@ export default function FileOverview({
           {chip ? (
             <span className="text-sm">{BLOCKED_BY_LABELS[chip]}</span>
           ) : (
-            <span className="text-sm italic text-cool-400">Nobody — nothing is waiting</span>
+            <span className="text-sm italic text-cool-400">Nobody, nothing is waiting</span>
           )}
         </Row>
         <Row label="Milestones">

@@ -249,7 +249,7 @@ export default async function BetaFilePage({
           <span className="text-[11px] text-cool-500 font-ui">No Deals file page for this file</span>
         )}
         {isDemoMode() && (
-          <span className="text-[11px] text-cool-500 font-ui">Demo mode — fictional data</span>
+          <span className="text-[11px] text-cool-500 font-ui">Demo mode, fictional data</span>
         )}
       </header>
 

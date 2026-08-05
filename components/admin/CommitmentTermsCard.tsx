@@ -164,8 +164,8 @@ function TermSet({
             tone: 'green',
             text:
               action === 'approve'
-                ? `Committed terms approved${decided !== null ? ` — ${decided} ${decided === 1 ? 'term' : 'terms'} moved` : ''}.`
-                : `Committed terms rejected${decided !== null ? ` — ${decided} ${decided === 1 ? 'term' : 'terms'} moved` : ''}.`,
+                ? `Committed terms approved${decided !== null ? `. ${decided} ${decided === 1 ? 'term' : 'terms'} moved` : ''}.`
+                : `Committed terms rejected${decided !== null ? `. ${decided} ${decided === 1 ? 'term' : 'terms'} moved` : ''}.`,
           })
           setNote('')
           router.refresh()
@@ -212,7 +212,7 @@ function TermSet({
       {s.state === 'pending' && (
         <p className="px-3 pt-3 text-sm font-ui text-amber-900">
           These are the terms read off the commitment. Check each printed value against its snippet, then approve the
-          set — they move together.
+          set. They move together.
         </p>
       )}
 
@@ -241,6 +241,13 @@ function TermSet({
             maxLength={TERM_NOTE_MAX}
             className="mt-1 w-full rounded-lg border border-cool-300 px-2.5 py-1.5 text-sm font-ui text-navy focus:outline-none focus:ring-2 focus:ring-navy/20"
           />
+          {/* BOTH choices are one-way. The gate moves only pending rows and no
+              reverse verb exists anywhere in the system, so rejecting is not
+              the cautious option and the copy must not let it read as one. */}
+          <p className="mt-3 max-w-prose text-xs font-ui text-cool-600">
+            Both choices are permanent. The gate moves only pending terms, so there is no way back to
+            this state. A correction means a new commitment, not an undo.
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
@@ -251,8 +258,8 @@ function TermSet({
               {busy
                 ? 'Working…'
                 : armed?.key === 'approve'
-                  ? `Tap again to approve all ${s.pending}`
-                  : `Approve all ${s.pending}`}
+                  ? 'Press again to confirm. This cannot be undone.'
+                  : `Approve all ${s.pending} (final)`}
             </button>
             <button
               type="button"
@@ -260,7 +267,11 @@ function TermSet({
               onClick={() => fire('reject', () => void decide('reject'))}
               className="min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50 transition-colors disabled:opacity-50"
             >
-              {busy ? 'Working…' : armed?.key === 'reject' ? 'Tap again to reject the set' : 'Reject the set'}
+              {busy
+                ? 'Working…'
+                : armed?.key === 'reject'
+                  ? 'Press again to confirm. Rejecting is also permanent.'
+                  : 'Reject the set (final)'}
             </button>
           </div>
           {error && <p className="mt-2 text-xs text-red-700 font-ui">{error}</p>}
@@ -272,7 +283,7 @@ function TermSet({
       {!showControls && s.decidable && (
         <p className="px-3 pt-3 text-xs font-ui text-cool-500">
           {demo
-            ? 'Demo mode — these terms are fictional and no decision control renders.'
+            ? 'Demo mode. These terms are fictional and no decision control renders.'
             : 'These terms are awaiting a decision. Deciding them is admin-only.'}
         </p>
       )}

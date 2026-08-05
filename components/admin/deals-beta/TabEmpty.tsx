@@ -43,7 +43,7 @@ export default function TabEmpty({
         ) : (
           // No workbench room: say why rather than offering a link to nowhere.
           <>
-            This file has no Deals file page — it is in the record layer but has
+            This file has no Deals file page. It is in the record layer but has
             never been opened for underwriting, so there is nothing to link to yet.
           </>
         )}

@@ -62,7 +62,7 @@ export default function FileConditions({
           underwriting.
         </p>
         <p className="mt-3 max-w-prose text-sm leading-relaxed text-cool-600 font-ui">
-          This file has no underwriting room yet, so there are no conditions to read — it is in the
+          This file has no underwriting room yet, so there are no conditions to read. It is in the
           record layer but has never been opened for underwriting.
         </p>
       </section>
