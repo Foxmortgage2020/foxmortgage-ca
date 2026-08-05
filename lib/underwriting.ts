@@ -39,8 +39,10 @@ import { normalizeEvidence, type OfferEvidenceItem } from '@/lib/offers'
 import { isDemoMode, DEMO_AGENT_ID } from '@/lib/demo'
 import { isTestRoom } from '@/lib/test-rooms'
 import { conditionCounts, type ConditionCount } from '@/lib/conditions-status'
+import { COMMITMENT_TERM_SELECT, type CommitmentTermRow } from '@/lib/commitment-terms'
 import {
   demoResult,
+  demoDealCommitmentTerms,
   demoDeals,
   demoDealDetail,
   demoDealConditions,
@@ -1883,6 +1885,52 @@ export async function getDealDocuments(agentId: string, dealId: string): Promise
       finmoRequestId: r.finmo_request_id ?? null,
       borrowerId: r.borrower_id ?? null,
     })),
+  )
+}
+
+// The commitment's COMMITTED TERMS (2026-08-04) — one row per economic field
+// extracted from a lender commitment, held at gate_status 'pending' until
+// Michael approves the set. Read-only through portal_readonly like every other
+// deal-room table, scoped by agent_id; the decision is the gates API's alone.
+//
+// Attempt-and-fallback (Session 4 standing rule): this queries unconditionally
+// and the room renders the not-granted state only on a real 403, so the card
+// lights up with no portal change if the grant ever moves. The table's
+// row-level policy was missing until 2026-08-03 and returned zero rows to this
+// role, which is indistinguishable from an empty table on screen — hence the
+// discipline of confirming a live non-zero count rather than trusting a clean
+// render.
+export async function getDealCommitmentTerms(
+  agentId: string,
+  dealId: string,
+): Promise<UwResult<CommitmentTermRow[]>> {
+  if (isDemoMode()) return demoResult(demoDealCommitmentTerms(dealId))
+  const res = await uwSelect<any>('commitment_terms', {
+    select: COMMITMENT_TERM_SELECT,
+    agent_id: `eq.${agentId}`,
+    deal_id: `eq.${dealId}`,
+    order: 'created_at.asc',
+    limit: '200',
+  })
+  return mapResult(res, rows =>
+    rows.map(
+      (r): CommitmentTermRow => ({
+        id: r.id,
+        documentId: r.document_id,
+        fieldKey: r.field_key,
+        printed: r.printed ?? null,
+        valueText: r.value_text ?? null,
+        valueNumeric: numOrNull(r.value_numeric),
+        page: r.page === null || r.page === undefined ? null : Number(r.page),
+        sourceSnippet: r.source_snippet ?? null,
+        confidence: r.confidence ?? null,
+        dateConvention: r.date_convention ?? null,
+        dateConventionBasis: r.date_convention_basis ?? null,
+        extractor: r.extractor ?? null,
+        gateStatus: r.gate_status,
+        createdAt: r.created_at,
+      }),
+    ),
   )
 }
 

@@ -101,6 +101,21 @@ export const PERMISSIONS = {
   // admin only on both sides.
   'commitment.upload': ['admin'],
   'approvals.conditions.decide': ['admin'],
+  // Committed TERMS (2026-08-04): the other half of the same commitment
+  // upload. Where approvals.conditions.decide gates the checklist the document
+  // creates, this gates the economic terms it states — lender, amount, rate,
+  // rate type, term, amortization, payment, maturity, prepayment privileges,
+  // penalty basis. Decided per DOCUMENT, because a commitment's fields are one
+  // lender's one offer and move together.
+  //
+  // CROSS-REPO CONTRACT with fox-underwriting's gates API, which enforces this
+  // exact key server-side on POST /api/gates/commitment-terms/{documentId}/
+  // decision. The name is not free to change on one side: a rename needs
+  // coordinated edits in both repos, and a widening here without one there
+  // just produces 403s from the gate. Admin only on both sides, and it stays
+  // that way — approving a lender's stated terms is the decision the file
+  // turns on. Deliberately admin-only like its twin above.
+  'approvals.commitment_terms.decide': ['admin'],
   // B6.4: Michael's HUMAN review of a Finmo document request — approve, or send
   // back with a reason. CONTRACT key with the fox-underwriting gates API (migration
   // 0049); the gate refuses any non-human actor before any write. It records HIS
@@ -248,6 +263,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'submission.set': 'Set the target lender, insured status, or rate override on a deal',
   'notes.edit': 'Save an in-place edit of a lender submission-note draft',
   'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
+  'approvals.commitment_terms.decide':
+    "Decide a commitment's committed terms (approve or reject the whole extracted set — lender, amount, rate, term, maturity, penalties)",
   'approvals.document_request.decide': 'Approve a Finmo document request, or send it back with a reason (records your review; never touches Finmo)',
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',

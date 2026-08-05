@@ -48,6 +48,7 @@ import {
   getDealRequestDecisions,
   getApprovedConditions,
   getDealBorrowers,
+  getDealCommitmentTerms,
 } from '@/lib/underwriting'
 import { buildRequestsDesk } from '@/lib/documents-desk'
 import type { BorrowerInfo } from '@/lib/documents-desk'
@@ -56,6 +57,7 @@ import { updatePartner, getPartner } from '@/lib/zoho'
 import { getAgents } from '@/lib/underwriting'
 import {
   decideStatement,
+  decideCommitmentTerms,
   decideDocumentRequest,
   checkFinmoNow,
   getLenderContacts,
@@ -130,6 +132,21 @@ describe('demo mode guards', () => {
     expect(approved?.complianceStatus).toBe('Approved')
     expect(approved?.totalCommission).toBe(7140)
     expect(await getDealCloseout('demo-z-none')).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('committed terms come from fixtures with zero real reads, and the decision is blocked', async () => {
+    const res = await getDealCommitmentTerms(DEMO_AGENT_ID, 'demo-deal-1')
+    expect(res.configured && res.ok).toBe(true)
+    if (res.configured && res.ok) {
+      expect(res.data).toHaveLength(10)
+      // Fictional to the last digit: no real lender, no real file ref.
+      expect(JSON.stringify(res.data)).not.toMatch(/BRXM-|IFMS-|UnionLink/)
+    }
+    expect(fetchSpy).not.toHaveBeenCalled()
+    await expect(
+      decideCommitmentTerms('00000000-0000-4000-8000-0000000000ff', 'approve', 'tok'),
+    ).rejects.toBeInstanceOf(DemoWriteBlocked)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

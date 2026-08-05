@@ -18,6 +18,21 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Committed terms',
+    title: "The commitment's ten terms, with their provenance, behind one decision",
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'New authority key approvals.commitment_terms.decide, admin only, placed beside the twin it mirrors (approvals.conditions.decide — the other extraction off the same commitment upload). The name is a CROSS-REPO CONTRACT: the fox-underwriting gates API enforces the same key server-side on every call, so a rename needs coordinated edits in both repos and a widening on one side alone just produces 403s',
+      'Ten real terms on BRXM-F060561 read live before anything was concluded: 10 rows, all gate_status pending, all confidence exact, all on one signed_commitment document. That check was the point — commitment_terms had no row-level policy for portal_readonly until 2026-08-03 and returned zero rows, and an empty card and a correct card against an empty table look identical on screen',
+      'The printed string is the value and value_numeric never renders anywhere. Each row carries its page, its confidence and the verbatim snippet beside the figure, because what is being approved is evidence rather than a summary. A missing printed string is NAMED rather than backfilled from the parse',
+      'The maturity is the case this was built for: the document printed 06/10/2031, the stored date is 2031-10-06, and reading it the other way round moves a renewal four months. The card shows the printed token, the resolved date spelled out as 6 October 2031, the convention, and the stored basis for it (four other dates in the document start above 12, so it writes day first). The same mechanism shows rate_type reading as "variable" off a printed "Prime Lending Rate - 0.85%"',
+      'One button, not ten. The gate is keyed on the commitment DOCUMENT, so the set moves together and an amendment arrives as its own set with its own decision. No edit control exists on a term: the card carries exactly one textarea (the note) and zero inputs, selects or forms, asserted by test — a wrong value is a re-extraction, not a typed-over record that loses the link back to its page',
+      'Boundary proved rather than assumed. As ops: the ten terms still render, every control is absent, and the route itself answers 403 — hiding the UI is not the only defence. As admin: malformed id 422, unknown action 422, a 2001-character note 422 (refused, never truncated), GET 405. The dev Clerk instance carries ZERO JWT templates, so getToken({template:"gates"}) throws "JWT template not found" and the call returns its 401 auth copy before any network request. No term was decided',
+      'Built on a branch and verified locally with Michael watching, not pushed — this is the first portal surface that can write, so it follows the underwriting repo\'s cadence instead of the portal\'s straight-to-production one',
+    ],
+  },
+  {
     n: 'Deals (Beta) v4',
     title: 'Projection green, the honest age tile, and the deal preview panel',
     status: 'shipped',
