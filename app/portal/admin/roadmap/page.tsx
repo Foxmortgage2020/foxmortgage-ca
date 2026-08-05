@@ -18,6 +18,20 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Body fix',
+    title: 'The preview body corrected live, and the two empty states',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'THE FIRST PRODUCTION PREVIEW PRESS FAILED with 422 Unrecognized key: "reason" — the route injected a fixed literal into every gate call, off a handoff brief that specified {mode, reason} for both modes. The gate only ever took reason on APPLY, and its strict schema is deliberate protection for the identity fields, so the fix was portal-side: the dry run body is {mode} and nothing else. DRY_RUN_REASON is retired and tested against returning',
+      'THE PAYLOAD IS BUILT IN EXACTLY ONE PLACE: lib/gates.ts constructs mode === apply ? {mode, reason} : {mode}, so nothing the browser sends can ride through unshaped, and the gate can only ever see the two canonical bodies. That construction is the structural answer to "is anything else sending a field the gate does not accept"',
+      'THE APPLY BODY WAS ESTABLISHED EMPIRICALLY rather than re-read from a brief, which is what caused the defect: probed through Michael\'s production session at F057400\'s real commitment d1af3684, the document whose succeeded attempt the gate refuses, so the probes could not write anything. The probe transcript is in the session report',
+      'TWO EMPTY STATES on the beta Conditions tab now, keyed on hasRealCommitment (the guardrail-20 computation): no commitment reads "upload the commitment below", while commitment-present-zero-conditions reads that the extraction FAILED, links the Commitment tab, and says plainly "Do not upload the commitment again" — the old single sentence sent Michael toward the re-upload that once left a file carrying 157 rows',
+      'The shared ConditionsChecklist gained an optional emptyState prop and nothing else: the deal room passes nothing and keeps its original sentence, asserted by test. The room carries the same ambiguous copy and that change is Michael\'s to green-light separately',
+      'THE DOUBLE AMENDMENT DROPZONE IS INTENTIONAL and stays: one renders on the Commitment tab where the document lives, one inside the checklist where its effect lands, the room\'s standing empty-state-carries-its-control rule. Ruled on rather than silently removed',
+    ],
+  },
+  {
     n: 'Re-extract',
     title: 'The retry for a failed commitment extraction, preview first',
     status: 'shipped',

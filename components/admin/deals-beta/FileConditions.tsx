@@ -17,8 +17,50 @@
 // Keyed on the workbench deal id from resolveRoom. A file with no room gets the
 // honest empty state; no room is ever invented.
 
+import Link from 'next/link'
+import type { ReactNode } from 'react'
 import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
 import type { DealConditionRow, PendingCommitmentCondition } from '@/lib/underwriting'
+
+/** THE EMPTY STATE MUST SAY WHICH OF TWO SITUATIONS THE READER IS IN
+ *  (handoff 54). Zero conditions with NO commitment on file means upload one.
+ *  Zero conditions WITH a real commitment on file means the extraction
+ *  failed, and the old sentence's "upload the commitment" sent Michael toward
+ *  a second document and a second extraction — the churn that left one file
+ *  carrying 157 rows. The failed-extraction variant points at the re-extract
+ *  control instead and says plainly not to upload again. Keyed on
+ *  hasRealCommitment, which is computed on document provenance, so a retired
+ *  synthetic or rejected upload can never put a file in the wrong branch
+ *  (guardrail 20). */
+function emptyStateFor(hasRealCommitment: boolean): ReactNode {
+  if (!hasRealCommitment) {
+    return (
+      <p className="text-sm text-cool-500 font-ui" data-testid="beta-conditions-empty-nocommitment">
+        No conditions on this file yet, because no lender commitment is on file. Upload the
+        commitment below to draft the checklist, or add a condition by hand above.
+      </p>
+    )
+  }
+  return (
+    <div
+      className="max-w-prose rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5"
+      data-testid="beta-conditions-empty-failed"
+    >
+      <p className="text-sm font-ui text-amber-900">
+        The commitment is on file and its terms are extracted, but no conditions were ever
+        drafted, which means the condition extraction failed. Re-run it from the{' '}
+        <Link href="?tab=commitment" className="font-semibold underline underline-offset-2">
+          Commitment tab
+        </Link>
+        , where the preview shows the checklist it would draft before anything is written.
+      </p>
+      <p className="mt-1.5 text-sm font-ui text-amber-900">
+        Do not upload the commitment again. A second upload creates a second document and a
+        second extraction on the same file.
+      </p>
+    </div>
+  )
+}
 
 export default function FileConditions({
   roomId,
@@ -99,6 +141,7 @@ export default function FileConditions({
           hasRealCommitment={hasRealCommitment}
           todayYMD={todayYMD}
           userId={userId}
+          emptyState={emptyStateFor(hasRealCommitment)}
         />
       </div>
     </section>

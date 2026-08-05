@@ -12,25 +12,23 @@
 // named dynamic segments at one level is a Next slug conflict. Do not tidy
 // this into the shorter name; it will not build.
 //
-// THE REASON RULE DIFFERS BY MODE, deliberately. The gate's contract takes a
-// reason on every call, but a dry run writes nothing and Michael has not
-// decided anything yet when he presses preview — so the route supplies the
-// DRY_RUN_REASON literal and the browser never invents one. Apply is a
-// decision, so its reason must be TYPED: required, trimmed, never prefilled,
-// and an over-long one is REFUSED rather than truncated. The human actor
-// comes from the verified session the browser-minted token carries, never
-// from a payload field (guardrail 19).
+// THE REASON IS AN APPLY-ONLY FIELD (handoff 54, corrected live). The first
+// production press of preview answered 422 `Unrecognized key: "reason"`,
+// because this route was injecting a fixed literal into every call on the
+// belief that the gate took a reason in both modes. It does not: the gate's
+// strict schema accepts `{mode}` alone on dry_run, and the strictness is the
+// gate protecting its identity fields, so the fix belongs on this side. A dry
+// run writes nothing and needs no reason. Apply is a decision, so its reason
+// must be TYPED: required, trimmed, never prefilled, and an over-long one is
+// REFUSED rather than truncated. The human actor comes from the verified
+// session the browser-minted token carries, never from a payload field
+// (guardrail 19).
 
 import { NextResponse } from 'next/server'
 import { apiPermission } from '@/lib/authz'
 import { retryCommitmentExtraction, STATUS_BY_KIND } from '@/lib/gates'
 import { isUuid } from '@/lib/commitment-terms'
-import {
-  DRY_RUN_REASON,
-  REEXTRACT_MODES,
-  checkReextractReason,
-  type ReextractMode,
-} from '@/lib/reextract'
+import { REEXTRACT_MODES, checkReextractReason, type ReextractMode } from '@/lib/reextract'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +63,7 @@ export async function POST(req: Request, { params }: { params: { documentId: str
     )
   }
 
-  let reason = DRY_RUN_REASON
+  let reason: string | null = null
   if (mode === 'apply') {
     const check = checkReextractReason(body?.reason)
     if (!check.ok) {

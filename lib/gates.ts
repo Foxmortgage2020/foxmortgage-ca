@@ -589,14 +589,25 @@ export interface ReextractResponse {
   [extra: string]: unknown
 }
 
+// THE DRY RUN BODY IS `{mode}` AND NOTHING ELSE (handoff 54). The gate's
+// schema is strict PER MODE and `reason` is an apply-only field: sending it on
+// dry_run answers 422 `Unrecognized key: "reason"` before the extractor is
+// ever reached, which is exactly what happened on the first production press.
+// The strictness is the gate protecting its identity fields and is not the
+// thing to change. This function is the ONLY place the payload is built, so
+// nothing the browser sends can ride through to the gate unshaped.
 export function retryCommitmentExtraction(
   documentId: string,
   mode: ReextractMode,
-  reason: string,
+  reason: string | null,
   token: string | null,
 ): Promise<GateResult<ReextractResponse>> {
   if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('retryCommitmentExtraction'))
-  return gateCall(`/api/gates/commitment-extractions/${documentId}/retry`, { mode, reason }, token)
+  return gateCall(
+    `/api/gates/commitment-extractions/${documentId}/retry`,
+    mode === 'apply' ? { mode, reason } : { mode },
+    token,
+  )
 }
 
 // ─── Withdrawing a record from the record layer (handoff 50) ───────────────

@@ -16,7 +16,7 @@
 // stored presence the server rendered is fresh.
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import type { DealConditionRow, PendingCommitmentCondition } from '@/lib/underwriting'
 import { canVerify, conditionStatusPill, isBrokerCondition, isCollected, type PillTone } from '@/lib/conditions-status'
@@ -93,11 +93,20 @@ export default function ConditionsChecklist({
   hasRealCommitment,
   todayYMD,
   userId,
+  emptyState,
 }: {
   dealId: string
   pending: PendingCommitmentCondition[]
   approved: DealConditionRow[]
   borrowers: { id: string; fullName: string }[]
+  /** Replaces the default zero-conditions sentence when supplied (handoff 54).
+   *  The default cannot tell a file with no commitment from one whose
+   *  extraction FAILED, and on the second kind "upload the commitment" sends
+   *  the reader toward a second document and a second extraction — the churn
+   *  that left one file carrying 157 rows. The Deals (Beta) Conditions tab
+   *  passes the two distinguished variants; the deal room passes nothing and
+   *  keeps its own copy, because that copy is the room's to change. */
+  emptyState?: ReactNode
   // The logged-in user's id — the key the "hide non-broker" view preference
   // persists under (per user, on their device; never a real write).
   userId: string
@@ -277,6 +286,7 @@ export default function ConditionsChecklist({
         setErrors={setErrors}
         post={post}
         openDocument={openDocument}
+        emptyState={emptyState}
       />
 
       {/* Every empty state that instructs an action carries the control inline.
@@ -655,6 +665,7 @@ function ApprovedChecklist({
   setErrors,
   post,
   openDocument,
+  emptyState,
 }: {
   dealId: string
   userId: string
@@ -670,6 +681,7 @@ function ApprovedChecklist({
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
   post: PostFn
   openDocument: (documentId: string, page: number | null) => void
+  emptyState?: ReactNode
 }) {
   const [hideNonBroker, setHideNonBroker] = useHideNonBroker(userId)
   const [addOpen, setAddOpen] = useState(false)
@@ -707,9 +719,11 @@ function ApprovedChecklist({
       )}
 
       {approved.length === 0 ? (
-        <p className="text-sm text-cool-500 font-ui">
-          No conditions on this file yet. Upload the commitment to draft the checklist, or add one by hand above.
-        </p>
+        emptyState ?? (
+          <p className="text-sm text-cool-500 font-ui">
+            No conditions on this file yet. Upload the commitment to draft the checklist, or add one by hand above.
+          </p>
+        )
       ) : (
         <>
           <p className="text-xs font-ui text-cool-500 mb-3 tabular-nums">
