@@ -14,15 +14,13 @@
 // It reuses lib/booking/copy-gate.ts rather than restating the rules, so the
 // portal cannot end up with two definitions of what the gate is.
 //
-// SCOPE, stated so the exclusions are visible rather than silent:
-//   INCLUDED — everything under app/portal/admin/deals-beta and
-//   components/admin/deals-beta, lib/beta-file.ts, and CommitmentTermsCard
-//   (a handoff 46 target surface, shared with the deal room).
-//   NOT INCLUDED — ConditionsChecklist and CommitmentUploader. They render on
-//   this page but their copy is the deal room's, written before this surface
-//   existed, and rewriting it was outside handoff 46's two target surfaces.
-//   Their remaining violations are named in the session report so the gap is a
-//   decision rather than an oversight.
+// SCOPE. Everything under app/portal/admin/deals-beta and
+// components/admin/deals-beta, lib/beta-file.ts, and the three components the
+// beta surface RENDERS from elsewhere: CommitmentTermsCard, ConditionsChecklist
+// and CommitmentUploader. The last two were knowingly excluded in handoff 46
+// because their copy belonged to the deal room; handoff 48 swept them, so the
+// exclusion is gone and the gate now covers every string this page renders.
+// They are shared, so a violation here is a violation in the deal room too.
 
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -51,7 +49,10 @@ function scannedFiles(): string[] {
   walk('app/portal/admin/deals-beta')
   walk('components/admin/deals-beta')
   out.push('lib/beta-file.ts')
+  // The shared components the beta surface renders from outside its own tree.
   out.push('components/admin/CommitmentTermsCard.tsx')
+  out.push('components/admin/ConditionsChecklist.tsx')
+  out.push('components/admin/CommitmentUploader.tsx')
   return out
 }
 
@@ -206,8 +207,23 @@ describe('the irreversibility copy on the committed-terms card', () => {
   })
 
   it('reject is never described as the safe or cautious option', () => {
-    for (const word of ['cancel', 'Cancel', 'safe', 'go back', 'Discard']) {
-      expect(card, `reject must not read as ${word}`).not.toContain(word)
+    // RENDERED strings only. Scanning the whole file caught the comment that
+    // explains why reject must not read as safe, which is the opposite of a
+    // violation. What matters is that no words a person SEES say it.
+    const copy = renderedStrings(card).join(' ').toLowerCase()
+    for (const word of ['cancel', 'safe', 'go back', 'discard', 'nevermind', 'never mind']) {
+      expect(copy, `reject must not read as "${word}"`).not.toContain(word)
     }
+  })
+
+  it('both buttons are solid and equal weight, and neither is an outline', () => {
+    // An outline button beside a solid one is the visual grammar of Cancel.
+    // Reject carries the palette's destructive token instead, so the emphasis
+    // it takes marks it destructive rather than safe (handoff 48).
+    expect(card).toContain('bg-danger text-white')
+    expect(card).toContain('bg-navy text-white')
+    // Neither decision button may be a bordered white button again.
+    const buttonBlock = card.slice(card.indexOf("fire('approve'"), card.indexOf('{error &&'))
+    expect(buttonBlock).not.toMatch(/bg-white border/)
   })
 })
