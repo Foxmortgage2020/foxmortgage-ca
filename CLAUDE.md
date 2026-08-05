@@ -300,6 +300,48 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The preview body fix, and the two empty states (handoff 54, 2026-08-05)
+- **THE DEFECT: the route injected `reason` into every gate call and the
+  gate's strict schema refused it** (422 `Unrecognized key: "reason"` on the
+  first production preview press, before the extractor was ever reached). The
+  strictness is the gate protecting its identity fields and was NOT changed.
+  The brief handoff 53 built from specified `{mode, reason}` for both modes;
+  the gate only ever took reason on apply. **Dry run body is `{mode}` and
+  nothing else.** `DRY_RUN_REASON` is retired and must not come back under
+  any name (tested).
+- **THE PAYLOAD IS BUILT IN EXACTLY ONE PLACE** —
+  `lib/gates.ts retryCommitmentExtraction` constructs
+  `mode === 'apply' ? {mode, reason} : {mode}` — so nothing the browser sends
+  can ride through to the gate unshaped. That construction plus the gate's
+  strictness is the whole answer to "is anything else sending a field the
+  gate does not accept": the gate can only ever see the two canonical shapes.
+- **THE APPLY BODY WAS ESTABLISHED EMPIRICALLY, not from the brief** (see the
+  handoff 54 report): probed through Michael's production session at
+  F057400's real commitment `d1af3684` — the document whose succeeded
+  attempt the gate REFUSES, so nothing can be written by probing it. The
+  session's probe results are the record; do not re-derive the contract from
+  handoff briefs, which is what caused this defect.
+- **THE TWO EMPTY STATES on the beta Conditions tab** (`emptyStateFor` in
+  `components/admin/deals-beta/FileConditions.tsx`, keyed on
+  `hasRealCommitment`, the guardrail-20 computation): no commitment ->
+  "upload the commitment below" (`beta-conditions-empty-nocommitment`);
+  commitment present + zero conditions -> the extraction FAILED, amber,
+  linking `?tab=commitment`, and saying plainly **"Do not upload the
+  commitment again"** because a second upload creates a second document and a
+  second extraction (`beta-conditions-empty-failed`). The old single sentence
+  sent Michael toward exactly that re-upload.
+- **The shared `ConditionsChecklist` gained an optional `emptyState` prop
+  and NOTHING else changed in it**: the deal room passes nothing and keeps
+  its original sentence (asserted by test). The room's copy carries the same
+  ambiguity and is Michael's to green-light separately, the handoff 46
+  precedent.
+- **THE DOUBLE AMENDMENT DROPZONE IS INTENTIONAL and stays.** FileCommitment
+  renders one directly and ConditionsChecklist renders its own (the room's
+  standing rule: the dropzone lives in the Conditions empty state AND the
+  documents surface, because an amendment supersedes the condition set, so
+  the control belongs both where the document lives and where its effect
+  lands). Ruled on, not removed.
+
 ### The re-extract control (handoff 53, 2026-08-05)
 - **WHY: BRXM-F060561 carries an approved commitment, ten approved terms and
   ZERO conditions** — its extraction failed once on 2026-07-31 (region bug,
@@ -310,15 +352,17 @@ shape as the lender-notes pair above.
   by the control shipped in the same session.
 - **Proxy** `app/api/portal/admin/gates/commitment-extractions/[documentId]/
   retry` -> `lib/gates.ts retryCommitmentExtraction` -> gate
-  `POST /api/gates/commitment-extractions/{documentId}/retry`, body
-  `{mode, reason}` only. **THE SEGMENT IS `commitment-extractions`, NOT
-  `commitments`**: the commitments directory already carries `[dealId]`, and
-  two differently named dynamic segments at one level is a Next slug conflict.
-  Do not tidy. **The reason rule differs by mode**: dry_run gets the fixed
-  `DRY_RUN_REASON` literal injected by the ROUTE (nobody has decided anything
-  at preview), apply requires a TYPED reason, trimmed, never prefilled,
-  refused over-long. Rules live in `lib/reextract.ts` (pure twin of
-  lib/rec-withdrawal.ts); tests in `tests/reextract.test.ts`.
+  `POST /api/gates/commitment-extractions/{documentId}/retry`. **THE SEGMENT
+  IS `commitment-extractions`, NOT `commitments`**: the commitments directory
+  already carries `[dealId]`, and two differently named dynamic segments at
+  one level is a Next slug conflict. Do not tidy. **BODY (corrected handoff
+  54): `{mode}` alone on dry_run, `{mode, reason}` on apply.** Handoff 53
+  shipped a route that injected a fixed literal into every call, off a brief
+  that specified reason in both modes; the gate's strict schema answered 422
+  `Unrecognized key: "reason"` on the first production preview press. Reason
+  is APPLY-ONLY: typed, trimmed, never prefilled, refused over-long. Rules
+  live in `lib/reextract.ts` (pure twin of lib/rec-withdrawal.ts); tests in
+  `tests/reextract.test.ts`.
 - **THE PREVIEW IS NOT OPTIONAL.** `ReextractControl` (Commitment tab,
   `components/admin/deals-beta/`) runs dry_run first and renders the FULL
   forecast list. The apply step (reason + timestamp arming + latch-after-

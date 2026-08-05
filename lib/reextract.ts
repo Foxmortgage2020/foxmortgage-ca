@@ -17,10 +17,14 @@ export const REEXTRACT_MODES: readonly ReextractMode[] = ['dry_run', 'apply']
  *  surfaces verbatim, so a drifted bound fails loud rather than silently. */
 export const REEXTRACT_REASON_MAX = 2000
 
-/** What the gate records for a preview. A dry run writes nothing and nobody
- *  has decided anything yet when preview is pressed, so the route supplies
- *  this literal and the browser never invents a reason. */
-export const DRY_RUN_REASON = 'Preview from the portal. Nothing is written in this mode.'
+// THERE IS NO DRY-RUN REASON, AND THERE BRIEFLY WAS ONE (handoff 54). The
+// first cut of this module carried a fixed literal the route injected into
+// every call, on a brief that specified `{mode, reason}` for both modes. The
+// gate's strict schema refused it: `reason` is an apply-only field, and the
+// first production press of preview answered 422 `Unrecognized key: "reason"`
+// without ever reaching the extractor. The dry-run body is `{mode}` and
+// nothing else. Do not reintroduce a reason on preview to make anything
+// symmetrical.
 
 /** The two facts a broker pressing this control needs before touching it.
  *  Rendered above the buttons on the control, asserted by test, and written

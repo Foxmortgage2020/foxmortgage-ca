@@ -14,7 +14,6 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  DRY_RUN_REASON,
   REEXTRACT_MODES,
   REEXTRACT_PENDING_COPY,
   REEXTRACT_REASON_MAX,
@@ -78,12 +77,19 @@ describe('the route', () => {
     expect(route).toContain('REEXTRACT_MODES.includes(mode)')
   })
 
-  it('a dry run gets the fixed literal, so the browser never invents a reason', () => {
-    // Nobody has decided anything when preview is pressed. The typed reason is
-    // an APPLY artifact, and the route is where the split is enforced.
-    expect(route).toContain('let reason = DRY_RUN_REASON')
+  it('THE DRY RUN BODY IS {mode} AND NOTHING ELSE (handoff 54, corrected live)', () => {
+    // The first production press of preview answered 422 `Unrecognized key:
+    // "reason"` because the route injected a literal into every call. The
+    // gate's schema is strict PER MODE: reason is an apply-only field, and the
+    // strictness protects the identity fields, so the fix lives here. The
+    // payload is built in exactly one place — the gates client — with the
+    // conditional shape, so nothing the browser sends can widen it.
+    expect(gates).toMatch(/mode === 'apply' \? \{ mode, reason \} : \{ mode \}/)
+    expect(route).toContain('let reason: string | null = null')
     expect(route).toMatch(/mode === 'apply'[\s\S]{0,200}checkReextractReason/)
-    expect(DRY_RUN_REASON).toMatch(/nothing is written/i)
+    // The retired literal must not come back under any name.
+    expect(route).not.toContain('DRY_RUN_REASON')
+    expect(stripComments(read('lib/reextract.ts'))).not.toContain('DRY_RUN_REASON')
   })
 
   it('sends only mode and reason: no human identity rides the body (guardrail 19)', () => {
@@ -91,9 +97,10 @@ describe('the route', () => {
       expect(stripComments(route)).not.toContain(banned)
       expect(stripComments(control)).not.toContain(banned)
     }
-    // The gates client posts the two-field body and forwards the token.
+    // The gates client builds the payload conditionally and forwards the
+    // token: {mode} alone on dry_run, {mode, reason} on apply, nothing wider.
     expect(gates).toMatch(
-      /commitment-extractions\/\$\{documentId\}\/retry`,\s*\{ mode, reason \}/,
+      /commitment-extractions\/\$\{documentId\}\/retry`,\s*mode === 'apply' \? \{ mode, reason \} : \{ mode \}/,
     )
     expect(route).toContain("req.headers.get('x-gates-token')")
   })
@@ -176,6 +183,43 @@ describe('the control', () => {
     const fetches = Array.from(control.matchAll(/fetch\(\s*[`'"]([^`'"]+)/g)).map(m => m[1])
     expect(fetches).toHaveLength(1)
     expect(fetches[0]).toContain('/api/portal/admin/gates/commitment-extractions/')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('the two empty states (handoff 54)', () => {
+  const conditionsTab = read('components/admin/deals-beta/FileConditions.tsx')
+  const checklist = read('components/admin/ConditionsChecklist.tsx')
+
+  it('zero conditions with NO commitment says upload one', () => {
+    expect(conditionsTab).toContain('beta-conditions-empty-nocommitment')
+    expect(conditionsTab).toMatch(/because no lender commitment is on file/)
+  })
+
+  it('zero conditions WITH a commitment says the extraction failed and points at the control', () => {
+    expect(conditionsTab).toContain('beta-conditions-empty-failed')
+    expect(conditionsTab).toMatch(/the condition extraction failed/i)
+    expect(conditionsTab).toMatch(/Commitment tab/)
+    expect(conditionsTab).toMatch(/\?tab=commitment/)
+    // The sentence that sent Michael toward a second upload is countered
+    // explicitly: a second upload is the 157-row churn.
+    expect(conditionsTab).toMatch(/Do not upload the commitment again/)
+    expect(conditionsTab).toMatch(/second document and a\s+second extraction/)
+  })
+
+  it('the branch keys on hasRealCommitment, the guardrail-20 computation', () => {
+    expect(conditionsTab).toMatch(/emptyStateFor\(hasRealCommitment\)/)
+  })
+
+  it('the ROOM keeps its own copy: the shared default is unchanged and only overridable', () => {
+    // The deal room passes no emptyState, so its sentence stays exactly as it
+    // was. Changing the room's copy is the room's own change, not this one.
+    expect(checklist).toContain(
+      'No conditions on this file yet. Upload the commitment to draft the checklist, or add one by hand above.',
+    )
+    expect(checklist).toMatch(/emptyState \?\? \(/)
+    const room = read('app/portal/admin/deals/[id]/page.tsx')
+    expect(room).not.toContain('emptyState')
   })
 })
 
