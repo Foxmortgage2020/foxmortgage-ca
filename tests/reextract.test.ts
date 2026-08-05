@@ -17,6 +17,7 @@ import {
   REEXTRACT_MODES,
   REEXTRACT_PENDING_COPY,
   REEXTRACT_REASON_MAX,
+  REEXTRACT_REFUSED_COPY,
   REEXTRACT_TERMS_COPY,
   checkReextractReason,
 } from '@/lib/reextract'
@@ -138,6 +139,19 @@ describe('the control', () => {
     expect(control).toMatch(/c\.owner/)
   })
 
+  it('reads the forecast from data.preview.conditions, the shape captured live', () => {
+    // Established empirically on 2026-08-05: the gate nests the forecast under
+    // `preview` with `would_draft` and `coverage_notes` beside it. The first
+    // cut guessed `data.conditions` and rendered zero rows over a successful
+    // twelve-row dry run. The captured response is the record; do not
+    // re-derive this from a brief.
+    expect(control).toMatch(/json\.data\?\.preview/)
+    expect(control).toMatch(/p\?\.conditions/)
+    expect(control).toMatch(/p\?\.coverage_notes/)
+    expect(control).toContain('beta-reextract-notes')
+    expect(control).not.toMatch(/json\.data\?\.conditions/)
+  })
+
   it('the reason is typed: required, and NEVER prefilled', () => {
     expect(control).toMatch(/\[reason, setReason\] = useState\(''\)/)
     expect(control).not.toMatch(/setReason\((?!e\.target\.value)[^)]+\)/)
@@ -163,11 +177,24 @@ describe('the control', () => {
       control.indexOf('const preview = useCallback'),
       control.indexOf('const apply = useCallback'),
     )
-    expect(previewFn).toMatch(/kind === 'conflict'[\s\S]{0,220}setRefused/)
+    expect(previewFn).toMatch(/kind === 'conflict'[\s\S]{0,320}setRefused/)
     expect(control).toContain('beta-reextract-refused')
     // The refusal state renders INSTEAD of the buttons: the branch order is
     // refused, then done, then the working control.
     expect(control).toMatch(/\{refused \? \(/)
+  })
+
+  it('the refusal copy says what a conflict MEANS here, not "Already decided."', () => {
+    // The gates client's generic conflict copy is wrong on this endpoint:
+    // nothing was decided, the extraction succeeded. Both conflict branches
+    // render the module's own sentence, established by the handoff 54 probes.
+    expect(REEXTRACT_REFUSED_COPY).toMatch(/succeeded extraction/)
+    expect(REEXTRACT_REFUSED_COPY).toMatch(/nothing to retry/i)
+    expect(control).toMatch(/setRefused\(REEXTRACT_REFUSED_COPY\)/)
+    expect(control).toMatch(/setDone\(REEXTRACT_REFUSED_COPY\)/)
+    // Comments may QUOTE the wrong copy to explain why it is wrong; the code
+    // must not render it.
+    expect(stripComments(control)).not.toContain('Already decided')
   })
 
   it('says what lands and what cannot be damaged, above the buttons', () => {

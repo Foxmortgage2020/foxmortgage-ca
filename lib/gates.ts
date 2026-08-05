@@ -580,12 +580,28 @@ export interface ForecastCondition {
   [extra: string]: unknown
 }
 
+/** THE RESPONSE SHAPE WAS ESTABLISHED EMPIRICALLY on 2026-08-05 (handoff 54):
+ *  the forecast lives under `preview`, NOT at the top level. The first cut
+ *  guessed `data.conditions` and rendered a zero-row forecast over a
+ *  successful twelve-row dry run. Do not re-derive this shape from a brief;
+ *  the captured production response is the record. */
+export interface ReextractPreview {
+  would_draft?: number
+  conditions?: ForecastCondition[]
+  /** The extractor's own honesty notes (format fallback, sanity gate,
+   *  cross-page caveat). Rendered to Michael verbatim. */
+  coverage_notes?: string[]
+  [extra: string]: unknown
+}
+
 export interface ReextractResponse {
   mode: ReextractMode
-  /** The conditions the run would draft (dry_run) or drafted (apply). */
-  conditions?: ForecastCondition[]
-  drafted?: number
-  auditId?: string
+  preview?: ReextractPreview
+  /** Null on dry_run. The apply half of the shape has not been observed live
+   *  yet, so the control reads it tolerantly and never destructures it. */
+  applied?: unknown
+  auditId?: string | null
+  note?: string
   [extra: string]: unknown
 }
 
