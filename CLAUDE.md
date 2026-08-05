@@ -300,6 +300,64 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### Deals (Beta): the file page, and the guarantee that changed (handoff 42, 2026-08-05)
+The board had NO file-level surface: one route, no `[id]`, no API route, 195 B
+of client JS. A file-level feature therefore had nowhere on this board to live,
+which is how the committed-terms card ended up on the live deal room. This
+session built the container. It moved no feature into it.
+- **THE READ-ONLY GUARANTEE WAS REPLACED, NOT DROPPED.** It WAS: "the beta
+  board is read-only", enforced by grepping the preview panel for form /
+  onSubmit / onClick / POST / button / input / textarea / select. It IS NOW:
+  **nothing under `deals-beta` writes except through an existing gate proxy,
+  with a human actor** — no direct database write, no new write path invented
+  here, no service-role key, no `Content-Profile` header. WHY: Michael approved
+  writes on this surface, so the old sentence stopped being true, and an
+  untrue guarantee is worse than none. `tests/beta-file.test.ts` enforces the
+  new one across the WHOLE deals-beta tree (it walks the directory, so a file
+  added by a later session is audited automatically). The preview panel keeps
+  its ORIGINAL grep in `tests/phase-model.test.ts` because that panel stays
+  read-only. **This session added no write at all**; the page is a container.
+- **THE JOIN KEY IS `rec.deals.workbench_deal_id`, and nothing had ever
+  selected it.** `getRecDeals` now does. Resolution is
+  `lib/beta-file.ts resolveRoom`: direct id, then an UNAMBIGUOUS `file_ref`,
+  then **null rather than a guess** — two workbench rows sharing a file_ref
+  resolve to neither, because putting one client's documents on another
+  client's page is the worst failure this surface could have. Live coverage
+  2026-08-05: **10 of 13 rooms** (5 direct, 5 by file_ref).
+- **A rec deal with no workbench room is the NORMAL case, not an error.**
+  153 of the 160 rec rows are `is_historical_import`. The empty states say so
+  and render no dead link.
+- **The route is `/portal/admin/deals-beta/[dealId]`, keyed on the REC deal id**
+  and gated on the existing `deals.view`. **No new authority key**, asserted by
+  test. Still a server component: **197 B** of client JS.
+- **EIGHT TABS ON EVERY FILE, ALWAYS, IN ORDER** (Overview, Client, Documents,
+  Qualification, Submission, Commitment, Conditions, Compliance). The row reads
+  left to right as the file's life so it teaches the process. A tab is NEVER
+  hidden for having no data. Order is `FILE_TABS` in `lib/beta-file.ts`; do not
+  reorder. Only Overview is filled.
+- **FLAGS ARE A STRIP UNDER THE HEADER, NEVER A TAB** — a flag interrupts, so
+  it must be visible from every tab. **There is no flag table in `rec`**
+  (verified live). The strip is built and renders nothing.
+- **STAGE IS READ-ONLY HERE.** No advance control, no phase-complete button.
+  `public.deals.stage` and `rec.deals.stage_code` carry different vocabularies;
+  advancing one before that consolidation would write into an unresolved fork.
+- **TWO MORTGAGES PER FILE AND THEY ARE NOT INTERCHANGEABLE.** The one being
+  PLACED is `rec.mortgages.originating_deal_id -> deal.id`; the one being
+  REPLACED is `rec.deals.existing_mortgage_id`. Rendering a renewal's OLD rate
+  as the deal's rate is exactly backwards, so they resolve separately and the
+  replaced one renders in its own labelled block.
+- **`formatMonths()` did not exist** despite the brief citing it. Written in
+  `lib/beta-file.ts` (months below 24, years and months at or above). The two
+  nearest helpers disagree with the rule and with each other — `lib/scenario.ts`
+  `termLabel` gives "2yr"/"25mo", `lib/smm.ts` `comparableTermLabel` gives
+  "5-year term" — and NEITHER was repointed; both are load-bearing elsewhere.
+- **TWO APPROVED FIELDS HAVE NO COLUMN IN `rec`: "Subject to financing" and
+  "Rate hold expiry."** They render "Not specified" and are named in
+  `FIELDS_WITHOUT_A_COLUMN` rather than dropped, so the gap stays visible.
+- **`rec.properties` carries the street TWO ways**: `address_line1` (154 of 161)
+  and `street_number` + `street_name` (7 of 161). Reading only the first printed
+  a bare "North Perth, ON" for a file that does have an address; both are read.
+
 ### Deals (Beta): the rebuild (2026-08-02b) — READ THIS ONE
 Supersedes the two sections below. `lib/phase-model.ts` (rules) +
 `lib/phase-palette.ts` (colour); `lib/four-phase.ts` has not existed since

@@ -3281,6 +3281,18 @@ export interface RecDeal {
   mortgage_amount: number | null
   blocked_by: string | null
   closing_date: string | null
+  // Handoff 42: the file page's own fields. THE JOIN KEY IS
+  // `workbench_deal_id` — it has existed on rec.deals all along and nothing in
+  // this repo selected it until now, which is why the beta board and the
+  // workbench looked unbridgeable. It is populated on a MINORITY of rows, so
+  // lib/beta-file.ts resolveRoom falls back to an unambiguous file_ref and
+  // returns null rather than guessing when neither answers.
+  workbench_deal_id: string | null
+  purchase_price: number | null
+  down_payment: number | null
+  down_payment_not_applicable: boolean | null
+  existing_mortgage_id: string | null
+  lender_name_raw: string | null
 }
 
 /** One stage transition. `changed_at` is the column name (NOT occurred_at),
@@ -3453,7 +3465,8 @@ export async function getRecDeals(agentId: string): Promise<UwResult<RecDeal[]>>
   const res = await uwFetch<RecDeal>(
     'deals',
     {
-      select: 'id,file_ref,deal_type,stage_code,status,mortgage_amount,blocked_by,closing_date',
+      select:
+        'id,file_ref,deal_type,stage_code,status,mortgage_amount,blocked_by,closing_date,workbench_deal_id,purchase_price,down_payment,down_payment_not_applicable,existing_mortgage_id,lender_name_raw',
       agent_id: `eq.${agentId}`,
       order: 'created_at.asc',
     },
@@ -3464,7 +3477,118 @@ export async function getRecDeals(agentId: string): Promise<UwResult<RecDeal[]>>
   return {
     configured: true,
     ok: true,
-    data: res.data.map(d => ({ ...d, mortgage_amount: numOrNull(d.mortgage_amount) })),
+    data: res.data.map(d => ({
+      ...d,
+      mortgage_amount: numOrNull(d.mortgage_amount),
+      purchase_price: numOrNull(d.purchase_price),
+      down_payment: numOrNull(d.down_payment),
+    })),
+  }
+}
+
+/** The mortgages the record layer knows (handoff 42). A file can touch TWO and
+ *  they are not interchangeable: the one being PLACED points back at the deal
+ *  through `originating_deal_id`, and the one being REPLACED is named by
+ *  rec.deals.existing_mortgage_id. lib/beta-file.ts resolves them separately —
+ *  rendering a renewal's OLD rate as the new deal's rate is exactly backwards. */
+export interface RecMortgage {
+  id: string
+  originating_deal_id: string | null
+  lender_name_raw: string | null
+  product_name: string | null
+  rate: number | null
+  rate_type: string | null
+  term_months: number | null
+  amortization_months: number | null
+  payment_amount: number | null
+  payment_frequency: string | null
+  payment_type: string | null
+  maturity_on: string | null
+  property_id: string | null
+  status: string | null
+}
+
+export async function getRecMortgages(agentId: string): Promise<UwResult<RecMortgage[]>> {
+  if (isDemoMode()) return demoResult([] as RecMortgage[])
+  const res = await uwFetch<RecMortgage>(
+    'mortgages',
+    {
+      select:
+        'id,originating_deal_id,lender_name_raw,product_name,rate,rate_type,term_months,amortization_months,payment_amount,payment_frequency,payment_type,maturity_on,property_id,status',
+      agent_id: `eq.${agentId}`,
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return {
+    configured: true,
+    ok: true,
+    data: res.data.map(m => ({
+      ...m,
+      rate: numOrNull(m.rate),
+      payment_amount: numOrNull(m.payment_amount),
+      term_months: numOrNull(m.term_months),
+      amortization_months: numOrNull(m.amortization_months),
+    })),
+  }
+}
+
+/** The subject property behind a file, read through rec.deal_properties (which
+ *  carries the role) joined to rec.properties. */
+export interface RecDealProperty {
+  deal_id: string
+  property_id: string
+  role: string | null
+  address_line1: string | null
+  street_number: string | null
+  street_name: string | null
+  unit: string | null
+  city: string | null
+  province: string | null
+  postal_code: string | null
+  occupancy: string | null
+  property_type: string | null
+  tenure: string | null
+  annual_taxes: number | null
+  condo_fees_monthly: number | null
+}
+
+export async function getRecDealProperties(agentId: string): Promise<UwResult<RecDealProperty[]>> {
+  if (isDemoMode()) return demoResult([] as RecDealProperty[])
+  const res = await uwFetch<any>(
+    'deal_properties',
+    {
+      select:
+        'deal_id,property_id,role,properties(address_line1,street_number,street_name,unit,city,province,postal_code,occupancy,property_type,tenure,annual_taxes,condo_fees_monthly)',
+      agent_id: `eq.${agentId}`,
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return {
+    configured: true,
+    ok: true,
+    data: res.data.map(
+      (r): RecDealProperty => ({
+        deal_id: r.deal_id,
+        property_id: r.property_id,
+        role: r.role ?? null,
+        address_line1: r.properties?.address_line1 ?? null,
+        street_number: r.properties?.street_number ?? null,
+        street_name: r.properties?.street_name ?? null,
+        unit: r.properties?.unit ?? null,
+        city: r.properties?.city ?? null,
+        province: r.properties?.province ?? null,
+        postal_code: r.properties?.postal_code ?? null,
+        occupancy: r.properties?.occupancy ?? null,
+        property_type: r.properties?.property_type ?? null,
+        tenure: r.properties?.tenure ?? null,
+        annual_taxes: numOrNull(r.properties?.annual_taxes),
+        condo_fees_monthly: numOrNull(r.properties?.condo_fees_monthly),
+      }),
+    ),
   }
 }
 

@@ -62,6 +62,7 @@ export default function DealPreview({
   milestones,
   nowISO,
   closeHref,
+  fileHref,
 }: {
   deal: DealLike
   stage: StageLike | null
@@ -73,6 +74,9 @@ export default function DealPreview({
   milestones: DealMilestoneLike[]
   nowISO: string
   closeHref: string
+  /** The full file page for this deal (handoff 42). A LINK, not a control —
+   *  this panel stays read-only and its grep test still enforces that. */
+  fileHref: string
 }) {
   const borrowers = borrowersFor(deal, clients)
   const days = daysInStage(deal, events, nowISO)
@@ -241,6 +245,18 @@ export default function DealPreview({
             ))}
           </ul>
         )}
+      </div>
+
+      {/* Handoff 42: the way through to the file page. A link, so this panel
+          keeps the read-only property its grep test enforces. */}
+      <div className="border-t border-cool-200 px-4 py-2.5">
+        <Link
+          href={fileHref}
+          className="text-sm font-semibold text-navy underline hover:opacity-80"
+          data-testid="beta-preview-open-file"
+        >
+          Open the full file
+        </Link>
       </div>
     </aside>
   )

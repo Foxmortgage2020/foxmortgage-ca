@@ -148,6 +148,10 @@ export default function DealsBetaBoard(props: Props) {
               milestones={props.milestones}
               nowISO={props.nowISO}
               closeHref={href({ phase: props.activePhase, collapsed: props.collapsedRaw })}
+              // Handoff 42: the preview is a card's worth of detail; the file
+              // page is where the file is worked. A link, never a control —
+              // this panel stays read-only.
+              fileHref={`/portal/admin/deals-beta/${encodeURIComponent(selected.id)}`}
             />
           )}
         </div>
