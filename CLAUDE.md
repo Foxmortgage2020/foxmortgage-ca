@@ -300,6 +300,57 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### Deals (Beta): the Conditions, Commitment and Client tabs (handoff 45, 2026-08-05)
+- **THE FIRST SHARED COMPONENTS between the beta and the live deal room.**
+  `ConditionsChecklist`, `CommitmentTermsCard` and `CommitmentUploader` are
+  RENDERED, not forked — the gate proxies are keyed on record ids rather than
+  pages, so every card keeps its existing route, permission key and
+  browser-minted token path with zero duplication. Two surfaces reading the
+  same rows is the intended state during build → move → repoint → remove.
+  Nothing in the deal room changed; the diff does not touch it.
+- **The Conditions tab reads `public.conditions`, NEVER `rec.conditions`.**
+  The record layer's table has no `gate_status` column (42703), so a tab over
+  it would show an ungated population and rebuild handoff 44's defect on a new
+  surface. Keyed on the workbench id from `resolveRoom`; no room renders the
+  honest empty state and no room is ever invented.
+- **TAB BADGES: a queued decision is visible without opening the tab.** The
+  room force-opens a section; the tab row's equivalent is a count on the tab.
+  `buildTabBadges` in `lib/beta-file.ts` is general; **only Conditions is
+  wired**, because a badge on a tab that computes no count is a number nobody
+  can trust. Amber, matching the room's pending banner — lime is not spent
+  here. Zero pending in the book today, so it renders nothing; proven by
+  forcing a count and screenshotting, then reverting.
+- **THE EXISTING-MORTGAGE RULE KEYS ON PRESENCE, NOT DEAL TYPE.** The brief
+  said a purchase has no existing mortgage; **that is false in this book** —
+  BRXM-F053724 is a purchase carrying a real Scotiabank 3.24% fixed maturing
+  2027-03-30. So: a record present is ALWAYS shown; absent is SILENT on
+  purchase/preapproval/unknown; absent is a NAMED GAP on renewal/refinance/
+  switch, where one must exist in reality. An empty block on a file that
+  structurally cannot have one is a false absence, and this page's convention
+  is that empty means "not yet".
+- **BOTH mortgages are labelled explicitly** — "This deal's mortgage" (with
+  "not recorded yet" when absent) and "The client's existing mortgage" — so a
+  populated old block can never read as this deal's rate on an unfunded file.
+- **THE COMMITTED-TERMS CARD CARRIES NO IRREVERSIBILITY COPY AT ALL** — not on
+  the button, not in surrounding text. Verified, not assumed. It was carried
+  across UNCHANGED rather than edited, because the wording is shared with the
+  deal room. Proposed wording is in the handoff 45 report and is MICHAEL'S to
+  accept before anyone edits the card.
+- **The write guarantee now follows the reuse.** `tests/beta-file.test.ts`
+  gained a scan of the three shared components against a CLOSED allowlist:
+  `/api/portal/admin/gates/` plus `/api/portal/admin/commitments/`. The second
+  is deliberate and recorded: the commitment upload is a pre-existing route
+  gated on `commitment.upload` with a human Clerk actor, which satisfies the
+  guarantee's intent while not matching its path prefix.
+- **Client tab shows EVERY client, not the primary alone.** Read from
+  `rec.clients` through `rec.deal_clients`. Coverage is uneven and honest:
+  email/phone 137 of 139, DOB 136, work phone 40, marital 44, dependents 39.
+  Zero dependents renders as 0, not as absent.
+- **Client JS: 208 B route-specific, but FIRST LOAD 94.3 kB → 128 kB**, the
+  first time this surface crossed the client boundary. The deal room's own
+  route JS fell 31.8 kB → 21.7 kB as the shared cards moved into common
+  chunks. The board is unchanged at 195 B.
+
 ### Conditions carry TWO axes, and reading one is not reading the file (handoff 44, 2026-08-05)
 - `status` is the WORKFLOW axis (open, pre_checked, evidence_attached,
   satisfied, waived): "have we collected it yet?" `gate_status` is the

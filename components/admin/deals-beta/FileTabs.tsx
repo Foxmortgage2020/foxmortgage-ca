@@ -11,18 +11,24 @@
 // the board already uses for phase, view, collapse and preview, so the file page
 // costs no client JavaScript to navigate.
 
+// BADGES. A queued decision must be visible without opening the tab it lives
+// on, so the count rides the tab itself. Amber, matching the deal room's
+// pending banner off the same upload — lime is not spent here.
+
 import Link from 'next/link'
-import { FILE_TABS, type TabKey } from '@/lib/beta-file'
+import { FILE_TABS, type TabBadges, type TabKey } from '@/lib/beta-file'
 import { phaseAccent } from '@/lib/phase-palette'
 
 export default function FileTabs({
   active,
   hrefFor,
   phaseCode,
+  badges = {},
 }: {
   active: TabKey
   hrefFor: (tab: TabKey) => string
   phaseCode: string | null
+  badges?: TabBadges
 }) {
   const accent = phaseCode ? phaseAccent(phaseCode) : undefined
   return (
@@ -34,6 +40,7 @@ export default function FileTabs({
       <ul className="flex min-w-max gap-1">
         {FILE_TABS.map(t => {
           const on = t.key === active
+          const badge = badges[t.key]
           return (
             <li key={t.key}>
               <Link
@@ -41,7 +48,7 @@ export default function FileTabs({
                 scroll={false}
                 aria-current={on ? 'page' : undefined}
                 data-testid={`beta-file-tab-${t.key}`}
-                className={`-mb-px block whitespace-nowrap border-b-2 px-3 py-2 text-sm font-ui transition-colors ${
+                className={`-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-ui transition-colors ${
                   on
                     ? 'font-semibold text-navy'
                     : 'border-transparent text-cool-600 hover:border-cool-300 hover:text-navy'
@@ -49,6 +56,16 @@ export default function FileTabs({
                 style={on ? { borderBottomColor: accent ?? '#032133' } : undefined}
               >
                 {t.label}
+                {badge && (
+                  <span
+                    data-testid={`beta-file-badge-${t.key}`}
+                    aria-label={badge.label}
+                    title={badge.label}
+                    className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold tabular-nums text-amber-800"
+                  >
+                    {badge.count}
+                  </span>
+                )}
               </Link>
             </li>
           )

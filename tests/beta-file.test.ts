@@ -20,7 +20,9 @@ import {
   FILE_TABS,
   FIELDS_WITHOUT_A_COLUMN,
   NOT_SPECIFIED,
+  buildTabBadges,
   existingMortgage,
+  existingMortgageDisposition,
   fieldGroups,
   fieldValue,
   fmtDateWords,
@@ -117,6 +119,66 @@ describe('THE WRITE GUARANTEE: only through a gate proxy, with a human actor', (
     expect(page).not.toContain('process.env.UW_SUPABASE')
   })
 
+  // ── The guarantee follows the REUSE (handoff 45) ──────────────────────────
+  // The scan above walks files under deals-beta. From handoff 45 this surface
+  // also RENDERS components that live elsewhere (ConditionsChecklist,
+  // CommitmentTermsCard, CommitmentUploader), so their write targets are now
+  // part of what deals-beta writes. This extends the guarantee to cover them
+  // rather than leaving a hole the directory walk cannot see.
+  it('every component the beta renders from outside writes only to a KNOWN, EXISTING path', () => {
+    const shared = [
+      'components/admin/ConditionsChecklist.tsx',
+      'components/admin/CommitmentTermsCard.tsx',
+      'components/admin/CommitmentUploader.tsx',
+    ]
+    // A CLOSED list. Adding to it is a deliberate act with a reason, which is
+    // the point — it must never become "any /api/portal/admin path".
+    const ALLOWED = [
+      '/api/portal/admin/gates/',
+      // NOT under /gates/, and deliberately allowed: the commitment upload is a
+      // pre-existing portal route gated on `commitment.upload` with a human
+      // Clerk actor, shipped long before this surface existed. It satisfies the
+      // guarantee's intent (existing, gated, human) while not matching its path
+      // prefix. Recorded here rather than silently widened.
+      '/api/portal/admin/commitments/',
+    ]
+    for (const f of shared) {
+      const src = read(f)
+      const targets = Array.from(src.matchAll(/fetch\(\s*[`'"]([^`'"]+)[`'"]/g), m => m[1])
+      for (const t of targets) {
+        expect(
+          ALLOWED.some(a => t.startsWith(a)),
+          `${f} writes to ${t}, which is not an existing gated path`,
+        ).toBe(true)
+      }
+      // And none of them reaches a database directly.
+      for (const forbidden of ['SERVICE_ROLE', 'Content-Profile', '.insert(', '.rpc(']) {
+        expect(src, `${f} must not contain ${forbidden}`).not.toContain(forbidden)
+      }
+    }
+  })
+
+  it('the reused cards are NOT forked — the beta imports the deal room’s own', () => {
+    const conds = read('components/admin/deals-beta/FileConditions.tsx')
+    const commit = read('components/admin/deals-beta/FileCommitment.tsx')
+    expect(conds).toContain("from '@/components/admin/ConditionsChecklist'")
+    expect(commit).toContain("from '@/components/admin/CommitmentTermsCard'")
+    expect(commit).toContain("from '@/components/admin/CommitmentUploader'")
+    // No local reimplementation crept in alongside the import.
+    expect(conds).not.toMatch(/<button/)
+    expect(commit).not.toMatch(/<button/)
+  })
+
+  it('the Conditions tab reads public.conditions, never rec.conditions', () => {
+    const page = read('app/portal/admin/deals-beta/[dealId]/page.tsx')
+    // The gated public reads.
+    expect(page).toContain('getApprovedConditions(agentId, roomId)')
+    expect(page).toContain('getPendingCommitmentConditions(agentId, roomId)')
+    // getRecConditions has no gate_status column to filter on (42703), so it
+    // must never feed this tab.
+    expect(page).not.toContain('getRecConditions')
+  })
+
   it('the file page adds no authority key of its own', () => {
     const page = read('app/portal/admin/deals-beta/[dealId]/page.tsx')
     const keys = Array.from(page.matchAll(/requirePermission\('([a-z_.]+)'\)/g), m => m[1])
@@ -131,6 +193,22 @@ describe('THE WRITE GUARANTEE: only through a gate proxy, with a human actor', (
         expect(src, `no ${bad} while stage stays read-only`).not.toContain(bad)
       }
     }
+  })
+
+  it('the decision controls ride the SAME authority keys the deal room uses', () => {
+    const page = read('app/portal/admin/deals-beta/[dealId]/page.tsx')
+    for (const key of [
+      'approvals.conditions.decide',
+      'conditions.decide',
+      'conditions.recompute',
+      'commitment.upload',
+      'approvals.commitment_terms.decide',
+    ]) {
+      expect(page, `${key} must gate its control here as it does in the room`).toContain(`'${key}'`)
+    }
+    // ...and every one is additionally hidden in demo, exactly as the room does.
+    const gated = page.match(/can\(user, '[a-z_.]+'\) && !isDemoMode\(\)/g) ?? []
+    expect(gated.length).toBe(5)
   })
 })
 
@@ -400,13 +478,113 @@ describe('the tab contract', () => {
     ])
   })
 
-  it('every tab names what it is for, and every unbuilt one says where the work is today', () => {
+  it('every tab names what it is for, and every UNBUILT one says where the work is today', () => {
     for (const t of FILE_TABS) {
       expect(t.purpose.length, `${t.key} needs a purpose`).toBeGreaterThan(30)
-      if (t.key !== 'overview') {
+      if (t.built) {
+        // A built tab renders its own content, so the hand-off copy would be a
+        // lie — it must be cleared when the tab is wired.
+        expect(t.today, `${t.key} is built and must not still point elsewhere`).toBe('')
+      } else {
         expect(t.today, `${t.key} must say where the work happens today`).toMatch(/Deals file page/)
       }
     }
+  })
+
+  it('the four tabs built so far are exactly the ones wired on the page', () => {
+    const built = FILE_TABS.filter(t => t.built).map(t => t.key)
+    expect(built).toEqual(['overview', 'client', 'commitment', 'conditions'])
+    const page = read('app/portal/admin/deals-beta/[dealId]/page.tsx')
+    for (const c of ['FileOverview', 'FileClient', 'FileCommitment', 'FileConditions']) {
+      expect(page, `${c} must be rendered`).toContain(`<${c}`)
+    }
+    // An unbuilt tab still falls through to the honest empty state.
+    expect(page).toContain('{!tabDef.built && <TabEmpty')
+  })
+})
+
+describe('the tab badge — a queued decision is visible without opening the tab', () => {
+  it('no pending conditions means no badge at all', () => {
+    // The state of the whole book today: zero pending conditions anywhere.
+    expect(buildTabBadges({ pendingConditions: 0 })).toEqual({})
+  })
+
+  it('a pending set puts the count on the Conditions tab', () => {
+    const b = buildTabBadges({ pendingConditions: 13 })
+    expect(b.conditions).toEqual({
+      count: 13,
+      tone: 'amber',
+      label: '13 conditions awaiting your decision',
+    })
+  })
+
+  it('the singular reads correctly, because 1 conditions is how software sounds', () => {
+    expect(buildTabBadges({ pendingConditions: 1 }).conditions?.label).toBe(
+      '1 condition awaiting your decision',
+    )
+  })
+
+  it('only Conditions is wired — a badge on a tab that computes no count would be untrustworthy', () => {
+    const b = buildTabBadges({ pendingConditions: 5 })
+    expect(Object.keys(b)).toEqual(['conditions'])
+  })
+
+  it('the tab row renders the badge with an accessible label, not a bare number', () => {
+    const src = read('components/admin/deals-beta/FileTabs.tsx')
+    expect(src).toContain('badges[t.key]')
+    expect(src).toContain('aria-label={badge.label}')
+    expect(src).toContain('{badge.count}')
+    // Amber, matching the deal room's pending banner. Lime is not spent here.
+    expect(src).toMatch(/bg-amber-100/)
+    expect(src).not.toMatch(/bg-decision|text-decision-ink/)
+  })
+})
+
+describe('the existing mortgage: presence first, type second', () => {
+  const m = (over: Partial<MortgageLike> = {}): MortgageLike => ({
+    id: 'm-old', originating_deal_id: null, lender_name_raw: 'Scotiabank', product_name: null,
+    rate: 3.24, rate_type: 'fixed', term_months: 60, amortization_months: null,
+    payment_amount: null, payment_frequency: null, payment_type: null,
+    maturity_on: '2027-03-30', property_id: null, status: 'active', ...over,
+  })
+
+  it('a record that exists is ALWAYS shown, even on a purchase', () => {
+    // BRXM-F053724 is a purchase carrying a real Scotiabank mortgage (verified
+    // live). Hiding a real record by deal type would be the worse lie.
+    expect(existingMortgageDisposition('purchase', m())).toBe('show')
+    expect(existingMortgageDisposition('renewal', m())).toBe('show')
+    expect(existingMortgageDisposition(null, m())).toBe('show')
+  })
+
+  it('absent on a purchase or preapproval is SILENT — absent, not empty', () => {
+    expect(existingMortgageDisposition('purchase', null)).toBe('silent')
+    expect(existingMortgageDisposition('preapproval', null)).toBe('silent')
+  })
+
+  it('absent on a renewal or refinance is a NAMED GAP — one must exist in reality', () => {
+    expect(existingMortgageDisposition('renewal', null)).toBe('gap')
+    expect(existingMortgageDisposition('refinance', null)).toBe('gap')
+    expect(existingMortgageDisposition('switch', null)).toBe('gap')
+  })
+
+  it('an unknown deal type stays silent rather than claiming a gap it cannot establish', () => {
+    // 18 rec deals carry a null deal_type.
+    expect(existingMortgageDisposition(null, null)).toBe('silent')
+    expect(existingMortgageDisposition('', null)).toBe('silent')
+    expect(existingMortgageDisposition('something_new', null)).toBe('silent')
+  })
+
+  it('case and padding do not change the answer', () => {
+    expect(existingMortgageDisposition('  Renewal ', null)).toBe('gap')
+  })
+
+  it('Overview labels BOTH mortgages explicitly, so neither can read as the other', () => {
+    const src = read('components/admin/deals-beta/FileOverview.tsx')
+    expect(src).toContain('This deal’s mortgage')
+    expect(src).toContain('The client’s existing mortgage')
+    // The block renders only on 'show', and the gap gets its own line.
+    expect(src).toContain("disposition === 'show'")
+    expect(src).toContain("disposition === 'gap'")
   })
 
   it('an unknown or absent tab lands on Overview rather than a 404', () => {

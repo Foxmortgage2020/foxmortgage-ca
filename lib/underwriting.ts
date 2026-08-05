@@ -3671,6 +3671,71 @@ export async function getRecDealClients(agentId: string): Promise<UwResult<RecDe
   }
 }
 
+/** Full contact detail for EVERY client on a file (handoff 45), for the beta
+ *  file page's Client tab — not the primary borrower alone, because a
+ *  co-applicant is a person you have to reach too. The board's
+ *  getRecDealClients above stays as it is: it returns name and role only,
+ *  which is all a card needs, and widening it would put contact detail into
+ *  every card render on the board.
+ *
+ *  Coverage is honest and uneven (verified live): email and phone on 137 of
+ *  139 links, date of birth on 136, work phone on 40, marital status on 44,
+ *  dependents on 39. The tab renders "Not specified" per field rather than
+ *  hiding a person who is missing one. */
+export interface RecClientDetail {
+  dealId: string
+  clientId: string | null
+  role: string | null
+  fullName: string | null
+  firstName: string | null
+  lastName: string | null
+  email: string | null
+  phone: string | null
+  workPhone: string | null
+  dateOfBirth: string | null
+  maritalStatus: string | null
+  dependents: number | null
+  preferredLanguage: string | null
+  isLead: boolean | null
+}
+
+export async function getRecDealClientDetail(agentId: string): Promise<UwResult<RecClientDetail[]>> {
+  if (isDemoMode()) return demoResult([] as RecClientDetail[])
+  const res = await uwFetch<any>(
+    'deal_clients',
+    {
+      select:
+        'deal_id,role,clients(id,full_name,first_name,last_name,email,phone,work_phone,date_of_birth,marital_status,dependents,preferred_language,is_lead)',
+      agent_id: `eq.${agentId}`,
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return {
+    configured: true,
+    ok: true,
+    data: res.data.map(
+      (r): RecClientDetail => ({
+        dealId: r.deal_id,
+        clientId: r.clients?.id ?? null,
+        role: r.role ?? null,
+        fullName: r.clients?.full_name ?? null,
+        firstName: r.clients?.first_name ?? null,
+        lastName: r.clients?.last_name ?? null,
+        email: r.clients?.email ?? null,
+        phone: r.clients?.phone ?? null,
+        workPhone: r.clients?.work_phone ?? null,
+        dateOfBirth: r.clients?.date_of_birth ?? null,
+        maritalStatus: r.clients?.marital_status ?? null,
+        dependents: numOrNull(r.clients?.dependents),
+        preferredLanguage: r.clients?.preferred_language ?? null,
+        isLead: r.clients?.is_lead ?? null,
+      }),
+    ),
+  }
+}
+
 /** Row count on rec.consents, the field Intake is waiting on. Rendered as a
  * fact on the Intake placeholder rather than asserted from the brief — if it
  * ever stops being zero, the page says so on its own. */

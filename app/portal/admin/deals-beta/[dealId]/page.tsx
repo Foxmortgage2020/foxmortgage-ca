@@ -30,12 +30,19 @@
 
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { requirePermission } from '@/lib/authz'
+import { can, requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { isDemoMode } from '@/lib/demo'
+import { torontoTodayYMD } from '@/lib/dates'
 import {
   getAgentIdByEmail,
+  getApprovedConditions,
+  getDealBorrowers,
+  getDealCommitmentTerms,
+  getDealDocuments,
   getDealsSummary,
+  getPendingCommitmentConditions,
+  getRecDealClientDetail,
   getRecDealClients,
   getRecDealMilestones,
   getRecDealProperties,
@@ -45,10 +52,13 @@ import {
   getRecPhases,
   getRecStageEvents,
   getRecStages,
+  isPermissionRefusal,
 } from '@/lib/underwriting'
+import { groupTermsByDocument } from '@/lib/commitment-terms'
 import { findPhase } from '@/lib/phase-model'
 import {
   FILE_TABS,
+  buildTabBadges,
   existingMortgage,
   originatingMortgage,
   resolveRoom,
@@ -60,6 +70,9 @@ import {
 import FileTabs from '@/components/admin/deals-beta/FileTabs'
 import FileOverview from '@/components/admin/deals-beta/FileOverview'
 import FileFlagStrip from '@/components/admin/deals-beta/FileFlagStrip'
+import FileConditions from '@/components/admin/deals-beta/FileConditions'
+import FileCommitment from '@/components/admin/deals-beta/FileCommitment'
+import FileClient from '@/components/admin/deals-beta/FileClient'
 import TabEmpty from '@/components/admin/deals-beta/TabEmpty'
 
 export const dynamic = 'force-dynamic'
@@ -88,7 +101,7 @@ export default async function BetaFilePage({
   params: { dealId: string }
   searchParams?: { tab?: string }
 }) {
-  await requirePermission('deals.view')
+  const user = await requirePermission('deals.view')
 
   const agentRes = await getAgentIdByEmail(WORKBENCH_AGENT_EMAIL)
   const agentId = agentRes.configured && agentRes.ok ? agentRes.data : null
@@ -96,7 +109,7 @@ export default async function BetaFilePage({
     return <Unavailable message="The workbench is not connected right now. See Status for details." />
   }
 
-  const [dealsR, stagesR, phasesR, eventsR, clientsR, milestonesR, typesR, mortgagesR, propsR, roomsR] =
+  const [dealsR, stagesR, phasesR, eventsR, clientsR, milestonesR, typesR, mortgagesR, propsR, roomsR, clientDetailR] =
     await Promise.all([
       getRecDeals(agentId),
       getRecStages(),
@@ -109,6 +122,8 @@ export default async function BetaFilePage({
       getRecDealProperties(agentId),
       // The workbench side, read only to resolve this file's room link.
       getDealsSummary(agentId),
+      // Handoff 45: full contact detail for the Client tab.
+      getRecDealClientDetail(agentId),
     ])
 
   if (!dealsR.configured || !dealsR.ok) {
@@ -127,6 +142,7 @@ export default async function BetaFilePage({
   const mortgages = mortgagesR.configured && mortgagesR.ok ? mortgagesR.data : []
   const propertyLinks = propsR.configured && propsR.ok ? propsR.data : []
   const rooms = roomsR.configured && roomsR.ok ? roomsR.data : []
+  const clientDetail = clientDetailR.configured && clientDetailR.ok ? clientDetailR.data : []
 
   const stage = stages.find(s => s.code === deal.stage_code) ?? null
   const phase = findPhase(phases, stage?.phase ?? null)
@@ -154,11 +170,58 @@ export default async function BetaFilePage({
 
   const room = resolveRoom(deal, rooms.map(r => ({ id: r.id, file_ref: r.fileRef ?? null })))
   const roomHref = room ? `/portal/admin/deals/${room.workbenchDealId}` : null
+  const roomId = room?.workbenchDealId ?? null
+
+  // ── The workbench reads (handoff 45) ──────────────────────────────────────
+  // Only when a room resolves. These read `public.conditions` and
+  // `public.commitment_terms` — never `rec.conditions`, which carries no
+  // gate_status column at all and would show a population with no way to tell
+  // a live condition from a retired one.
+  //
+  // The PENDING read is unconditional on the active tab, because its count is
+  // the Conditions badge and a queued decision must be visible from every tab.
+  const [condsR, pendingR, borrowersR, documentsR, termsR] = roomId
+    ? await Promise.all([
+        getApprovedConditions(agentId, roomId),
+        getPendingCommitmentConditions(agentId, roomId),
+        getDealBorrowers(agentId, roomId),
+        getDealDocuments(agentId, roomId),
+        getDealCommitmentTerms(agentId, roomId),
+      ])
+    : [null, null, null, null, null]
+
+  const approvedConds = condsR && condsR.configured && condsR.ok ? condsR.data : []
+  const pendingConds = pendingR && pendingR.configured && pendingR.ok ? pendingR.data : []
+  const borrowerList =
+    borrowersR && borrowersR.configured && borrowersR.ok
+      ? borrowersR.data.map(b => ({ id: b.id, fullName: b.fullName }))
+      : []
+  const documentRows = documentsR && documentsR.configured && documentsR.ok ? documentsR.data : []
+  // A retired synthetic or rejected commitment never counts (guardrail 20), so
+  // it can never suppress the upload control.
+  const hasRealCommitment = documentRows.some(
+    d =>
+      (d.docType === 'signed_commitment' || d.docType === 'commitment_amendment') &&
+      d.provenance === 'real' &&
+      d.reviewStatus !== 'rejected',
+  )
+  const termGroups = termsR && termsR.configured && termsR.ok ? groupTermsByDocument(termsR.data) : []
+  const condsRefused = Boolean(condsR && isPermissionRefusal(condsR))
+  const termsRefused = Boolean(termsR && isPermissionRefusal(termsR))
+
+  // Permissions — the SAME keys the deal room uses. No key is added here, and
+  // every decision control is hidden in demo, matching the room exactly.
+  const canDecideCommitment = can(user, 'approvals.conditions.decide') && !isDemoMode()
+  const canWaiveConditions = can(user, 'conditions.decide') && !isDemoMode()
+  const canRecompute = can(user, 'conditions.recompute') && !isDemoMode()
+  const canUploadCommitment = can(user, 'commitment.upload') && !isDemoMode()
+  const canDecideTerms = can(user, 'approvals.commitment_terms.decide') && !isDemoMode()
 
   // No flag mechanism exists in the record layer yet; the strip is built and
   // stays empty rather than being omitted (see lib/beta-file.ts).
   const flags: FlagLike[] = []
 
+  const badges = buildTabBadges({ pendingConditions: pendingConds.length })
   const active: TabKey = resolveTab(searchParams?.tab)
   const tabDef = FILE_TABS.find(t => t.key === active) ?? FILE_TABS[0]
   const base = `/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`
@@ -193,10 +256,10 @@ export default async function BetaFilePage({
       <FileFlagStrip flags={flags} />
 
       <div className="mt-4">
-        <FileTabs active={active} hrefFor={hrefFor} phaseCode={phase?.code ?? null} />
+        <FileTabs active={active} hrefFor={hrefFor} phaseCode={phase?.code ?? null} badges={badges} />
       </div>
 
-      {active === 'overview' ? (
+      {active === 'overview' && (
         <FileOverview
           // Spread so the concrete row satisfies phase-model's DealLike, which
           // carries an index signature an interface does not implicitly gain.
@@ -212,9 +275,42 @@ export default async function BetaFilePage({
           property={property}
           nowISO={new Date().toISOString()}
         />
-      ) : (
-        <TabEmpty tab={tabDef} roomHref={roomHref} />
       )}
+
+      {active === 'client' && (
+        <FileClient clients={clientDetail.filter(c => c.dealId === deal.id)} />
+      )}
+
+      {active === 'conditions' && (
+        <FileConditions
+          roomId={roomId}
+          approved={approvedConds}
+          pending={pendingConds}
+          borrowers={borrowerList}
+          canDecide={canDecideCommitment}
+          canWaive={canWaiveConditions}
+          canRecompute={canRecompute}
+          canUpload={canUploadCommitment}
+          hasRealCommitment={hasRealCommitment}
+          todayYMD={torontoTodayYMD()}
+          userId={user.userId}
+          notGranted={condsRefused}
+        />
+      )}
+
+      {active === 'commitment' && (
+        <FileCommitment
+          roomId={roomId}
+          groups={termGroups}
+          canDecideTerms={canDecideTerms}
+          canUpload={canUploadCommitment}
+          hasRealCommitment={hasRealCommitment}
+          demo={isDemoMode()}
+          notGranted={termsRefused}
+        />
+      )}
+
+      {!tabDef.built && <TabEmpty tab={tabDef} roomHref={roomHref} />}
     </Shell>
   )
 }

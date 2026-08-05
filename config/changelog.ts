@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-08-05',
+    title: 'The Beta file page gets Conditions, Commitment and Client',
+    detail:
+      'Three of the eight tabs on the Beta file page now do something. Conditions shows the same checklist you already work in the Deals file page, and Commitment shows the same upload box and the same ten committed terms with their page numbers and quoted snippets. They are not copies. They are literally the same controls, rendered in a second place, so a fix to one is a fix to both and they can never drift apart and start telling you different things. The numbers agree because they are the same numbers: the file with 157 rows in the database reads 12 on both, because 145 of those rows were retired by later versions of the commitment and are not work anybody has to do. If a commitment ever arrives with terms waiting on your decision, the Conditions tab will carry a small amber count next to its name, so you can see there is something waiting without opening the tab to find out. Nothing is waiting today, so you will not see one yet. The Client tab now lists everyone on the file rather than the first name, with their email, phone, date of birth and the rest of what we hold, and it says which fields we simply do not have rather than leaving a gap you have to interpret. One correction on the Overview: the previous mortgage now says plainly that it is the client’s current one and not this deal’s, because on a file that has not funded yet the old rate was the only rate on screen and that reads the wrong way round. On a file that never had a previous mortgage the block is gone entirely rather than sitting there empty, since empty is supposed to mean not yet.',
+  },
+  {
     date: '2026-08-04',
     title: 'The terms on a commitment now come to you for a decision, with the document beside them',
     detail:
