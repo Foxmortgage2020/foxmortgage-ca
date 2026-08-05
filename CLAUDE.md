@@ -300,6 +300,43 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The copy gate now covers Deals (Beta), and the terms card says it is final (handoff 46, 2026-08-05)
+- **THE COPY RULES APPLY TO EVERYTHING RENDERED IN THE PORTAL**, not only client
+  copy: no em dash, no en dash, no exclamation point, no semicolon in prose.
+  `tests/beta-copy.test.ts` enforces them by WALKING the deals-beta tree plus
+  `lib/beta-file.ts` and `CommitmentTermsCard`, so a string nobody has written
+  yet is checked the moment it exists. It reuses `lib/booking/copy-gate.ts`
+  `COPY_RULES` rather than restating them, so the portal cannot end up with two
+  definitions of the gate.
+- **WHY NOW: the empty-state pattern was about to be copied four more times**
+  (Documents, Qualification, Submission, Compliance). Fixing the pattern once
+  is cheap; fixing four replicas is not, and one gets missed.
+- **The "broker" rule is deliberately NOT applied here.** It is a client-copy
+  rule; this is an internal admin surface and "broker condition" is the correct
+  term on a lender's checklist. The typographic rules apply everywhere.
+- **KNOWINGLY EXCLUDED, so the gap is a decision not an oversight:**
+  `ConditionsChecklist` (5 rendered em dashes) and `CommitmentUploader` (2).
+  They render on the beta page but their copy is the deal room's, written
+  before this surface existed, and rewriting it was outside handoff 46's two
+  target surfaces. Listed in the handoff 46 report for Michael to green-light.
+- **THE COMMITTED-TERMS CARD NOW STATES ITS OWN FINALITY.** Above both buttons:
+  "Both choices are permanent. The gate moves only pending terms, so there is
+  no way back to this state. A correction means a new commitment, not an undo."
+  Buttons read `Approve all {n} (final)` and `Reject the set (final)`, count
+  dynamic. Armed copy is "Press again to confirm. This cannot be undone." and
+  "Press again to confirm. Rejecting is also permanent." The card ALREADY armed
+  both buttons, so this was copy only and no behaviour changed.
+- **REJECT IS STILL STYLED AS THE SAFE OPTION and that is unresolved.** Approve
+  is solid navy (primary), reject is a white outline (which reads as Cancel).
+  Both are equally permanent. The visual treatment was NOT changed on this
+  session's own judgement; the proposal is in the handoff 46 report.
+- **TIMING, recorded because it matters:** Michael approved BRXM-F060561's ten
+  terms himself at 2026-08-05T14:24:22Z (`commitment.terms_approved`,
+  actor=portal/mfox@foxmortgage.ca, decided 10) BEFORE this warning shipped.
+  The copy guards the next commitment, not that one. Zero pending terms remain
+  in the book, so the buttons were render-proved by forcing a pending state
+  locally and reverting.
+
 ### Deals (Beta): the Conditions, Commitment and Client tabs (handoff 45, 2026-08-05)
 - **THE FIRST SHARED COMPONENTS between the beta and the live deal room.**
   `ConditionsChecklist`, `CommitmentTermsCard` and `CommitmentUploader` are

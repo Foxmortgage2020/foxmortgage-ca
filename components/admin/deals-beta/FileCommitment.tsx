@@ -52,7 +52,7 @@ export default function FileCommitment({
           for approval.
         </p>
         <p className="mt-3 max-w-prose text-sm leading-relaxed text-cool-600 font-ui">
-          This file has no underwriting room yet, so there is nowhere to upload a commitment to — it
+          This file has no underwriting room yet, so there is nowhere to upload a commitment to. It
           is in the record layer but has never been opened for underwriting.
         </p>
       </section>
@@ -72,7 +72,7 @@ export default function FileCommitment({
             title={hasRealCommitment ? 'Upload an amendment' : 'Upload the commitment'}
             hint={
               hasRealCommitment
-                ? 'If the lender revised the commitment, drop the amendment here — it supersedes the current condition set on approval.'
+                ? 'If the lender revised the commitment, drop the amendment here. It supersedes the current condition set on approval.'
                 : 'No lender commitment is on file yet. Drop it here to draft the checklist and read the committed terms.'
             }
             compact

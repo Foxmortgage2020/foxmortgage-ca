@@ -152,7 +152,7 @@ export default async function DealsBetaPage({
     return (
       <Shell>
         <Notice>
-          The record layer did not answer. This is a read failure, not an empty pipeline — nothing
+          The record layer did not answer. This is a read failure, not an empty pipeline. Nothing
           here is a count of zero.
         </Notice>
       </Shell>

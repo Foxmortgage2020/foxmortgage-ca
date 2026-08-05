@@ -378,7 +378,8 @@ describe('the subject property', () => {
 
   it('formats an address, unit included, and absent reads as absent', () => {
     expect(propertyAddress(props[0])).toBe('12 Marentette Ave, Windsor, ON')
-    expect(propertyAddress(props[1])).toBe('4–9 Other St, Guelph, ON')
+    // A plain hyphen: the copy gate forbids en dashes in rendered text.
+    expect(propertyAddress(props[1])).toBe('4-9 Other St, Guelph, ON')
     expect(propertyAddress(null)).toBeNull()
   })
 
