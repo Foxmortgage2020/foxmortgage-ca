@@ -39,6 +39,7 @@ import {
   stageProbability,
   tagsForDeal,
   terminalStages,
+  unplacedDeals,
   toggleCollapsed,
   unevaluableTags,
   weightedValue,
@@ -379,6 +380,55 @@ describe('the archive', () => {
     const withEnded = [...LIVE, deal({ id: 'z', stage_code: 'declined', mortgage_amount: 1 })]
     expect(boardDeals(STAGES, withEnded).map(d => d.id)).not.toContain('z')
     expect(boardDeals(STAGES, withEnded)).toHaveLength(7)
+  })
+})
+
+// ─── The partition (handoff 52) ─────────────────────────────────────────────
+// Board, Archive and No stage must account for every live record exactly once.
+// This is the invariant Michael's reconciliation sitting depends on: a record
+// in no view is a record he finishes the sitting believing he handled, and a
+// record in two views is counted twice by whoever reads the switch row.
+
+describe('board, archive and unplaced partition the live book', () => {
+  // Every failure mode the census looked for, in one population: phased,
+  // terminal-with-a-phase (funded — belongs to the BOARD, which is why the
+  // live Archive reads 29 while terminal-category deals number 95), terminal,
+  // null stage, and a code the page's stage list does not carry.
+  const population = [
+    ...LIVE,
+    deal({ id: 'ended', stage_code: 'lost_to_competition' }),
+    deal({ id: 'blank', stage_code: null }),
+    deal({ id: 'orphan', stage_code: 'a_code_nobody_configured' }),
+  ]
+
+  it('every record lands in exactly one bucket, and the buckets sum', () => {
+    const board = boardDeals(STAGES, population).map(d => d.id)
+    const archived = archiveRows(STAGES, population).map(r => r.deal.id)
+    const unplaced = unplacedDeals(STAGES, population).map(u => u.deal.id)
+    const all = [...board, ...archived, ...unplaced]
+    expect(all.length).toBe(population.length)
+    expect(new Set(all).size).toBe(population.length)
+  })
+
+  it('funded sits on the BOARD, not in the archive: terminal category, live phase', () => {
+    expect(boardDeals(STAGES, population).map(d => d.id)).toContain('6')
+    expect(archiveRows(STAGES, population).map(r => r.deal.id)).not.toContain('6')
+  })
+
+  it('unplaced states its reason and never invents a stage', () => {
+    const rows = unplacedDeals(STAGES, population)
+    expect(rows.map(u => [u.deal.id, u.reason])).toEqual([
+      ['blank', 'no_stage'],
+      ['orphan', 'unknown_stage'],
+    ])
+    // The deal object is passed through untouched: nothing writes a stage.
+    expect(rows.find(u => u.deal.id === 'blank')?.deal.stage_code).toBeNull()
+  })
+
+  it('is the complement, so a new stage row moves a record OUT with no code change', () => {
+    const grown = [...STAGES, st('a_code_nobody_configured', 'monitor', 470)]
+    expect(unplacedDeals(grown, population).map(u => u.deal.id)).toEqual(['blank'])
+    expect(boardDeals(grown, population).map(d => d.id)).toContain('orphan')
   })
 })
 

@@ -228,6 +228,7 @@ export default async function DealsBetaPage({
 
   const archive = searchParams?.view === 'archive'
   const withdrawnView = searchParams?.view === 'withdrawn'
+  const nostageView = searchParams?.view === 'nostage'
   const canWithdraw = can(user, 'rec.withdraw') && !isDemoMode()
   // The requested phase must be one the record layer configures; an unknown
   // value falls back rather than rendering an empty unnamed phase. This is what
@@ -259,6 +260,7 @@ export default async function DealsBetaPage({
         activePhase={activePhase}
         archive={archive}
         withdrawnView={withdrawnView}
+        nostageView={nostageView}
         withdrawals={withdrawals}
         withdrawnDeals={withdrawnDeals}
         roomDealIds={roomDealIds}

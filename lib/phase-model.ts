@@ -273,6 +273,35 @@ export function boardDeals(stages: readonly StageLike[], deals: readonly DealLik
   return deals.filter(d => d.stage_code && phased.has(d.stage_code))
 }
 
+export interface UnplacedDeal {
+  deal: DealLike
+  /** Why the board cannot place it. `no_stage` is the honest majority case: the
+   * record came in from the migration with no stage at all, and no stage is
+   * invented for it. `unknown_stage` is the theoretical remainder: a code the
+   * page's stage list does not carry (retired or never configured). */
+  reason: 'no_stage' | 'unknown_stage'
+}
+
+/** THE COMPLEMENT, BY CONSTRUCTION. Everything the board and the Archive
+ * cannot place, computed as "not in either" rather than by restating their
+ * rules, so the three sets partition the live book and a record can never
+ * fall between two definitions. Census 2026-08-05: 33 records, every one a
+ * historical import with a NULL stage_code and a file_ref, none with a
+ * workbench room. A record given a stage by the loader leaves this set with
+ * no code change here. */
+export function unplacedDeals(
+  stages: readonly StageLike[],
+  deals: readonly DealLike[],
+): UnplacedDeal[] {
+  const placed = new Set([
+    ...stages.filter(s => s.phase !== null).map(s => s.code),
+    ...terminalStages(stages).map(s => s.code),
+  ])
+  return deals
+    .filter(d => !d.stage_code || !placed.has(d.stage_code))
+    .map(deal => ({ deal, reason: deal.stage_code ? 'unknown_stage' : 'no_stage' }) as UnplacedDeal)
+}
+
 // ─── The return rail ────────────────────────────────────────────────────────
 
 export function returnTarget(

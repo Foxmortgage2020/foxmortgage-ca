@@ -502,18 +502,30 @@ describe('THE WITHDRAWN VIEW', () => {
     expect(archive).toContain('/portal/admin/deals-beta/${encodeURIComponent(deal.id)}')
   })
 
-  it('records that sit in NO view are named rather than quietly absent', () => {
-    // 33 of the 160 carry a null stage_code and so render in none of the three
-    // views, which also puts them out of the Remove control's reach. The
-    // insights tiles still count all 160, so silence there would make the tiles
-    // read as covering a book that is fully on screen.
-    expect(board).toContain('function unplacedCount')
-    expect(board).toContain('<UnplacedNote')
-    const at = board.indexOf('function UnplacedNote')
-    const fn = board.slice(at, at + 900)
-    expect(fn).toMatch(/cannot be removed from here/)
-    // Counted from the same rows the views use, so the number cannot drift.
-    expect(board).toMatch(/stages\s*\n?\s*\.filter\(s => s\.phase !== null/)
+  it('records the board cannot place get a VIEW, not a footnote (handoff 52)', () => {
+    // Handoff 50 named the stageless records in a note that also said they
+    // could not be removed from here. Handoff 52 replaced the note with the No
+    // stage view, because Michael reconciles the book by what he can see, and
+    // a record in no view is a record he finishes the sitting believing he
+    // handled. The note and its counter are GONE, not merely joined.
+    expect(board).not.toContain('UnplacedNote')
+    expect(board).not.toContain('function unplacedCount')
+    expect(board).not.toMatch(/cannot be removed from here/)
+    // The view exists, keyed on the MODEL's complement so membership shares
+    // one definition with the partition test in tests/phase-model.test.ts.
+    expect(board).toContain('function NoStageView')
+    expect(board).toMatch(/unplacedDeals\(stages, deals\)/)
+    const at = board.indexOf('function NoStageView')
+    const view = board.slice(at)
+    // Rows are reachable and actionable: file link, Remove control, posture.
+    expect(view).toContain('/portal/admin/deals-beta/${encodeURIComponent(deal.id)}')
+    expect(view).toContain('RemoveRecordControl')
+    expect(view).toContain('feedPosture')
+    // The reason renders per row, and no stage is ever invented to place one.
+    expect(view).toContain('No stage recorded')
+    // The switch carries the count even at zero, like Withdrawn.
+    expect(board).toContain('beta-view-nostage')
+    expect(board).toMatch(/No stage <span className="tabular-nums">\{nostageCount\}<\/span>/)
   })
 
   it('the FILE PAGE fails closed on the withdrawal read, like the route does', () => {
