@@ -83,6 +83,24 @@ export const PERMISSIONS = {
   // decision, not plumbing — admin only. The bridge's automatic
   // provisioning is a machine path and carries no permission key.
   'underwriting.provision': ['admin'],
+  // Handoff 48: withdrawing a record from the September record layer.
+  // MIRRORED from fox-underwriting, where the withdrawal gate lives at
+  // POST /api/gates/rec/withdrawals (+ /{id}/reverse). Both endpoints are
+  // deployed and answer 401 without a token, verified live 2026-08-05.
+  //
+  // A withdrawal is a DECISION, never a delete: the row stays, carries the
+  // decision, and both the CSV loader and the live Finmo receiver decline to
+  // recreate or update it. That last part is why this is admin only — a
+  // withdrawal on a Finmo-sourced record silently stops live updates for that
+  // file, which is right for a migration artifact and an outage on a real one.
+  //
+  // NOTHING CALLS THIS YET. The key is mirrored so the contract exists on both
+  // sides, but the Remove control was NOT built this session: the portal has no
+  // way to READ a withdrawal back (no grant on the decisions table, no marker
+  // column on rec.deals, no GET endpoint), so a withdrawn record would look
+  // identical on the board and could never be reversed. See the handoff 48
+  // report. Do not build against this key until that read path exists.
+  'rec.withdraw': ['admin'],
   // Lender-knowledge pipeline: uploading a source document (broker guide,
   // comp schedule, bulletin) mints PENDING claims in the workbench, and
   // deciding a claim makes it citable knowledge. Both key names are a
@@ -252,6 +270,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'agents.provision': 'Create the workbench half of a new agent (Gates API)',
   'demo.mode': 'Switch the command center to fictional demo data',
   'underwriting.provision': 'Start an underwriting room before a file reaches Submitted',
+  'rec.withdraw':
+    'Withdraw a record from the record layer, and reverse a withdrawal (the row is kept and carries the decision, never deleted)',
   'knowledge.upload': 'Upload lender knowledge documents (claims stay pending until approved)',
   'approvals.knowledge.decide': 'Decide lender knowledge claims (approve / reject)',
   'knowledge.contact.manage': 'Add, edit, or retire a lender BDM or underwriter contact',

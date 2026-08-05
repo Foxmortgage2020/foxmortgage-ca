@@ -243,7 +243,15 @@ function TermSet({
           />
           {/* BOTH choices are one-way. The gate moves only pending rows and no
               reverse verb exists anywhere in the system, so rejecting is not
-              the cautious option and the copy must not let it read as one. */}
+              the cautious option and neither the copy nor the styling may let
+              it read as one.
+              STYLING (handoff 48): both buttons are SOLID and equal weight.
+              Reject used to be a white outline, which is the visual grammar of
+              Cancel — it read as the escape hatch from a decision that is
+              exactly as permanent as the other one. It now carries the
+              `danger` token, the palette's destructive colour, so the emphasis
+              it takes marks it as destructive rather than as safe. Neither
+              button may become an outline again. */}
           <p className="mt-3 max-w-prose text-xs font-ui text-cool-600">
             Both choices are permanent. The gate moves only pending terms, so there is no way back to
             this state. A correction means a new commitment, not an undo.
@@ -265,7 +273,7 @@ function TermSet({
               type="button"
               disabled={busy}
               onClick={() => fire('reject', () => void decide('reject'))}
-              className="min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-ui bg-white border border-cool-300 text-navy hover:bg-cool-50 transition-colors disabled:opacity-50"
+              className="min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold font-ui bg-danger text-white hover:opacity-90 transition-colors disabled:opacity-50"
             >
               {busy
                 ? 'Working…'

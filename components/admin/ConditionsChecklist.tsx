@@ -291,7 +291,7 @@ export default function ConditionsChecklist({
               dealId={dealId}
               kind="amendment"
               title="Upload an amendment"
-              hint="If the lender revised the commitment, drop the amendment here — it supersedes the current condition set on approval."
+              hint="If the lender revised the commitment, drop the amendment here. It supersedes the current condition set on approval."
               compact
             />
           </div>
@@ -359,7 +359,7 @@ function PendingBanner({
         return (
           <div key={docId} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
             <p className="text-sm font-ui font-semibold text-amber-900">
-              {rows.length} {rows.length === 1 ? 'condition' : 'conditions'} extracted from the commitment — review
+              {rows.length} {rows.length === 1 ? 'condition' : 'conditions'} extracted from the commitment. Review
               before they become the checklist
             </p>
             {canDecide && (
@@ -373,7 +373,7 @@ function PendingBanner({
                         `list:${docId}`,
                         `/api/portal/admin/gates/commitment-conditions/${docId}/decision`,
                         { action: 'approve' },
-                        'Commitment conditions approved — they are the checklist now.',
+                        'Commitment conditions approved. They are the checklist now.',
                       ),
                     )
                   }
@@ -967,8 +967,11 @@ interface AnalysisData {
   confidence?: number | null
 }
 
+// An absent figure says so in words rather than as a dash: the copy gate
+// forbids em dashes in anything rendered, and "not recorded" is what the rest
+// of this build says when it has no value.
 const fmtMoney = (n: number | null | undefined): string =>
-  typeof n === 'number' && Number.isFinite(n) ? `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'
+  typeof n === 'number' && Number.isFinite(n) ? `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : 'not recorded'
 
 const KIND_LABEL: Record<string, string> = {
   income_min: 'annual income',
@@ -1351,7 +1354,7 @@ function ChecklistRow({
             onChange={e => setRemoveReason(e.target.value)}
             rows={1}
             maxLength={2000}
-            placeholder="Why remove it? (required, 5+ characters — it is superseded, never deleted)"
+            placeholder="Why remove it? (required, 5+ characters. It is superseded, never deleted)"
             className="w-full text-sm font-ui border border-red-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-red-400 resize-y"
           />
           <div className="mt-1.5 flex gap-2">

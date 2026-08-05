@@ -81,7 +81,7 @@ export default function CommitmentUploader({
           const drafted = json?.extraction?.drafted
           setOk(
             typeof drafted === 'number' && drafted > 0
-              ? `Uploaded. ${drafted} condition${drafted === 1 ? '' : 's'} drafted — awaiting your approval below.`
+              ? `Uploaded. ${drafted} condition${drafted === 1 ? '' : 's'} drafted, awaiting your approval below.`
               : json?.note ?? 'Uploaded. Refreshing the file…',
           )
           router.refresh()
@@ -135,7 +135,7 @@ export default function CommitmentUploader({
           {busy ? 'Uploading…' : title}
         </p>
         <p className="mt-1 text-xs text-cool-500">{hint}</p>
-        {!compact && <p className="mt-1 text-[11px] text-cool-500">Drag a file here, or click to browse — PDF, DOCX, DOC, TXT (3 MB).</p>}
+        {!compact && <p className="mt-1 text-[11px] text-cool-500">Drag a file here, or click to browse. PDF, DOCX, DOC, TXT (3 MB).</p>}
         <input
           ref={inputRef}
           type="file"
