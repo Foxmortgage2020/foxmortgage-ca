@@ -195,6 +195,38 @@ export function existingMortgage(
   return mortgages.find(m => m.id === id) ?? null
 }
 
+// ─── When the "mortgage being replaced" block appears at all ────────────────
+//
+// The page's honesty convention is that an EMPTY thing means "not yet" — so a
+// block that structurally cannot be filled must be ABSENT, not empty, or the
+// convention starts lying.
+//
+// The rule keys on PRESENCE first and type only second, because type alone is
+// wrong here: BRXM-F053724 is a `purchase` and carries a real existing mortgage
+// (Scotiabank, 3.24% fixed, maturing 2027-03-30 — verified live, not assumed).
+// A client buying one property while still holding a mortgage on another is
+// ordinary. Hiding a real record because its deal_type "should not" have one
+// would be a worse lie than the empty block this rule exists to prevent.
+//
+// So: a record present is always shown. Absent is silent for the types that may
+// legitimately have none, and NAMED for the two where one must exist in reality
+// and its absence is therefore a gap in the record layer worth seeing.
+export type ExistingMortgageDisposition = 'show' | 'silent' | 'gap'
+
+/** Deal types where a previous mortgage must exist in the real world, so its
+ *  absence from the record is a gap rather than a structural nil. */
+const REPLACES_A_MORTGAGE = new Set(['renewal', 'refinance', 'switch'])
+
+export function existingMortgageDisposition(
+  dealType: string | null | undefined,
+  existing: MortgageLike | null,
+): ExistingMortgageDisposition {
+  if (existing) return 'show'
+  const t = (dealType ?? '').trim().toLowerCase()
+  // Unknown type stays silent: we cannot claim a gap we cannot establish.
+  return REPLACES_A_MORTGAGE.has(t) ? 'gap' : 'silent'
+}
+
 // ─── The subject property ───────────────────────────────────────────────────
 
 export interface PropertyLike {
@@ -361,8 +393,10 @@ export interface TabDef {
   /** What this tab is for, in words a broker who has never seen the file
    *  understands. Rendered as the empty state until the tab is built. */
   purpose: string
-  /** Where that work happens today. */
+  /** Where that work happens today. Empty once the tab is built. */
   today: string
+  /** Built tabs render their own content; the rest render TabEmpty. */
+  built: boolean
 }
 
 export const FILE_TABS: readonly TabDef[] = [
@@ -371,13 +405,15 @@ export const FILE_TABS: readonly TabDef[] = [
     label: 'Overview',
     purpose: 'The file at a glance: who is on it, what it is for, and the mortgage as it stands.',
     today: '',
+    built: true,
   },
   {
     key: 'client',
     label: 'Client',
     purpose:
       'The people on this file and how to reach them, with their own details rather than the deal’s.',
-    today: 'Until this tab is built, client details live on the Deals file page.',
+    today: '',
+    built: true,
   },
   {
     key: 'documents',
@@ -385,6 +421,7 @@ export const FILE_TABS: readonly TabDef[] = [
     purpose:
       'Everything collected for this file, what is still outstanding, and what has been reviewed.',
     today: 'Until this tab is built, documents are on the Deals file page.',
+    built: false,
   },
   {
     key: 'qualification',
@@ -392,6 +429,7 @@ export const FILE_TABS: readonly TabDef[] = [
     purpose:
       'What this client can afford and on what assumptions — income, debts, and the stress-tested figure.',
     today: 'Until this tab is built, qualification is on the Deals file page.',
+    built: false,
   },
   {
     key: 'submission',
@@ -399,20 +437,23 @@ export const FILE_TABS: readonly TabDef[] = [
     purpose:
       'What went to the lender: the target lender, the notes, and what the application said when it was sent.',
     today: 'Until this tab is built, submission is on the Deals file page.',
+    built: false,
   },
   {
     key: 'commitment',
     label: 'Commitment',
     purpose:
       'The lender’s offer once it arrives, and the ten committed terms read off it for approval.',
-    today: 'Until this tab is built, the commitment and its terms are on the Deals file page.',
+    today: '',
+    built: true,
   },
   {
     key: 'conditions',
     label: 'Conditions',
     purpose:
       'What the lender needs before this deal can fund, who owns each one, and what is still open.',
-    today: 'Until this tab is built, conditions are on the Deals file page.',
+    today: '',
+    built: true,
   },
   {
     key: 'compliance',
@@ -420,8 +461,45 @@ export const FILE_TABS: readonly TabDef[] = [
     purpose:
       'What the file needs on record to stand up to a review, and what is missing from it today.',
     today: 'Until this tab is built, compliance is on the Deals file page.',
+    built: false,
   },
 ]
+
+// ─── Tab badges ─────────────────────────────────────────────────────────────
+//
+// A queued decision must be visible WITHOUT opening the tab it lives on. The
+// deal room solves this by force-opening a section; a tab row's equivalent is a
+// count on the tab itself, where it cannot be missed from any other tab.
+//
+// The mechanism is general so Documents, Qualification and the rest can carry
+// one later. Only Conditions is wired in this session — a badge on a tab that
+// does not yet compute its own count would be a number nobody can trust.
+
+export interface TabBadge {
+  count: number
+  /** Amber matches the deal room's pending banner off the same upload. Lime is
+   *  not spent here; tests/shell.test.ts enumerates every surface that may
+   *  carry the decision token and this is not one. */
+  tone: 'amber'
+  /** Read aloud by screen readers, so the number is never bare. */
+  label: string
+}
+
+export type TabBadges = Partial<Record<TabKey, TabBadge>>
+
+export function buildTabBadges(input: { pendingConditions: number }): TabBadges {
+  const badges: TabBadges = {}
+  if (input.pendingConditions > 0) {
+    badges.conditions = {
+      count: input.pendingConditions,
+      tone: 'amber',
+      label: `${input.pendingConditions} condition${
+        input.pendingConditions === 1 ? '' : 's'
+      } awaiting your decision`,
+    }
+  }
+  return badges
+}
 
 export function isTabKey(v: string | null | undefined): v is TabKey {
   return typeof v === 'string' && FILE_TABS.some(t => t.key === v)

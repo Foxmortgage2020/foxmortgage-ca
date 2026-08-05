@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Beta file tabs',
+    title: 'Conditions, Commitment and Client — the first shared components',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'ConditionsChecklist, CommitmentTermsCard and CommitmentUploader are RENDERED on the Beta file page, not forked. The gate proxies are keyed on record ids rather than pages, so every card kept its existing route, permission key and browser-minted token path with zero duplication — and a fix to one is a fix to both. The deal room is untouched; the diff does not reach it',
+      'The Conditions tab reads public.conditions filtered on APPROVED_CONDITION_GATE, never rec.conditions — that table has no gate_status column at all (42703), so a tab over it would rebuild handoff 44\'s defect on a new surface. F057400 reads 12 open of 12 on both surfaces; the control F053724 reads 24 open of 25 on both',
+      'Tab badges: a queued decision is visible without opening the tab. The mechanism is general, but only Conditions is wired, because a badge on a tab that computes no count is a number nobody can trust. Zero pending in the book today so it renders nothing — proven by forcing a count, screenshotting the amber 13 while Overview was active, and reverting',
+      'FINDING, and the brief was wrong: a purchase CAN carry an existing mortgage. BRXM-F053724 is a purchase holding a real Scotiabank 3.24% fixed maturing 2027-03-30. So the rule keys on presence first — a record present always shows, absent is silent on purchase/preapproval/unknown, and absent is a NAMED GAP on renewal/refinance where one must exist in reality',
+      'Both mortgages are now labelled explicitly ("This deal\'s mortgage" / "The client\'s existing mortgage") so a populated old block can never read as the deal\'s rate on an unfunded file',
+      'FINDING: the committed-terms card carries NO irreversibility copy at all — not on the button, not around it. Carried across unchanged rather than edited, because the wording is shared with the deal room; proposed wording is Michael\'s to accept',
+      'The write guarantee follows the reuse: the test now scans the three shared components against a CLOSED allowlist of /api/portal/admin/gates/ plus /api/portal/admin/commitments/, the second deliberately recorded as a pre-existing gated route with a human actor that satisfies the intent without matching the path prefix',
+      'Client JS crossed the boundary for the first time: 208 B route-specific, first load 94.3 kB to 128 kB. The deal room\'s own route JS FELL 31.8 kB to 21.7 kB as the shared cards moved into common chunks. The board is unchanged at 195 B',
+    ],
+  },
+  {
     n: 'Committed terms',
     title: "The commitment's ten terms, with their provenance, behind one decision",
     status: 'shipped',

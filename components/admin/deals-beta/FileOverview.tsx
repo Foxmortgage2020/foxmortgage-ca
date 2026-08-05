@@ -18,6 +18,7 @@
 
 import {
   NOT_SPECIFIED,
+  existingMortgageDisposition,
   fieldGroups,
   fmtDateWords,
   fmtMoneyExact,
@@ -132,6 +133,7 @@ export default function FileOverview({
   const marks = milestonesForDeal(deal, milestones, milestoneTypes)
   const groups = fieldGroups({ deal, mortgage, property })
   const phaseCode = phase?.code ?? null
+  const disposition = existingMortgageDisposition(deal.deal_type, existing)
 
   return (
     <div className="mt-4 space-y-4" data-testid="beta-file-overview">
@@ -226,9 +228,20 @@ export default function FileOverview({
         </Row>
       </section>
 
-      {/* ── The mortgage, in four banded groups ────────────────────────── */}
+      {/* ── THIS DEAL's mortgage, in four banded groups ────────────────── */}
+      {/* The heading names WHOSE mortgage this is, explicitly, because the
+          block below it may be populated while this one is empty — on a file
+          that has not funded yet, an unlabelled pair reads as though the old
+          rate is the deal's rate, which is exactly backwards. */}
       <section className="space-y-2">
-        <h2 className="font-heading text-sm font-semibold text-navy">The mortgage</h2>
+        <h2 className="font-heading text-sm font-semibold text-navy">
+          This deal’s mortgage
+          {!mortgage && (
+            <span className="ml-2 font-body text-[11px] font-normal italic text-cool-500">
+              not recorded yet
+            </span>
+          )}
+        </h2>
         {groups.map(g => (
           <Band key={g.key} phaseCode={phaseCode}>
             {g.fields.map(f => (
@@ -237,22 +250,34 @@ export default function FileOverview({
           </Band>
         ))}
         {!mortgage && (
-          <p className="text-[11px] leading-snug text-cool-500 font-ui">
+          <p className="max-w-prose text-[11px] leading-snug text-cool-500 font-ui">
             No mortgage record is attached to this file yet, so the lender, rate, term,
-            amortization and payment fields have nothing to read. They fill in when one is.
+            amortization and payment fields above have nothing to read. They fill in when one is.
+            {existing ? ' The block below is the client’s CURRENT mortgage, not this deal’s.' : ''}
           </p>
         )}
       </section>
 
-      {/* ── The mortgage being replaced, when the file names one ───────── */}
-      {existing && (
-        <section className="rounded-[9px] border border-cool-200 bg-white p-4">
+      {/* ── The mortgage being replaced ────────────────────────────────────
+          Rendered only when one actually EXISTS. Where it does not, the page
+          stays silent for the deal types that may legitimately have none, and
+          names the gap only for the types where one must exist in reality —
+          because an empty block on a file that structurally cannot have one is
+          a false absence, and this page's whole convention is that empty means
+          "not yet" rather than "not applicable". The rule keys on presence
+          first: a purchase CAN carry one (BRXM-F053724 does), so hiding a real
+          record by type would be the worse lie. */}
+      {disposition === 'show' && existing && (
+        <section
+          className="rounded-[9px] border border-cool-200 bg-white p-4"
+          data-testid="beta-file-existing-mortgage"
+        >
           <h2 className="font-heading text-sm font-semibold text-navy">
-            The mortgage being replaced
+            The client’s existing mortgage
           </h2>
-          <p className="mt-0.5 text-[11px] leading-snug text-cool-500 font-ui">
-            This is the client’s existing mortgage, not the terms of this deal. It is shown
-            separately so the two can never be read as one.
+          <p className="mt-0.5 max-w-prose text-[11px] leading-snug text-cool-500 font-ui">
+            This is what the client holds today, not the terms of this deal. It is the figure a
+            penalty estimate starts from, which is why it sits here rather than behind a tab.
           </p>
           <dl className="mt-2 grid grid-cols-1 gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Lender" value={humanise(existing.lender_name_raw)} />
@@ -264,6 +289,15 @@ export default function FileOverview({
             <Field label="Matures" value={fmtDateWords(existing.maturity_on)} />
           </dl>
         </section>
+      )}
+      {disposition === 'gap' && (
+        <p
+          className="max-w-prose text-[11px] leading-snug text-cool-500 font-ui"
+          data-testid="beta-file-existing-mortgage-gap"
+        >
+          No existing mortgage is recorded on this file. A {purposeLabel(deal.deal_type)?.toLowerCase()} replaces
+          one, so this is a gap in the record rather than a file that has none.
+        </p>
       )}
     </div>
   )
