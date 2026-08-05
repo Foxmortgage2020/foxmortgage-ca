@@ -315,12 +315,27 @@ shape as the lender-notes pair above.
   can ride through to the gate unshaped. That construction plus the gate's
   strictness is the whole answer to "is anything else sending a field the
   gate does not accept": the gate can only ever see the two canonical shapes.
-- **THE APPLY BODY WAS ESTABLISHED EMPIRICALLY, not from the brief** (see the
-  handoff 54 report): probed through Michael's production session at
-  F057400's real commitment `d1af3684` — the document whose succeeded
-  attempt the gate REFUSES, so nothing can be written by probing it. The
-  session's probe results are the record; do not re-derive the contract from
-  handoff briefs, which is what caused this defect.
+- **THE APPLY BODY WAS ESTABLISHED EMPIRICALLY, not from the brief**: probed
+  through Michael's production session at F057400's real commitment
+  `d1af3684-3301-459f-974b-4de27c7593bc` — the document whose succeeded
+  attempt the gate REFUSES, so nothing can be written by probing it. Results:
+  dry_run there answers **409** (the refusal covers both modes), and
+  `{mode:'apply', reason}` answers **409, not 422**, so the apply body passes
+  the gate's schema. Residual assumption, stated rather than hidden: schema
+  parse precedes the refusal check (zod handler convention; could not be
+  forced from this side because the portal's own client only ever emits the
+  two canonical bodies). Do not re-derive the contract from handoff briefs,
+  which is what caused this defect.
+- **THE RESPONSE SHAPE WAS THE SECOND GUESS TO FALL THE SAME DAY.** The
+  forecast nests under **`data.preview`** (`would_draft`, `conditions[]`,
+  `coverage_notes[]`) — NOT `data.conditions`, which the first cut read,
+  rendering a zero-row forecast over a successful twelve-row dry run. Pinned
+  from the CAPTURED production response in `lib/gates.ts ReextractPreview`
+  and tested against regression. The apply half of the response has never
+  been observed live; the control reads it tolerantly and never destructures
+  it. A conflict on this endpoint means "succeeded extraction exists" and
+  renders `REEXTRACT_REFUSED_COPY`, never the gates client's generic
+  "Already decided.".
 - **THE TWO EMPTY STATES on the beta Conditions tab** (`emptyStateFor` in
   `components/admin/deals-beta/FileConditions.tsx`, keyed on
   `hasRealCommitment`, the guardrail-20 computation): no commitment ->
