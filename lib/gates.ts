@@ -29,6 +29,7 @@ import { demoLenderContacts, demoTasksToday } from '@/lib/demo-fixtures'
 import type { LenderContactCard, ContactDraft } from '@/lib/lender-contacts'
 import { KNOWLEDGE_UPLOAD_KINDS, type KnowledgeUploadKind } from '@/lib/knowledge-claims'
 import type { CommitmentTermsAction } from '@/lib/commitment-terms'
+import type { ReextractMode } from '@/lib/reextract'
 
 export type GateErrorKind =
   | 'auth'
@@ -549,6 +550,53 @@ export function decideCommitmentTerms(
     withNote({ action }, note),
     token,
   )
+}
+
+// ─── Re-running a commitment's condition extraction (handoff 53) ────────────
+//
+// THE DRY RUN IS THE PRODUCT, not a debugging aid. The gate forecasts the
+// conditions a re-extraction would draft, in full, and writes NOTHING in that
+// mode — the control shows Michael the list before anything exists. `apply`
+// drafts the same set as PENDING rows for the existing list gate
+// (approvals.conditions.decide); nothing becomes the checklist until that gate
+// approves it, and an approved term row is never overwritten by either mode.
+//
+// THE GATE REFUSES A DOCUMENT THAT ALREADY HAS A SUCCEEDED ATTEMPT. That is
+// the safety property, not a convenience check: the retry exists for the file
+// whose extraction FAILED, and re-running a succeeded one is how a file ends
+// up carrying 157 rows. The refusal comes back as `conflict` and the control
+// surfaces it as a reason rather than hiding the button.
+//
+// The reason rides the body; the human comes from the verified session the
+// token carries, never from a payload field (guardrail 19).
+
+/** One forecast condition. The gate owns this shape; every field except
+ *  `text` is optional here so a gate-side addition renders instead of
+ *  crashing the preview. */
+export interface ForecastCondition {
+  text: string
+  owner?: string | null
+  category?: string | null
+  [extra: string]: unknown
+}
+
+export interface ReextractResponse {
+  mode: ReextractMode
+  /** The conditions the run would draft (dry_run) or drafted (apply). */
+  conditions?: ForecastCondition[]
+  drafted?: number
+  auditId?: string
+  [extra: string]: unknown
+}
+
+export function retryCommitmentExtraction(
+  documentId: string,
+  mode: ReextractMode,
+  reason: string,
+  token: string | null,
+): Promise<GateResult<ReextractResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('retryCommitmentExtraction'))
+  return gateCall(`/api/gates/commitment-extractions/${documentId}/retry`, { mode, reason }, token)
 }
 
 // ─── Withdrawing a record from the record layer (handoff 50) ───────────────

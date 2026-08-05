@@ -21,13 +21,21 @@
 
 import CommitmentTermsCard from '@/components/admin/CommitmentTermsCard'
 import CommitmentUploader from '@/components/admin/CommitmentUploader'
+import ReextractControl from '@/components/admin/deals-beta/ReextractControl'
 import type { TermGroup } from '@/lib/commitment-terms'
+
+export interface ReextractTarget {
+  id: string
+  label: string
+}
 
 export default function FileCommitment({
   roomId,
   groups,
   canDecideTerms,
   canUpload,
+  canReextract,
+  reextractTargets,
   hasRealCommitment,
   demo,
   notGranted,
@@ -36,6 +44,13 @@ export default function FileCommitment({
   groups: TermGroup[]
   canDecideTerms: boolean
   canUpload: boolean
+  /** Handoff 53: commitment.reextract, admin only, hidden in demo like every
+   *  other decision control. */
+  canReextract: boolean
+  /** The REAL commitment-family documents on the file (retired synthetics and
+   *  rejected uploads never count, guardrail 20). One control per document,
+   *  because the gate is keyed per document. */
+  reextractTargets: ReextractTarget[]
   hasRealCommitment: boolean
   demo: boolean
   notGranted: boolean
@@ -92,6 +107,17 @@ export default function FileCommitment({
           )}
         </div>
       </section>
+
+      {/* The retry for a failed extraction (handoff 53). Renders on every real
+          commitment document rather than only on files with zero conditions,
+          because the portal cannot read extraction attempts and the GATE is
+          the authority on whether a retry is allowed. A document whose
+          extraction succeeded answers conflict, and the control surfaces that
+          refusal as a reason instead of hiding itself on a guess. */}
+      {canReextract &&
+        reextractTargets.map(t => (
+          <ReextractControl key={t.id} documentId={t.id} docLabel={t.label} />
+        ))}
     </div>
   )
 }

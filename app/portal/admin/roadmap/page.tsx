@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Re-extract',
+    title: 'The retry for a failed commitment extraction, preview first',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'WHY: BRXM-F060561 has carried an approved commitment, ten approved terms and ZERO conditions since 2026-07-31, when its extraction failed once on a region bug (since fixed) and nothing could retry it, because the extractor\'s only production caller is the upload endpoint. The gate\'s retry went live in fox-underwriting; this session built the portal half of pressing it',
+      'Key commitment.reextract mirrored admin-only as a cross-repo contract, and CALLED FROM DAY ONE by the control shipped in the same session — the comment says so, because the last key mirrored ahead of its control carried "nothing calls this" and had to be rewritten',
+      'The proxy lives at gates/commitment-extractions/[documentId]/retry, and the segment name is deliberate: the commitments directory already carries [dealId], and two differently named dynamic segments at one level is a Next slug conflict. The route documents this so a tidy-minded session reads why before renaming. Body is {mode, reason} only; the human comes from the verified session (guardrail 19). dry_run gets a fixed literal injected by the route, apply requires a TYPED reason, never prefilled, refused over-long',
+      'THE PREVIEW IS NOT OPTIONAL. The control renders the full forecast list — text, owner, category per condition — and the apply step does not exist on screen until a dry run succeeds in that mount. Apply arms by timestamp and LATCHES after success, and a conflict latches too, the exact pattern the Remove control fixed. Proven structurally by test and live at the boundary: the failure path also keeps apply hidden',
+      'THE REFUSAL IS SURFACED, NEVER PREDICTED. The portal has no read on extraction attempts, so the control renders on every real commitment document (same guardrail-20 population as the uploader, synthetics and rejected uploads excluded — F057400 renders exactly ONE control for its real document, not three) and the gate answers conflict on a succeeded attempt, which renders as a reason in plain language',
+      'THE PENDING SET ALREADY HAS A HOME, verified in code rather than assumed: the gate drafts gate_status=pending, getPendingCommitmentConditions filters exactly that, buildTabBadges counts it into the amber Conditions badge, and ConditionsChecklist\'s "Approve list" banner (approvals.conditions.decide) renders on both the deal room and the beta Conditions tab. The first real apply lights the badge with no further wiring, which until now has only ever been proven by forcing the count',
+      'NOTHING WAS APPLIED. The dev Clerk instance mints no gates token, so the live preview press died at the boundary with no [gates] POST line in the server log, rendering its honest 401 copy with apply still hidden. Before and after census through portal_readonly are identical: F060561 at 0 conditions and 10 approved terms, book-wide pending at 0. The first real apply is Michael\'s, from production, the way the first withdrawal was',
+      'Eight tabs verified on a room file and a no-room file, six surfaces at 200, suite at 1514, tsc clean, build green. File page client JS 216 B to 2.73 kB as the control crossed the boundary',
+    ],
+  },
+  {
     n: 'The census',
     title: 'Reconcile the book: the arithmetic, and the No stage view',
     status: 'shipped',
