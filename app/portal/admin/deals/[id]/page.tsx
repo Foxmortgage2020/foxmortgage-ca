@@ -31,6 +31,7 @@ import {
   getDealBorrowers,
   getDealDetail,
   getDealDocuments,
+  getDealCommitmentTerms,
   getDealDocumentRequests,
   getDealRequestReviews,
   getDealRequestDecisions,
@@ -52,6 +53,8 @@ import {
 import { getDealCloseout } from '@/lib/zoho-admin'
 import { resolveClosingDate } from '@/lib/closing-date'
 import ConditionsChecklist from '@/components/admin/ConditionsChecklist'
+import CommitmentTermsCard from '@/components/admin/CommitmentTermsCard'
+import { groupTermsByDocument } from '@/lib/commitment-terms'
 import CommitmentUploader from '@/components/admin/CommitmentUploader'
 import DocumentUploader from '@/components/admin/DocumentUploader'
 import LenderNotesCard from '@/components/admin/LenderNotesCard'
@@ -282,7 +285,7 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // rows without a fetch; the offer pick list only loads for an admin who can
   // author (never in demo), so a non-authoring room never pays the rate-book read.
   const canPresent = can(user, 'client.presentation.manage') && !isDemoMode()
-  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, commsTimelineR, closeoutR, clientLinksR, scenariosR, offersR, lettersR, pickQuotesR, qualificationR] =
+  const [condsR, pendingCommitR, flagsR, stmtDocsR, shadowR, auditR, borrowersR, incomeR, ratiosR, documentsR, commitmentTermsR, requestsR, reviewsR, decisionsR, lenderNotesR, finmoSnapR, contextCountsR, commsTimelineR, closeoutR, clientLinksR, scenariosR, offersR, lettersR, pickQuotesR, qualificationR] =
     await Promise.all([
       // The room CHECKLIST is approved conditions only; pending commitment
       // conditions are the approval banner, invisible to the checklist until
@@ -297,6 +300,9 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       getDealIncomeCalcs(agentId, deal.id),
       getDealRatioCalcs(agentId, deal.id),
       getDealDocuments(agentId, deal.id),
+      // The commitment's committed TERMS (2026-08-04) — the other extraction
+      // off the same upload as the pending conditions above.
+      getDealCommitmentTerms(agentId, deal.id),
       getDealDocumentRequests(agentId, deal.id),
       // B6.4: the AI request verdicts (document_request_reviews) and Michael's own
       // recorded decisions (document_request_decisions).
@@ -336,6 +342,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   const income = sectionState(incomeR)
   const ratios = sectionState(ratiosR)
   const documents = sectionState(documentsR)
+  // Attempt-and-fallback: sectionState distinguishes a real permission refusal
+  // from an outage, so an empty card is never mistaken for a missing grant.
+  const commitmentTerms = sectionState(commitmentTermsR)
+  const termGroups = commitmentTerms.kind === 'ok' ? groupTermsByDocument(commitmentTerms.data) : []
+  const pendingTermCount = termGroups.reduce((n, g) => n + g.status.pending, 0)
   const lenderNoteDraft = val(lenderNotesR) ?? null
   const finmoSnap = val(finmoSnapR) ?? null
   const contextCounts = val(contextCountsR) ?? { calls: 0, emails: 0 }
@@ -414,6 +425,10 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // server proxy requires it), so the UI control uses the SAME key. Recompute
   // is open to every internal role that sees the room (read-only to Finmo).
   const canDecideCommitment = can(user, 'approvals.conditions.decide') && !isDemoMode()
+  // Committed terms (2026-08-04). Admin-only, and hidden in demo like every
+  // other decision control — the key is a cross-repo contract enforced again by
+  // the gates API on the call itself.
+  const canDecideTerms = can(user, 'approvals.commitment_terms.decide') && !isDemoMode()
   const canWaiveConditions = can(user, 'conditions.decide') && !isDemoMode()
   const canRecompute = can(user, 'conditions.recompute') && !isDemoMode()
   const canUploadCommitment = can(user, 'commitment.upload') && !isDemoMode()
@@ -578,11 +593,13 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
         : 'Application details',
     underwriting: `${docCount !== null ? `${docCount} ${docCount === 1 ? 'document' : 'documents'}` : 'Documents'}${lenderNoteDraft ? ' · notes drafted' : ''}`,
     fulfilment:
-      conds.length > 0
-        ? `${openConds.length} of ${conds.length} conditions open`
-        : pendingCommit.length > 0
-          ? `${pendingCommit.length} awaiting approval`
-          : 'No commitment yet',
+      pendingTermCount > 0
+        ? `${pendingTermCount} committed terms awaiting you`
+        : conds.length > 0
+          ? `${openConds.length} of ${conds.length} conditions open`
+          : pendingCommit.length > 0
+            ? `${pendingCommit.length} awaiting approval`
+            : 'No commitment yet',
     complete_paid:
       complianceState === 'not_started'
         ? `Compliance not started${commissionRecorded ? ' · commission recorded' : ''}`
@@ -600,8 +617,11 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
   // hidden inside a collapsed section, whatever phase is current. An
   // unmapped journey with open conditions opens Fulfilment too (the
   // centerpiece stays reachable when the spine cannot say where we are).
+  // Pending committed TERMS are a queued decision on the same footing, so they
+  // open the section too — a decision that sits hidden inside a collapsed row
+  // is a decision nobody makes.
   const fulfilmentForceOpen =
-    pendingCommit.length > 0 || (!journey.mapped && openConds.length > 0)
+    pendingCommit.length > 0 || pendingTermCount > 0 || (!journey.mapped && openConds.length > 0)
 
   const sectionDef = (key: PhaseKey): { id: string; anchors: string[]; body: React.ReactNode } => {
     switch (key) {
@@ -856,10 +876,26 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
       case 'fulfilment':
         return {
           id: 'phase-fulfilment',
-          anchors: ['conditions'],
+          anchors: ['terms', 'conditions'],
           body: (
             <>
               <StepList steps={stepsFor('fulfilment')} />
+              {/* The commitment's economic terms, beside the checklist the same
+                  document creates. Read-only apart from the one set decision;
+                  there is no edit control on a term anywhere. */}
+              <Sub
+                id="terms"
+                title={`Committed terms${pendingTermCount > 0 ? ` (${pendingTermCount} awaiting you)` : ''}`}
+              >
+                {commitmentTerms.kind === 'ok' ? (
+                  <CommitmentTermsCard groups={termGroups} canDecide={canDecideTerms} demo={isDemoMode()} />
+                ) : (
+                  <SectionFallback
+                    state={commitmentTerms}
+                    notGrantedCopy="Committed terms are outside the portal's read grant on the workbench."
+                  />
+                )}
+              </Sub>
               <Sub id="conditions" title={`Conditions (${openConds.length} open of ${conds.length})`}>
                 <ConditionsChecklist
                   dealId={deal.id}

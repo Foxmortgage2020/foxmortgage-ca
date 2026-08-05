@@ -146,6 +146,66 @@ files carry it per the closing ritual.
   (presently admin-only by the tested authority posture; widening to agents is a coordinated
   additive change if wanted).
 
+### Committed terms: the second extraction off a commitment (2026-08-04)
+A commitment upload produces TWO things, and they are gated separately.
+Confusing them is the easy mistake, so they are stated together.
+- **CONDITIONS** — the checklist the document creates. Key
+  `approvals.conditions.decide`, proxy
+  `/api/portal/admin/gates/commitment-conditions/[documentId]/decision`.
+- **TERMS** — the economics the document states. NEW key
+  **`approvals.commitment_terms.decide`**, proxy
+  `/api/portal/admin/gates/commitment-terms/[documentId]/decision` ->
+  `lib/gates.ts decideCommitmentTerms` -> Gates API
+  `POST /api/gates/commitment-terms/{documentId}/decision`.
+- **THE KEY NAME IS A CROSS-REPO CONTRACT.** fox-underwriting's gates API
+  enforces `approvals.commitment_terms.decide` server-side on every call. A
+  rename needs coordinated edits in BOTH repos; a widening here without one
+  there just produces 403s from the gate. Admin only on both sides, matching
+  its twin above. Placed beside `approvals.conditions.decide` in
+  `config/authority.ts`.
+- **DECIDED PER DOCUMENT, NEVER PER FIELD.** A commitment's ten fields are one
+  lender's one offer, so the set moves together and the response's `decided`
+  says how many rows moved. `{documentId}` is the COMMITMENT DOCUMENT's id
+  (`documents.doc_type = 'signed_commitment'`), NOT the deal id — a malformed
+  id is 422. There is no bulk endpoint and no per-term control; the card
+  carries exactly one textarea (the note) and zero inputs, selects or forms,
+  asserted by test.
+- **THE PRINTED STRING IS THE VALUE; `value_numeric` NEVER RENDERS.** What
+  Michael approves is evidence, not a summary. Every row shows the document's
+  printed token beside its page, confidence and verbatim snippet. A missing
+  `printed` is NAMED, never backfilled from the numeric.
+- **A RESOLUTION SITS BESIDE THE PRINTED TOKEN, NEVER IN PLACE OF IT.** The
+  maturity is the case that matters: the document printed `06/10/2031`, the
+  stored date is `2031-10-06`, and the row carries `date_convention` +
+  `date_convention_basis`. The card renders the printed token, the resolved
+  date SPELLED OUT (`6 October 2031 (2031-10-06)`), the convention, and the
+  basis — because read the other way round the renewal moves four months. The
+  same mechanism shows `rate_type` reading as "variable" off a printed "Prime
+  Lending Rate - 0.85%". Rules live in `lib/commitment-terms.ts` (pure, no
+  next/Clerk/fetch imports, twin of `lib/tasks-shape.ts`) and are unit-tested
+  in `tests/commitment-terms.test.ts`; the card is the render only.
+- **NOTHING IS DROPPED.** An unrecognised `field_key` sorts last and still
+  renders with a derived label. A `gate_status` outside pending/approved/
+  rejected counts as `other` and makes the set read `mixed`, never approved.
+- **An over-long note is REFUSED, not truncated** (2000 chars) — silently
+  shortening what a person wrote changes the record they meant to leave.
+- **Read** is `lib/underwriting.ts getDealCommitmentTerms` through
+  `portal_readonly`, scoped by `agent_id` + `deal_id`, rendered in the deal
+  room's Fulfilment section (`#terms`) above Conditions. Pending terms force
+  that section open, like a pending condition list — a queued decision must
+  never sit hidden inside a collapsed row. `commitment_terms` had NO row-level
+  policy for this role until 2026-08-03: it returned zero rows, which on screen
+  is indistinguishable from an empty table. CONFIRM A LIVE NON-ZERO COUNT
+  before concluding the card works.
+- **The pending state is AMBER, matching the conditions banner off the same
+  upload.** Lime is not spent here; `tests/shell.test.ts` enumerates every
+  surface that may carry the decision token and this is not one.
+- **Local dev CANNOT exercise this gate.** The dev Clerk instance carries zero
+  JWT templates (`getToken({template:'gates'})` throws "JWT template not
+  found"), so no gates token can be minted and `gateCall` returns its 401 auth
+  copy before any network call. Verified again 2026-08-04. Budget production
+  for any live gate proof.
+
 ### Lender notes: TWO paths, and they are not the same thing (N-06, 2026-07-29)
 Confusing these is the easy mistake, so they are stated together.
 - **The DRAFT path (2026-07-15, unchanged).** `LenderNotesCard` "Generate" ->

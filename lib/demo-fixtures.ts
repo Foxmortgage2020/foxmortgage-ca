@@ -20,6 +20,7 @@ import { clientJourneyFor, journeyForStage } from '@/config/lifecycle'
 import { AGENT_MEMBER } from '@/lib/client-team'
 import type { ClientFileView } from '@/lib/client-file'
 import type { TaskRow, TasksTodayResponse } from '@/lib/tasks-shape'
+import type { CommitmentTermRow } from '@/lib/commitment-terms'
 // The presentation model + rubric are PURE (no fetchers, no cycle back to
 // here), so demo scenarios/offers carry REAL engine-computed figures and REAL
 // rubric grades — a faithful demo, not hand-waved numbers.
@@ -769,6 +770,89 @@ export function demoDealDocuments(dealId: string): DocumentRow[] {
     ]
   }
   return []
+}
+
+// The committed terms card (2026-08-04). Fictional to the last digit — Sample
+// Bank, a made-up file — but shaped exactly like a real extraction so the demo
+// exercises the real card: printed strings that carry the evidence, page cites
+// and verbatim snippets, one classification row whose reading differs from the
+// printed token (rate type), and the maturity's printed-vs-resolved pair with
+// its convention basis. Everything sits pending, which is the state the button
+// exists for.
+const DEMO_COMMITMENT_DOC = 'demo-d-commitment'
+function demoTerm(
+  fieldKey: string,
+  printed: string,
+  page: number,
+  snippet: string,
+  extra: Partial<CommitmentTermRow> = {},
+): CommitmentTermRow {
+  return {
+    id: `demo-term-${fieldKey}`,
+    documentId: DEMO_COMMITMENT_DOC,
+    fieldKey,
+    printed,
+    valueText: null,
+    valueNumeric: null,
+    page,
+    sourceSnippet: snippet,
+    confidence: 'exact',
+    dateConvention: null,
+    dateConventionBasis: null,
+    extractor: 'commitment-terms@0.1.0',
+    gateStatus: 'pending',
+    createdAt: '2026-07-09T14:02:00Z',
+    ...extra,
+  }
+}
+
+export function demoDealCommitmentTerms(dealId: string): CommitmentTermRow[] {
+  if (dealId !== 'demo-deal-1') return []
+  return [
+    demoTerm('lender', 'Sample Bank of Canada', 1, 'Sample Bank of Canada 100 Fixture Way, Toronto, ON M5H 0A1', {
+      valueText: 'Sample Bank of Canada',
+    }),
+    demoTerm('loan_amount', '$640,000.00', 1, 'Principal Amount $640,000.00 This is the total amount of the mortgage loan', {
+      valueNumeric: 640000,
+    }),
+    demoTerm('rate', 'Prime - 0.90% : 3.55%', 3, 'Annual Interest Rate Prime Lending Rate - 0.90%: 3.55% Your variable rate', {
+      valueNumeric: 3.55,
+    }),
+    // The classification case: the document never printed the word "variable".
+    demoTerm('rate_type', 'Prime Lending Rate - 0.90%', 3, 'Annual Interest Rate Prime Lending Rate - 0.90%: 3.55% Your variable rate', {
+      valueText: 'variable',
+    }),
+    demoTerm('term_months', '60 Months', 2, 'Term 60 Months Your mortgage is closed for the Term of your mortgage loan', {
+      valueNumeric: 60,
+    }),
+    demoTerm('amortization_months', '300 Months', 3, 'Amortization Period 300 Months This is the amount of time it will take', {
+      valueNumeric: 300,
+    }),
+    demoTerm('payment', '$3,214.88', 2, 'Regular Payments $3,214.88 Your Regular Payments will include principal and interest', {
+      valueNumeric: 3214.88,
+    }),
+    // The case that matters: printed 24/07/2031, resolved 2031-07-24.
+    demoTerm('maturity_date', '24/07/2031', 4, 'Maturity Date 24/07/2031 The Maturity Date is the last day of your Term', {
+      valueText: '2031-07-24',
+      dateConvention: 'dmy',
+      dateConventionBasis:
+        'impossible_component: 3 token(s) carry a first component above 12, which cannot be a month, so the document is day-month-year: 24/07/2026 (p1), 31/08/2026 (p4), 24/07/2031 (p4)',
+    }),
+    demoTerm(
+      'prepayment_privileges',
+      '15% Lump Sum, 15% Payment Increase',
+      2,
+      'Pre-Payment Privilege 15% Lump Sum, 15% Payment Increase available once per calendar year',
+      { valueText: '15% Lump Sum, 15% Payment Increase' },
+    ),
+    demoTerm(
+      'penalty_basis',
+      'Variable Rate Penalty — three months interest',
+      2,
+      'Pre-Payment Penalty Variable Rate Penalty If you pay your mortgage in full before the end of your Term',
+      { valueText: 'Variable Rate Penalty — three months interest' },
+    ),
+  ]
 }
 
 export function demoDealAudit(dealId: string): AuditEntry[] {

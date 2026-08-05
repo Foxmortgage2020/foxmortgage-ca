@@ -28,6 +28,7 @@ import { isDemoMode, DemoWriteBlocked } from '@/lib/demo'
 import { demoLenderContacts, demoTasksToday } from '@/lib/demo-fixtures'
 import type { LenderContactCard, ContactDraft } from '@/lib/lender-contacts'
 import { KNOWLEDGE_UPLOAD_KINDS, type KnowledgeUploadKind } from '@/lib/knowledge-claims'
+import type { CommitmentTermsAction } from '@/lib/commitment-terms'
 
 export type GateErrorKind =
   | 'auth'
@@ -512,6 +513,39 @@ export function decideCommitmentList(
   if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideCommitmentList'))
   return gateCall(
     `/api/gates/commitment-conditions/${documentId}/decision`,
+    withNote({ action }, note),
+    token,
+  )
+}
+
+// The committed-TERMS gate (2026-08-04) — the other extraction off the same
+// commitment. Keyed on the source DOCUMENT, never the deal: a commitment's ten
+// economic fields are one lender's one offer, so they are approved or rejected
+// as a set and `decided` reports how many rows actually moved.
+//
+// The contract's body schema is STRICT and rejects any key beyond action and
+// note, deliberately: there is structurally no way to push a value, a page, a
+// snippet or a status back through this call. withNote enforces exactly that
+// shape here, so a caller cannot widen it by accident.
+export interface CommitmentTermsDecisionResponse {
+  documentId: string
+  dealId: string
+  action: string
+  /** How many term rows moved. Zero with a 200 is possible and is not a lie. */
+  decided: number
+  supersededPriorSet?: number
+  auditId?: string
+}
+
+export function decideCommitmentTerms(
+  documentId: string,
+  action: CommitmentTermsAction,
+  token: string | null,
+  note?: string,
+): Promise<GateResult<CommitmentTermsDecisionResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('decideCommitmentTerms'))
+  return gateCall(
+    `/api/gates/commitment-terms/${documentId}/decision`,
     withNote({ action }, note),
     token,
   )

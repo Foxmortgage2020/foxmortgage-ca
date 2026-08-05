@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-08-04',
+    title: 'The terms on a commitment now come to you for a decision, with the document beside them',
+    detail:
+      'When a lender commitment is read, the ten things that actually matter are pulled out of it: the lender, the amount, the rate, whether it is fixed or floating, the term, the amortization, the payment, the maturity, the prepayment privileges and the penalty. Those now appear in the deal room under Committed terms, and they sit there waiting for you rather than being taken as read. Every one of them shows the exact words the document printed, the page they came from, and the sentence around them, because what you are approving is the document and not somebody summarising it. Where the machine worked something out rather than reading it off the page, that working shows next to the printed words instead of replacing them. The maturity is the one this was built for. That commitment printed 06/10/2031, which could be the sixth of October or the tenth of June, and reading it the wrong way round moves a renewal by four months. So the card shows what was printed, then shows it resolved as 6 October 2031, then tells you how it decided: four other dates in the same document start with a number above twelve, which cannot be a month, so the document writes day first. You can check that reasoning in a second rather than taking it on faith. There is one button, not ten. A commitment is one lender making one offer, so the whole set is approved or rejected together, and if the lender later sends an amendment that comes through as its own set with its own decision. Nothing on the card can be typed over: if a value is wrong the answer is to read the document again, not to correct the record by hand and lose the link back to the page it came from. Only you can make this decision, and that is enforced on our side and again by the underwriting system when the decision is sent.',
+  },
+  {
     date: '2026-08-02',
     title: 'Deals (Beta): readable projected figures, a real age tile, and a preview panel',
     detail:
