@@ -300,6 +300,55 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The census, and the No stage view (handoff 52, 2026-08-05)
+- **THE ARITHMETIC, verified in one pass through `portal_readonly`:**
+  board 98 (underwriting 24: strategy 14, application started 9, collecting
+  docs 1; fulfilment 74: **Funded 66**, lender response 4, submitted 4) +
+  Archive 29 (lost-to-competitor 23, cancelled 6) + No stage 33 + Withdrawn 0
+  = **160**. Exactly ONE cause of invisibility existed: NULL `stage_code`.
+  Zero deals sit in inactive stages (the three inactive rows — inquiry,
+  renewal, commitment — hold nobody), zero orphan codes, zero active stages
+  outside both phase and terminal.
+- **PRIOR REPORTS CORRECTED.** "33 archived" was never true; the Archive is
+  29 and the 33 was the stageless count, a DIFFERENT population. "4 of the 38
+  no-reference records are stageless" was also wrong: **all 33 stageless
+  records carry file_refs** (BRXM-F0207xx era, one import batch), and the 38
+  no-ref records split 34 board / 4 archive / 0 stageless. The production "24
+  cards" was just the underwriting phase view, board default.
+- **FUNDED IS A BOARD COLUMN, NOT THE ARCHIVE.** `terminal_won` with
+  `phase='fulfilment'`, so terminal-CATEGORY deals number 95 while the Archive
+  renders 29. `terminalStages` requires `phase === null`; do not "fix" one
+  side without the other. Pinned in the partition test.
+- **`lib/phase-model.ts unplacedDeals(stages, deals)`** is the COMPLEMENT of
+  board ∪ archive, computed as not-in-either rather than by restating their
+  rules, so the three sets partition the live book by construction
+  (`tests/phase-model.test.ts` "board, archive and unplaced partition the
+  live book"). Reasons: `no_stage` (null) and `unknown_stage` (a code the
+  active stage list does not carry). A stage row added later moves a record
+  out with no code change.
+- **The No stage view** (`?view=nostage`, switch "No stage 33" beside Board |
+  Archive | Withdrawn, count at zero too) renders every unplaced record with
+  its reason, file link and the Remove control with posture. NO STAGE IS
+  INVENTED — writing one would fabricate a fact about a file. The handoff-50
+  UnplacedNote ("cannot be removed from here") is GONE, and
+  `tests/rec-withdrawal.test.ts` asserts its absence. The file page's stage
+  line now reads "not recorded" (italic) for a null stage, never "unknown".
+- **Tiles vs views:** with the fourth view the switch row accounts for all
+  160 the tiles count. The open-amount tile counts ONE stageless record
+  (amount, non-terminal); the view's explainer says so rather than the tile
+  being re-engineered.
+- **Of the 33 stageless: 32 carry `finmo_application_id`** (Remove shows the
+  live-feed warning), 1 carries none, 0 have workbench rooms (nothing
+  refused). All 33 are `is_historical_import`. Every record in the book has a
+  `source_id`, so the control can key all 160. Oddity for Mike's sitting:
+  **BRXM-F041381 exists TWICE in rec.deals** (same ref, two rows) — the only
+  duplicate file_ref in the book.
+- **Mike's live round trip is PROVEN**: `source_decisions` carries one
+  `record_withdrawn` row, status `superseded`, reason "This is a duplicate
+  record." — withdraw AND reverse both executed through the gate on
+  2026-08-05, and BRXM-F027822 renders back in the Archive. Book at close:
+  160 rows, nothing deleted.
+
 ### Withdrawing a record, and the card click (handoff 50, 2026-08-05)
 - **THE READ PATH ALWAYS EXISTED. THE 404 WAS A MISSING HEADER.** Handoff 48
   mirrored `rec.withdraw` and correctly declined to build against it, because a

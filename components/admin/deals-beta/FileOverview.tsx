@@ -175,8 +175,20 @@ export default function FileOverview({
           </span>
         </Row>
         <Row label="Stage">
-          <span className="font-heading text-sm">
-            {stage?.label ?? deal.stage_code ?? 'unknown'}
+          {/* A null stage is a NAMED GAP, not a mystery: 33 records came in
+              from the migration with no stage at all (handoff 52 census), and
+              this page's convention is that empty means not yet. "unknown"
+              would imply the system failed to determine something that simply
+              was never recorded. A code the stage list does not carry still
+              prints verbatim, which is its own honest state. */}
+          <span
+            className={
+              stage?.label ?? deal.stage_code
+                ? 'font-heading text-sm'
+                : 'text-sm italic text-cool-500'
+            }
+          >
+            {stage?.label ?? deal.stage_code ?? 'not recorded'}
           </span>
           {phase && <span className="ml-2 text-[11px] text-cool-600">{phase.label}</span>}
           {/* Probability as a plain percentage. NO projection green on a file

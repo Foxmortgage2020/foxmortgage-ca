@@ -75,6 +75,7 @@ import {
   terminalStages,
   toggleCollapsed,
   unevaluableTags,
+  unplacedDeals,
   type AttractSourceLike,
   type CardTagLike,
   type ConditionLike,
@@ -119,6 +120,9 @@ interface Props {
   activePhase: string | null
   archive: boolean
   withdrawnView: boolean
+  /** The No stage view: records the board and the Archive cannot place,
+   *  rendered honestly instead of being footnoted. */
+  nostageView: boolean
   /** Active withdrawals, read through lib/underwriting.ts getRecWithdrawals.
    *  Each carries the decision's own id, which is the only route to reversing
    *  it: the gates API exposes no GET on this resource. */
@@ -146,10 +150,10 @@ function href(params: Record<string, string | null | undefined>): string {
 }
 
 export default function DealsBetaBoard(props: Props) {
-  const { phases, stages, deals, archive, withdrawnView, activePhase } = props
+  const { phases, stages, deals, archive, withdrawnView, nostageView, activePhase } = props
   const ordered = orderedPhases(phases)
   const active = ordered.find(p => p.code === activePhase) ?? null
-  const otherView = archive || withdrawnView
+  const otherView = archive || withdrawnView || nostageView
 
   return (
     <div className="mt-5">
@@ -166,11 +170,19 @@ export default function DealsBetaBoard(props: Props) {
         deals={deals}
         archive={archive}
         withdrawnView={withdrawnView}
+        nostageView={nostageView}
         withdrawnCount={props.withdrawnDeals.length}
         activeCode={active?.code ?? null}
       />
-      <UnplacedNote stages={stages} deals={deals} />
-      {withdrawnView ? (
+      {nostageView ? (
+        <NoStageView
+          stages={stages}
+          deals={deals}
+          clients={props.clients}
+          roomDealIds={props.roomDealIds}
+          canWithdraw={props.canWithdraw}
+        />
+      ) : withdrawnView ? (
         <WithdrawnView
           deals={props.withdrawnDeals}
           withdrawals={props.withdrawals}
@@ -386,6 +398,7 @@ function ViewSwitch({
   deals,
   archive,
   withdrawnView,
+  nostageView,
   withdrawnCount,
   activeCode,
 }: {
@@ -393,10 +406,12 @@ function ViewSwitch({
   deals: DealLike[]
   archive: boolean
   withdrawnView: boolean
+  nostageView: boolean
   withdrawnCount: number
   activeCode: string | null
 }) {
   const count = archiveRows(stages, deals).length
+  const nostageCount = unplacedDeals(stages, deals).length
   const on = 'border-navy bg-navy text-white'
   const off = 'border-cool-300 bg-white text-cool-700'
   return (
@@ -404,7 +419,7 @@ function ViewSwitch({
       <Link
         href={href({ phase: activeCode })}
         className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${
-          archive || withdrawnView ? off : on
+          archive || withdrawnView || nostageView ? off : on
         }`}
       >
         Board
@@ -414,6 +429,17 @@ function ViewSwitch({
         className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${archive ? on : off}`}
       >
         Archive <span className="tabular-nums">{count}</span>
+      </Link>
+      {/* The count renders at zero for the same reason Withdrawn's does: the
+          views must account for the whole book on the screen where the book is
+          read, and the day a stageless record arrives, the place that explains
+          it already exists. */}
+      <Link
+        href={href({ view: 'nostage' })}
+        className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${nostageView ? on : off}`}
+        data-testid="beta-view-nostage"
+      >
+        No stage <span className="tabular-nums">{nostageCount}</span>
       </Link>
       {/* THE COUNT IS ALWAYS HERE, INCLUDING AT ZERO. A withdrawn record leaves
           the columns and the totals, so this number is the only place the book
@@ -431,33 +457,117 @@ function ViewSwitch({
   )
 }
 
-/** RECORDS THAT SIT IN NO VIEW, NAMED RATHER THAN QUIETLY ABSENT.
- *
- *  A record only appears somewhere if its stage belongs to a phase (the board)
- *  or is terminal (the Archive). 33 of the 160 carry a NULL `stage_code` and so
- *  render in neither, which also means the Remove control cannot reach them.
- *  That is a pre-existing property of the record layer rather than anything
- *  this session introduced, but the insights strip counts all 160, so leaving
- *  it unsaid makes those tiles read as covering a book that is fully on screen.
- *  Counted from the same rows the views use, so the number cannot drift. */
-function unplacedCount(stages: StageLike[], deals: DealLike[]): number {
-  const placed = new Set(
-    stages
-      .filter(s => s.phase !== null || (s.category ?? '').startsWith('terminal_'))
-      .map(s => s.code),
-  )
-  return deals.filter(d => !d.stage_code || !placed.has(d.stage_code)).length
-}
+// ─── The No stage view ──────────────────────────────────────────────────────
 
-function UnplacedNote({ stages, deals }: { stages: StageLike[]; deals: DealLike[] }) {
-  const n = unplacedCount(stages, deals)
-  if (n === 0) return null
+/** RECORDS THE BOARD CANNOT PLACE, AS A VIEW RATHER THAN A FOOTNOTE.
+ *
+ *  Handoff 50 named these in a note that also said they could not be removed
+ *  from here, which stopped being acceptable the moment Michael sat down to
+ *  reconcile the whole book by hand: a record he cannot see is a record he
+ *  finishes the sitting believing he handled. Census 2026-08-05: 33 of 160,
+ *  every one a historical import with a NULL stage_code, every one carrying a
+ *  file_ref, none with a workbench room. NO STAGE IS INVENTED to make them
+ *  visible. Writing a stage would fabricate a fact about a file, so the view
+ *  says plainly that none is recorded and leaves the record exactly as it is.
+ *  Membership comes from lib/phase-model.ts unplacedDeals, the COMPLEMENT of
+ *  the board and the Archive, so the three sets partition the live book and a
+ *  record can never fall between two definitions. */
+function NoStageView({
+  stages,
+  deals,
+  clients,
+  roomDealIds,
+  canWithdraw,
+}: {
+  stages: StageLike[]
+  deals: DealLike[]
+  clients: DealClientLike[]
+  roomDealIds: string[]
+  canWithdraw: boolean
+}) {
+  const rows = unplacedDeals(stages, deals)
+  const rooms = new Set(roomDealIds)
   return (
-    <p className="mb-4 rounded-[9px] border border-cool-200 bg-white px-4 py-2.5 text-sm text-cool-700">
-      <span className="font-semibold tabular-nums">{n}</span> of these records carry no stage at all,
-      so they appear in none of the three views above and cannot be removed from here. The tiles at
-      the top still count them. This is a gap in the record layer rather than a filter on this page.
-    </p>
+    <section>
+      <div className="mb-3">
+        <h2 className="font-heading text-navy">No stage</h2>
+        <p className="mt-1 max-w-3xl text-sm text-cool-600">
+          Records the migration loaded without any stage, so the board and the Archive cannot place
+          them. Nothing here has been given a stage to make it visible, because that would invent a
+          fact about the file. The tiles at the top count these records, and one that carries an
+          amount counts as open there, since nothing says it ended. Removing works from here, and a
+          record the loader later stages will move to the board on its own.
+        </p>
+      </div>
+      {rows.length === 0 ? (
+        <Panel>
+          Every record carries a stage the board knows, so there is nothing here. This view stays,
+          because the day the loader delivers a record without a stage, this is where it will be.
+        </Panel>
+      ) : (
+        <div className="rounded-[9px] border border-cool-200 bg-white">
+          {rows.map(({ deal, reason }) => {
+            const borrowers = borrowersFor(deal, clients)
+            const amount = fmtAmount(deal.mortgage_amount)
+            const type = purposeLabel(deal.deal_type)
+            const t = typeSkin(deal.deal_type)
+            const sourceId = typeof deal.source_id === 'string' ? deal.source_id : null
+            const posture = feedPosture({
+              finmoApplicationId:
+                typeof deal.finmo_application_id === 'string' ? deal.finmo_application_id : null,
+              hasRoom: rooms.has(deal.id),
+            })
+            return (
+              <div
+                key={deal.id}
+                className="border-b border-cool-100 px-4 py-3 last:border-b-0"
+                data-testid={`beta-nostage-${deal.file_ref ?? deal.id}`}
+              >
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="min-w-[13rem] text-sm italic text-cool-500">
+                    {reason === 'no_stage'
+                      ? 'No stage recorded'
+                      : `Stage code the board does not know: ${deal.stage_code}`}
+                  </span>
+                  <Link
+                    href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
+                    className="font-heading text-[11px] tabular-nums text-cool-600 underline underline-offset-2 hover:text-navy"
+                  >
+                    {deal.file_ref ?? 'no file ref'}
+                  </Link>
+                  {borrowers.length > 0 && (
+                    <span className="text-sm text-navy">{borrowers.map(b => b.name).join(', ')}</span>
+                  )}
+                  {type && t && (
+                    <span
+                      className="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ color: t.fg, borderColor: t.border, background: t.bg }}
+                    >
+                      {type}
+                    </span>
+                  )}
+                  {amount && (
+                    <span className="ml-auto font-heading text-sm text-navy tabular-nums">
+                      {amount}
+                    </span>
+                  )}
+                </div>
+                {canWithdraw && sourceId && (
+                  <div className="-mx-3">
+                    <RemoveRecordControl
+                      sourceId={sourceId}
+                      fileRef={deal.file_ref}
+                      posture={posture}
+                      variant="card"
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }
 

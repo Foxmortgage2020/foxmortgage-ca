@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'The census',
+    title: 'Reconcile the book: the arithmetic, and the No stage view',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'THE WHOLE BOOK COUNTED IN ONE PASS for the first time, through portal_readonly: board 98 (underwriting 24, fulfilment 74 of which Funded is 66) + Archive 29 (lost 23, cancelled 6) + No stage 33 + Withdrawn 0 = 160, every record in exactly one bucket. Exactly ONE cause of invisibility existed: a NULL stage_code. Zero deals in inactive stages, zero orphan codes',
+      'TWO PRIOR REPORTS CORRECTED BY THE COUNT. "33 archived" was never true — the Archive is 29 and the 33 was the stageless population, a different set entirely. And the no-reference records overlap the stageless records NOWHERE: all 33 stageless carry file_refs (one BRXM-F0207xx import batch), while the 38 no-ref records split 34 board / 4 archive / 0 stageless. The production "24 cards" was the underwriting phase view, which is the board default, not the whole board',
+      'FUNDED SITS ON THE BOARD, NOT IN THE ARCHIVE: terminal_won category with phase=fulfilment, which is why terminal-category deals number 95 while the Archive renders 29. Pinned in the partition test so nobody "fixes" one side of that split without the other',
+      'lib/phase-model.ts unplacedDeals is the COMPLEMENT of board and archive, computed as not-in-either rather than by restating their rules, so the three sets partition the live book by construction and a record can never fall between two definitions. tests/phase-model.test.ts proves the partition: every record in exactly one bucket, funded on the board, reasons stated, and a new stage row moving a record out with no code change',
+      'The No stage view renders every unplaced record with its reason ("No stage recorded", italic), file link, borrowers, amount and the Remove control with the live-feed posture. NO STAGE WAS INVENTED and no data was written this session at all. The handoff-50 note that said these records could not be removed from here is GONE, asserted by test. The switch reads Board | Archive 29 | No stage 33 | Withdrawn 0, the count at zero too',
+      'Of the 33: 32 carry finmo_application_id (the control warns the live feed stops), 1 carries none, 0 have workbench rooms, so nothing in the view is refused. Every record in the book carries a source_id, so the control can key all 160. ODDITY: BRXM-F041381 exists twice in rec.deals, the only duplicate file_ref in the book',
+      'MICHAEL\'S LIVE ROUND TRIP IS NOW PROVEN: source_decisions carries one record_withdrawn row, superseded, reason "This is a duplicate record." — withdraw and reverse both executed through the gate, and BRXM-F027822 renders back in the Archive with its control. The file page stage line reads "not recorded" for a null stage now, never "unknown"',
+      'Render-proved on the dev instance: the switch row, all 33 rows with 33 Remove controls, a previously invisible record opening its file page, and six surfaces at 200. Book at close: 160 rows, zero active withdrawals, nothing deleted',
+    ],
+  },
+  {
     n: 'Record withdrawal',
     title: 'The Remove control, the Withdrawn view, and the card click',
     status: 'shipped',
