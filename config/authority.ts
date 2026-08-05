@@ -142,6 +142,22 @@ export const PERMISSIONS = {
   // that way — approving a lender's stated terms is the decision the file
   // turns on. Deliberately admin-only like its twin above.
   'approvals.commitment_terms.decide': ['admin'],
+  // Re-run a commitment's condition extraction (handoff 53). CONTRACT key with
+  // the fox-underwriting gates API: POST /api/gates/commitment-extractions/
+  // {documentId}/retry, which the gate enforces server-side on every call, so
+  // a rename needs coordinated edits in both repos and a widening here alone
+  // just produces 403s. UNLIKE rec.withdraw's first mirroring, this key is
+  // CALLED from day one: the control shipped in the same session, on the
+  // Deals (Beta) Commitment tab (components/admin/deals-beta/
+  // ReextractControl.tsx through the commitment-extractions proxy route).
+  // Exists because BRXM-F060561's extraction failed once on 2026-07-31 and the
+  // extractor's only other caller is the upload endpoint, so a failed file had
+  // no retry short of re-uploading the document. dry_run forecasts, apply
+  // drafts PENDING conditions for the existing list gate
+  // (approvals.conditions.decide); the gate refuses any document that already
+  // has a succeeded attempt, and an approved term row is never overwritten.
+  // Admin only on both sides, like its two siblings above.
+  'commitment.reextract': ['admin'],
   // B6.4: Michael's HUMAN review of a Finmo document request — approve, or send
   // back with a reason. CONTRACT key with the fox-underwriting gates API (migration
   // 0049); the gate refuses any non-human actor before any write. It records HIS
@@ -293,6 +309,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'approvals.conditions.decide': 'Decide commitment conditions (approve the list, edit-then-approve, verify presence, waive)',
   'approvals.commitment_terms.decide':
     "Decide a commitment's committed terms (approve or reject the whole extracted set — lender, amount, rate, term, maturity, penalties)",
+  'commitment.reextract':
+    "Re-run a commitment's condition extraction (preview first; drafted conditions land pending for the list gate, approved terms untouched)",
   'approvals.document_request.decide': 'Approve a Finmo document request, or send it back with a reason (records your review; never touches Finmo)',
   'conditions.recompute': 'Recompute document presence on a deal room (read-only to Finmo)',
   'document.view': 'Open a deal document (short-lived signed URL, for an analysis citation)',

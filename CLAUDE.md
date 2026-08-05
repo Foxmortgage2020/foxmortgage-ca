@@ -300,6 +300,53 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The re-extract control (handoff 53, 2026-08-05)
+- **WHY: BRXM-F060561 carries an approved commitment, ten approved terms and
+  ZERO conditions** — its extraction failed once on 2026-07-31 (region bug,
+  since fixed) and the extractor's only other production caller is the upload
+  endpoint. The gate's retry is live; this is the portal half of pressing it.
+- **Key `commitment.reextract`** (config/authority.ts, admin only, CROSS-REPO
+  CONTRACT). Unlike rec.withdraw's first mirroring, it is CALLED from day one
+  by the control shipped in the same session.
+- **Proxy** `app/api/portal/admin/gates/commitment-extractions/[documentId]/
+  retry` -> `lib/gates.ts retryCommitmentExtraction` -> gate
+  `POST /api/gates/commitment-extractions/{documentId}/retry`, body
+  `{mode, reason}` only. **THE SEGMENT IS `commitment-extractions`, NOT
+  `commitments`**: the commitments directory already carries `[dealId]`, and
+  two differently named dynamic segments at one level is a Next slug conflict.
+  Do not tidy. **The reason rule differs by mode**: dry_run gets the fixed
+  `DRY_RUN_REASON` literal injected by the ROUTE (nobody has decided anything
+  at preview), apply requires a TYPED reason, trimmed, never prefilled,
+  refused over-long. Rules live in `lib/reextract.ts` (pure twin of
+  lib/rec-withdrawal.ts); tests in `tests/reextract.test.ts`.
+- **THE PREVIEW IS NOT OPTIONAL.** `ReextractControl` (Commitment tab,
+  `components/admin/deals-beta/`) runs dry_run first and renders the FULL
+  forecast list. The apply step (reason + timestamp arming + latch-after-
+  success, 409 latches too — the Remove-control pattern) does not exist on
+  screen until a preview succeeds in that mount. The two safety sentences
+  (`REEXTRACT_PENDING_COPY`, `REEXTRACT_TERMS_COPY`) render above the buttons:
+  drafted conditions land PENDING for the existing list gate, and an approved
+  term row is never overwritten.
+- **THE GATE'S REFUSAL IS SURFACED, NEVER PREDICTED.** A document with a
+  succeeded attempt answers conflict and the control renders it as a reason
+  (`beta-reextract-refused`). The portal has NO read on extraction attempts,
+  so the control renders on every REAL commitment-family document (guardrail
+  20 population, same as the uploader) and lets the gate decide. F057400's
+  real doc `d1af3684` is the live refusal case; its two synthetic docs are
+  correctly excluded.
+- **THE PENDING SET HAS A HOME ALREADY**: gate drafts `gate_status='pending'`
+  -> `getPendingCommitmentConditions` filters exactly that -> `buildTabBadges`
+  counts it (amber Conditions badge) -> `ConditionsChecklist`'s approval
+  banner ("Approve list", `approvals.conditions.decide`) renders on BOTH the
+  deal room and the beta Conditions tab. All four links verified in code and
+  pinned by test. No new surface was needed.
+- **NO APPLY WAS RUN AND NONE CAN BE FROM LOCAL DEV** (dev Clerk mints no
+  gates token; the live press died at the boundary with NO `[gates] POST`
+  line). Before/after census identical through portal_readonly: F060561
+  0 conditions + 10 approved terms, book-wide pending 0. **The first real
+  apply is Michael's**, from production, like the first withdrawal. File page
+  client JS 216 B -> 2.73 kB.
+
 ### The census, and the No stage view (handoff 52, 2026-08-05)
 - **THE ARITHMETIC, verified in one pass through `portal_readonly`:**
   board 98 (underwriting 24: strategy 14, application started 9, collecting

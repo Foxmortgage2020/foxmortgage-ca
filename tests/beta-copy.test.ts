@@ -65,6 +65,9 @@ function scannedFiles(): string[] {
   // The withdrawal rules module owns the explainer, the permanence copy and all
   // three posture notices, which render on both surfaces.
   out.push('lib/rec-withdrawal.ts')
+  // The re-extract rules module owns the pending and terms-untouched copy the
+  // Commitment tab renders (handoff 53).
+  out.push('lib/reextract.ts')
   return out
 }
 

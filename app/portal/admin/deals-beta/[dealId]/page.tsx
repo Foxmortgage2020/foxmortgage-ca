@@ -67,6 +67,7 @@ import {
   FILE_TABS,
   buildTabBadges,
   existingMortgage,
+  fmtDateWords,
   originatingMortgage,
   resolveRoom,
   resolveTab,
@@ -243,6 +244,24 @@ export default async function BetaFilePage({
   // Handoff 50: the ONE key this surface adds a control for, admin only and a
   // cross-repo contract name. Hidden in demo like every other decision control.
   const canWithdraw = can(user, 'rec.withdraw') && !isDemoMode()
+  // Handoff 53: the re-extract retry, admin only, same demo posture.
+  const canReextract = can(user, 'commitment.reextract') && !isDemoMode()
+
+  // The documents a retry may target: the same real-commitment family the
+  // upload control keys on (guardrail 20 — a retired synthetic or rejected
+  // upload never counts). The gate is per document, so each gets its own
+  // control, and the label says which paper it retries.
+  const reextractTargets = documentRows
+    .filter(
+      d =>
+        (d.docType === 'signed_commitment' || d.docType === 'commitment_amendment') &&
+        d.provenance === 'real' &&
+        d.reviewStatus !== 'rejected',
+    )
+    .map(d => ({
+      id: d.id,
+      label: `the ${d.docType === 'signed_commitment' ? 'signed commitment' : 'commitment amendment'} received ${fmtDateWords(d.createdAt) ?? 'on an unrecorded date'}`,
+    }))
 
   // ── Withdrawal state (handoff 50) ─────────────────────────────────────────
   // The room is resolved above, so the refusal posture here is computed from
@@ -350,6 +369,8 @@ export default async function BetaFilePage({
           groups={termGroups}
           canDecideTerms={canDecideTerms}
           canUpload={canUploadCommitment}
+          canReextract={canReextract}
+          reextractTargets={reextractTargets}
           hasRealCommitment={hasRealCommitment}
           demo={isDemoMode()}
           notGranted={termsRefused}

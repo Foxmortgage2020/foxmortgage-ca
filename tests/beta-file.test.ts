@@ -210,14 +210,19 @@ describe('THE WRITE GUARANTEE: only through a gate proxy, with a human actor', (
       // admin only on both sides, so it obeys the rule this test is really
       // about: no control on this page invents an authority key of its own.
       'rec.withdraw',
+      // Handoff 53. The re-extract retry for a failed commitment extraction.
+      // A mirrored cross-repo contract name like the rest, admin only on both
+      // sides, called by the control on the Commitment tab from day one.
+      'commitment.reextract',
     ]) {
       expect(page, `${key} must gate its control here as it does in the room`).toContain(`'${key}'`)
     }
     // ...and every one is additionally hidden in demo, exactly as the room does.
     // The count is asserted rather than a floor, so ADDING a control forces
-    // somebody to come back here and say which one it is.
+    // somebody to come back here and say which one it is. Seven since
+    // handoff 53 added commitment.reextract.
     const gated = page.match(/can\(user, '[a-z_.]+'\) && !isDemoMode\(\)/g) ?? []
-    expect(gated.length).toBe(6)
+    expect(gated.length).toBe(7)
   })
 })
 
