@@ -14,18 +14,29 @@
 // `underwriting`/`fulfilment` and grew Monitor from five steps to seven, and
 // no branch in this repo needed to know.
 //
-// READ ONLY, STRUCTURALLY. Every read goes through lib/underwriting.ts, whose
-// entire query surface is an HTTP GET as the portal_readonly Postgres role.
-// That role holds SELECT and nothing else: an INSERT against rec.deals answers
-// 403 / 42501 (verified live). Phase, view and column-collapse all ride
-// searchParams through links, so there is no form, no handler and no drag
-// target on this page and it ships no client JavaScript.
+// READS ARE READ ONLY, STRUCTURALLY. Every read goes through
+// lib/underwriting.ts, whose entire query surface is an HTTP GET as the
+// portal_readonly Postgres role. That role holds SELECT and nothing else: an
+// INSERT against rec.deals answers 403 / 42501 (verified live). Phase, view and
+// column-collapse still ride searchParams through links, so navigating this
+// board is a soft navigation with no client state.
+//
+// THIS PAGE IS NO LONGER FREE OF CLIENT JAVASCRIPT, and the old wording here
+// claimed it was. Handoff 50 added the Remove control, which is a client leaf
+// with a handler, a textarea and a POST. It writes ONE thing, through an
+// existing gate proxy, with a human actor from the verified session, and it
+// deletes nothing. The page itself is still a server component and everything
+// around the control still has no handler and no drag target. The rest of the
+// old sentence stood, so only the false half was replaced: an untrue guarantee
+// is worse than none, which is the same reason the rendered subtitle below
+// stopped saying "Nothing here writes".
 
-import { requirePermission } from '@/lib/authz'
+import { can, requirePermission } from '@/lib/authz'
 import { WORKBENCH_AGENT_EMAIL } from '@/config/targets'
 import { isDemoMode } from '@/lib/demo'
 import {
   getAgentIdByEmail,
+  getDealsSummary,
   getRecAttractSources,
   getRecCardTags,
   getRecDealClients,
@@ -37,8 +48,11 @@ import {
   getRecPhases,
   getRecStageEvents,
   getRecStages,
+  getRecWithdrawals,
 } from '@/lib/underwriting'
 import { boardDeals, buildInsights, defaultPhaseCode, orderedPhases } from '@/lib/phase-model'
+import { indexWithdrawals, partitionWithdrawn } from '@/lib/rec-withdrawal'
+import { resolveRoom } from '@/lib/beta-file'
 import DealsBetaBoard from '@/components/admin/DealsBetaBoard'
 
 export const dynamic = 'force-dynamic'
@@ -52,9 +66,14 @@ function Shell({ children }: { children: React.ReactNode }) {
           Beta
         </span>
       </div>
+      {/* THIS SENTENCE USED TO SAY "Nothing here writes", AND THAT STOPPED
+          BEING TRUE. The Remove control writes one thing, through a gate, with
+          a human on it. An untrue guarantee is worse than none, so the sentence
+          now names exactly what the one write is rather than denying it. */}
       <p className="mt-1 max-w-3xl text-sm text-cool-700">
-        The five-phase model over the September record layer, read-only and running beside your live
-        Deals page. Nothing here writes.
+        The five-phase model over the September record layer, running beside your live Deals page.
+        The only thing this page changes is whether a record stays in the book, and that is a
+        recorded decision rather than a deletion.
       </p>
       {children}
     </main>
@@ -74,7 +93,7 @@ export default async function DealsBetaPage({
 }: {
   searchParams?: { phase?: string; view?: string; collapsed?: string; deal?: string }
 }) {
-  await requirePermission('deals.view')
+  const user = await requirePermission('deals.view')
 
   // Demo mode swaps every workbench fetcher for fixtures, and there is no
   // fictional record layer to swap in. Say that rather than render an empty
@@ -119,6 +138,8 @@ export default async function DealsBetaPage({
     milestoneTypesRes,
     milestonesRes,
     conditionsRes,
+    withdrawalsRes,
+    roomsRes,
   ] = await Promise.all([
     getRecPhases(),
     getRecStages(),
@@ -131,6 +152,13 @@ export default async function DealsBetaPage({
     getRecMilestoneTypes(),
     getRecDealMilestones(agentId),
     getRecConditions(agentId),
+    // Handoff 50. WITHOUT THIS READ THE REMOVE CONTROL COULD NOT SHIP: a
+    // withdrawn record would look identical to a live one on the board and
+    // could never be reversed, which is exactly why handoff 48 stopped.
+    getRecWithdrawals(agentId),
+    // The workbench side, read only to decide which records have an open file.
+    // A withdrawal on one of those is refused, so this is not decoration.
+    getDealsSummary(agentId),
   ])
 
   // A read that fails is stated, never rendered as an empty board. An empty
@@ -147,6 +175,8 @@ export default async function DealsBetaPage({
     milestoneTypesRes,
     milestonesRes,
     conditionsRes,
+    withdrawalsRes,
+    roomsRes,
   ]
   if (all.some(r => !r.configured || !r.ok)) {
     return (
@@ -173,8 +203,32 @@ export default async function DealsBetaPage({
   const milestoneTypes = ok(milestoneTypesRes, [] as any[])
   const milestones = ok(milestonesRes, [] as any[])
   const conditions = ok(conditionsRes, [] as any[])
+  const withdrawals = ok(withdrawalsRes, [] as any[])
+  const rooms = ok(roomsRes, [] as any[])
+
+  // ── Withdrawn records leave the working book ──────────────────────────────
+  // Out of the phase columns, out of the Archive, and out of the insights. A
+  // weighted total that kept counting a record Michael removed would be a
+  // forecast that lies. The Withdrawn switch carries its own count beside Board
+  // and Archive so the two numbers are always on the same screen: a book that
+  // shrinks can be read against the reason it shrank, and the count renders at
+  // zero too, so the explanation exists before it is needed.
+  const index = indexWithdrawals(withdrawals)
+  const split = partitionWithdrawn(deals as any[], index)
+  const liveDeals = split.live
+  const withdrawnDeals = split.withdrawn
+
+  // Which records have an open workbench file, by the SAME rule the file page
+  // and the withdrawal route use. Never a third definition, and never a value
+  // the browser could assert.
+  const publicDeals = rooms.map((r: any) => ({ id: r.id, file_ref: r.fileRef ?? null }))
+  const roomDealIds = (liveDeals as any[])
+    .filter(d => resolveRoom({ id: d.id, file_ref: d.file_ref, workbench_deal_id: d.workbench_deal_id }, publicDeals))
+    .map(d => d.id as string)
 
   const archive = searchParams?.view === 'archive'
+  const withdrawnView = searchParams?.view === 'withdrawn'
+  const canWithdraw = can(user, 'rec.withdraw') && !isDemoMode()
   // The requested phase must be one the record layer configures; an unknown
   // value falls back rather than rendering an empty unnamed phase. This is what
   // absorbed the advise -> underwriting rename without a broken page.
@@ -191,8 +245,8 @@ export default async function DealsBetaPage({
       <DealsBetaBoard
         phases={phases}
         stages={stages}
-        deals={deals}
-        boardDeals={boardDeals(stages, deals)}
+        deals={liveDeals}
+        boardDeals={boardDeals(stages, liveDeals)}
         events={events}
         clients={clients}
         returns={returns}
@@ -201,9 +255,14 @@ export default async function DealsBetaPage({
         milestoneTypes={milestoneTypes}
         milestones={milestones}
         conditions={conditions}
-        insights={buildInsights(deals, stages, events, nowISO)}
+        insights={buildInsights(liveDeals, stages, events, nowISO)}
         activePhase={activePhase}
         archive={archive}
+        withdrawnView={withdrawnView}
+        withdrawals={withdrawals}
+        withdrawnDeals={withdrawnDeals}
+        roomDealIds={roomDealIds}
+        canWithdraw={canWithdraw}
         collapsedRaw={searchParams?.collapsed ?? null}
         selectedRef={searchParams?.deal ?? null}
         // Resolved on the server so every card measures against one instant,

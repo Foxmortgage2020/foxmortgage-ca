@@ -24,6 +24,26 @@
 // lime and never the projection green; the footer and strip render the
 // projection green (ProjectionFigure.tsx) and never the lime. This orchestrator
 // imports both and puts each in its own place, and tests assert both halves.
+//
+// TWO THINGS CHANGED IN HANDOFF 50.
+//
+// 1. THE CARD OPENS THE FILE. It used to select a deal for a right-hand preview
+//    panel. Michael opened that panel and immediately clicked through to the
+//    full file every time, so it was a step between him and the thing he
+//    wanted. DealPreview.tsx is still in the repo and still covered by its
+//    read-only grep in tests/phase-model.test.ts; it is simply not rendered.
+//    Restoring it is one line, which is why it was left rather than deleted.
+//
+// 2. THERE IS A THIRD VIEW. Withdrawn sits beside Board and Archive and holds
+//    the records a human has decided the loader should stop recreating. A
+//    withdrawn record leaves the phase columns, the Archive and the insights,
+//    because that is the whole point of withdrawing one and a forecast that
+//    kept counting it would be lying. It never leaves quietly: the Withdrawn
+//    switch carries its own count beside the other two, so a book that shrank
+//    can always be read against the reason it shrank, on the same screen.
+//
+// The board is STILL a server component. The only client code on it is the
+// Remove control, which is a leaf.
 
 import Link from 'next/link'
 import {
@@ -56,7 +76,6 @@ import {
   toggleCollapsed,
   unevaluableTags,
   type AttractSourceLike,
-  findDealByRef,
   type CardTagLike,
   type ConditionLike,
   type DealClientLike,
@@ -70,8 +89,17 @@ import {
   type StageLike,
 } from '@/lib/phase-model'
 import { columnSkin, phaseAccent, phaseTint, typeSkin } from '@/lib/phase-palette'
+import {
+  feedPosture,
+  indexWithdrawals,
+  withdrawalFor,
+  type WithdrawalLike,
+} from '@/lib/rec-withdrawal'
 import DealCard from '@/components/admin/deals-beta/DealCard'
-import DealPreview from '@/components/admin/deals-beta/DealPreview'
+import {
+  RemoveRecordControl,
+  ReverseWithdrawalControl,
+} from '@/components/admin/deals-beta/RecordWithdrawal'
 import ProjectionFigure, { ProjectionLabel } from '@/components/admin/deals-beta/ProjectionFigure'
 
 interface Props {
@@ -90,6 +118,19 @@ interface Props {
   insights: Insights
   activePhase: string | null
   archive: boolean
+  withdrawnView: boolean
+  /** Active withdrawals, read through lib/underwriting.ts getRecWithdrawals.
+   *  Each carries the decision's own id, which is the only route to reversing
+   *  it: the gates API exposes no GET on this resource. */
+  withdrawals: WithdrawalLike[]
+  /** The records those decisions are about. Already partitioned out of `deals`
+   *  and `boardDeals` on the page, so nothing here has to remember to. */
+  withdrawnDeals: DealLike[]
+  /** rec deal ids that resolve to a workbench room, computed on the SERVER with
+   *  the same resolveRoom the file page uses. Decides the refusal posture, and
+   *  is never accepted from a browser. */
+  roomDealIds: string[]
+  canWithdraw: boolean
   collapsedRaw: string | null
   selectedRef: string | null
   nowISO: string
@@ -105,12 +146,10 @@ function href(params: Record<string, string | null | undefined>): string {
 }
 
 export default function DealsBetaBoard(props: Props) {
-  const { phases, stages, deals, archive, activePhase } = props
+  const { phases, stages, deals, archive, withdrawnView, activePhase } = props
   const ordered = orderedPhases(phases)
   const active = ordered.find(p => p.code === activePhase) ?? null
-  // Selection rides the URL, like phase, view and collapse. An unknown ref
-  // selects nothing rather than erroring.
-  const selected = archive ? null : findDealByRef(props.boardDeals, props.selectedRef)
+  const otherView = archive || withdrawnView
 
   return (
     <div className="mt-5">
@@ -119,42 +158,35 @@ export default function DealsBetaBoard(props: Props) {
         phases={ordered}
         stages={stages}
         deals={props.boardDeals}
-        activeCode={archive ? null : active?.code ?? null}
+        activeCode={otherView ? null : active?.code ?? null}
       />
       <ReturnRail returns={props.returns} phases={ordered} stages={stages} sources={props.sources} />
-      <ViewSwitch stages={stages} deals={deals} archive={archive} activeCode={active?.code ?? null} />
-      {archive ? (
-        <ArchiveView stages={stages} deals={deals} clients={props.clients} />
+      <ViewSwitch
+        stages={stages}
+        deals={deals}
+        archive={archive}
+        withdrawnView={withdrawnView}
+        withdrawnCount={props.withdrawnDeals.length}
+        activeCode={active?.code ?? null}
+      />
+      <UnplacedNote stages={stages} deals={deals} />
+      {withdrawnView ? (
+        <WithdrawnView
+          deals={props.withdrawnDeals}
+          withdrawals={props.withdrawals}
+          clients={props.clients}
+          canWithdraw={props.canWithdraw}
+        />
+      ) : archive ? (
+        <ArchiveView
+          stages={stages}
+          deals={deals}
+          clients={props.clients}
+          roomDealIds={props.roomDealIds}
+          canWithdraw={props.canWithdraw}
+        />
       ) : active ? (
-        // The preview sits BESIDE the board rather than over it, so the column
-        // a file came from stays visible while it is being read.
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <div className="min-w-0 flex-1">
-            <PhaseBody phase={active} {...props} />
-          </div>
-          {selected && (
-            <DealPreview
-              deal={selected}
-              stage={stages.find(st => st.code === selected.stage_code) ?? null}
-              phase={
-                ordered.find(
-                  ph => ph.code === stages.find(st => st.code === selected.stage_code)?.phase,
-                ) ?? null
-              }
-              events={props.events}
-              clients={props.clients}
-              conditions={props.conditions}
-              milestoneTypes={props.milestoneTypes}
-              milestones={props.milestones}
-              nowISO={props.nowISO}
-              closeHref={href({ phase: props.activePhase, collapsed: props.collapsedRaw })}
-              // Handoff 42: the preview is a card's worth of detail; the file
-              // page is where the file is worked. A link, never a control —
-              // this panel stays read-only.
-              fileHref={`/portal/admin/deals-beta/${encodeURIComponent(selected.id)}`}
-            />
-          )}
-        </div>
+        <PhaseBody phase={active} {...props} />
       ) : (
         <Panel>No phases are configured, so there is nothing to show. Phases live in rec.phases.</Panel>
       )}
@@ -353,33 +385,79 @@ function ViewSwitch({
   stages,
   deals,
   archive,
+  withdrawnView,
+  withdrawnCount,
   activeCode,
 }: {
   stages: StageLike[]
   deals: DealLike[]
   archive: boolean
+  withdrawnView: boolean
+  withdrawnCount: number
   activeCode: string | null
 }) {
   const count = archiveRows(stages, deals).length
+  const on = 'border-navy bg-navy text-white'
+  const off = 'border-cool-300 bg-white text-cool-700'
   return (
-    <div className="mb-4 flex items-center gap-2">
+    <div className="mb-4 flex flex-wrap items-center gap-2">
       <Link
         href={href({ phase: activeCode })}
         className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${
-          archive ? 'border-cool-300 bg-white text-cool-700' : 'border-navy bg-navy text-white'
+          archive || withdrawnView ? off : on
         }`}
       >
         Board
       </Link>
       <Link
         href={href({ view: 'archive' })}
-        className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${
-          archive ? 'border-navy bg-navy text-white' : 'border-cool-300 bg-white text-cool-700'
-        }`}
+        className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${archive ? on : off}`}
       >
         Archive <span className="tabular-nums">{count}</span>
       </Link>
+      {/* THE COUNT IS ALWAYS HERE, INCLUDING AT ZERO. A withdrawn record leaves
+          the columns and the totals, so this number is the only place the book
+          can be read against what left it. Hiding it when empty would mean the
+          one screen that explains a shrinking board appears only after the
+          board has already shrunk. */}
+      <Link
+        href={href({ view: 'withdrawn' })}
+        className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${withdrawnView ? on : off}`}
+        data-testid="beta-view-withdrawn"
+      >
+        Withdrawn <span className="tabular-nums">{withdrawnCount}</span>
+      </Link>
     </div>
+  )
+}
+
+/** RECORDS THAT SIT IN NO VIEW, NAMED RATHER THAN QUIETLY ABSENT.
+ *
+ *  A record only appears somewhere if its stage belongs to a phase (the board)
+ *  or is terminal (the Archive). 33 of the 160 carry a NULL `stage_code` and so
+ *  render in neither, which also means the Remove control cannot reach them.
+ *  That is a pre-existing property of the record layer rather than anything
+ *  this session introduced, but the insights strip counts all 160, so leaving
+ *  it unsaid makes those tiles read as covering a book that is fully on screen.
+ *  Counted from the same rows the views use, so the number cannot drift. */
+function unplacedCount(stages: StageLike[], deals: DealLike[]): number {
+  const placed = new Set(
+    stages
+      .filter(s => s.phase !== null || (s.category ?? '').startsWith('terminal_'))
+      .map(s => s.code),
+  )
+  return deals.filter(d => !d.stage_code || !placed.has(d.stage_code)).length
+}
+
+function UnplacedNote({ stages, deals }: { stages: StageLike[]; deals: DealLike[] }) {
+  const n = unplacedCount(stages, deals)
+  if (n === 0) return null
+  return (
+    <p className="mb-4 rounded-[9px] border border-cool-200 bg-white px-4 py-2.5 text-sm text-cool-700">
+      <span className="font-semibold tabular-nums">{n}</span> of these records carry no stage at all,
+      so they appear in none of the three views above and cannot be removed from here. The tiles at
+      the top still count them. This is a gap in the record layer rather than a filter on this page.
+    </p>
   )
 }
 
@@ -469,6 +547,10 @@ function StageColumn(
 ) {
   const { phase, stage, index, total, inColumn, showCounts, collapsed, collapsedRaw, activePhase } =
     props
+  // Resolved on the page with the same resolveRoom the file page uses, so the
+  // refusal posture on a card and the refusal in the route agree by
+  // construction rather than by two people remembering the same rule.
+  const rooms = new Set(props.roomDealIds)
   const skin = columnSkin(phase.code, index, total)
   const totals = columnTotals(inColumn)
   const gate = isGate(stage)
@@ -563,26 +645,43 @@ function StageColumn(
             // Calm. An empty column is a fact about the week, not a failure.
             <p className="px-1 py-3 text-xs text-cool-500">No files in this stage.</p>
           ) : (
-            inColumn.map(d => (
-              <DealCard
-                key={d.id}
-                deal={d}
-                events={props.events}
-                clients={props.clients}
-                tags={props.tags}
-                milestoneTypes={props.milestoneTypes}
-                milestones={props.milestones}
-                nowISO={props.nowISO}
-                selected={(d.file_ref ?? d.id) === props.selectedRef}
-                // Clicking a card selects it in the URL; clicking the selected
-                // one again clears it. Soft navigation, no page load, no state.
-                href={href({
-                  phase: props.activePhase,
-                  collapsed: props.collapsedRaw,
-                  deal: (d.file_ref ?? d.id) === props.selectedRef ? null : d.file_ref ?? d.id,
-                })}
-              />
-            ))
+            inColumn.map(d => {
+              const sourceId = typeof d.source_id === 'string' ? d.source_id : null
+              const posture = feedPosture({
+                finmoApplicationId:
+                  typeof d.finmo_application_id === 'string' ? d.finmo_application_id : null,
+                hasRoom: rooms.has(d.id),
+              })
+              return (
+                <DealCard
+                  key={d.id}
+                  deal={d}
+                  events={props.events}
+                  clients={props.clients}
+                  tags={props.tags}
+                  milestoneTypes={props.milestoneTypes}
+                  milestones={props.milestones}
+                  nowISO={props.nowISO}
+                  selected={(d.file_ref ?? d.id) === props.selectedRef}
+                  // Handoff 50: straight to the file. The preview panel it used
+                  // to open was a step between Michael and the thing he wanted.
+                  href={`/portal/admin/deals-beta/${encodeURIComponent(d.id)}`}
+                  // A record with no source id cannot be keyed by the loader, so
+                  // there is nothing to withdraw and no control is offered.
+                  // Every one of the 160 rows carries one today.
+                  remove={
+                    props.canWithdraw && sourceId ? (
+                      <RemoveRecordControl
+                        sourceId={sourceId}
+                        fileRef={d.file_ref}
+                        posture={posture}
+                        variant="card"
+                      />
+                    ) : undefined
+                  }
+                />
+              )
+            })
           )}
         </div>
       )}
@@ -637,19 +736,149 @@ function SourceList({ phase, sources }: { phase: PhaseLike; sources: AttractSour
   )
 }
 
+// ─── The Withdrawn view ─────────────────────────────────────────────────────
+//
+// WHERE MICHAEL WILL BE STANDING WHEN HE GETS ONE WRONG. That is the whole job
+// of this view, so every row states who removed it, when, and the reason they
+// typed, and carries the control that puts it back. A reversal needs its own
+// reason, because "why did this come back" is as worth answering later as "why
+// did it go away".
+//
+// It reads from the FULL population rather than the board's, because a record
+// can be withdrawn from any stage including a terminal one. A withdrawn record
+// appears here and nowhere else: the Archive filters it out too, so no row is
+// ever in two views claiming two things.
+
+function WithdrawnView({
+  deals,
+  withdrawals,
+  clients,
+  canWithdraw,
+}: {
+  deals: DealLike[]
+  withdrawals: WithdrawalLike[]
+  clients: DealClientLike[]
+  canWithdraw: boolean
+}) {
+  const index = indexWithdrawals(withdrawals)
+
+  return (
+    <section>
+      <div className="mb-3">
+        <h2 className="font-heading text-navy">Withdrawn</h2>
+        <p className="mt-0.5 max-w-4xl text-sm text-cool-600">
+          Records a person decided the loader should stop recreating. Nothing here was deleted. Each
+          row is still in the record layer, still readable, and carries the decision and the reason
+          it was made. Putting one back releases the loader to recreate it on its next run.
+        </p>
+      </div>
+
+      {deals.length === 0 ? (
+        <div className="rounded-[9px] border border-cool-200 bg-white p-5">
+          <p className="text-sm text-cool-700">
+            No records have been withdrawn. When one is, it leaves the phase columns and the totals
+            and appears here with the reason it was removed.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-[9px] border border-cool-200 bg-white">
+          {deals.map(deal => {
+            const w = withdrawalFor(
+              {
+                source_system: typeof deal.source_system === 'string' ? deal.source_system : null,
+                source_id: typeof deal.source_id === 'string' ? deal.source_id : null,
+              },
+              index,
+            )
+            const borrowers = borrowersFor(deal, clients)
+            const amount = fmtAmount(deal.mortgage_amount)
+            const type = purposeLabel(deal.deal_type)
+            const t = typeSkin(deal.deal_type)
+            return (
+              <div
+                key={deal.id}
+                className="border-b border-cool-100 px-4 py-3 last:border-b-0"
+                data-testid={`beta-withdrawn-${deal.file_ref ?? deal.id}`}
+              >
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <Link
+                    href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
+                    className="font-heading text-[11px] tabular-nums text-cool-600 underline underline-offset-2 hover:text-navy"
+                  >
+                    {deal.file_ref ?? 'no file ref'}
+                  </Link>
+                  {borrowers.length > 0 && (
+                    <span className="text-sm text-navy">
+                      {borrowers.map(b => b.name).join(', ')}
+                    </span>
+                  )}
+                  {type && t && (
+                    <span
+                      className="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ color: t.fg, borderColor: t.border, background: t.bg }}
+                    >
+                      {type}
+                    </span>
+                  )}
+                  {amount && (
+                    <span className="ml-auto font-heading text-sm text-navy tabular-nums">
+                      {amount}
+                    </span>
+                  )}
+                </div>
+
+                {/* The identity on the row is the one the workbench recorded off
+                    the verified session at decision time. Nothing here supplies
+                    it and nothing here could. */}
+                <p className="mt-1 text-[11px] text-cool-600">
+                  {w?.instructed_by ? `Removed by ${w.instructed_by}` : 'Removed'}
+                  {w?.instructed_on ? ` on ${w.instructed_on}` : ''}
+                </p>
+                {w?.reason && (
+                  <p className="mt-0.5 max-w-prose text-sm text-cool-700">
+                    <span className="text-cool-500">Reason given: </span>
+                    {w.reason}
+                  </p>
+                )}
+
+                {canWithdraw && w && (
+                  <div className="mt-2">
+                    <ReverseWithdrawalControl withdrawal={w} fileRef={deal.file_ref} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ─── The Archive ────────────────────────────────────────────────────────────
 
 function ArchiveView({
   stages,
   deals,
   clients,
+  roomDealIds,
+  canWithdraw,
 }: {
   stages: StageLike[]
   deals: DealLike[]
   clients: DealClientLike[]
+  roomDealIds: string[]
+  canWithdraw: boolean
 }) {
   const rows = archiveRows(stages, deals)
   const outcomes = terminalStages(stages)
+  // AN ARCHIVED RECORD IS STILL A RECORD, AND SOME OF THEM DO NOT BELONG IN THE
+  // BOOK EITHER. Verified live 2026-08-05: 4 of the 38 no-reference records sit
+  // here in lost_to_competition rather than on the board, so a Remove control
+  // that existed only on cards would have left Michael no way to clear them
+  // short of typing a URL. The row also links to the file page now, which it
+  // never did.
+  const rooms = new Set(roomDealIds)
 
   return (
     <section>
@@ -683,35 +912,56 @@ function ArchiveView({
             const amount = fmtAmount(deal.mortgage_amount)
             const type = purposeLabel(deal.deal_type)
             const t = typeSkin(deal.deal_type)
+            const sourceId = typeof deal.source_id === 'string' ? deal.source_id : null
+            const posture = feedPosture({
+              finmoApplicationId:
+                typeof deal.finmo_application_id === 'string' ? deal.finmo_application_id : null,
+              hasRoom: rooms.has(deal.id),
+            })
             return (
               <div
                 key={deal.id}
-                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-cool-100 px-4 py-3 last:border-b-0"
+                className="border-b border-cool-100 px-4 py-3 last:border-b-0"
                 data-testid={`beta-archive-${deal.file_ref ?? deal.id}`}
               >
-                {/* The outcome leads the row: it decides whether this person is
-                    worth contacting again. */}
-                <span className="min-w-[13rem] font-heading text-sm font-semibold text-navy">
-                  {stage.label}
-                </span>
-                <span className="font-heading text-[11px] tabular-nums text-cool-600">
-                  {deal.file_ref ?? 'no file ref'}
-                </span>
-                {borrowers.length > 0 && (
-                  <span className="text-sm text-navy">{borrowers.map(b => b.name).join(', ')}</span>
-                )}
-                {type && t && (
-                  <span
-                    className="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-                    style={{ color: t.fg, borderColor: t.border, background: t.bg }}
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  {/* The outcome leads the row: it decides whether this person is
+                      worth contacting again. */}
+                  <span className="min-w-[13rem] font-heading text-sm font-semibold text-navy">
+                    {stage.label}
+                  </span>
+                  <Link
+                    href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
+                    className="font-heading text-[11px] tabular-nums text-cool-600 underline underline-offset-2 hover:text-navy"
                   >
-                    {type}
-                  </span>
-                )}
-                {amount && (
-                  <span className="ml-auto font-heading text-sm text-navy tabular-nums">
-                    {amount}
-                  </span>
+                    {deal.file_ref ?? 'no file ref'}
+                  </Link>
+                  {borrowers.length > 0 && (
+                    <span className="text-sm text-navy">{borrowers.map(b => b.name).join(', ')}</span>
+                  )}
+                  {type && t && (
+                    <span
+                      className="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ color: t.fg, borderColor: t.border, background: t.bg }}
+                    >
+                      {type}
+                    </span>
+                  )}
+                  {amount && (
+                    <span className="ml-auto font-heading text-sm text-navy tabular-nums">
+                      {amount}
+                    </span>
+                  )}
+                </div>
+                {canWithdraw && sourceId && (
+                  <div className="-mx-3">
+                    <RemoveRecordControl
+                      sourceId={sourceId}
+                      fileRef={deal.file_ref}
+                      posture={posture}
+                      variant="card"
+                    />
+                  </div>
                 )}
               </div>
             )

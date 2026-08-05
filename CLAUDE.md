@@ -300,6 +300,71 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### Withdrawing a record, and the card click (handoff 50, 2026-08-05)
+- **THE READ PATH ALWAYS EXISTED. THE 404 WAS A MISSING HEADER.** Handoff 48
+  mirrored `rec.withdraw` and correctly declined to build against it, because a
+  withdrawn record could not be read back and so could never be reversed. That
+  conclusion came from a 404 on `rec.source_decisions`, and the 404 was the
+  absent `Accept-Profile: rec` header: without it PostgREST looks in `public`,
+  finds nothing, and answers exactly as it would for a table nobody exposed.
+  The grant has been in place since migration 0073. **If a rec table 404s,
+  suspect the header before the grant.**
+- **Read:** `lib/underwriting.ts getRecWithdrawals(agentId)`. FOUR filters, all
+  load-bearing: `entity_type=eq.deal`, `decision=eq.record_withdrawn`,
+  `status=eq.active`, plus agent scoping. **`status` most of all** — a reversal
+  sets the row to `superseded` rather than removing it, so dropping that filter
+  renders every reversed record as withdrawn permanently. The row's `id` is the
+  `decisionId` the reverse endpoint takes and **this query is the only source
+  for it**: the gates API exposes NO GET on this resource (405, verified live).
+- **Write:** two proxies under `app/api/portal/admin/gates/rec/withdrawals/`
+  (POST, and `[decisionId]/reverse`), both on `rec.withdraw`, both through
+  `lib/gates.ts` `withdrawRecRecord` / `reverseRecWithdrawal`.
+  **`instructed_by` and `instructed_on` are structurally absent from the body**
+  and must stay so (guardrail 19): the human comes from the verified session at
+  the far end and the date from the server clock. The schema is strict, so
+  sending either is a 422 rather than a silently ignored field.
+- **MATCHING IS ON `source_system` + `source_id`**, which `rec.deals` carries as
+  its own columns on all 160 rows, so there is NO join. Do not route this
+  through `rec.source_aliases`: it covers 124 rows and would leave the rest of
+  the board unable to show its own state. `source_system` is optional on the
+  write, so a decision naming none matches on `source_id` alone (unique across
+  the whole book, verified).
+- **THE REFUSAL KEYS ON `finmo_application_id`, NEVER ON `source_system`.**
+  `source_system='finmo'` covers 2 of 160 records; `finmo_application_id`
+  covers **106**, including **17 of the 38** no-reference records. A withdrawal
+  stops the LIVE FINMO RECEIVER as well as the CSV loader, so keying on
+  source_system would stay silent on all 17 while cutting their feed. A live
+  feed AND an open workbench room is **REFUSED**, enforced in the ROUTE and not
+  only on the button: posted at directly with a forged `hasRoom:false` it still
+  answers 409. A room with no live feed is a caution (not in the brief, not
+  refused, and today the populations coincide exactly). A workbench read that
+  FAILS refuses the withdrawal rather than assuming no room.
+- **ZERO of the 38 no-reference records carry a workbench room**, so the
+  refusal never blocks the sitting it was written for. It fires on the 9
+  room-bearing files on the board.
+- **A withdrawn record leaves the phase columns, the Archive AND the insights**
+  — a weighted total that kept counting a removed record would be a forecast
+  that lies — and appears in the **Withdrawn view alone**, never in two views.
+  Its count renders beside Archive **even at zero**, because that count is the
+  only place a shrinking book can be read against what left it.
+- **NOTHING SAYS DELETE**, enforced by `tests/rec-withdrawal.test.ts` (a
+  negated use like "the record is not deleted" is the point, not a breach).
+  The reason is REQUIRED, never prefilled, never carried between records, and
+  an over-long one is REFUSED rather than truncated. Arming is by timestamp at
+  tap time, the committed-terms pattern.
+- **THE LIVE ROUND TRIP IS NOT PROVEN AND CANNOT BE FROM LOCAL DEV.** The dev
+  Clerk instance carries ZERO JWT templates, so no gates token mints and
+  `gateCall` returns its 401 auth copy before any network request (confirmed:
+  no `[gates] POST` line in the server log). Everything up to that boundary is
+  proven, including all six route refusals. **Budget production for the write
+  proof.** Book state at close: 160 rows, 3 `source_decisions` all
+  `field_corrected`, **zero active withdrawals**, nothing deleted.
+- **THE CARD CLICK OPENS THE FILE.** `DealPreview.tsx` is left in the repo
+  **unreferenced**, with its read-only grep in `tests/phase-model.test.ts`
+  still pointed at it, so restoring the panel is one line. `selectedRef` now
+  only rings the card you came back from. Board client JS 195 B -> 438 B, file
+  page 197 B -> 216 B.
+
 ### The copy gate now covers Deals (Beta), and the terms card says it is final (handoff 46, 2026-08-05)
 - **THE COPY RULES APPLY TO EVERYTHING RENDERED IN THE PORTAL**, not only client
   copy: no em dash, no en dash, no exclamation point, no semicolon in prose.
@@ -527,13 +592,17 @@ Supersedes the two sections below. `lib/phase-model.ts` (rules) +
   only", and `tests/phase-model.test.ts` asserts both halves on the imports
   (not on mentions — the headers explain the rule and name both tokens).
   **Green = footers and the insights strip. Lime = cards. Never the reverse.**
-- **The preview panel** (`?deal=<file_ref>`) is a server component like the
-  rest: selection rides searchParams, so opening and closing is a Next soft
-  navigation with no page load and the board stays at **195 B** of client JS.
-  Read-only with a close control and nothing else — a test greps it for form,
-  button, input, select, textarea, onClick and onSubmit. It shows ONE file, so
-  it sits on the card side of the zone and carries no projection green;
-  probability is stated as a plain percentage there.
+- **The preview panel** (`?deal=<file_ref>`) — **RETIRED AS A BEHAVIOUR IN
+  HANDOFF 50, still present as a file.** It was a server component whose
+  selection rode searchParams, read-only with a close control and nothing else.
+  Michael opened it and clicked straight through to the file every time, so the
+  card now links to the file page directly and this panel is no longer
+  rendered. `DealPreview.tsx` is deliberately LEFT IN THE REPO unreferenced,
+  and its read-only grep in `tests/phase-model.test.ts` still points at it, so
+  restoring the old behaviour is one line rather than a rebuild. The two
+  figures in the bullets around this one are also superseded: the board is
+  **438 B** of client JS, not 195 B, because the Remove control crossed the
+  client boundary.
 - **CARD TAGS ARE THREE SCALAR COLUMNS AND MUST STAY THAT WAY** (field,
   operator, value). They cannot express a conjunction, a join or a time
   window; wanting one is a record-layer change, never a rules engine here.

@@ -551,6 +551,79 @@ export function decideCommitmentTerms(
   )
 }
 
+// ─── Withdrawing a record from the record layer (handoff 50) ───────────────
+//
+// A WITHDRAWAL IS A DECISION, NEVER A DELETE. The gate writes a row to
+// `rec.source_decisions` saying a human instructed that the loader stop
+// recreating this record. The rec.deals row is untouched, and a reversal
+// supersedes the decision rather than removing it. Nothing on this path can
+// delete anything, here or at the other end.
+//
+// `instructed_by` AND `instructed_on` ARE STRUCTURALLY ABSENT FROM THE BODY,
+// and that is the point rather than an omission. The human comes from the
+// verified session the token carries and the date comes from the server clock
+// (guardrail 19: a machine may never write a human's identity). The gate's
+// schema is strict, so sending either is a 422 rather than a silently ignored
+// field. Do not add them, and do not "helpfully" pass a name through.
+//
+// `source_id` is the id the LOADER keys on (rec.deals.source_id), never the rec
+// row's own uuid. Getting that wrong writes a decision about a record that does
+// not exist, which reads as a successful withdrawal and does nothing.
+
+export interface RecWithdrawalBody {
+  source_system?: string
+  source_id: string
+  entity_type: string
+  reason: string
+}
+
+export interface RecWithdrawalResponse {
+  decisionId: string
+  /** Null is NORMAL and not an error: a withdrawal has to outlive the row it is
+   *  about, so the decision is not required to point at a live entity. */
+  entityId: string | null
+  instructedBy?: string
+  instructedOn?: string
+  auditId?: string
+}
+
+export function withdrawRecRecord(
+  body: RecWithdrawalBody,
+  token: string | null,
+): Promise<GateResult<RecWithdrawalResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('withdrawRecRecord'))
+  const payload: Record<string, unknown> = {
+    source_id: body.source_id,
+    entity_type: body.entity_type,
+    reason: body.reason,
+  }
+  // Sent only when the record actually names one. The field is optional on the
+  // contract and an empty string is not a system.
+  if (body.source_system && body.source_system.trim()) {
+    payload.source_system = body.source_system.trim()
+  }
+  return gateCall('/api/gates/rec/withdrawals', payload, token)
+}
+
+/** Reverse one withdrawal. `decisionId` is the withdrawal's OWN id, read back
+ *  through lib/underwriting.ts getRecWithdrawals — the gates API exposes no GET
+ *  on this resource, so that query is the only source for it.
+ *
+ *  Its own reason is required, for the same reason the withdrawal's was: a
+ *  reversal is a second decision and deserves its own record. */
+export function reverseRecWithdrawal(
+  decisionId: string,
+  reason: string,
+  token: string | null,
+): Promise<GateResult<RecWithdrawalResponse>> {
+  if (isDemoMode()) return Promise.reject(new DemoWriteBlocked('reverseRecWithdrawal'))
+  return gateCall(
+    `/api/gates/rec/withdrawals/${encodeURIComponent(decisionId)}/reverse`,
+    { reason },
+    token,
+  )
+}
+
 // Edit-then-approve ONE drafted condition (before the list is approved, or a
 // single correction). Only the edited fields ride; provenance is untouchable.
 export interface ConditionApproveBody {

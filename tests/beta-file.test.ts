@@ -203,12 +203,21 @@ describe('THE WRITE GUARANTEE: only through a gate proxy, with a human actor', (
       'conditions.recompute',
       'commitment.upload',
       'approvals.commitment_terms.decide',
+      // Handoff 50. THE ONE KEY THIS SURFACE GATES THAT THE DEAL ROOM DOES NOT,
+      // because the record layer is this surface's own subject and the deal
+      // room has no notion of a rec record at all. It is still a MIRRORED
+      // cross-repo contract name enforced again by the gates API, and still
+      // admin only on both sides, so it obeys the rule this test is really
+      // about: no control on this page invents an authority key of its own.
+      'rec.withdraw',
     ]) {
       expect(page, `${key} must gate its control here as it does in the room`).toContain(`'${key}'`)
     }
     // ...and every one is additionally hidden in demo, exactly as the room does.
+    // The count is asserted rather than a floor, so ADDING a control forces
+    // somebody to come back here and say which one it is.
     const gated = page.match(/can\(user, '[a-z_.]+'\) && !isDemoMode\(\)/g) ?? []
-    expect(gated.length).toBe(5)
+    expect(gated.length).toBe(6)
   })
 })
 
