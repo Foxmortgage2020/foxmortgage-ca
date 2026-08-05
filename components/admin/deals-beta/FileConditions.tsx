@@ -125,8 +125,15 @@ export default function FileConditions({
 
   return (
     <section className="mt-4" data-testid="beta-file-conditions">
+      {/* AN HONEST HEADLINE (handoff 55). "0 open of 0" above twelve pending
+          rows contradicted the page: the open count filters on approved, which
+          is right for the working checklist and wrong as a headline while a
+          set is pending. While a set is pending the header says so. Once
+          approved, the open-of-approved count returns. */}
       <h2 className="font-heading text-sm font-semibold text-navy">
-        Conditions ({open} open of {approved.length})
+        {pending.length > 0
+          ? `Conditions (${pending.length} pending your decision)`
+          : `Conditions (${open} open of ${approved.length})`}
       </h2>
       <div className="mt-3">
         <ConditionsChecklist
@@ -141,7 +148,11 @@ export default function FileConditions({
           hasRealCommitment={hasRealCommitment}
           todayYMD={todayYMD}
           userId={userId}
-          emptyState={emptyStateFor(hasRealCommitment)}
+          // While a set is PENDING, no override: the checklist's own
+          // pending-aware line renders, because the failed-extraction variant
+          // would be FALSE under a pending set — the set IS the extraction
+          // succeeding. Caught live on F060561 (handoff 55).
+          emptyState={pending.length > 0 ? undefined : emptyStateFor(hasRealCommitment)}
         />
       </div>
     </section>

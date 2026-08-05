@@ -69,6 +69,53 @@ export function canVerify(input: { status: string; presence: string | null }): b
   return input.presence === 'obtained' || input.presence === 'requested' || input.presence === 'needs_input'
 }
 
+// ─── Ordering (handoff 55) ───────────────────────────────────────────────────
+
+/** Numeric-aware compare for condition numbers, which are STRINGS in the
+ * schema (`cond_number: string | null`) because a lender may number a
+ * condition "7a". Sorting them as text renders 1, 10, 11, 12, 2 — the defect
+ * Michael photographed. Rules: rows whose number starts with an integer sort
+ * by that integer (full-string compare breaks ties, so 7 < 7a < 8), numbered
+ * rows sort before unnumbered prose numbers, and rows with no number at all
+ * sort LAST, in their incoming order. */
+export function compareCondNumber(a: string | null, b: string | null): number {
+  const pa = a?.trim() ?? ''
+  const pb = b?.trim() ?? ''
+  if (!pa && !pb) return 0
+  if (!pa) return 1
+  if (!pb) return -1
+  const na = /^\d+/.exec(pa)
+  const nb = /^\d+/.exec(pb)
+  if (na && nb) {
+    const d = parseInt(na[0], 10) - parseInt(nb[0], 10)
+    // NUMERIC tie-break, not lexicographic: '1.10' must follow '1.2', which is
+    // the photographed defect reproduced one level down. numeric:true keeps
+    // the '7' < '7a' invariant while comparing digit runs as numbers.
+    return d !== 0 ? d : pa.localeCompare(pb, undefined, { numeric: true })
+  }
+  if (na) return -1
+  if (nb) return 1
+  return pa.localeCompare(pb, undefined, { numeric: true })
+}
+
+/** A sorted COPY in condition-number order. Applied at render time in the
+ * checklist, on both the pending set and the working list, so the fetchers'
+ * own orders (due-date for the approved read, text order for the pending one)
+ * never reach the screen as the reading order. */
+export function sortConditions<T extends { condNumber: string | null }>(rows: readonly T[]): T[] {
+  return rows.slice().sort((x, y) => compareCondNumber(x.condNumber, y.condNumber))
+}
+
+// ─── Ownership flags (handoff 55) ────────────────────────────────────────────
+
+/** A condition the lender did not clearly assign. The extractor categorised it
+ * general_verification rather than a named owner's deliverable, so it sits in
+ * the broker list — where it will be SEEN — carrying this flag, instead of in
+ * a section that is not worked. */
+export function isUnassignedOwnership(category: string | null | undefined): boolean {
+  return category === 'general_verification'
+}
+
 // ─── Owner grouping (broker-first view) ──────────────────────────────────────
 
 // Michael performs BROKER conditions; those lead his view and the board count
