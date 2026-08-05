@@ -52,8 +52,15 @@ import {
   getRecPhases,
   getRecStageEvents,
   getRecStages,
+  getRecWithdrawals,
   isPermissionRefusal,
 } from '@/lib/underwriting'
+import {
+  feedPosture,
+  indexWithdrawals,
+  postureNotice,
+  withdrawalFor,
+} from '@/lib/rec-withdrawal'
 import { groupTermsByDocument } from '@/lib/commitment-terms'
 import { findPhase } from '@/lib/phase-model'
 import {
@@ -74,6 +81,10 @@ import FileConditions from '@/components/admin/deals-beta/FileConditions'
 import FileCommitment from '@/components/admin/deals-beta/FileCommitment'
 import FileClient from '@/components/admin/deals-beta/FileClient'
 import TabEmpty from '@/components/admin/deals-beta/TabEmpty'
+import {
+  RemoveRecordControl,
+  WithdrawnStrip,
+} from '@/components/admin/deals-beta/RecordWithdrawal'
 
 export const dynamic = 'force-dynamic'
 
@@ -109,7 +120,7 @@ export default async function BetaFilePage({
     return <Unavailable message="The workbench is not connected right now. See Status for details." />
   }
 
-  const [dealsR, stagesR, phasesR, eventsR, clientsR, milestonesR, typesR, mortgagesR, propsR, roomsR, clientDetailR] =
+  const [dealsR, stagesR, phasesR, eventsR, clientsR, milestonesR, typesR, mortgagesR, propsR, roomsR, clientDetailR, withdrawalsR] =
     await Promise.all([
       getRecDeals(agentId),
       getRecStages(),
@@ -124,6 +135,8 @@ export default async function BetaFilePage({
       getDealsSummary(agentId),
       // Handoff 45: full contact detail for the Client tab.
       getRecDealClientDetail(agentId),
+      // Handoff 50: whether this record has been withdrawn, and by whom.
+      getRecWithdrawals(agentId),
     ])
 
   if (!dealsR.configured || !dealsR.ok) {
@@ -143,6 +156,17 @@ export default async function BetaFilePage({
   const propertyLinks = propsR.configured && propsR.ok ? propsR.data : []
   const rooms = roomsR.configured && roomsR.ok ? roomsR.data : []
   const clientDetail = clientDetailR.configured && clientDetailR.ok ? clientDetailR.data : []
+  // THIS READ FAILS CLOSED, and the asymmetry is deliberate. An empty result
+  // and a failed read are indistinguishable downstream, and both roads out of
+  // an empty array are wrong in the same direction: a withdrawn record renders
+  // as an ordinary one on all eight tabs, AND the Remove control is re-offered
+  // on a record that has already been withdrawn. The withdrawal route one
+  // module over already refuses rather than assuming when its workbench read
+  // fails; this is the same rule on the read side. The page still renders (an
+  // auxiliary read should not take a whole file down), but the control is
+  // suppressed and the gap is stated.
+  const withdrawalsOk = withdrawalsR.configured && withdrawalsR.ok
+  const withdrawals = withdrawalsOk ? withdrawalsR.data : []
 
   const stage = stages.find(s => s.code === deal.stage_code) ?? null
   const phase = findPhase(phases, stage?.phase ?? null)
@@ -216,6 +240,22 @@ export default async function BetaFilePage({
   const canRecompute = can(user, 'conditions.recompute') && !isDemoMode()
   const canUploadCommitment = can(user, 'commitment.upload') && !isDemoMode()
   const canDecideTerms = can(user, 'approvals.commitment_terms.decide') && !isDemoMode()
+  // Handoff 50: the ONE key this surface adds a control for, admin only and a
+  // cross-repo contract name. Hidden in demo like every other decision control.
+  const canWithdraw = can(user, 'rec.withdraw') && !isDemoMode()
+
+  // ── Withdrawal state (handoff 50) ─────────────────────────────────────────
+  // The room is resolved above, so the refusal posture here is computed from
+  // exactly the same facts the route recomputes server-side before it forwards
+  // anything. The button and the gate cannot disagree.
+  const withdrawal = withdrawalFor(
+    { source_system: deal.source_system, source_id: deal.source_id },
+    indexWithdrawals(withdrawals),
+  )
+  const posture = feedPosture({
+    finmoApplicationId: deal.finmo_application_id,
+    hasRoom: room !== null,
+  })
 
   // No flag mechanism exists in the record layer yet; the strip is built and
   // stays empty rather than being omitted (see lib/beta-file.ts).
@@ -254,6 +294,12 @@ export default async function BetaFilePage({
       </header>
 
       <FileFlagStrip flags={flags} />
+
+      {/* A withdrawn record is an INTERRUPTING fact, so it sits under the
+          header beside the flag strip and is visible from every tab. Finding it
+          on one tab would mean seven tabs quietly showing a record as ordinary
+          when it is not. */}
+      {withdrawal && <WithdrawnStrip withdrawal={withdrawal} />}
 
       <div className="mt-4">
         <FileTabs active={active} hrefFor={hrefFor} phaseCode={phase?.code ?? null} badges={badges} />
@@ -311,6 +357,54 @@ export default async function BetaFilePage({
       )}
 
       {!tabDef.built && <TabEmpty tab={tabDef} roomHref={roomHref} />}
+
+      {/* ── Removing this record (handoff 50) ────────────────────────────────
+          BELOW THE TABS, ON PURPOSE, AND OUTSIDE THEM. Removal is a fact about
+          the whole file rather than about one tab, so it belongs to no tab and
+          hides behind none. It sits at the foot because the state interrupts
+          from the top and the control should be reached deliberately: nobody
+          should meet a destructive control before they have read the file.
+
+          Already withdrawn: no second control here. Reversing happens in the
+          Withdrawn view on the board, which is where Michael will be standing
+          when he wants one back, and one door per decision is how the audit
+          trail stays legible. */}
+      {canWithdraw && !withdrawal && deal.source_id && (
+        <section className="mt-8 border-t border-cool-200 pt-4" data-testid="beta-remove-section">
+          <h2 className="font-heading text-sm text-navy">Remove this record</h2>
+          <p className="mt-1 max-w-prose text-sm text-cool-700">
+            For a record that should not be in the book at all: a migration artifact, a duplicate,
+            or a file that was never real.
+          </p>
+          {/* The read that would have told this page the record is already
+              withdrawn did not answer. Offering the control here would invite a
+              second withdrawal on a record that may already carry one. */}
+          {!withdrawalsOk && (
+            <p
+              className="mt-2 max-w-prose rounded-[9px] border border-amber-200 bg-amber-50 p-3 text-sm font-ui text-amber-900"
+              data-testid="beta-withdrawal-state-unknown"
+            >
+              Whether this record has already been removed could not be checked just now, so the
+              control is not offered. Reload in a moment.
+            </p>
+          )}
+          {withdrawalsOk && posture === 'refused' && (
+            <p className="mt-2 max-w-prose rounded-[9px] border border-amber-200 bg-amber-50 p-3 text-sm font-ui text-amber-900">
+              {postureNotice(posture)}
+            </p>
+          )}
+          {withdrawalsOk && posture !== 'refused' && (
+            <div className="mt-2">
+              <RemoveRecordControl
+                sourceId={deal.source_id}
+                fileRef={deal.file_ref}
+                posture={posture}
+                variant="file"
+              />
+            </div>
+          )}
+        </section>
+      )}
     </Shell>
   )
 }

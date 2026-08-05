@@ -53,6 +53,18 @@ function scannedFiles(): string[] {
   out.push('components/admin/CommitmentTermsCard.tsx')
   out.push('components/admin/ConditionsChecklist.tsx')
   out.push('components/admin/CommitmentUploader.tsx')
+  // THE BOARD ORCHESTRATOR, added handoff 50. It sits in components/admin/
+  // rather than components/admin/deals-beta/, so the directory walk above has
+  // always missed it — and it renders the phase descriptions, the Archive
+  // explanation, the Withdrawn view and every empty state on the board. The
+  // write-guarantee walk in tests/beta-file.test.ts already names it explicitly
+  // for exactly this reason; handoff 46 copied that walk's shape without the
+  // line, so the two scans disagreed about what the beta surface is. They no
+  // longer do.
+  out.push('components/admin/DealsBetaBoard.tsx')
+  // The withdrawal rules module owns the explainer, the permanence copy and all
+  // three posture notices, which render on both surfaces.
+  out.push('lib/rec-withdrawal.ts')
   return out
 }
 

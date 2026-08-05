@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Record withdrawal',
+    title: 'The Remove control, the Withdrawn view, and the card click',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'THE BLOCKER HANDOFF 48 STOPPED ON WAS NEVER A MISSING GRANT. It concluded there was no way to read a withdrawal back, off a 404 on rec.source_decisions. The 404 was the missing Accept-Profile: rec header, which makes PostgREST look in the public schema and answer exactly as it would for a table nobody exposed. The table has been readable since migration 0073. lib/underwriting.ts getRecWithdrawals is the read, and it carries the decision id that is the only route to the reverse endpoint (the gates API exposes no GET on this resource at all: 405, verified live)',
+      'All four filters are load-bearing and status most of all: a reversal sets the row to superseded rather than removing it, so dropping that filter would render every reversed record as withdrawn forever. Matching is on rec.deals source_system + source_id, which all 160 rows carry as their own columns, so there is no join. Routing it through rec.source_aliases would have covered 124 rows and left the rest of the board unable to show its own state',
+      'THE REFUSAL KEYS ON finmo_application_id, NOT source_system, and that distinction is the whole rule. source_system=finmo is 2 of 160 records; finmo_application_id is 106, including 17 of the 38 no-reference records Michael is about to clear. A withdrawal stops the live receiver as well as the CSV loader, so keying on source_system would have stayed silent on all 17 while cutting their feed. A live feed plus an open workbench file is REFUSED outright, and enforced in the route: posted at directly with a forged hasRoom:false it still answers 409 with the same sentence the button shows',
+      'ZERO of the 38 no-reference records carry a workbench room, so the refusal never blocks the sitting it was written for. It fires on the 9 room-bearing files on the board, proven on BRXM-F053724, which renders the reason with no textarea and no button rather than a disabled control',
+      'A typed reason is required with no prefill and no carry-over between records, the button stays disabled until it clears the same bounds the gate enforces, and an over-long one is REFUSED rather than truncated. Proved server-side: no reason 422, two characters 422 naming the length, 2001 characters 422, unknown record 404. Arming is by timestamp at tap time, proven live: first press reads "Press again to confirm the removal" and it disarms after 4 seconds',
+      'NOTHING ON THE PATH CAN DELETE ANYTHING (guardrail 21) and no human identity is ever supplied from this side (guardrail 19): instructed_by and instructed_on are structurally absent from the body, so a payload carrying them is stripped rather than honoured. A withdrawn record leaves the phase columns, the Archive and the insights and appears in the Withdrawn view alone, whose count renders beside Archive even at zero so a shrinking book can always be read against the reason it shrank',
+      'THE ROUND TRIP AGAINST THE LIVE GATE IS NOT PROVEN, and cannot be from this machine: the dev Clerk instance carries zero JWT templates, so no gates token can be minted and the call returns its 401 auth copy before any network request leaves. Verified from the server log that no [gates] POST line exists. Everything up to that boundary is proven. The book is unchanged: 160 rows, 3 source_decisions all field_corrected, ZERO active withdrawals',
+      'The card click now opens the file directly. The preview panel was a step between Michael and the thing he wanted every time, so it is left in the repo UNREFERENCED, with its read-only grep still pointed at it, and restoring it is one line. Board client JS 195 B to 438 B as the Remove control crossed the boundary; the file page 197 B to 216 B',
+    ],
+  },
+  {
     n: 'Beta file tabs',
     title: 'Conditions, Commitment and Client — the first shared components',
     status: 'shipped',

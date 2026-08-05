@@ -94,12 +94,20 @@ export const PERMISSIONS = {
   // withdrawal on a Finmo-sourced record silently stops live updates for that
   // file, which is right for a migration artifact and an outage on a real one.
   //
-  // NOTHING CALLS THIS YET. The key is mirrored so the contract exists on both
-  // sides, but the Remove control was NOT built this session: the portal has no
-  // way to READ a withdrawal back (no grant on the decisions table, no marker
-  // column on rec.deals, no GET endpoint), so a withdrawn record would look
-  // identical on the board and could never be reversed. See the handoff 48
-  // report. Do not build against this key until that read path exists.
+  // LIVE SINCE HANDOFF 50 (2026-08-05). Handoff 48 mirrored this key and then
+  // correctly declined to build the control, because a withdrawn record could
+  // not be read back and so could never be reversed. THAT BLOCKER IS GONE, and
+  // it was never a missing grant: the 404 on `source_decisions` was the missing
+  // `Accept-Profile: rec` header, which makes PostgREST look in `public` and
+  // answer exactly as it would for a table nobody exposed. The table has been
+  // readable since migration 0073. lib/underwriting.ts getRecWithdrawals is the
+  // read, and it carries the decision's own id, which is the only route to the
+  // reverse endpoint (the gates API exposes no GET on this resource: 405).
+  //
+  // Both directions ride this one key through two proxies under
+  // app/api/portal/admin/gates/rec/withdrawals/. The rule that a record with a
+  // live Finmo feed AND an open workbench file may not be withdrawn from a
+  // board view is enforced in the ROUTE, not only on the button.
   'rec.withdraw': ['admin'],
   // Lender-knowledge pipeline: uploading a source document (broker guide,
   // comp schedule, bulletin) mints PENDING claims in the workbench, and

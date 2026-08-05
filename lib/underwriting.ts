@@ -3331,6 +3331,22 @@ export interface RecDeal {
   down_payment_not_applicable: boolean | null
   existing_mortgage_id: string | null
   lender_name_raw: string | null
+  // Handoff 50: the withdrawal key and the live-feed signal.
+  //
+  // `source_system` + `source_id` are what rec.source_decisions records a
+  // withdrawal against, and rec.deals carries BOTH as its own columns on all
+  // 160 rows, so matching a decision to a record needs no join. Routing it
+  // through rec.source_aliases instead would cover 124 rows and leave the rest
+  // of the board unable to show its own state.
+  source_system: string | null
+  source_id: string | null
+  // `finmo_application_id` is the LIVE FEED signal, and it is not the same
+  // question as source_system. source_system='finmo' covers 2 of 160 records;
+  // this column covers 106, including 17 of the 38 no-reference records. A
+  // withdrawal stops the live receiver as well as the CSV loader, so keying the
+  // warning on source_system would stay silent on all 17 while cutting their
+  // feed. See lib/rec-withdrawal.ts feedPosture.
+  finmo_application_id: string | null
 }
 
 /** One stage transition. `changed_at` is the column name (NOT occurred_at),
@@ -3504,7 +3520,7 @@ export async function getRecDeals(agentId: string): Promise<UwResult<RecDeal[]>>
     'deals',
     {
       select:
-        'id,file_ref,deal_type,stage_code,status,mortgage_amount,blocked_by,closing_date,workbench_deal_id,purchase_price,down_payment,down_payment_not_applicable,existing_mortgage_id,lender_name_raw',
+        'id,file_ref,deal_type,stage_code,status,mortgage_amount,blocked_by,closing_date,workbench_deal_id,purchase_price,down_payment,down_payment_not_applicable,existing_mortgage_id,lender_name_raw,source_system,source_id,finmo_application_id',
       agent_id: `eq.${agentId}`,
       order: 'created_at.asc',
     },
@@ -3522,6 +3538,52 @@ export async function getRecDeals(agentId: string): Promise<UwResult<RecDeal[]>>
       down_payment: numOrNull(d.down_payment),
     })),
   }
+}
+
+/** A record withdrawn from the record layer (handoff 50).
+ *
+ *  THE READ PATH EXISTS AND IT IS THIS ONE. Handoff 48 mirrored the withdrawal
+ *  authority key and then correctly declined to build the control, on the
+ *  grounds that a withdrawn record could not be read back. That conclusion came
+ *  from a 404 on `source_decisions`, and the 404 was the missing Accept-Profile
+ *  header rather than a missing grant: without it PostgREST looks in `public`,
+ *  finds nothing, and answers exactly as it would for a table nobody exposed.
+ *  With `Accept-Profile: rec` the table has been readable since migration 0073.
+ *
+ *  ALL FOUR FILTERS ARE LOAD BEARING, and `status` most of all: a reversal does
+ *  not remove the decision row, it sets it to `superseded`. Dropping that filter
+ *  would render every reversed record as still withdrawn, permanently.
+ *
+ *  `id` is the decision's own id, which is the `decisionId` the reverse endpoint
+ *  takes. There is no other way to obtain it: the gates API exposes no GET on
+ *  this resource at all (verified live, 405 method not allowed), so this query
+ *  is the only path from a card on screen to the id that reverses it. */
+export interface RecWithdrawal {
+  id: string
+  source_system: string | null
+  source_id: string
+  instructed_by: string | null
+  instructed_on: string | null
+  reason: string | null
+}
+
+export async function getRecWithdrawals(agentId: string): Promise<UwResult<RecWithdrawal[]>> {
+  if (isDemoMode()) return demoResult([] as RecWithdrawal[])
+  const res = await uwFetch<RecWithdrawal>(
+    'source_decisions',
+    {
+      select: 'id,source_system,source_id,instructed_by,instructed_on,reason',
+      agent_id: `eq.${agentId}`,
+      entity_type: 'eq.deal',
+      decision: 'eq.record_withdrawn',
+      status: 'eq.active',
+      order: 'created_at.desc',
+    },
+    false,
+    'rec',
+  )
+  if (!res.configured || !res.ok) return res
+  return { configured: true, ok: true, data: res.data }
 }
 
 /** The mortgages the record layer knows (handoff 42). A file can touch TWO and
