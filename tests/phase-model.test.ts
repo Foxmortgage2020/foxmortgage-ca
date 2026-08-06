@@ -636,8 +636,12 @@ describe('projection green, and the zone that keeps it apart from lime', () => {
 
   // THE ZONE RULE, asserted from both sides.
   it('a CARD may carry lime and can never carry projection green', () => {
+    // HANDOFF 58: the design Michael approved removed the needs-you chip and
+    // moved the card's lime to a bar down its left edge, so this pins the bar
+    // rather than the chip. The half that matters is unchanged and asserted
+    // below: a card may carry lime, and can never carry projection green.
     const src = read(CARD)
-    expect(src).toMatch(/bg-decision/)
+    expect(src).toMatch(/ROLE\.lime/)
     // Assert on the IMPORT, not on any mention: the file's header comment
     // explains the zone rule and names both tokens on purpose.
     expect(imports(src)).not.toMatch(/PROJECTION_GREEN|ProjectionFigure/)
@@ -664,9 +668,16 @@ describe('projection green, and the zone that keeps it apart from lime', () => {
   })
 
   it('colour never carries the meaning alone — the word rides with it', () => {
+    // HANDOFF 58 made this GENERAL rather than pinning two call sites. The
+    // design export removed the per-column weighted footer those strings lived
+    // in, but the rule they protected is unchanged and now checked everywhere:
+    // every projected figure on the board is accompanied by its own label, so a
+    // reader who does not know the colour convention can still read the page.
     const board = read(BOARD)
-    expect(board).toMatch(/ProjectionLabel>\{weight\.probability\}% weighted/)
-    expect(board).toMatch(/<ProjectionLabel>projected<\/ProjectionLabel>/)
+    const figures = (board.match(/<ProjectionFigure\b/g) ?? []).length
+    const labels = (board.match(/<ProjectionLabel>/g) ?? []).length
+    expect(figures).toBeGreaterThan(0)
+    expect(labels).toBeGreaterThanOrEqual(figures)
   })
 
   it('the preview panel has no edit control of any kind', () => {

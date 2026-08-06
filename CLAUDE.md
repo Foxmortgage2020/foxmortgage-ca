@@ -300,6 +300,65 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The board rebuilt from the design export (handoff 58, 2026-08-06)
+Supersedes handoff 57's VISUAL VALUES and its STRUCTURE. What survives from it:
+the token module as a mechanism, the countdown including its fifth reading, and
+every guardrail.
+- **THE EXPORT IS THE VISUAL SOURCE OF TRUTH and outranks any brief.**
+  `docs/design/Fox_Mortgage_Pipeline_Board.html`, committed this session. The
+  brief said it was already committed and it was not, and it arrived with
+  SPACES in the filename; it was renamed to underscores on commit. It is a bundled page: the design sits in an
+  escaped JS string, so it must be unescaped before the constants block reads.
+  **`tests/board-tokens.test.ts` READS THE EXPORT and diffs the token module
+  against it**, which is a stronger anti-drift mechanism than any list of
+  expected values.
+- **NAVY AND LIME DO NOT COME FROM THE EXPORT** because it was produced from
+  screenshots and both had drifted. The repo held TWO live candidates for each
+  and Michael ruled: navy `#032133` (`tailwind navy.DEFAULT`, what CLAUDE.md
+  declares and what `text-navy` renders 1406 times) over `#0A1B2E`
+  (`ink.navy`, the sidebar); lime `#C6F53F` (`decision.DEFAULT`, the attention
+  currency the lime audit polices) over `#95D600` (the brand lime, which the
+  admin tree asserts is extinct). Everything else is the export verbatim.
+- **THREE LEVELS, and the structure is the one thing the export does NOT
+  contain** (it holds three earlier approaches, none of them built). Level one:
+  KPIs plus the five phases as ONE horizontal row. Level two: click a phase and
+  it expands underneath. Level three: cards in that phase's stage columns.
+  **Only one phase's stages render at a time**, so the widest thing on screen
+  is seven columns rather than twenty-five. Expansion rides `?open=`, so the
+  board is STILL a server component (593 B).
+- **PAGE HEIGHT WITH FULFILMENT EXPANDED: 1359px at 1512, down from ~24,000.**
+  The funded column holds all 66 cards in a `58vh` box that scrolls; nothing is
+  capped or sliced. **`shrink-0` on the card is load bearing** — without it the
+  66 cards compress to 66 empty bars, which is exactly what the first render
+  did.
+- **FOUR WEIGHTS (400/500/600/700) REPLACE handoff 57's two-weight rule.** The
+  export uses four and the export wins. It is a REPLACEMENT not a deletion:
+  anything outside the four still fails, and the test also asserts the export
+  itself uses exactly those four.
+- **TWO FACES, SCOPED TO THIS SURFACE.** Hanken Grotesk for interface text, IBM
+  Plex Mono for every figure, through `next/font/google` in `lib/board-fonts.ts`
+  and applied as CSS variables on the board's own `<main>`. Self-hosted, so no
+  runtime call to Google from a signed-in page. `display: swap` plus next/font's
+  size-adjusted fallback; **the mono fallback is `ui-monospace`, so figures keep
+  aligning even if the webfont never arrives.**
+- **THE CARD'S LEFT BAR CARRIES EXACTLY TWO VALUES**, lime for needs-work-today
+  and navy for under-control, keyed on the SAME `countdown.urgent` the summary
+  strip counts, so the two can never disagree. The needs-you CHIP is gone, and
+  with it the two assertions that pinned it: Michael approved rewriting them to
+  follow the bar. The path-keyed allowlist, the legacy-lime extinction check and
+  both projection-green zone assertions were NOT touched.
+- **THE SUMMARY STRIP READS 18, NOT THE BRIEF'S 16.** Verified live: 16 closings
+  already past on open files PLUS 2 inside fourteen days. The brief's sixteen is
+  the already-past subset, and the export's own "sixteen" was written against
+  its fictional data.
+- Counts unchanged through `portal_readonly`: **160 = board 97 + Archive 29 +
+  No stage 33 + Withdrawn 1**, Underwriting 23, Fulfilment 74.
+- **VOCABULARY SEAM.** Michael thinks in STAGES containing SUB-STAGES; the
+  database says phases containing stages. `lib/board-layout.ts` PHASE_WORD /
+  STAGE_WORD is the one place they meet. No column or variable was renamed.
+- Pinned in `tests/board-tokens.test.ts` (40 tests). The copy gate and the write
+  guarantee pass unmodified. No data changed.
+
 ### The design tokens, and the board rebuilt on them (handoff 57, 2026-08-06)
 - **`lib/design-tokens.ts` IS THE ANTI-DRIFT MECHANISM and matters more than
   any value in it.** Michael iterated on mockups for a morning and approved a

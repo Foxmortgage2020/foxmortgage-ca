@@ -1,15 +1,34 @@
-// The Deals (Beta) board's layout rules (handoff 57).
+// The Deals (Beta) board's layout rules (handoff 58).
 //
 // PURE, and separate from lib/design-tokens.ts on purpose: that module holds
-// values a designer decided, this one holds rules a reader depends on. Both are
-// isomorphic, so the server component and the tests share one source of truth.
+// values a designer decided, this one holds rules a reader depends on.
 //
-// TWO JOBS:
-//   1. THE COUNTDOWN. What a closing date means today, in four states, only two
-//      of which are red.
-//   2. THE FOLD. Which stages and which phases collapse to a single line, which
-//      is what lets twenty-eight stages read on one screen without the board
-//      scrolling sideways.
+// WHAT CHANGED FROM HANDOFF 57. Its vertical stack is superseded by the three
+// level structure Michael settled on after seeing the design export's three
+// options, so the fold helpers that stack needed (foldStages, emptyStagesNote,
+// phaseIsQuiet, spellSmall) are gone rather than left as dead exports: they
+// existed for one session, nothing else used them, and the structure they
+// served no longer exists. The countdown survives unchanged, including the
+// fifth reading Michael ruled on, because it was right and is still right.
+
+// ─── Michael's vocabulary ────────────────────────────────────────────────────
+//
+// HE THINKS IN STAGES CONTAINING SUB-STAGES. The database says phases
+// containing stages. Both are correct in their own place, so the interface uses
+// his words and the code keeps the database's, and this is the one seam where
+// they meet. Nothing below renames a column or a variable.
+
+/** What a database PHASE is called on screen. */
+export const PHASE_WORD = 'stage'
+/** What a database STAGE is called on screen. */
+export const STAGE_WORD = 'sub-stage'
+
+export function stageWord(n: number): string {
+  return n === 1 ? PHASE_WORD : `${PHASE_WORD}s`
+}
+export function subStageWord(n: number): string {
+  return n === 1 ? STAGE_WORD : `${STAGE_WORD}s`
+}
 
 // ─── The countdown ───────────────────────────────────────────────────────────
 //
@@ -21,10 +40,8 @@
 // literally painted 75 of the 97 board cards red, and 59 of those were FUNDED
 // files whose closing correctly already happened. A passed closing is an alarm
 // only where the file has not reached its end, so a terminal stage reads the
-// closing as a plain date instead. That leaves 16 red cards on today's book,
-// which is the signal the design was drawn for. The rule keys on the stage's
-// own `category` column rather than on a stage code, so a terminal stage added
-// to the record layer later behaves correctly with no change here.
+// closing as a plain date instead. That leaves 16 red cards, which is the same
+// sixteen the export's own summary strip counts.
 
 export type CountdownState = 'far' | 'soon' | 'passed' | 'closed' | 'no_date'
 
@@ -60,8 +77,9 @@ export function fmtDate(ymd: string): string {
 export interface Countdown {
   state: CountdownState
   label: string
-  /** True for the two states that carry the urgent colour. Returned rather than
-   *  derived at the call site, so the colour rule lives in exactly one place. */
+  /** True for the two states that carry the urgent colour, and the same flag
+   *  that turns a card's left bar lime. Returned rather than derived at a call
+   *  site, so "needs work today" has exactly one definition. */
   urgent: boolean
 }
 
@@ -94,89 +112,84 @@ export function closingCountdown(input: {
   return { state: 'far', label: `${days} days out`, urgent: false }
 }
 
-// ─── The fold ────────────────────────────────────────────────────────────────
+// ─── The card's left bar ─────────────────────────────────────────────────────
 //
-// WHY THE BOARD RESTRUCTURED RATHER THAN RESTYLED. Twenty-eight stages laid
-// side by side overflowed 1512 by 588px and still needed collapse controls, and
-// no amount of paint fixes that. Phases stack vertically now, each phase's
-// stages sit side by side under its own header, and anything empty folds to one
-// line. On today's book that leaves Underwriting and Fulfilment open with three
-// stages each, and Attract, Intake and Monitor as three quiet lines.
+// EXACTLY TWO VALUES, and nothing else on the page is lime. A person answers
+// "what am I working on today" by looking at which bars are lime and reading
+// nothing at all. That only works because the lime is rationed this hard.
 
-const SMALL_NUMBERS = [
-  'Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-  'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-  'Seventeen', 'Eighteen', 'Nineteen', 'Twenty',
-]
+export type CardBar = 'needs' | 'controlled'
 
-/** Small counts read as words in a sentence, which is how the fold lines were
- * written. Anything larger falls back to digits rather than inventing prose. */
-export function spellSmall(n: number): string {
-  return n >= 0 && n < SMALL_NUMBERS.length ? SMALL_NUMBERS[n]! : String(n)
+/** Lime means this file needs work today. Navy means it is under control.
+ *  Keyed on the SAME urgency the countdown computes, so the sixteen files the
+ *  summary strip counts and the sixteen lime bars are the same sixteen by
+ *  construction rather than by two rules agreeing. */
+export function cardBar(countdown: Countdown): CardBar {
+  return countdown.urgent ? 'needs' : 'controlled'
 }
 
-export interface FoldedStages<T> {
-  /** Stages holding at least one file, in their configured order. */
-  occupied: T[]
-  /** Stages holding none. They fold to one line at the foot of the phase. */
-  empty: T[]
+// ─── One expanded phase at a time ────────────────────────────────────────────
+//
+// THE WHOLE POINT OF THE STRUCTURE. Twenty-five sub-stages laid side by side
+// cannot be read; seven can. Level one is the five phases as a single row,
+// level two expands ONE of them underneath, level three is the cards inside
+// that phase's columns. So the widest thing on screen is seven columns.
+
+/** The phase to expand, from the URL. An unknown or absent value opens nothing,
+ *  which is the honest default: the board opens showing all five phases and
+ *  waits to be asked. Never falls back to an arbitrary phase, because a board
+ *  that silently picks one teaches the wrong thing about what it is showing. */
+export function openPhaseCode(
+  requested: string | null | undefined,
+  phases: readonly { code: string }[],
+): string | null {
+  if (!requested) return null
+  return phases.some(p => p.code === requested) ? requested : null
 }
 
-/** Split a phase's stages into the ones that render as columns and the ones
- * that fold. An empty stage is still a fact about the process, so it is named
- * rather than dropped. */
-export function foldStages<T>(columns: readonly T[], countFor: (c: T) => number): FoldedStages<T> {
-  const occupied: T[] = []
-  const empty: T[] = []
-  for (const c of columns) (countFor(c) > 0 ? occupied : empty).push(c)
-  return { occupied, empty }
-}
+// ─── A phase's three figures ─────────────────────────────────────────────────
 
-/** The one line an empty set of stages folds to. Null when none are empty. */
-export function emptyStagesNote(count: number): string | null {
-  if (count <= 0) return null
-  if (count === 1) return 'One more stage in this phase has no files.'
-  return `${spellSmall(count)} more stages in this phase have no files.`
-}
-
-/** A phase with nothing in it folds to its header line alone. Contact-level
- * phases count people rather than files and hold nobody today, and Attract has
- * no stages at all by configuration, so all three fold by the same rule rather
- * than by three special cases. */
-export function phaseIsQuiet(fileCount: number): boolean {
-  return fileCount <= 0
-}
-
-// ─── The phase header's weighted figure ──────────────────────────────────────
-
-export interface PhaseWeighted {
-  weighted: number
-  /** Always true. Present so a caller cannot destructure the number without
-   *  meeting the flag, the same guard the column footers use. */
-  isProjection: true
+export interface PhaseFigures {
+  count: number
+  /** Expected volume: the sum of the amounts actually recorded. */
+  value: number
+  /** Weighted volume, or null where the phase carries no probability at all. */
+  weighted: number | null
+  /** How many files in the phase carry no amount, so a total is never quietly
+   *  presented as complete when it is not. */
+  missingAmounts: number
 }
 
 /**
- * A phase's weighted total: the sum over its stages of amount times
- * probability.
+ * The three figures on a phase row.
  *
- * A NULL PROBABILITY IS NOT ZERO and never enters the sum. Intake and Monitor
- * carry null on every stage, so this returns null for them and the header
- * renders no weighted figure at all rather than a fabricated zero. That is the
- * same rule the column footers already follow, and it is why contact-level
- * phases carry no footer.
+ * A NULL PROBABILITY IS NOT ZERO and never enters the weighted sum. Intake and
+ * Monitor carry null on every sub-stage, so `weighted` comes back null for them
+ * and the row renders no weighted figure rather than a fabricated zero.
  */
-export function phaseWeighted(
+export function phaseFigures(
   stages: readonly { code: string; probability?: number | null }[],
-  amountInStage: (code: string) => number,
-): PhaseWeighted | null {
-  let total = 0
+  filesIn: (stageCode: string) => readonly { mortgage_amount: number | null }[],
+): PhaseFigures {
+  let count = 0
+  let value = 0
+  let weighted = 0
   let priced = 0
+  let missingAmounts = 0
   for (const s of stages) {
+    const files = filesIn(s.code)
+    count += files.length
     const p = typeof s.probability === 'number' ? s.probability : null
-    if (p === null) continue
-    priced += 1
-    total += (amountInStage(s.code) * p) / 100
+    if (p !== null) priced += 1
+    for (const f of files) {
+      const amt = typeof f.mortgage_amount === 'number' ? f.mortgage_amount : null
+      if (amt === null) {
+        missingAmounts += 1
+        continue
+      }
+      value += amt
+      if (p !== null) weighted += (amt * p) / 100
+    }
   }
-  return priced === 0 ? null : { weighted: total, isProjection: true }
+  return { count, value, weighted: priced === 0 ? null : weighted, missingAmounts }
 }

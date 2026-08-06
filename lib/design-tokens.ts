@@ -1,166 +1,246 @@
-// The Deals (Beta) design tokens (handoff 57).
+// The Deals (Beta) design tokens (handoff 58).
 //
-// THIS MODULE IS THE ANTI-DRIFT MECHANISM, and that matters more than any
-// single value in it. Michael spent a morning iterating on mockups until he
-// approved a look, and three separate builds this week drifted from prose
-// descriptions of a design, each costing a session. So the values live here,
-// once, and `tests/board-tokens.test.ts` fails on any hardcoded hex anywhere on
-// the board surface. A future session that wants a different grey changes it
-// here and everything moves together, or it does not change at all.
+// THE SOURCE OF TRUTH IS THE DESIGN EXPORT, not this file and not any brief.
+// `docs/design/Fox_Mortgage_Pipeline_Board.html` is a bundled export a design
+// tool produced after several rounds with Michael, and he approved its look.
+// Every value below was read out of that file rather than transcribed from
+// prose, because three builds in this programme drifted from prose descriptions
+// of a design and each cost a session.
 //
-// PURE. No React, no imports, no environment. Values and one formatting helper.
+// TWO VALUES DELIBERATELY DO NOT COME FROM THE EXPORT. The export was produced
+// from screenshots of the live product, so its navy and lime are a second-hand
+// read of colours this repo already owns, and both had drifted. Michael ruled on
+// the replacements 2026-08-06:
 //
-// WHAT THIS MODULE DOES NOT OWN: spacing and layout. Padding, gaps and widths
-// stay on Tailwind's scale, because they were not specified and inventing a
-// second spacing system would be exactly the drift this file exists to stop.
+//   navy  #1B2A41 (export)  ->  #032133   tailwind.config.ts navy.DEFAULT
+//   lime  #C6F24E (export)  ->  #C6F53F   tailwind.config.ts decision.DEFAULT
+//
+// Both are the repo's own live tokens. Navy is what CLAUDE.md declares the
+// brand navy and what every admin surface renders through `text-navy`. Lime is
+// the decision token, the Command Centre's attention currency, which the lime
+// audit already polices. Every other colour in the export stands exactly as it
+// was exported.
+//
+// PURE. No React, no imports, no environment. Values and two helpers.
+//
+// WHAT THIS MODULE DOES NOT OWN: layout. Flex and grid decisions live in the
+// components. It owns colour, type and the small shape values the export set.
 
 // ─── Surfaces ────────────────────────────────────────────────────────────────
-//
-// The blue-grey page canvas is gone, and so is every tinted region panel.
-// Regions separate by hairline and whitespace. The ONE exception is the column
-// ground, which carries figure-ground rather than decoration: the white cards
-// have to sit on something for the eye to group them.
 
 export const SURFACE = {
-  /** The page itself. Warm off-white, replacing the blue-grey Michael named. */
-  canvas: '#F4F4F0',
-  /** A content panel sitting on the canvas. */
+  /** The page. A warm paper tone, not the old blue-grey and not white. */
+  canvas: '#EFEDE8',
   panel: '#FFFFFF',
-  panelBorder: '#E8E8E2',
-  /** The only tinted region on the page: the ground a stage's cards sit on. */
-  columnGround: '#E4E4DE',
-  card: '#FFFFFF',
-  cardBorder: '#CFCFC7',
-  /** Between the card's four tiers. */
-  cardHairline: '#EDEDE7',
-  /** Between regions, where a fill would once have been used. */
-  sectionHairline: '#EAEAE4',
-  /** The thin separator between the phase header's three figures. */
-  figurePipe: '#DCDCD5',
+  /** Every visible border on the board. */
+  border: '#E8E5E0',
+  /** The lighter rule used inside a card, between its tiers. */
+  hairline: '#F1EFEB',
+  /** The card's last row, where the waiting-on line sits. */
+  chaseBg: '#FCFBF9',
 } as const
 
 export const RADIUS = {
-  panel: 10,
-  column: 9,
+  /** Cards, stage columns, the search field. */
   card: 7,
-  countPill: 10,
-  /** The weighted figure's own chip. Not specified in the brief; kept at the
-   *  value it already had so the footers do not move. */
-  figure: 4,
+  /** View chips and buttons. */
+  chip: 6,
+  /** Small chips, the BETA tag, avatars. */
+  small: 4,
+  /** The Attract source pills. */
+  pill: 20,
+  /** The phase swatch and the stage tone bar. */
+  swatch: 2,
+  /** The tiny square beside the waiting-on line. */
+  dot: 1,
 } as const
 
 export const STROKE = {
-  panel: 1,
-  /** The card's stroke is 2px on purpose: figure-ground does the separating,
-   *  and a hairline disappears against the column ground. */
-  card: 2,
-  /** The rule above a stage column, carrying its phase hue. */
-  stageRule: 4,
+  hairline: 1,
+  /** The colour bar down the left edge of a file card. */
+  cardBar: 4,
 } as const
 
 // ─── Text ────────────────────────────────────────────────────────────────────
 
 export const TEXT = {
-  primary: '#1A1A17',
-  secondary: '#6E6E67',
-  muted: '#8C8C85',
-  /** ABSENT VALUES, and they are their own token for a reason. "Not specified"
-   *  and "No date" have to visibly recede rather than read as content, because
-   *  a missing field rendered in body grey is indistinguishable from a fact. */
-  absent: '#B4B4AC',
-  /** Brand navy for headings on this surface. */
-  navy: '#1B2A41',
-  /** The file reference. A repeating coloured anchor lets the eye count cards
-   *  down a column without reading any of them, so it is never demoted to grey. */
-  fileRef: '#2E5C96',
-  /** A countdown that is not urgent. Specified separately from `secondary`
-   *  because the footer's two sides have to read as one row. */
-  countdown: '#57574F',
+  /** THE REPO'S NAVY, not the export's. Headings, names, figures. */
+  navy: '#032133',
+  /** Secondary prose. The export calls this DIM and FAINT, one value. */
+  dim: '#5E6B7E',
+  /** Body copy inside dense blocks. */
+  body: '#3D4A5C',
+  /** Monospace metadata on a card: reference, stage, days in stage. */
+  metaMono: '#7A8798',
+  /** A zero count, and other present-but-empty figures. */
+  ghost: '#9AA4B1',
+  /** A MISSING value. Rendered italic with a dotted underline as well, so a
+   *  gap never reads as a fact. See MISSING_VALUE below. */
+  missing: '#6F7C8D',
+  /** The faintest mono, for a keyboard hint or a zero on a source pill. */
+  faintMono: '#C0C8D1',
 } as const
-
-// ─── Roles ───────────────────────────────────────────────────────────────────
 
 export const ROLE = {
-  /** THE NEEDS-YOU CHIP, SPECIFIED BUT NOT YET APPLIED (handoff 57).
-   *
-   *  The board's needs-you chip still renders through the Tailwind `decision`
-   *  tokens (#C6F53F on #3D4F0A), because two tests pin that chip to those exact
-   *  class names: the exhaustive lime audit in tests/shell.test.ts greps
-   *  DealCard for the literal ternary, and the zone test in
-   *  tests/phase-model.test.ts asserts the card matches /bg-decision/. Both are
-   *  on this session's do-not-edit list, and redefining the Tailwind token
-   *  instead would repaint six other surfaces the brief protects.
-   *
-   *  The approved values live here so the switch is one edit on the day the
-   *  lime pass reaches the rest of the Command Centre. Michael ruled on this
-   *  deviation rather than it being assumed. */
-  needsYouBg: '#EDF3D9',
-  needsYouInk: '#4A5D0A',
-  /** A closing that has passed on a file that has not closed, and a closing
-   *  inside the 14-day window. Nothing else on this board is red. */
-  urgent: '#B3261E',
-  /** The digits on a weighted figure. The fill and border stay in
-   *  lib/phase-palette.ts PROJECTION_GREEN, which owns the zone rule. */
-  projectionInk: '#1D6E56',
+  /** THE REPO'S LIME, not the export's. Nothing else on the board is lime, so
+   *  a person can answer "what am I working on" from the lime bars alone. */
+  lime: '#C6F53F',
+  /** A closing date already past on a file that has not closed, or one inside
+   *  the window. The only red on the board, and only inside a card. */
+  red: '#B3261E',
+  /** Weighted and projected figures. Footers and strips only, never a card. */
+  forest: '#14654A',
 } as const
 
-/** The pre-existing brand navy, carried by the file page's tab underline and
- *  its overview accent. NOT part of the new scale: it lives here only so those
- *  two literals are not hardcoded, and both render exactly as they did before.
- *  The file page is out of scope this session and is visually untouched. */
-export const LEGACY_BRAND_NAVY = '#032133'
+/** The five phase hues, deliberately muted rather than saturated. Read from the
+ *  export's PH constant. Hue names the phase; nothing else encodes it. */
+export const PHASE_HUE: Record<string, string> = {
+  attract: '#7C8899',
+  intake: '#5E77B4',
+  underwriting: '#2E8391',
+  fulfilment: '#AE6A61',
+  monitor: '#9A5B85',
+}
+
+/** A phase the record layer adds later still gets a tone rather than nothing. */
+export const PHASE_HUE_FALLBACK = '#7C8899'
+
+/** HOW A MISSING VALUE RENDERS, in one place. The export gives an absent amount
+ *  or an absent closing date all three of these at once, so a gap is legible
+ *  even in a column of numbers. */
+export const MISSING_VALUE = {
+  color: TEXT.missing,
+  fontStyle: 'italic' as const,
+  textDecoration: 'underline dotted' as const,
+  textUnderlineOffset: '3px',
+}
 
 // ─── Type ────────────────────────────────────────────────────────────────────
 //
-// ONLY TWO WEIGHTS EXIST: 400 and 500. Nothing heavier appears anywhere on this
-// surface, enforced by test. Sentence case everywhere, no title case, no caps.
+// FOUR WEIGHTS ARE IN USE: 400, 500, 600 and 700. Handoff 57's brief said two
+// and pinned it with a test; the export supersedes that, and the test was
+// REPLACED rather than deleted (tests/board-tokens.test.ts still fails on any
+// weight outside this set).
+//
+// The scale runs 7.5px to 21px. That is much smaller than handoff 57 used and
+// the reduction is the point: the board has to hold five phases, seven columns
+// and sixty-six cards without shouting.
+
+export type FontWeight = 400 | 500 | 600 | 700
 
 export interface TypeToken {
   size: number
-  weight: 400 | 500
-  /** Only where it was specified. Everything else inherits. */
-  lineHeight?: number
+  weight: FontWeight
+  /** Unitless line height, where the export set one. */
+  leading?: number
+  /** Tracking, where the export set one. */
+  tracking?: string
+  /** True where the export uses IBM Plex Mono. Numbers are monospaced so they
+   *  align down a column, which is the whole reason the face is there. */
+  mono?: boolean
 }
 
 export const TYPE = {
-  pageTitle: { size: 30, weight: 500 },
-  /** The large figures on the insights strip. */
-  figure: { size: 26, weight: 500 },
-  phaseName: { size: 17, weight: 500 },
-  /** The one-line description under a phase name. */
-  phaseDescription: { size: 13, weight: 400 },
-  stageName: { size: 15, weight: 500 },
-  /** The one-line description of what a stage means. The single most useful
-   *  element for someone who has never seen the system. */
-  stageDescription: { size: 12, weight: 400 },
-  countPill: { size: 12, weight: 500 },
-  fileRef: { size: 13, weight: 500 },
-  cardAmount: { size: 20, weight: 500 },
-  /** Body copy and borrower names. */
-  body: { size: 14, weight: 400 },
-  /** The card's context tier, and every metadata line. */
-  meta: { size: 12, weight: 400 },
-  /** The context tier's stated line height. */
-  context: { size: 12, weight: 400, lineHeight: 1.65 },
-  /** A countdown inside the window, or already passed on an open file. */
-  urgentMeta: { size: 12, weight: 500 },
+  // Page furniture
+  pageTitle: { size: 21, weight: 600, leading: 1.1 },
+  pageSubtitle: { size: 12.5, weight: 400, leading: 1.5 },
+  beta: { size: 9.5, weight: 500, leading: 1, tracking: '.08em', mono: true },
+
+  // The KPI strip
+  kpiFigure: { size: 15, weight: 600, leading: 1 },
+  kpiLabel: { size: 12, weight: 400, leading: 1 },
+  kpiValueLabel: { size: 11.5, weight: 400, leading: 1 },
+  kpiValue: { size: 12.5, weight: 600, leading: 1, mono: true },
+
+  // View chips
+  chipOn: { size: 11.5, weight: 600, leading: 1 },
+  chipOff: { size: 11.5, weight: 500, leading: 1 },
+
+  // A phase row
+  phaseName: { size: 13.5, weight: 600, leading: 1 },
+  phaseBlurb: { size: 11.5, weight: 400, leading: 1.35 },
+  phaseMeta: { size: 11, weight: 500, leading: 1, mono: true },
+  phaseValue: { size: 11, weight: 500, leading: 1, mono: true },
+  phaseWeighted: { size: 11, weight: 600, leading: 1, mono: true },
+
+  // A stage column
+  stageName: { size: 12, weight: 600, leading: 1.25 },
+  stageCount: { size: 20, weight: 600, leading: 1 },
+  stageTeach: { size: 10.5, weight: 400, leading: 1.3 },
+  gate: { size: 7.5, weight: 600, leading: 1, tracking: '.14em', mono: true },
+
+  // A file card
+  cardMeta: { size: 9.5, weight: 500, leading: 1, mono: true },
+  cardWho: { size: 13, weight: 600, leading: 1.25 },
+  cardAmount: { size: 12.5, weight: 600, leading: 1, mono: true },
+  cardAddress: { size: 11, weight: 400, leading: 1.35 },
+  cardDue: { size: 10.5, weight: 600, leading: 1, mono: true },
+  cardInStage: { size: 10.5, weight: 400, leading: 1, mono: true },
+  cardChase: { size: 10.5, weight: 400, leading: 1.3 },
+
+  // Section headings and quiet lines
+  sectionTitle: { size: 13, weight: 600, leading: 1 },
+  sectionNote: { size: 11.5, weight: 400, leading: 1 },
+  footNote: { size: 11, weight: 400, leading: 1 },
+  pillLabel: { size: 11, weight: 500, leading: 1 },
 } as const satisfies Record<string, TypeToken>
 
-/** A type token as an inline style, so a size or a weight is never typed as a
- * literal at a call site. */
+/** The two faces, as CSS variables set by lib/board-fonts.ts. The fallbacks
+ *  matter: if a webfont never arrives the board still renders in a face of the
+ *  right proportion rather than in Times. */
+export const FONT = {
+  ui: "var(--font-hanken), system-ui, -apple-system, 'Segoe UI', sans-serif",
+  mono: "var(--font-plex-mono), ui-monospace, 'SF Mono', Menlo, monospace",
+} as const
+
+/** A type token as an inline style, so a size, a weight or a face is never
+ * typed as a literal at a call site. */
 export function typeStyle(t: TypeToken): {
+  fontFamily: string
   fontSize: string
   fontWeight: number
   lineHeight?: number
+  letterSpacing?: string
 } {
   return {
+    fontFamily: t.mono ? FONT.mono : FONT.ui,
     fontSize: `${t.size}px`,
     fontWeight: t.weight,
-    ...(t.lineHeight === undefined ? {} : { lineHeight: t.lineHeight }),
+    ...(t.leading === undefined ? {} : { lineHeight: t.leading }),
+    ...(t.tracking === undefined ? {} : { letterSpacing: t.tracking }),
   }
 }
 
 /** Border-radius as a style value. */
 export function radius(r: number): string {
   return `${r}px`
+}
+
+/** A phase's hue, never invented per stage. */
+export function phaseHue(code: string): string {
+  return PHASE_HUE[code] ?? PHASE_HUE_FALLBACK
+}
+
+/** The navy at low alpha. The export draws several borders as a navy tint
+ *  rather than as a flat grey, which is what keeps them from looking dirty
+ *  against the warm canvas. Built from the token so the substituted navy
+ *  carries through. */
+export function navyAlpha(alpha: number): string {
+  return `color-mix(in srgb, ${TEXT.navy} ${Math.round(alpha * 100)}%, transparent)`
+}
+
+/**
+ * A stage's tone: the phase hue, lightened by how far along the stage sits.
+ *
+ * Hue says WHICH phase and depth says HOW FAR ALONG, which is the rule the
+ * board has carried since the palette was built. The export draws this as a
+ * short bar at the top of each stage column.
+ */
+export function stageTone(phaseCode: string, index: number, total: number): string {
+  const hue = phaseHue(phaseCode)
+  if (total <= 1) return hue
+  // Earliest stage sits at 45% strength, the last at full.
+  const t = Math.min(1, Math.max(0, index / (total - 1)))
+  const alpha = 0.45 + 0.55 * t
+  return `color-mix(in srgb, ${hue} ${Math.round(alpha * 100)}%, transparent)`
 }

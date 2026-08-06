@@ -1,64 +1,51 @@
-// The Deals (Beta) phase board — restructured and rebuilt on the design tokens
-// (handoff 57).
+// The Deals (Beta) board, rebuilt from the design export (handoff 58).
 //
-// WHY IT RESTRUCTURED RATHER THAN RESTYLED. Michael called the board
-// complicated and hard to read, and named the blue-grey canvas. The canvas was
-// real but it was not the whole problem: twenty-eight stages laid side by side
-// overflowed 1512 by 588px and still needed collapse controls, and no amount of
-// paint fixes a row that long. So:
+// THE STRUCTURE IS THREE LEVELS, and it is the one thing the export does NOT
+// contain. The export holds three earlier approaches; Michael settled on this
+// after seeing them:
 //
-//   PHASES STACK VERTICALLY. Each phase's stages sit side by side under its own
-//   header, in a grid that WRAPS rather than scrolls, so the board can never
-//   overflow sideways at any width.
+//   LEVEL ONE, always visible.  The KPI figures, then the five phases as a
+//                               single horizontal row, each showing its file
+//                               count, expected volume and weighted volume.
+//   LEVEL TWO.                  Click a phase and it expands underneath,
+//                               revealing that phase's stages as columns.
+//   LEVEL THREE.                File cards inside those stage columns.
 //
-//   EMPTY STAGES FOLD to one line at the foot of their phase, and EMPTY PHASES
-//   fold to their header line alone. On today's book that leaves Underwriting
-//   and Fulfilment open with three stages each, and Attract, Intake and Monitor
-//   as three quiet lines.
+// ONLY ONE PHASE'S STAGES RENDER AT A TIME. That is what makes the geometry
+// work: the widest thing on screen is seven columns rather than twenty-five,
+// which is why handoff 57's vertical stack had to go.
 //
-// THE OLD `?collapsed=` MECHANISM IS GONE. It existed to make a too-wide row
-// survivable, and the row is gone, so a control that hid a column to make room
-// now only hides work. `parseCollapsed` and `toggleCollapsed` stay exported and
-// tested in lib/phase-model.ts, unused, the same way DealPreview was left.
+// VOCABULARY. Michael thinks in STAGES containing SUB-STAGES; the database says
+// phases containing stages. The interface uses his words, the code keeps the
+// database's, and lib/board-layout.ts is the one seam where they meet. Nothing
+// here renames a column or a variable.
 //
-// `?phase=` IS GONE WITH IT, and so is the phase bar it drove. Every phase is
-// on the screen now, so a selector that showed one at a time is a step between
-// Michael and the board.
+// EVERY VISUAL VALUE COMES FROM lib/design-tokens.ts, which read them out of
+// the export. Nothing here is a hex literal, enforced by
+// tests/board-tokens.test.ts walking the directory.
 //
-// EVERY COLOUR AND EVERY TYPE SIZE COMES FROM lib/design-tokens.ts. Nothing
-// here is a hex literal, enforced by tests/board-tokens.test.ts, which walks the
-// directory so a file nobody has written yet is covered.
+// EXPANSION RIDES THE URL (`?open=`), so this is STILL A SERVER COMPONENT: no
+// handler, no client state, no drag target. The only client code on the board
+// is the Remove control, which is a leaf.
 //
-// NOTHING ABOUT THE MODEL IS HARDCODED. Phases, stages, units, gates,
-// probabilities, tag rules, milestone types, Attract's sources and the return
-// paths are all rows read at runtime.
-//
-// THE ZONE RULE SURVIVES UNCHANGED. Projection green renders in footers and the
-// strip through ProjectionFigure.tsx; needs-you lime renders on cards through
-// DealCard.tsx. This orchestrator imports both and puts each in its own place,
-// and it carries no lime of its own.
+// THE ZONE RULE SURVIVES. Projection green renders in footers and strips
+// through ProjectionFigure.tsx; lime renders on cards through DealCard.tsx.
+// This orchestrator imports both and carries no lime of its own.
 
 import Link from 'next/link'
 import {
   archiveRows,
   borrowersFor,
-  columnTotals,
-  columnWeight,
   columnsForPhase,
   dealsInStage,
   fmtAmount,
-  fmtCompact,
   fmtTotal,
   hasSteps,
   isDealLevel,
   isGate,
   orderedPhases,
-  orderedReturns,
-  phaseTotals,
   purposeLabel,
-  returnTarget,
   terminalStages,
-  unevaluableTags,
   unplacedDeals,
   type AttractSourceLike,
   type CardTagLike,
@@ -73,15 +60,24 @@ import {
   type StageEventLike,
   type StageLike,
 } from '@/lib/phase-model'
-import { columnSkin, typeSkin } from '@/lib/phase-palette'
-import { emptyStagesNote, foldStages, phaseIsQuiet, phaseWeighted } from '@/lib/board-layout'
 import {
+  closingCountdown,
+  phaseFigures,
+  stageWord,
+  subStageWord,
+} from '@/lib/board-layout'
+import {
+  MISSING_VALUE,
   RADIUS,
+  ROLE,
   STROKE,
   SURFACE,
   TEXT,
   TYPE,
+  navyAlpha,
+  phaseHue,
   radius,
+  stageTone,
   typeStyle,
 } from '@/lib/design-tokens'
 import {
@@ -118,12 +114,11 @@ interface Props {
   withdrawnDeals: DealLike[]
   roomDealIds: string[]
   canWithdraw: boolean
-  /** The subject property's address per rec deal id, resolved on the page. */
   addressByDeal: Record<string, string>
+  /** The phase to expand, already validated against the record layer. */
+  openPhase: string | null
   selectedRef: string | null
   nowISO: string
-  /** Today in Toronto. One value for the whole render, so every countdown on
-   *  the screen agrees about what day it is. */
   todayYMD: string
 }
 
@@ -136,18 +131,15 @@ function href(params: Record<string, string | null | undefined>): string {
   return s ? `${BASE}?${s}` : BASE
 }
 
-const panelStyle = {
-  background: SURFACE.panel,
-  border: `${STROKE.panel}px solid ${SURFACE.panelBorder}`,
-  borderRadius: radius(RADIUS.panel),
-}
+const hair = `${STROKE.hairline}px solid ${SURFACE.border}`
 
 export default function DealsBetaBoard(props: Props) {
   const { archive, withdrawnView, nostageView } = props
+  const otherView = archive || withdrawnView || nostageView
 
   return (
-    <div className="mt-5">
-      <InsightsStrip insights={props.insights} />
+    <div>
+      <SummaryStrip {...props} />
       <ViewSwitch
         stages={props.stages}
         deals={props.deals}
@@ -155,165 +147,85 @@ export default function DealsBetaBoard(props: Props) {
         withdrawnView={withdrawnView}
         nostageView={nostageView}
         withdrawnCount={props.withdrawnDeals.length}
+        openPhase={props.openPhase}
       />
       {nostageView ? (
-        <NoStageView
-          stages={props.stages}
-          deals={props.deals}
-          clients={props.clients}
-          roomDealIds={props.roomDealIds}
-          canWithdraw={props.canWithdraw}
-        />
+        <NoStageView {...props} />
       ) : withdrawnView ? (
-        <WithdrawnView
-          deals={props.withdrawnDeals}
-          withdrawals={props.withdrawals}
-          clients={props.clients}
-          canWithdraw={props.canWithdraw}
-        />
+        <WithdrawnView {...props} />
       ) : archive ? (
-        <ArchiveView
-          stages={props.stages}
-          deals={props.deals}
-          clients={props.clients}
-          roomDealIds={props.roomDealIds}
-          canWithdraw={props.canWithdraw}
-        />
+        <ArchiveView {...props} />
       ) : (
-        <AllPhases {...props} />
+        <PhaseRow {...props} />
       )}
-      {!archive && !withdrawnView && !nostageView && (
-        <ReturnRail
-          returns={props.returns}
-          phases={orderedPhases(props.phases)}
-          stages={props.stages}
-          sources={props.sources}
-        />
-      )}
+      {!otherView && <BesideTheBoard {...props} />}
     </div>
   )
 }
 
-function Panel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="p-5" style={{ ...panelStyle, ...typeStyle(TYPE.body), color: TEXT.secondary }}>
-      {children}
-    </p>
-  )
-}
+// ─── Level one: the summary strip ───────────────────────────────────────────
 
-/** A section heading on one of the list views. */
-function ViewHeading({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-3">
-      <h2 style={{ ...typeStyle(TYPE.phaseName), color: TEXT.primary }}>{title}</h2>
-      <p
-        className="mt-0.5 max-w-4xl"
-        style={{ ...typeStyle(TYPE.phaseDescription), color: TEXT.secondary }}
-      >
-        {children}
-      </p>
+function SummaryStrip(props: Props) {
+  const { stages, boardDeals: deals, todayYMD } = props
+  const stageByCode = new Map(stages.map(s => [s.code, s]))
+  const inFlight = deals.filter(d => {
+    const s = d.stage_code ? stageByCode.get(d.stage_code) : null
+    return s ? s.category !== 'terminal_won' && s.category !== 'terminal_lost' : true
+  })
+  const funded = deals.length - inFlight.length
+  const needsWork = deals.filter(d => {
+    const s = d.stage_code ? stageByCode.get(d.stage_code) : null
+    return closingCountdown({
+      closingDate: typeof d.closing_date === 'string' ? d.closing_date : null,
+      todayYMD,
+      stageCategory: s?.category ?? null,
+    }).urgent
+  }).length
+
+  const openValue = inFlight.reduce((a, d) => a + (d.mortgage_amount ?? 0), 0)
+  const openWeighted = inFlight.reduce((a, d) => {
+    const s = d.stage_code ? stageByCode.get(d.stage_code) : null
+    const p = typeof s?.probability === 'number' ? s.probability : null
+    return p === null ? a : a + ((d.mortgage_amount ?? 0) * p) / 100
+  }, 0)
+
+  const Figure = ({ n, label, first }: { n: number; label: string; first?: boolean }) => (
+    <div
+      className="flex items-baseline gap-[7px]"
+      style={{
+        padding: first ? '0 20px 0 0' : '0 20px',
+        ...(first ? {} : { borderLeft: hair }),
+      }}
+    >
+      <span style={{ ...typeStyle(TYPE.kpiFigure), color: TEXT.navy }}>{n}</span>
+      <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>{label}</span>
     </div>
   )
-}
-
-// ─── The insights strip ─────────────────────────────────────────────────────
-
-function InsightsStrip({ insights }: { insights: Insights }) {
-  if (insights.tiles.length === 0) return null
-  return (
-    <div className="mb-4">
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-        {insights.tiles.map(t => (
-          <div key={t.key} className="p-3" style={panelStyle} data-testid={`beta-tile-${t.key}`}>
-            <div className="flex items-baseline gap-2">
-              <p
-                className="flex-1"
-                style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}
-              >
-                {t.label}
-              </p>
-              {/* Colour never carries the meaning alone: the word rides with
-                  the figure so a reader who does not know the convention can
-                  still read the page. */}
-              {t.isProjection && <ProjectionLabel>projected</ProjectionLabel>}
-            </div>
-            <p className="mt-1.5">
-              {t.isProjection ? (
-                <ProjectionFigure size="lg">{fmtTotal(t.value)}</ProjectionFigure>
-              ) : (
-                <span
-                  className="tabular-nums"
-                  style={{ ...typeStyle(TYPE.figure), color: TEXT.primary }}
-                >
-                  {t.unit === 'days' ? `${Math.round(t.value)} days` : fmtTotal(t.value)}
-                </span>
-              )}
-            </p>
-            <p
-              className="mt-1.5 tabular-nums"
-              style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}
-            >
-              {t.perDeal !== null && <>{fmtCompact(t.perDeal)} per file · </>}
-              {t.counted} of {t.total} files
-              {t.note && <> · {t.note}</>}
-            </p>
-          </div>
-        ))}
-      </div>
-      {/* What is NOT here, and why. An omitted tile stated is worth more than
-          a placeholder shown. */}
-      {insights.omitted.length > 0 && (
-        <p className="mt-2" style={{ ...typeStyle(TYPE.meta), color: TEXT.muted }}>
-          {insights.omitted.map(o => (
-            <span key={o.label}>
-              {o.label} is not shown: {o.reason}.
-            </span>
-          ))}
-        </p>
-      )}
-    </div>
-  )
-}
-
-// ─── The return rail ────────────────────────────────────────────────────────
-
-function ReturnRail({
-  returns,
-  phases,
-  stages,
-  sources,
-}: {
-  returns: PhaseReturnLike[]
-  phases: PhaseLike[]
-  stages: StageLike[]
-  sources: AttractSourceLike[]
-}) {
-  const rows = orderedReturns(returns)
-    .map(r => ({ r, target: returnTarget(r, phases, stages, sources) }))
-    .filter(x => x.target !== null)
-  if (rows.length === 0) return null
 
   return (
-    <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${SURFACE.sectionHairline}` }}>
-      <div className="flex flex-wrap gap-x-6 gap-y-1">
-        {rows.map(({ r, target }) => {
-          const fromStage = stages.find(s => s.code === r.from_stage_code)
-          return (
-            <p key={r.code} style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}>
-              <span style={{ color: TEXT.primary }}>
-                {fromStage ? fromStage.label : r.from_phase} back to {target}
-              </span>
-              <span className="ml-2">{r.label}</span>
-            </p>
-          )
-        })}
+    <div
+      className="flex flex-wrap items-center gap-y-2"
+      style={{ borderTop: hair, borderBottom: hair, padding: '11px 0', margin: '0 0 4px' }}
+      data-testid="beta-summary"
+    >
+      <Figure n={inFlight.length} label="in flight" first />
+      <Figure n={funded} label="funded, now in Monitor" />
+      <Figure n={needsWork} label="closing dates past or inside 14 days" />
+      <div className="ml-auto flex items-baseline gap-[18px]" style={{ paddingLeft: '20px' }}>
+        <span style={{ ...typeStyle(TYPE.kpiValueLabel), color: TEXT.dim }}>
+          Open value{' '}
+          <b style={{ ...typeStyle(TYPE.kpiValue), color: TEXT.navy }}>{fmtTotal(openValue)}</b>
+        </span>
+        <span className="flex items-baseline gap-1.5">
+          <ProjectionLabel>Weighted</ProjectionLabel>
+          <ProjectionFigure testId="beta-open-weighted">{fmtTotal(openWeighted)}</ProjectionFigure>
+        </span>
       </div>
     </div>
   )
 }
 
-// ─── Board / Archive / No stage / Withdrawn switch ──────────────────────────
+// ─── The view switch ────────────────────────────────────────────────────────
 
 function ViewSwitch({
   stages,
@@ -322,6 +234,7 @@ function ViewSwitch({
   withdrawnView,
   nostageView,
   withdrawnCount,
+  openPhase,
 }: {
   stages: StageLike[]
   deals: DealLike[]
@@ -329,217 +242,261 @@ function ViewSwitch({
   withdrawnView: boolean
   nostageView: boolean
   withdrawnCount: number
+  openPhase: string | null
 }) {
   const count = archiveRows(stages, deals).length
   const nostageCount = unplacedDeals(stages, deals).length
   const boardOn = !archive && !withdrawnView && !nostageView
   const chip = (on: boolean) => ({
-    ...typeStyle(TYPE.meta),
-    borderRadius: radius(RADIUS.card),
-    background: on ? TEXT.navy : SURFACE.panel,
-    color: on ? SURFACE.panel : TEXT.secondary,
-    border: `${STROKE.panel}px solid ${on ? TEXT.navy : SURFACE.panelBorder}`,
+    ...typeStyle(on ? TYPE.chipOn : TYPE.chipOff),
+    color: on ? SURFACE.panel : TEXT.dim,
+    background: on ? TEXT.navy : 'transparent',
+    border: on ? `${STROKE.hairline}px solid ${TEXT.navy}` : hair,
+    borderRadius: radius(RADIUS.chip),
+    padding: '6px 11px',
   })
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <Link href={href({})} className="px-3 py-1.5" style={chip(boardOn)}>
+    <div className="flex flex-wrap gap-1.5" style={{ padding: '12px 0 2px' }}>
+      {/* Board keeps whichever phase was open, so switching away and back does
+          not silently close what someone was reading. */}
+      <Link href={href({ open: openPhase })} style={chip(boardOn)}>
         Board
       </Link>
-      <Link href={href({ view: 'archive' })} className="px-3 py-1.5" style={chip(archive)}>
-        Archive <span className="tabular-nums">{count}</span>
+      <Link href={href({ view: 'archive' })} style={chip(archive)}>
+        Archive {count}
       </Link>
-      {/* The count renders at zero for the same reason Withdrawn's does: the
-          views must account for the whole book on the screen where the book is
-          read, and the day a stageless record arrives, the place that explains
-          it already exists. */}
-      <Link
-        href={href({ view: 'nostage' })}
-        className="px-3 py-1.5"
-        style={chip(nostageView)}
-        data-testid="beta-view-nostage"
-      >
-        No stage <span className="tabular-nums">{nostageCount}</span>
+      <Link href={href({ view: 'nostage' })} style={chip(nostageView)} data-testid="beta-view-nostage">
+        No stage {nostageCount}
       </Link>
-      {/* THE COUNT IS ALWAYS HERE, INCLUDING AT ZERO. A withdrawn record leaves
-          the columns and the totals, so this number is the only place the book
-          can be read against what left it. */}
-      <Link
-        href={href({ view: 'withdrawn' })}
-        className="px-3 py-1.5"
-        style={chip(withdrawnView)}
-        data-testid="beta-view-withdrawn"
-      >
-        Withdrawn <span className="tabular-nums">{withdrawnCount}</span>
+      {/* The count renders at zero too: a book that shrinks can only be read
+          against what left it if the number is always on the same screen. */}
+      <Link href={href({ view: 'withdrawn' })} style={chip(withdrawnView)} data-testid="beta-view-withdrawn">
+        Withdrawn {withdrawnCount}
       </Link>
     </div>
   )
 }
 
-// ─── The board: every phase, stacked ────────────────────────────────────────
+// ─── Level one: the five phases as one row ──────────────────────────────────
 
-function AllPhases(props: Props) {
-  const ordered = orderedPhases(props.phases)
+function PhaseRow(props: Props) {
+  const { phases, stages, boardDeals: deals, sources, openPhase } = props
+  const ordered = orderedPhases(phases)
   if (ordered.length === 0) {
     return <Panel>No phases are configured, so there is nothing to show. Phases live in rec.phases.</Panel>
   }
+  const open = ordered.find(p => p.code === openPhase) ?? null
+
   return (
-    <div className="space-y-4">
-      {ordered.map(phase => (
-        <PhaseSection key={phase.code} phase={phase} {...props} />
-      ))}
+    <div style={{ marginTop: '14px' }}>
+      {/* THE FIVE, SIDE BY SIDE. They wrap rather than scroll if the viewport
+          cannot hold five, so the board never gains a sideways scrollbar. */}
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}
+        data-testid="beta-phases"
+      >
+        {ordered.map(p => (
+          <PhaseTile
+            key={p.code}
+            phase={p}
+            stages={stages}
+            deals={deals}
+            open={p.code === openPhase}
+          />
+        ))}
+      </div>
+
+      {/* LEVEL TWO, underneath, and only ever one of them. */}
+      {open ? (
+        <ExpandedPhase {...props} phase={open} />
+      ) : (
+        <p
+          style={{ ...typeStyle(TYPE.phaseBlurb), color: TEXT.dim, margin: '14px 0 0' }}
+          data-testid="beta-nothing-open"
+        >
+          Pick a {PHASE_LABEL} above to see the {subStageWord(2)} inside it and the files sitting in
+          each one.
+        </p>
+      )}
+
+      {/* Attract's sources are level-one information: it has no stages by
+          design, so there is nothing to expand into. */}
+      {open === null && <AttractSources phases={ordered} sources={sources} />}
     </div>
   )
 }
 
-function PhaseSection(props: Props & { phase: PhaseLike }) {
-  const { phase, stages, boardDeals: deals, tags } = props
-  const columns = columnsForPhase(stages, phase.code)
-  const dealLevel = isDealLevel(phase)
-  const countFor = (s: StageLike) => (dealLevel ? dealsInStage(deals, s.code).length : 0)
-  const fileCount = columns.reduce((n, s) => n + countFor(s), 0)
+const PHASE_LABEL = 'stage'
 
-  // A phase with nothing in it folds to its header line alone. Attract has no
-  // stages by configuration and the contact-level phases hold nobody, so all
-  // three fold by one rule rather than three special cases.
-  if (phaseIsQuiet(fileCount)) {
-    return (
-      <section style={panelStyle} data-testid={`beta-phase-${phase.code}`} data-quiet="true">
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
-          <h2 style={{ ...typeStyle(TYPE.phaseName), color: TEXT.primary }}>{phase.label}</h2>
-          {phase.description && (
-            <p
-              className="min-w-0 flex-1"
-              style={{ ...typeStyle(TYPE.phaseDescription), color: TEXT.secondary }}
-            >
-              {phase.description}
-            </p>
-          )}
-          <span
-            className="ml-auto shrink-0"
-            style={{ ...typeStyle(TYPE.meta), color: TEXT.absent }}
-          >
-            {hasSteps(phase)
-              ? `No ${phase.unit} in this phase yet`
-              : 'Sources rather than steps, and no arrivals recorded yet'}
+function PhaseTile({
+  phase,
+  stages,
+  deals,
+  open,
+}: {
+  phase: PhaseLike
+  stages: StageLike[]
+  deals: DealLike[]
+  open: boolean
+}) {
+  const cols = columnsForPhase(stages, phase.code)
+  const dealLevel = isDealLevel(phase)
+  const figures = phaseFigures(cols, code => (dealLevel ? dealsInStage(deals, code) : []))
+  const hue = phaseHue(phase.code)
+  const clickable = cols.length > 0
+
+  const inner = (
+    <>
+      <div className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="shrink-0"
+          style={{ width: '7px', height: '7px', borderRadius: radius(RADIUS.swatch), background: hue }}
+        />
+        <span style={{ ...typeStyle(TYPE.phaseName), color: TEXT.navy }}>{phase.label}</span>
+      </div>
+      <div className="mt-1.5 flex items-baseline gap-1.5">
+        <span
+          style={{
+            ...typeStyle(TYPE.stageCount),
+            color: figures.count > 0 ? TEXT.navy : TEXT.ghost,
+          }}
+        >
+          {figures.count}
+        </span>
+        <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>{phase.unit}</span>
+      </div>
+      {/* Expected and weighted volume, on the two phases that count dollars.
+          A phase counting people carries neither rather than a zero. */}
+      {phase.counts_dollars && (
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <span style={{ ...typeStyle(TYPE.phaseValue), color: TEXT.navy }}>
+            {fmtTotal(figures.value)}
           </span>
+          {figures.weighted !== null && (
+            <span className="flex items-baseline gap-1">
+              <ProjectionLabel>wtd</ProjectionLabel>
+              <ProjectionFigure testId={`beta-phaseweight-${phase.code}`}>
+                {fmtTotal(figures.weighted)}
+              </ProjectionFigure>
+            </span>
+          )}
         </div>
-      </section>
-    )
+      )}
+      <p
+        className="mt-1.5 line-clamp-2"
+        style={{ ...typeStyle(TYPE.phaseBlurb), color: TEXT.dim }}
+      >
+        {phase.description ?? `${cols.length} ${subStageWord(cols.length)}`}
+      </p>
+      {figures.missingAmounts > 0 && (
+        <p style={{ ...typeStyle(TYPE.stageTeach), ...MISSING_VALUE, marginTop: '4px' }}>
+          {figures.missingAmounts} with no amount recorded
+        </p>
+      )}
+    </>
+  )
+
+  const style = {
+    background: SURFACE.panel,
+    border: open ? `${STROKE.hairline}px solid ${TEXT.navy}` : hair,
+    borderTop: `3px solid ${open ? hue : 'transparent'}`,
+    borderRadius: radius(RADIUS.card),
+    padding: '9px 11px 11px',
   }
 
-  const { occupied, empty } = foldStages(columns, countFor)
-  const note = emptyStagesNote(empty.length)
-  const totals = phaseTotals(phase, stages, deals)
-  const weighted = phaseWeighted(columns, code => columnTotals(dealsInStage(deals, code)).amount)
-  const unevaluable = dealLevel ? unevaluableTags(tags, deals) : []
+  if (!clickable) {
+    return (
+      <div style={style} data-testid={`beta-phase-${phase.code}`} data-open="false">
+        {inner}
+      </div>
+    )
+  }
+  return (
+    <Link
+      href={href({ open: open ? null : phase.code })}
+      aria-expanded={open}
+      style={style}
+      className="block"
+      data-testid={`beta-phase-${phase.code}`}
+      data-open={open ? 'true' : 'false'}
+    >
+      {inner}
+    </Link>
+  )
+}
+
+// ─── Level two: one phase expanded, its stages as columns ───────────────────
+
+function ExpandedPhase(props: Props & { phase: PhaseLike }) {
+  const { phase, stages, boardDeals: deals } = props
+  const cols = columnsForPhase(stages, phase.code)
+  const dealLevel = isDealLevel(phase)
+  const hue = phaseHue(phase.code)
 
   return (
-    <section style={panelStyle} data-testid={`beta-phase-${phase.code}`}>
-      <header
-        className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3"
-        style={{ borderBottom: `1px solid ${SURFACE.sectionHairline}` }}
-      >
-        <div className="min-w-0 flex-1">
-          <h2 style={{ ...typeStyle(TYPE.phaseName), color: TEXT.primary }}>{phase.label}</h2>
-          {phase.description && (
-            <p
-              className="mt-0.5"
-              style={{ ...typeStyle(TYPE.phaseDescription), color: TEXT.secondary }}
-            >
-              {phase.description}
-            </p>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="tabular-nums" style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}>
-            {fileCount} {fileCount === 1 ? 'file' : 'files'}
-          </span>
-          {totals && phase.counts_dollars && (
-            <>
-              <Pipe />
-              <span
-                className="tabular-nums"
-                style={{ ...typeStyle(TYPE.meta), color: TEXT.primary }}
-              >
-                {fmtTotal(totals.amount)}
-              </span>
-            </>
-          )}
-          {weighted && (
-            <>
-              <Pipe />
-              <span className="flex items-center gap-1.5">
-                <ProjectionLabel>weighted</ProjectionLabel>
-                {/* NOT `beta-phase-...`: that prefix belongs to the section
-                    itself, and a selector for phases would otherwise pick up
-                    the figures inside them. */}
-                <ProjectionFigure testId={`beta-phaseweight-${phase.code}`}>
-                  {fmtTotal(weighted.weighted)}
-                </ProjectionFigure>
-              </span>
-            </>
-          )}
-        </div>
-      </header>
-
-      <div className="p-3">
-        {/* A tag rule that cannot be evaluated is named rather than silently
-            dropped, because "no tag" and "cannot tell" are different facts. */}
-        {unevaluable.map(u => (
-          <p
-            key={u.tag.code}
-            className="mb-3"
-            style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}
-          >
-            The {u.tag.label} tag is not shown: its rule reads {u.tag.rule_field}, which no deal row
-            carries. Marking every file with it would invent a signal out of a field nobody records.
-          </p>
-        ))}
-
-        {/* THE GRID WRAPS, IT DOES NOT SCROLL. auto-fit with a minimum means a
-            phase with six occupied stages reflows onto a second line rather
-            than pushing the board off the side of the screen. */}
-        <div
-          className="grid gap-3"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}
+    <section
+      style={{
+        marginTop: '10px',
+        background: SURFACE.panel,
+        border: hair,
+        borderTop: `3px solid ${hue}`,
+        borderRadius: radius(RADIUS.card),
+        padding: '12px 12px 14px',
+      }}
+      data-testid={`beta-expanded-${phase.code}`}
+    >
+      <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+        <span style={{ ...typeStyle(TYPE.sectionTitle), color: TEXT.navy }}>{phase.label}</span>
+        <span style={{ ...typeStyle(TYPE.sectionNote), color: TEXT.dim }}>
+          {cols.length} {subStageWord(cols.length)}
+        </span>
+        <Link
+          href={href({})}
+          className="ml-auto"
+          style={{
+            ...typeStyle(TYPE.pillLabel),
+            color: TEXT.dim,
+            border: hair,
+            borderRadius: radius(RADIUS.chip),
+            padding: '4px 9px',
+          }}
         >
-          {occupied.map(col => (
+          Close
+        </Link>
+      </div>
+
+      {cols.length === 0 ? (
+        <Panel>
+          No {subStageWord(2)} are configured for {phase.label}. They are configuration: adding a row
+          to rec.deal_stages adds a column here.
+        </Panel>
+      ) : (
+        // SEVEN COLUMNS IS THE WIDEST THIS EVER GETS, because only one phase is
+        // open. They wrap rather than scroll sideways.
+        <div
+          className="grid items-start gap-2"
+          style={{ gridTemplateColumns: `repeat(auto-fit, minmax(190px, 1fr))` }}
+        >
+          {cols.map((col, i) => (
             <StageColumn
               key={col.code}
               {...props}
               stage={col}
-              index={columns.findIndex(c => c.code === col.code)}
-              total={columns.length}
-              inColumn={dealsInStage(deals, col.code)}
+              index={i}
+              total={cols.length}
+              inColumn={dealLevel ? dealsInStage(deals, col.code) : []}
+              dealLevel={dealLevel}
             />
           ))}
         </div>
-
-        {/* An empty stage is still a fact about the process, so it is named
-            rather than dropped. */}
-        {note && (
-          <p
-            className="mt-3"
-            style={{ ...typeStyle(TYPE.meta), color: TEXT.muted }}
-            data-testid={`beta-empty-stages-${phase.code}`}
-          >
-            {note} {empty.map(s => s.label).join(', ')}.
-          </p>
-        )}
-      </div>
+      )}
     </section>
   )
 }
 
-function Pipe() {
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-block h-3 w-px"
-      style={{ background: SURFACE.figurePipe }}
-    />
-  )
-}
+// ─── Level three: a stage column and its cards ──────────────────────────────
 
 function StageColumn(
   props: Props & {
@@ -548,131 +505,193 @@ function StageColumn(
     index: number
     total: number
     inColumn: DealLike[]
+    dealLevel: boolean
   },
 ) {
-  const { phase, stage, index, total, inColumn } = props
-  // Resolved on the page with the same resolveRoom the file page uses, so the
-  // refusal posture on a card and the refusal in the route agree by
-  // construction rather than by two people remembering the same rule.
+  const { phase, stage, index, total, inColumn, dealLevel } = props
   const rooms = new Set(props.roomDealIds)
-  const skin = columnSkin(phase.code, index, total)
-  const totals = columnTotals(inColumn)
   const gate = isGate(stage)
-  const weight = columnWeight(stage, inColumn)
+  const tone = stageTone(phase.code, index, total)
 
   return (
     <div
-      className="overflow-hidden"
-      style={{ background: SURFACE.columnGround, borderRadius: radius(RADIUS.column) }}
+      style={{
+        background: SURFACE.canvas,
+        border: hair,
+        borderRadius: radius(RADIUS.card),
+        padding: '9px 8px 8px',
+      }}
       data-testid={`beta-col-${stage.code}`}
     >
-      {/* Hue says which phase, depth says how far along. A gate is dashed
-          rather than solid: a decision point is not somewhere a file rests. */}
-      <div
-        style={{
-          height: `${STROKE.stageRule}px`,
-          ...(gate
-            ? {
-                backgroundImage: `repeating-linear-gradient(90deg, ${skin.accent} 0 6px, transparent 6px 11px)`,
-              }
-            : { background: skin.accent }),
-        }}
-        aria-hidden="true"
-      />
-      <div className="px-3 pb-2 pt-2.5">
-        {/* THE COUNT SITS BESIDE THE NAME, NOT RIGHT-ALIGNED. Right-aligning it
-            puts it against the next column, where it reads as belonging to that
-            one instead. The stage name is navy rather than the phase hue:
-            coloured headings are not the brand. */}
-        <div className="flex items-center gap-2">
-          <h3 style={{ ...typeStyle(TYPE.stageName), color: TEXT.navy }}>{stage.label}</h3>
-          <span
-            className="shrink-0 tabular-nums"
-            style={{
-              ...typeStyle(TYPE.countPill),
-              color: TEXT.navy,
-              background: SURFACE.columnGround,
-              borderRadius: radius(RADIUS.countPill),
-              padding: '2px 9px',
-              border: `${STROKE.panel}px solid ${SURFACE.cardBorder}`,
-            }}
-            data-testid={`beta-count-${stage.code}`}
-          >
-            {totals.count}
-          </span>
-          {gate && (
-            <span
-              className="shrink-0"
-              style={{ ...typeStyle(TYPE.meta), color: TEXT.muted }}
-            >
-              gate
-            </span>
-          )}
-        </div>
-        {/* The single most useful element for someone who has never seen the
-            system: what this stage actually means. */}
-        {stage.description && (
-          <p
-            className="mt-1"
-            style={{ ...typeStyle(TYPE.stageDescription), color: TEXT.muted }}
-          >
-            {stage.description}
-          </p>
-        )}
-        {weight && (
-          <p className="mt-1.5 flex items-center gap-1.5">
-            <ProjectionLabel>{weight.probability}% weighted</ProjectionLabel>
-            <ProjectionFigure testId={`beta-weighted-${stage.code}`}>
-              {fmtTotal(weight.weighted)}
-            </ProjectionFigure>
-          </p>
-        )}
+      <div className="flex items-center gap-1.5" style={{ height: '9px', margin: '0 0 7px' }}>
+        <span
+          aria-hidden="true"
+          className="shrink-0"
+          style={{ width: '16px', height: '3px', borderRadius: radius(RADIUS.swatch), background: tone }}
+        />
+        {gate && <span style={{ ...typeStyle(TYPE.gate), color: TEXT.metaMono }}>GATE</span>}
       </div>
+      <div style={{ ...typeStyle(TYPE.stageName), color: TEXT.navy }}>{stage.label}</div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span
+          style={{
+            ...typeStyle(TYPE.stageCount),
+            color: inColumn.length > 0 ? TEXT.navy : TEXT.ghost,
+          }}
+        >
+          {dealLevel ? inColumn.length : 0}
+        </span>
+        <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>{phase.unit}</span>
+      </div>
+      {/* THE TEACHING LINE AT FULL STRENGTH EVEN AT ZERO. A sub-stage holding
+          nothing still explains what happens there, which is the whole reason
+          someone new can read this board. */}
+      {stage.description && (
+        <p className="mt-1.5" style={{ ...typeStyle(TYPE.stageTeach), color: TEXT.dim }}>
+          {stage.description}
+        </p>
+      )}
 
-      <div className="space-y-2 px-2 pb-2">
-        {inColumn.map(d => {
-          const sourceId = typeof d.source_id === 'string' ? d.source_id : null
-          const posture = feedPosture({
-            finmoApplicationId:
-              typeof d.finmo_application_id === 'string' ? d.finmo_application_id : null,
-            hasRoom: rooms.has(d.id),
-          })
-          return (
-            <DealCard
-              key={d.id}
-              deal={d}
-              events={props.events}
-              clients={props.clients}
-              tags={props.tags}
-              milestoneTypes={props.milestoneTypes}
-              milestones={props.milestones}
-              nowISO={props.nowISO}
-              todayYMD={props.todayYMD}
-              stageCategory={stage.category ?? null}
-              address={props.addressByDeal[d.id] ?? null}
-              selected={(d.file_ref ?? d.id) === props.selectedRef}
-              href={`/portal/admin/deals-beta/${encodeURIComponent(d.id)}`}
-              // A record with no source id cannot be keyed by the loader, so
-              // there is nothing to withdraw and no control is offered.
-              remove={
-                props.canWithdraw && sourceId ? (
-                  <RemoveRecordControl
-                    sourceId={sourceId}
-                    fileRef={d.file_ref}
-                    posture={posture}
-                    variant="card"
-                  />
-                ) : undefined
-              }
-            />
-          )
-        })}
-      </div>
+      {inColumn.length > 0 && (
+        // THE COLUMN SCROLLS, THE PAGE DOES NOT. Funded holds 66 files, and a
+        // column that grew to fit them would make the page ten thousand pixels
+        // tall and push every other column off the top of the screen. Nothing
+        // is hidden or capped: all 66 are here, in a box that scrolls.
+        <div
+          className="mt-2 flex flex-col gap-1.5 overflow-y-auto"
+          style={{ maxHeight: '58vh' }}
+          data-testid={`beta-col-body-${stage.code}`}
+        >
+          {inColumn.map(d => {
+            const sourceId = typeof d.source_id === 'string' ? d.source_id : null
+            const posture = feedPosture({
+              finmoApplicationId:
+                typeof d.finmo_application_id === 'string' ? d.finmo_application_id : null,
+              hasRoom: rooms.has(d.id),
+            })
+            return (
+              <DealCard
+                key={d.id}
+                deal={d}
+                events={props.events}
+                clients={props.clients}
+                nowISO={props.nowISO}
+                todayYMD={props.todayYMD}
+                stageCategory={stage.category ?? null}
+                stageName={stage.label}
+                address={props.addressByDeal[d.id] ?? null}
+                selected={(d.file_ref ?? d.id) === props.selectedRef}
+                href={`/portal/admin/deals-beta/${encodeURIComponent(d.id)}`}
+                remove={
+                  props.canWithdraw && sourceId ? (
+                    <RemoveRecordControl
+                      sourceId={sourceId}
+                      fileRef={d.file_ref}
+                      posture={posture}
+                      variant="card"
+                    />
+                  ) : undefined
+                }
+              />
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── A row on one of the list views ─────────────────────────────────────────
+// ─── Attract: sources, not stages ───────────────────────────────────────────
+
+function AttractSources({
+  phases,
+  sources,
+}: {
+  phases: PhaseLike[]
+  sources: AttractSourceLike[]
+}) {
+  const attract = phases.find(p => !hasSteps(p))
+  if (!attract || sources.length === 0) return null
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <span style={{ ...typeStyle(TYPE.sectionNote), color: TEXT.dim }}>
+        {attract.label} has no {subStageWord(2)} by design, because nobody moves through a source:
+      </span>
+      {sources.map(s => (
+        <span
+          key={s.code}
+          style={{
+            ...typeStyle(TYPE.pillLabel),
+            color: TEXT.dim,
+            border: hair,
+            borderRadius: radius(RADIUS.pill),
+            padding: '5px 10px',
+          }}
+          data-testid={`beta-source-${s.code}`}
+        >
+          {s.label} <b style={{ ...typeStyle(TYPE.cardInStage), color: TEXT.faintMono }}>0</b>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ─── Beside the board ───────────────────────────────────────────────────────
+
+function BesideTheBoard(props: Props) {
+  const { stages, deals, insights } = props
+  const projected = insights.tiles.find(t => t.isProjection)
+  return (
+    <div
+      className="flex flex-wrap items-baseline gap-x-4 gap-y-1"
+      style={{ borderTop: hair, marginTop: '13px', padding: '11px 0' }}
+    >
+      <span style={{ ...typeStyle(TYPE.footNote), color: TEXT.dim }}>
+        Beside the board: Archive {archiveRows(stages, deals).length} · No stage{' '}
+        {unplacedDeals(stages, deals).length} · Withdrawn {props.withdrawnDeals.length}
+      </span>
+      {projected && (
+        <span className="ml-auto flex items-baseline gap-1.5">
+          <ProjectionLabel>Projected to fund</ProjectionLabel>
+          <ProjectionFigure testId="beta-projected">{fmtTotal(projected.value)}</ProjectionFigure>
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ─── Shared pieces for the list views ───────────────────────────────────────
+
+function Panel({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      style={{
+        ...typeStyle(TYPE.pageSubtitle),
+        color: TEXT.dim,
+        background: SURFACE.panel,
+        border: hair,
+        borderRadius: radius(RADIUS.card),
+        padding: '16px',
+      }}
+    >
+      {children}
+    </p>
+  )
+}
+
+function ViewHeading({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ margin: '14px 0 10px' }}>
+      <h2 style={{ ...typeStyle(TYPE.sectionTitle), color: TEXT.navy }}>{title}</h2>
+      <p
+        className="mt-1 max-w-4xl"
+        style={{ ...typeStyle(TYPE.phaseBlurb), color: TEXT.dim }}
+      >
+        {children}
+      </p>
+    </div>
+  )
+}
 
 function ListRow({
   deal,
@@ -684,11 +703,9 @@ function ListRow({
 }: {
   deal: DealLike
   clients: DealClientLike[]
-  /** The fact that leads the row, where one does. */
   lead?: React.ReactNode
-  /** The link to the file page. Passed IN by each view rather than built here,
-   *  so tests/rec-withdrawal.test.ts can still find it inside the view whose
-   *  reachability it is asserting. */
+  /** Passed IN by each view rather than built here, so the reachability
+   *  assertions in tests/rec-withdrawal.test.ts still find it in the view. */
   refLink: React.ReactNode
   testId: string
   children?: React.ReactNode
@@ -696,35 +713,30 @@ function ListRow({
   const borrowers = borrowersFor(deal, clients)
   const amount = fmtAmount(deal.mortgage_amount)
   const type = purposeLabel(deal.deal_type)
-  const t = typeSkin(deal.deal_type)
   return (
-    <div
-      className="px-4 py-3"
-      style={{ borderTop: `1px solid ${SURFACE.sectionHairline}` }}
-      data-testid={testId}
-    >
+    <div style={{ borderTop: hair, padding: '10px 12px' }} data-testid={testId}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {lead}
         {refLink}
-        {borrowers.length > 0 && (
-          <span style={{ ...typeStyle(TYPE.body), color: TEXT.primary }}>
-            {borrowers.map(b => b.name).join(', ')}
-          </span>
-        )}
-        {type && t && (
+        <span style={{ ...typeStyle(TYPE.phaseBlurb), color: TEXT.navy }}>
+          {borrowers.length > 0 ? borrowers.map(b => b.name).join(', ') : <span style={MISSING_VALUE}>No borrower recorded</span>}
+        </span>
+        {type && (
           <span
-            className="rounded-full border px-2 py-0.5"
-            style={{ ...typeStyle(TYPE.meta), color: t.fg, borderColor: t.border, background: t.bg }}
+            style={{
+              ...typeStyle(TYPE.cardMeta),
+              color: TEXT.metaMono,
+              border: hair,
+              borderRadius: radius(RADIUS.small),
+              padding: '2px 6px',
+            }}
           >
             {type}
           </span>
         )}
         <span
-          className="ml-auto tabular-nums"
-          style={{
-            ...typeStyle(TYPE.cardAmount),
-            color: amount ? TEXT.primary : TEXT.absent,
-          }}
+          className="ml-auto"
+          style={{ ...typeStyle(TYPE.cardAmount), ...(amount ? { color: TEXT.navy } : MISSING_VALUE) }}
         >
           {amount ?? 'No amount'}
         </span>
@@ -734,45 +746,42 @@ function ListRow({
   )
 }
 
+function refLinkFor(deal: DealLike) {
+  return (
+    <Link
+      href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
+      style={{ ...typeStyle(TYPE.cardMeta), color: TEXT.navy }}
+      className="underline underline-offset-2"
+    >
+      {deal.file_ref ?? 'No file reference'}
+    </Link>
+  )
+}
+
 // ─── The No stage view ──────────────────────────────────────────────────────
 
-/** RECORDS THE BOARD CANNOT PLACE, AS A VIEW RATHER THAN A FOOTNOTE. Census
- *  2026-08-05: 33 of 160, every one a historical import with a NULL stage_code,
- *  every one carrying a file_ref, none with a workbench room. NO STAGE IS
- *  INVENTED to make them visible: writing one would fabricate a fact about a
- *  file. Membership comes from lib/phase-model.ts unplacedDeals, the COMPLEMENT
- *  of the board and the Archive, so the three sets partition the live book. */
-function NoStageView({
-  stages,
-  deals,
-  clients,
-  roomDealIds,
-  canWithdraw,
-}: {
-  stages: StageLike[]
-  deals: DealLike[]
-  clients: DealClientLike[]
-  roomDealIds: string[]
-  canWithdraw: boolean
-}) {
+/** RECORDS THE BOARD CANNOT PLACE, AS A VIEW RATHER THAN A FOOTNOTE. Every one
+ *  is a historical import with a NULL stage_code. NO STAGE IS INVENTED to make
+ *  them visible: writing one would fabricate a fact about a file. */
+function NoStageView(props: Props) {
+  const { stages, deals, clients, roomDealIds, canWithdraw } = props
   const rows = unplacedDeals(stages, deals)
   const rooms = new Set(roomDealIds)
   return (
     <section>
       <ViewHeading title="No stage">
         Records the migration loaded without any stage, so the board and the Archive cannot place
-        them. Nothing here has been given a stage to make it visible, because that would invent a
-        fact about the file. The tiles at the top count these records, and one that carries an amount
-        counts as open there, since nothing says it ended. Removing works from here, and a record the
-        loader later stages will move to the board on its own.
+        them. Nothing here has been given one to make it visible, because that would invent a fact
+        about the file. Removing works from here, and a record the loader later stages will move to
+        the board on its own.
       </ViewHeading>
       {rows.length === 0 ? (
         <Panel>
           Every record carries a stage the board knows, so there is nothing here. This view stays,
-          because the day the loader delivers a record without a stage, this is where it will be.
+          because the day the loader delivers a record without one, this is where it will be.
         </Panel>
       ) : (
-        <div className="overflow-hidden" style={panelStyle}>
+        <div style={{ background: SURFACE.panel, border: hair, borderRadius: radius(RADIUS.card) }}>
           {rows.map(({ deal, reason }) => {
             const sourceId = typeof deal.source_id === 'string' ? deal.source_id : null
             const posture = feedPosture({
@@ -789,17 +798,14 @@ function NoStageView({
                 refLink={
                   <Link
                     href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
-                    className="tabular-nums underline underline-offset-2"
-                    style={{ ...typeStyle(TYPE.fileRef), color: TEXT.fileRef }}
+                    style={{ ...typeStyle(TYPE.cardMeta), color: TEXT.navy }}
+                    className="underline underline-offset-2"
                   >
                     {deal.file_ref ?? 'No file reference'}
                   </Link>
                 }
                 lead={
-                  <span
-                    className="min-w-[13rem]"
-                    style={{ ...typeStyle(TYPE.body), color: TEXT.absent }}
-                  >
+                  <span className="min-w-[12rem]" style={{ ...typeStyle(TYPE.phaseBlurb), ...MISSING_VALUE }}>
                     {reason === 'no_stage'
                       ? 'No stage recorded'
                       : `Stage code the board does not know: ${deal.stage_code}`}
@@ -807,14 +813,12 @@ function NoStageView({
                 }
               >
                 {canWithdraw && sourceId && (
-                  <div className="-mx-3">
-                    <RemoveRecordControl
-                      sourceId={sourceId}
-                      fileRef={deal.file_ref}
-                      posture={posture}
-                      variant="card"
-                    />
-                  </div>
+                  <RemoveRecordControl
+                    sourceId={sourceId}
+                    fileRef={deal.file_ref}
+                    posture={posture}
+                    variant="card"
+                  />
                 )}
               </ListRow>
             )
@@ -826,24 +830,10 @@ function NoStageView({
 }
 
 // ─── The Withdrawn view ─────────────────────────────────────────────────────
-//
-// WHERE MICHAEL WILL BE STANDING WHEN HE GETS ONE WRONG. That is the whole job
-// of this view, so every row states who removed it, when, and the reason they
-// typed, and carries the control that puts it back.
 
-function WithdrawnView({
-  deals,
-  withdrawals,
-  clients,
-  canWithdraw,
-}: {
-  deals: DealLike[]
-  withdrawals: WithdrawalLike[]
-  clients: DealClientLike[]
-  canWithdraw: boolean
-}) {
+function WithdrawnView(props: Props) {
+  const { withdrawnDeals: deals, withdrawals, clients, canWithdraw } = props
   const index = indexWithdrawals(withdrawals)
-
   return (
     <section>
       <ViewHeading title="Withdrawn">
@@ -851,14 +841,13 @@ function WithdrawnView({
         row is still in the record layer, still readable, and carries the decision and the reason it
         was made. Putting one back releases the loader to recreate it on its next run.
       </ViewHeading>
-
       {deals.length === 0 ? (
         <Panel>
-          No records have been withdrawn. When one is, it leaves the phase columns and the totals and
+          No records have been withdrawn. When one is, it leaves the columns and the totals and
           appears here with the reason it was removed.
         </Panel>
       ) : (
-        <div className="overflow-hidden" style={panelStyle}>
+        <div style={{ background: SURFACE.panel, border: hair, borderRadius: radius(RADIUS.card) }}>
           {deals.map(deal => {
             const w = withdrawalFor(
               {
@@ -876,26 +865,22 @@ function WithdrawnView({
                 refLink={
                   <Link
                     href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
-                    className="tabular-nums underline underline-offset-2"
-                    style={{ ...typeStyle(TYPE.fileRef), color: TEXT.fileRef }}
+                    style={{ ...typeStyle(TYPE.cardMeta), color: TEXT.navy }}
+                    className="underline underline-offset-2"
                   >
                     {deal.file_ref ?? 'No file reference'}
                   </Link>
                 }
               >
-                {/* The identity on the row is the one the workbench recorded off
-                    the verified session at decision time. Nothing here supplies
-                    it and nothing here could. */}
-                <p className="mt-1" style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}>
+                {/* The identity is the one the workbench recorded off the
+                    verified session at decision time. Nothing here supplies it. */}
+                <p className="mt-1" style={{ ...typeStyle(TYPE.stageTeach), color: TEXT.dim }}>
                   {w?.instructed_by ? `Removed by ${w.instructed_by}` : 'Removed'}
                   {w?.instructed_on ? ` on ${w.instructed_on}` : ''}
                 </p>
                 {w?.reason && (
-                  <p
-                    className="mt-0.5 max-w-prose"
-                    style={{ ...typeStyle(TYPE.body), color: TEXT.primary }}
-                  >
-                    <span style={{ color: TEXT.muted }}>Reason given: </span>
+                  <p className="mt-0.5 max-w-prose" style={{ ...typeStyle(TYPE.phaseBlurb), color: TEXT.body }}>
+                    <span style={{ color: TEXT.dim }}>Reason given: </span>
                     {w.reason}
                   </p>
                 )}
@@ -915,53 +900,42 @@ function WithdrawnView({
 
 // ─── The Archive ────────────────────────────────────────────────────────────
 
-function ArchiveView({
-  stages,
-  deals,
-  clients,
-  roomDealIds,
-  canWithdraw,
-}: {
-  stages: StageLike[]
-  deals: DealLike[]
-  clients: DealClientLike[]
-  roomDealIds: string[]
-  canWithdraw: boolean
-}) {
+function ArchiveView(props: Props) {
+  const { stages, deals, clients, roomDealIds, canWithdraw } = props
   const rows = archiveRows(stages, deals)
   const outcomes = terminalStages(stages)
   const rooms = new Set(roomDealIds)
-
   return (
     <section>
       <ViewHeading title="Archive">
         Files that ended. The outcome is the point: a file lost to another agent is a remarketing
         lead and a cancelled one is not, so the two never collapse into one word.
       </ViewHeading>
-
       {rows.length === 0 ? (
-        <div className="p-5" style={panelStyle}>
-          <p style={{ ...typeStyle(TYPE.body), color: TEXT.secondary }}>
-            No files have ended yet. These are the outcomes a file can end in, all of them empty
-            today:
+        <div
+          style={{
+            background: SURFACE.panel,
+            border: hair,
+            borderRadius: radius(RADIUS.card),
+            padding: '16px',
+          }}
+        >
+          <p style={{ ...typeStyle(TYPE.pageSubtitle), color: TEXT.dim }}>
+            No files have ended yet. These are the outcomes a file can end in, all empty today:
           </p>
           <ul className="mt-3 space-y-2">
             {outcomes.map(s => (
-              <li
-                key={s.code}
-                className="pl-3"
-                style={{ borderLeft: `2px solid ${SURFACE.cardBorder}` }}
-              >
-                <p style={{ ...typeStyle(TYPE.stageName), color: TEXT.primary }}>{s.label}</p>
+              <li key={s.code} className="pl-3" style={{ borderLeft: `2px solid ${navyAlpha(0.18)}` }}>
+                <p style={{ ...typeStyle(TYPE.stageName), color: TEXT.navy }}>{s.label}</p>
                 {s.description && (
-                  <p style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}>{s.description}</p>
+                  <p style={{ ...typeStyle(TYPE.stageTeach), color: TEXT.dim }}>{s.description}</p>
                 )}
               </li>
             ))}
           </ul>
         </div>
       ) : (
-        <div className="overflow-hidden" style={panelStyle}>
+        <div style={{ background: SURFACE.panel, border: hair, borderRadius: radius(RADIUS.card) }}>
           {rows.map(({ deal, stage }) => {
             const sourceId = typeof deal.source_id === 'string' ? deal.source_id : null
             const posture = feedPosture({
@@ -978,8 +952,8 @@ function ArchiveView({
                 refLink={
                   <Link
                     href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
-                    className="tabular-nums underline underline-offset-2"
-                    style={{ ...typeStyle(TYPE.fileRef), color: TEXT.fileRef }}
+                    style={{ ...typeStyle(TYPE.cardMeta), color: TEXT.navy }}
+                    className="underline underline-offset-2"
                   >
                     {deal.file_ref ?? 'No file reference'}
                   </Link>
@@ -987,23 +961,18 @@ function ArchiveView({
                 lead={
                   // The outcome leads the row: it decides whether this person is
                   // worth contacting again.
-                  <span
-                    className="min-w-[13rem]"
-                    style={{ ...typeStyle(TYPE.stageName), color: TEXT.primary }}
-                  >
+                  <span className="min-w-[12rem]" style={{ ...typeStyle(TYPE.stageName), color: TEXT.navy }}>
                     {stage.label}
                   </span>
                 }
               >
                 {canWithdraw && sourceId && (
-                  <div className="-mx-3">
-                    <RemoveRecordControl
-                      sourceId={sourceId}
-                      fileRef={deal.file_ref}
-                      posture={posture}
-                      variant="card"
-                    />
-                  </div>
+                  <RemoveRecordControl
+                    sourceId={sourceId}
+                    fileRef={deal.file_ref}
+                    posture={posture}
+                    variant="card"
+                  />
                 )}
               </ListRow>
             )

@@ -18,6 +18,23 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Export',
+    title: 'The board rebuilt from the design export',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'THE DESIGN EXPORT IS THE VISUAL SOURCE OF TRUTH and outranks any brief. A design tool produced it after several rounds with Michael and he approved its look, so every colour, size, weight and inset was READ OUT OF THE FILE rather than transcribed from prose. tests/board-tokens.test.ts reads the export and diffs the token module against it, which is a far stronger anti-drift mechanism than a list of expected values',
+      'NAVY AND LIME DELIBERATELY DO NOT COME FROM THE EXPORT, because it was produced from screenshots of the live product and both had drifted. The repo held TWO live candidates for each and Michael ruled on both: the declared brand navy over the sidebar navy, and the decision token over the legacy brand green. Both are named by token rather than by value here, because the lime audit rightly refuses a raw brand hex anywhere in the admin tree. Everything else in the export stands verbatim',
+      'THREE LEVELS, and the structure is the one thing the export does not contain. KPIs plus the five stages as ONE horizontal row; click one and it expands underneath into its sub-stages; the files live in those columns. Only one opens at a time, so the widest thing on screen is seven columns rather than twenty-five, which is what makes the geometry work',
+      'PAGE HEIGHT WITH FULFILMENT EXPANDED IS 1359px, down from about 24,000. Funded holds all 66 files in a column that scrolls on its own; nothing is capped or sliced. shrink-0 on the card turned out to be load bearing, because without it the 66 cards compressed to 66 empty bars',
+      'FOUR WEIGHTS REPLACE THE TWO-WEIGHT RULE the previous session pinned. The export uses 400, 500, 600 and 700 and the export wins. It is a replacement rather than a deletion: a weight outside the four still fails, and the test also asserts the export itself uses exactly those four',
+      'TWO FACES, SCOPED TO THIS SURFACE ONLY: Hanken Grotesk for interface text and IBM Plex Mono for every figure, self-hosted through next/font so a signed-in admin page makes no runtime call to Google. The mono fallback is ui-monospace, so figures keep aligning even if the webfont never arrives at all',
+      'THE CARD BAR CARRIES EXACTLY TWO VALUES, lime for needs-work-today and navy for under-control, keyed on the same urgency the summary strip counts so the two can never disagree. The needs-you chip is gone and Michael approved rewriting the two assertions that pinned it. The path allowlist, the legacy-lime extinction check and both zone assertions were not touched',
+      'THE STRIP READS 18, NOT THE BRIEF\'S 16: sixteen closings already past on files that have not closed, plus two inside fourteen days. Counts otherwise unchanged at 160 = board 97 + Archive 29 + No stage 33 + Withdrawn 1',
+      'Pinned in tests/board-tokens.test.ts (40 tests). The copy gate and the write guarantee pass unmodified. No horizontal scroll at 1512 or 1280. No data changed',
+    ],
+  },
+  {
     n: 'Tokens',
     title: 'The design tokens, and the board rebuilt on them',
     status: 'shipped',

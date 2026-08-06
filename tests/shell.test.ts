@@ -439,13 +439,20 @@ describe('lime is attention currency (the exhaustive B4 audit)', () => {
   // quietly spent on the other three, which are information rather than a
   // queued decision — the You chip only means something because the others
   // stay quiet.
-  it('on the Beta board only the You chip is lime', () => {
+  it('on the Beta board lime is the card bar and nothing else', () => {
+    // HANDOFF 58 replaced the needs-you chip with a bar down the card's left
+    // edge, which is what the design export does. The rule this test exists to
+    // enforce is unchanged and is now easier to satisfy, not harder: lime
+    // renders on a card, for one reason, and nowhere else on the board.
     const src = readFileSync('components/admin/deals-beta/DealCard.tsx', 'utf8')
-    expect(src).toMatch(/isActionableChip\(chip\)\s*\n?\s*\?\s*'bg-decision text-decision-ink'/)
-    for (const other of ['Client', 'Lender', 'Lawyer']) {
-      const line = src.split('\n').find(l => l.includes(`'${other}'`) && /decision/.test(l))
-      expect(line, `${other} must not carry the decision token`).toBeUndefined()
-    }
+    // The bar and its status square, both gated on the SAME value, so the card
+    // cannot say two different things about itself.
+    expect(src).toMatch(/bar === 'needs' \? ROLE\.lime : TEXT\.navy/)
+    expect((src.match(/ROLE\.lime/g) ?? []).length).toBe(2)
+    // Nothing on the orchestrator is lime: the board, its strips and its
+    // footers are structurally unable to acquire one.
+    const board = readFileSync('components/admin/DealsBetaBoard.tsx', 'utf8')
+    expect(board).not.toMatch(/ROLE\.lime|bg-decision|text-decision-ink/)
   })
 
   // EVERY TOKEN ON THE LINE IS CHECKED, NOT THE LINE (handoff 56). The audit
