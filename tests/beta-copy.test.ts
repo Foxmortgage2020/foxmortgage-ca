@@ -68,6 +68,10 @@ function scannedFiles(): string[] {
   // The re-extract rules module owns the pending and terms-untouched copy the
   // Commitment tab renders (handoff 53).
   out.push('lib/reextract.ts')
+  // The conditions rules module owns every state line on a checklist row and
+  // the General-grouping explainer, both of which render on the Conditions tab
+  // (handoff 56). The copy moved out of the component, so the gate follows it.
+  out.push('lib/conditions-status.ts')
   return out
 }
 

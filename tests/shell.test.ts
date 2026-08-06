@@ -385,8 +385,11 @@ const DECISION_ALLOWED: Record<string, RegExp> = {
     /decoration-decision|hover:text-decision|outline-decision/,
   'components/admin/NotificationBell.tsx': /bg-decision\b|text-decision-ink/,
   'app/portal/admin/page.tsx': /border-t-decision|decoration-decision/,
+  //   - ConditionsChecklist: the Verify tap, the needs-you figure in the
+  //     header, and (handoff 56) the failed-check row's pale wash and solid
+  //     left border. All three are "a human action is queued on this row".
   'components/admin/ConditionsChecklist.tsx':
-    /bg-decision\b|text-decision-ink|hover:bg-decision/,
+    /bg-decision\b|text-decision-ink|hover:bg-decision|border-l-decision/,
   'components/admin/ApprovalsDesk.tsx': /bg-decision\b|text-decision-ink/,
   'components/admin/AgentChat.tsx': /bg-decision\b|text-decision-ink/,
   'components/admin/deals/DealsList.tsx':
@@ -445,24 +448,45 @@ describe('lime is attention currency (the exhaustive B4 audit)', () => {
     }
   })
 
+  // EVERY TOKEN ON THE LINE IS CHECKED, NOT THE LINE (handoff 56). The audit
+  // used to test the allowlist regex against the whole line, so one permitted
+  // token licensed every other token beside it: `border-l-4 border-l-decision
+  // bg-decision/10` passed because `bg-decision` was allowed, and the lime
+  // border nobody had granted rode along unseen. The side-specific border
+  // utilities are also named now, for the same reason.
+  const DECISION_TOKEN =
+    /(?:[\w-]+:)*(?:bg|text|border|border-t|border-r|border-b|border-l|decoration|outline|ring)-decision[\w/.-]*/g
+
   it('the decision token appears only in the eight enumerated surfaces, only in their roles', () => {
-    const DECISION_ANY = /(?:bg|text|border|decoration|outline|ring|border-t)-decision/
     for (const file of files) {
       const src = readFileSync(file, 'utf8')
       const lines = src.split('\n')
       for (const [i, line] of Array.from(lines.entries())) {
-        if (!DECISION_ANY.test(line)) continue
+        const tokens = line.match(DECISION_TOKEN)
+        if (!tokens) continue
         const allowed = DECISION_ALLOWED[file]
         expect(
           allowed !== undefined,
           `${file}:${i + 1} renders the decision token outside the enumerated surfaces: ${line.trim()}`,
         ).toBe(true)
-        expect(
-          allowed!.test(line),
-          `${file}:${i + 1} uses the decision token outside its documented role: ${line.trim()}`,
-        ).toBe(true)
+        for (const token of tokens) {
+          expect(
+            allowed!.test(token),
+            `${file}:${i + 1} uses ${token} outside its documented role: ${line.trim()}`,
+          ).toBe(true)
+        }
       }
     }
+  })
+
+  it('the token audit is not vacuous: it catches a lime border beside a lime fill', () => {
+    // The exact shape that used to slip through. Run against the checklist's
+    // own allowlist entry minus the border grant, the granted line must fail.
+    const withoutBorderGrant = /bg-decision\b|text-decision-ink|hover:bg-decision/
+    const line = "? 'border-cool-100 border-l-4 border-l-decision bg-decision/10'"
+    const tokens = line.match(DECISION_TOKEN) ?? []
+    expect(tokens).toContain('border-l-decision')
+    expect(tokens.some(t => !withoutBorderGrant.test(t))).toBe(true)
   })
 
   it('active nav state is navy, never lime (calm machine)', () => {

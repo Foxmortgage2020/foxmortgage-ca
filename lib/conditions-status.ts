@@ -69,6 +69,252 @@ export function canVerify(input: { status: string; presence: string | null }): b
   return input.presence === 'obtained' || input.presence === 'requested' || input.presence === 'needs_input'
 }
 
+// ─── The row's reading state (handoff 56) ────────────────────────────────────
+//
+// Michael read the shipped checklist on a live file and called the layout
+// unreadable. The rebuild puts ONE line on screen per condition and hides the
+// detail behind expansion, so the four states below are what a person scans.
+// They are DERIVED from the stored axes; none of them is a new stored value.
+//
+//   nothing      no document is on file yet
+//   on_file      a document is on file (the interim reading, below)
+//   problems     a document is on file and its check did not clear
+//   done         a human decided it (satisfied or waived)
+//   underwriting an adjudication constraint, never a document to chase
+//
+// THE INTERIM READING, AND IT IS DESIGNED TO BE DELETED. The document check
+// does not exist yet: not one condition in the book carries
+// presence_detail.analysis. So a document that is present but not decided says
+// only that it is ON FILE and claims nothing about having been read. The
+// `meets` and gap branches are written against the shape the check will store,
+// so the day it ships the two checked states light up with no change here, and
+// the "nothing has read it yet" line disappears on its own.
+
+export type ChecklistStateKey = 'nothing' | 'on_file' | 'problems' | 'done' | 'underwriting'
+
+export interface ChecklistState {
+  key: ChecklistStateKey
+  /** One short line stating the current state in plain words, rendered under
+   *  the label on the collapsed row. */
+  line: string
+  /** A failed check is the one state that opens on arrival. */
+  openByDefault: boolean
+}
+
+// The stored analysis verdicts that mean the check found something. `meets` is
+// the pass; needs_review and kind_mismatch are unresolved rather than clean, so
+// they read as a problem too (an unresolved check is still Michael's move).
+const GAP_VERDICTS = new Set(['short', 'stale', 'rule_unmet'])
+const UNRESOLVED_VERDICTS = new Set(['needs_review', 'kind_mismatch'])
+
+/** The row's state, from the two stored axes plus the analysis verdict when one
+ * exists. A human decision is terminal and leads; then the constraint case;
+ * then the check; then document presence; then the honest default. */
+export function conditionChecklistState(input: {
+  status: string
+  presence: string | null
+  /** The verdict stored on presence_detail.analysis. Null everywhere in the
+   *  book today, which is why the on_file line claims nothing about a read. */
+  analysisVerdict?: string | null
+  /** Who tapped Verify, and when, already formatted by the caller so this
+   *  module stays free of date formatting. */
+  verifiedBy?: string | null
+  verifiedOn?: string | null
+}): ChecklistState {
+  // A HUMAN DECISION IS TERMINAL. Neither satisfied nor waived records who or
+  // when on the condition row: `conditions` carries verified_by/verified_at and
+  // nothing else, and the acting human lives on the audit_log entry by design
+  // (guardrail 19). So the line points at the record rather than inventing one.
+  if (input.status === 'satisfied') {
+    return { key: 'done', line: 'You marked this satisfied. The audit log records who and when.', openByDefault: false }
+  }
+  if (input.status === 'waived') {
+    return { key: 'done', line: 'Waived with a note. The audit log records who and when.', openByDefault: false }
+  }
+  // An underwriting constraint is adjudicated, not collected. It is neither
+  // outstanding nor collected, and it is never a chase.
+  if (input.presence === 'not_applicable') {
+    return { key: 'underwriting', line: 'Settled at underwriting. There is no document to collect.', openByDefault: false }
+  }
+
+  const verdict = input.analysisVerdict ?? null
+  if (verdict && GAP_VERDICTS.has(verdict)) {
+    return { key: 'problems', line: 'A document is on file and the check found a problem.', openByDefault: true }
+  }
+  if (verdict && UNRESOLVED_VERDICTS.has(verdict)) {
+    return { key: 'problems', line: 'A document is on file and the check could not clear it.', openByDefault: true }
+  }
+  if (verdict === 'meets') {
+    return { key: 'on_file', line: 'On file, and the check passed.', openByDefault: false }
+  }
+
+  if (input.presence === 'verified') {
+    const who = input.verifiedBy ? ` by ${input.verifiedBy}` : ''
+    const when = input.verifiedOn ? ` on ${input.verifiedOn}` : ''
+    return { key: 'on_file', line: `On file, confirmed by hand${who}${when}.`, openByDefault: false }
+  }
+  // evidence_attached is the older status-axis way of saying the same thing a
+  // presence of obtained says, and files predating the presence axis carry only
+  // that. Both mean a document arrived.
+  if (input.presence === 'obtained' || input.status === 'evidence_attached') {
+    return { key: 'on_file', line: 'On file. Nothing has read it yet.', openByDefault: false }
+  }
+  // pre_checked is a system pass on the CONDITION, not a document landing, so
+  // it stays in the nothing-on-file glyph and says which it is.
+  if (input.status === 'pre_checked') {
+    return { key: 'nothing', line: 'Pre-checked by the system. No document is on file yet.', openByDefault: false }
+  }
+  if (input.presence === 'requested') {
+    return { key: 'nothing', line: 'Requested. Nothing on file yet.', openByDefault: false }
+  }
+  return { key: 'nothing', line: 'Nothing on file yet.', openByDefault: false }
+}
+
+/** The header's three figures, over one already-derived list of states.
+ *
+ * `collected` and `outstanding` plus the constraint rows partition the list, so
+ * every condition is counted once. `needsYou` is a HIGHLIGHTED SUBSET rather
+ * than a third slice: it is every row where the machine has done what it can
+ * and the next move is Michael's, which spans both a document sitting unread
+ * and a check that failed. */
+export interface ChecklistTally {
+  total: number
+  collected: number
+  outstanding: number
+  needsYou: number
+  /** Constraint rows, held out of both figures so neither can read as a chase. */
+  settled: number
+}
+
+export function checklistTally(states: readonly ChecklistStateKey[]): ChecklistTally {
+  let collected = 0
+  let outstanding = 0
+  let needsYou = 0
+  let settled = 0
+  for (const s of states) {
+    if (s === 'on_file' || s === 'done') collected += 1
+    else if (s === 'underwriting') settled += 1
+    else outstanding += 1
+    if (s === 'on_file' || s === 'problems') needsYou += 1
+  }
+  return { total: states.length, collected, outstanding, needsYou, settled }
+}
+
+// ─── The short label, and the honest gap (handoff 56) ────────────────────────
+//
+// NOTHING GENERATES A SHORT LABEL TODAY. A condition carries its full text and
+// sometimes a document kind, and the kind is set on 11 of the 49 approved
+// conditions in the book. So the label is derived, and it is derived the only
+// two ways the data allows: name the document where the kind names one, and
+// otherwise truncate the text. The real fix is the extractor writing a label
+// beside the text, which is a different repo and a separate decision.
+
+const DOC_KIND_LABEL: Record<string, string> = {
+  letter_of_employment: 'Letter of employment',
+  pay_stub: 'Pay stub',
+  t4_noa: 'T4 and notice of assessment',
+  void_cheque: 'Void cheque',
+  fire_insurance_binder: 'Fire insurance binder',
+  gift_letter: 'Gift letter',
+  aps: 'Agreement of purchase and sale',
+  appraisal: 'Appraisal',
+  id: 'Photo identification',
+  signed_commitment: 'Signed commitment',
+  disclosure: 'Disclosure',
+  sale_confirmation: 'Sale confirmation',
+  mortgage_statement: 'Mortgage statement',
+  property_tax: 'Property tax bill',
+  payout_statement: 'Payout statement',
+  ccb: 'Child benefit statement',
+  product_assessment_form: 'Product assessment form',
+  term_portion_amendment: 'Term portion amendment',
+}
+
+// A kind that names no document. `other` is the whole set: FOUR of
+// BRXM-F057400's twelve approved conditions carry it, so a label taken from the
+// kind would print the same word four times down the page, which is worse than
+// the truncated text it replaced. Truncation wins for these.
+const VAGUE_DOC_KINDS = new Set(['other'])
+
+const LABEL_MAX = 72
+const LABEL_MIN_WORD_BREAK = 40
+
+/** The one line a person scans. Prefers the document kind where the kind names
+ * a document, and otherwise truncates the condition text at a word boundary. */
+export function conditionShortLabel(input: { docKind: string | null; text: string }): {
+  label: string
+  from: 'doc_kind' | 'text'
+  truncated: boolean
+} {
+  const kind = input.docKind?.trim() ?? ''
+  if (kind && !VAGUE_DOC_KINDS.has(kind)) {
+    return { label: DOC_KIND_LABEL[kind] ?? kind.replace(/_/g, ' '), from: 'doc_kind', truncated: false }
+  }
+  const flat = input.text.replace(/\s+/g, ' ').trim()
+  if (!flat) return { label: 'Condition text not recorded', from: 'text', truncated: false }
+  if (flat.length <= LABEL_MAX) return { label: flat, from: 'text', truncated: false }
+  const cut = flat.slice(0, LABEL_MAX)
+  const space = cut.lastIndexOf(' ')
+  const body = (space > LABEL_MIN_WORD_BREAK ? cut.slice(0, space) : cut).replace(/[\s,.:]+$/, '')
+  return { label: `${body}…`, from: 'text', truncated: true }
+}
+
+/** Two rows in one group can derive the SAME label. A file with two borrowers
+ * carries two letters of employment, and the kind names both identically. The
+ * condition number is the honest separator, so it is added to the collapsed
+ * label ONLY where a label repeats, and stays in the metadata line otherwise. */
+export function disambiguateLabels(rows: readonly { condNumber: string | null; label: string }[]): string[] {
+  const seen = new Map<string, number>()
+  for (const r of rows) {
+    const k = r.label.toLowerCase()
+    seen.set(k, (seen.get(k) ?? 0) + 1)
+  }
+  return rows.map(r =>
+    (seen.get(r.label.toLowerCase()) ?? 0) > 1 && r.condNumber ? `${r.label} (${r.condNumber})` : r.label,
+  )
+}
+
+/** THE DEFECT MICHAEL PHOTOGRAPHED. Every condition rendered twice: the text,
+ * then the same string again beneath it in grey quotes as the source snippet.
+ * On BRXM-F060561 the extractor stored the snippet AND the text identically on
+ * all twelve rows, so twelve conditions filled twenty-four paragraphs and the
+ * second copy read as new information.
+ *
+ * The quote now renders only where it says something the text does not, and
+ * only inside the expanded row. Whitespace and case are normalised before the
+ * comparison, and a quote wholly contained in the text (or containing it) is
+ * the same fact stated at a different length, so it is dropped too. */
+export function sourceQuoteToShow(text: string, snippet: string | null | undefined): string | null {
+  if (!snippet) return null
+  const flat = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+  const a = flat(text)
+  const b = flat(snippet)
+  if (!b) return null
+  if (!a) return snippet.trim()
+  if (a === b || a.includes(b) || b.includes(a)) return null
+  return snippet.trim()
+}
+
+/** THE FALLBACK MATTERS MORE THAN THE GROUPING. Conditions carry no link to a
+ * person on most files: BRXM-F060561 has no borrower rows at all, and
+ * BRXM-F053724 has two borrowers with zero of its thirty-three conditions
+ * linked to either. The extractor captured the names only as a text prefix, and
+ * parsing a name out of condition text would break silently the first time a
+ * lender wrote one differently. So everything renders under General and this
+ * line says why, rather than the page looking as though nobody is assigned. */
+export function borrowerGroupingNote(input: {
+  borrowerCount: number
+  linkedRowCount: number
+  rowCount: number
+}): string | null {
+  if (input.rowCount === 0 || input.linkedRowCount > 0) return null
+  if (input.borrowerCount === 0) {
+    return 'All of these sit under General because no borrower is on record for this file. The commitment does not say who each condition belongs to, and nothing here guesses it from the wording.'
+  }
+  const n = input.borrowerCount
+  return `All of these sit under General because none of them is linked to a person. This file has ${n} ${n === 1 ? 'borrower' : 'borrowers'} on record, and nothing here guesses which one a condition belongs to from its wording.`
+}
+
 // ─── Ordering (handoff 55) ───────────────────────────────────────────────────
 
 /** Numeric-aware compare for condition numbers, which are STRINGS in the

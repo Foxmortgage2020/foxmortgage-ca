@@ -18,6 +18,25 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Layout',
+    title: 'The checklist layout rebuild: one line per condition',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'MICHAEL CALLED THE SHIPPED LAYOUT UNREADABLE and the cause was specific rather than aesthetic. EVERY CONDITION RENDERED TWICE: the text, then the identical string again beneath it in grey quotes as the source snippet. On BRXM-F060561 the two are byte-identical on all twelve rows, so twelve conditions filled twenty-four paragraphs and the second copy read as new information. The quote now renders inside an expanded row only, and only when it says something the text does not, after whitespace and case are normalised',
+      'THE ROW IS ONE LINE: a status glyph, a short label, a due date on the right, and one line of plain words underneath stating the state. Full text, findings, CONTROLS and a quiet metadata line (condition number, owner, document kind, flags, page, open source) sit behind expansion. No control renders on a collapsed row, which is asserted by test, because twelve rows of buttons is what made the old list unreadable',
+      'FOUR STATES, AND THE TWO WITH NO HOME IN THEM ARE NAMED RATHER THAN FORCED: nothing on file (hollow ring), on file (solid navy dot), problems found (lime wash and lime left border, opens on arrival), and done (grey tick, struck through). waived folds into done with its own wording, three live rows carry it, and an underwriting constraint gets its own reading held out of both header figures because an adjudication is not a document chase',
+      'THE INTERIM READING IS DESIGNED TO BE DELETED. Not one condition in the book carries an analysis verdict, verified live across all 49 approved rows, so the document check does not exist yet and a present document says only that it is on file. The pass and gap branches are already written against the shape the check will store, so they light up with no portal change and the interim sentence disappears on its own',
+      'NEITHER satisfied NOR waived RECORDS WHO OR WHEN ON THE ROW. The conditions table carries verified_by and verified_at and nothing else, both null on all five live decided rows, and the acting human lives on the audit log entry by design. The done line points at that record rather than inventing a name. The brief asked for who and when, the column does not exist, and that is a workbench change if it is wanted',
+      'HEADER: three counts and a thin navy bar. Collected, outstanding and settled partition the list exactly once each, and needs-you is a highlighted subset (an unread document, or a failed check) carrying the only lime on the line. The figures derive from the SAME states the rows render, so a count can never contradict a glyph on the same screen',
+      'THE SHORT LABEL IS THE HONEST GAP AND NOTHING GENERATES ONE. It comes from the document kind where the kind names a document (set on 11 of 49 approved rows) and otherwise from the text truncated at a word boundary. The kind "other" never becomes a label, because four of BRXM-F057400 twelve carry it and it would print the same word four times down the page. A repeated label inside one group gains its condition number: the live case is two letters of employment on F060561, reading (2) and (3)',
+      'NOTHING PARSES A NAME OUT OF CONDITION TEXT. Grouping keys on borrower_id alone. Coverage is thin, so the fallback matters more than the grouping: F060561 has no borrower rows at all and F053724 has two borrowers with none of its thirty-three conditions linked, and the line on screen says which of those two situations the reader is in. It goes silent the moment one row is genuinely linked, which is F057400, rendering General 7 plus two named borrower sections',
+      'NO RED IN THE STATE VOCABULARY. Overdue reads navy, load-bearing is a navy chip, and the findings block was recoloured to lime for a gap and navy for a pass. Red survives on exactly two destructive controls, Reject list and Remove, plus error text, and the test enumerates every remaining red line rather than trusting the rule',
+      'THE LIME AUDIT HAD A HOLE AND IT IS CLOSED. It tested the allowlist against the whole LINE, so one permitted token licensed every token beside it and a lime left border rode through unseen. It is token-wise now, the side-specific border utilities are named, and a test proves the check is not vacuous',
+      'Pinned in tests/conditions-layout.test.ts (38 tests). tests/beta-file.test.ts and tests/conditions-checklist.test.ts both passed UNMODIFIED. No condition data changed: the census is identical before and after at 206 rows. Render-proved on the dev Clerk instance against the real pages, read-only, with a TEST admin created and deleted in the same session. Beta file page route JS unchanged at 2.85 kB (first load 135 to 137), room route unchanged at 21.7 kB (first load 161 to 164)',
+    ],
+  },
+  {
     n: 'Checklist',
     title: 'The conditions checklist redesign: broker first, one at a time',
     status: 'shipped',
