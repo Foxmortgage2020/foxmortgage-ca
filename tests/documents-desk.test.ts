@@ -76,6 +76,7 @@ function cond(p: Partial<DealConditionRow> = {}): DealConditionRow {
     sourcePage: p.sourcePage ?? null,
     sourceSnippet: p.sourceSnippet ?? null,
     confidence: p.confidence ?? null,
+    documentId: null,
     loadBearing: p.loadBearing ?? false,
     humanEditedFields: p.humanEditedFields ?? [],
     requirement: p.requirement ?? null,

@@ -1207,6 +1207,9 @@ export interface DealConditionRow extends ConditionRow {
   sourcePage: number | null
   sourceSnippet: string | null
   confidence: number | null
+  // The source document, so the expanded checklist row can open the commitment
+  // at the page the condition came off (handoff 56).
+  documentId: string | null
   // A condition whose satisfaction re-adjudicates the deal (an appraisal a plan
   // limit derives from), loud on the checklist (fox-underwriting migration 0038).
   loadBearing: boolean
@@ -1222,8 +1225,12 @@ export interface DealConditionRow extends ConditionRow {
   requirement: { kind?: string; target?: number; source?: string } | null
 }
 
+// document_id joined the select in handoff 56: the rebuilt checklist row puts a
+// link to the source document in its expanded metadata line, and the only other
+// path to it was presence_detail.analysis, which no condition in the book
+// carries. Read-only, like every other column here.
 const CONDITION_SELECT =
-  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence,load_bearing,human_edited_fields,requirement'
+  'id,text,owner,status,due_date,cond_number,source,evidence_ids,category,kind,precheck,presence,presence_detail,doc_kind,borrower_id,gate_status,verified_by,verified_at,source_page,source_snippet,confidence,load_bearing,human_edited_fields,requirement,document_id'
 
 const dealConditionRow = (r: any): DealConditionRow => ({
   id: r.id,
@@ -1254,6 +1261,7 @@ const dealConditionRow = (r: any): DealConditionRow => ({
   sourcePage: r.source_page ?? null,
   sourceSnippet: r.source_snippet ?? null,
   confidence: numOrNull(r.confidence),
+  documentId: r.document_id ?? null,
   loadBearing: r.load_bearing === true,
   humanEditedFields: Array.isArray(r.human_edited_fields) ? (r.human_edited_fields as string[]) : [],
   requirement:

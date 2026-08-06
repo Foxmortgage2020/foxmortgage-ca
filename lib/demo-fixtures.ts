@@ -504,6 +504,7 @@ const condBase = {
   verifiedBy: null as string | null,
   verifiedAt: null as string | null,
   gateStatus: 'approved' as const,
+  documentId: null,
   loadBearing: false,
   humanEditedFields: [] as string[],
   requirement: null as { kind?: string; target?: number; source?: string } | null,

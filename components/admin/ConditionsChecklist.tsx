@@ -5,28 +5,54 @@
 //   1. The approval BANNER: conditions extracted from a commitment upload sit
 //      pending until Michael approves the list (or edits-then-approves one).
 //      Admin-only; nothing here is the checklist until the list gate fires.
-//   2. The approved CHECKLIST: a progress line, grouped General-first then
-//      per-borrower, one derived pill per row (decision status + document
-//      presence), one-tap Verify on rows the machine collected, and waive with
-//      a reason. Admin-only controls; everyone sees the state.
+//   2. The approved CHECKLIST: three counts and a progress bar, grouped
+//      General-first then per-borrower, ONE LINE per condition, and the detail
+//      behind expansion. Admin-only controls; everyone sees the state.
 //
-// The lime/`decision` token is attention currency: it renders ONLY on the
-// needs_input pill and the Verify affordance — the two places a human action
-// is queued. On mount the room recomputes presence (fire-and-forget) so the
-// stored presence the server rendered is fresh.
+// THE LAYOUT REBUILD (handoff 56). Michael read the shipped checklist on a live
+// file and called it unreadable. Two causes, both specific:
+//
+//   1. EVERY CONDITION RENDERED TWICE. The text rendered, then the identical
+//      string rendered again beneath it in grey quotes as the source snippet.
+//      On BRXM-F060561 the two are byte-identical on all twelve rows, so twelve
+//      conditions filled twenty-four paragraphs. The quote now renders only
+//      inside an expanded row, and only when it says something the text does
+//      not (lib/conditions-status.ts sourceQuoteToShow).
+//   2. FULL PARAGRAPH TEXT ON EVERY ROW defeated the one job a checklist has,
+//      which is answering "what is left" at a glance. A row is now a status
+//      glyph, a short label, a due date and one line of plain words. The full
+//      text, the findings, the controls and the metadata live behind
+//      expansion, and CONTROLS APPEAR ON THE EXPANDED ROW ONLY, never on
+//      twelve rows at once.
+//
+// COLOUR MEANS TWO THINGS HERE AND NOTHING ELSE. Navy is "the system did its
+// job" (the on-file glyph, the progress bar). Lime/`decision` is "this needs
+// you" (the needs-you figure, a failed check's row, the Verify tap). Done goes
+// grey and struck through, because finished work should not compete with what
+// is outstanding. NO RED ANYWHERE IN THE STATE VOCABULARY: a missing pay stub
+// is work, not an error, so overdue and load-bearing read in navy. Red is kept
+// for the two destructive controls (Reject list, Remove) where it means the
+// press cannot be taken back.
+//
+// On mount the room recomputes presence (fire-and-forget) so the stored
+// presence the server rendered is fresh.
 
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { GATES_TOKEN_HEADER, useGatesToken } from '@/lib/gates-token'
 import type { DealConditionRow, PendingCommitmentCondition } from '@/lib/underwriting'
 import {
+  borrowerGroupingNote,
   canVerify,
-  conditionStatusPill,
+  checklistTally,
+  conditionChecklistState,
+  conditionShortLabel,
+  disambiguateLabels,
   isBrokerCondition,
-  isCollected,
   isUnassignedOwnership,
   sortConditions,
-  type PillTone,
+  sourceQuoteToShow,
+  type ChecklistStateKey,
 } from '@/lib/conditions-status'
 import CommitmentUploader from './CommitmentUploader'
 
@@ -49,7 +75,8 @@ const DOC_KIND_OPTIONS = [
   'product_assessment_form', 'term_portion_amendment', 'other',
 ] as const
 
-const label = (s: string) => s.replace(/_/g, ' ')
+// Underscored vocabulary values (owner classes, document kinds) read as words.
+const spaced = (s: string) => s.replace(/_/g, ' ')
 const ARM_WINDOW_MS = 4000
 
 // The document kinds that carry a numeric requirement the analysis checks
@@ -71,19 +98,66 @@ function fmtShort(ymd: string): string {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric' })
 }
 
-// Tones mirror the ds StatusChip (green/amber/gray byte-identical); the pill
-// keeps its own map because of the fourth tone below.
-const PILL_CLASS: Record<PillTone, string> = {
-  green: 'bg-green-100 text-green-700',
-  amber: 'bg-amber-100 text-amber-800',
-  gray: 'bg-cool-100 text-cool-700',
-  // Attention currency (the new lime): a human action is queued on this row.
-  lime: 'bg-decision text-decision-ink',
+// ─── Row chrome shared by both surfaces ──────────────────────────────────────
+
+// The status glyph. A hollow ring is nothing on file, a solid navy dot is a
+// document present (a dot rather than a tick, because nothing has read it yet
+// and a tick would claim it had), lime carries a failed check, and done recedes
+// into a grey tick. The glyph is decoration: the state is stated in words on
+// the line beneath it, so a reader who cannot see colour loses nothing.
+const GLYPH_CLASS: Record<ChecklistStateKey, string> = {
+  nothing: 'border-[1.5px] border-cool-300 bg-white',
+  on_file: 'bg-navy',
+  problems: 'bg-decision text-decision-ink',
+  done: 'bg-cool-200 text-cool-500',
+  underwriting: 'border-[1.5px] border-cool-300 bg-cool-100',
 }
 
-function Pill({ tone, children }: { tone: PillTone; children: React.ReactNode }) {
+const GLYPH_MARK: Partial<Record<ChecklistStateKey, string>> = {
+  problems: '×',
+  done: '✓',
+}
+
+function StateGlyph({ state }: { state: ChecklistStateKey }) {
   return (
-    <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${PILL_CLASS[tone]}`}>
+    <span
+      aria-hidden="true"
+      className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none ${GLYPH_CLASS[state]}`}
+    >
+      {GLYPH_MARK[state] ?? ''}
+    </span>
+  )
+}
+
+/** A quiet section header: small, navy, sentence case, hairline beneath. */
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="font-heading text-xs font-semibold text-navy border-b border-cool-100 pb-1 mb-2">
+      {children}
+    </p>
+  )
+}
+
+/** The chevron on an expandable row. */
+function Caret({ open }: { open: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`mt-1 shrink-0 text-cool-400 text-[10px] leading-none transition-transform ${open ? 'rotate-90' : ''}`}
+    >
+      {'▶'}
+    </span>
+  )
+}
+
+/** A neutral chip for the quiet metadata line. Never an alarm colour: on this
+ *  surface a fact about a condition is information, not a warning. */
+function MetaChip({ strong, title, children }: { strong?: boolean; title?: string; children: React.ReactNode }) {
+  return (
+    <span
+      title={title}
+      className={`rounded-full px-2 py-0.5 ${strong ? 'bg-navy text-white font-semibold' : 'bg-cool-50 text-cool-600'}`}
+    >
       {children}
     </span>
   )
@@ -368,6 +442,8 @@ function PendingBanner({
   // Never cleared: the refresh replaces this whole banner with the truth.
   const [decided, setDecided] = useState<Record<string, string>>({})
 
+  const nameById = new Map(borrowers.map(b => [b.id, b.fullName]))
+
   // Group by source document — the list gate is per document.
   const byDoc = new Map<string, PendingCommitmentCondition[]>()
   for (const p of pending) {
@@ -410,20 +486,36 @@ function PendingBanner({
         const brokerSide = sorted.filter(r => isBrokerCondition(r.owner))
         const otherSide = sorted.filter(r => !isBrokerCondition(r.owner))
         const flagged = brokerSide.filter(r => isUnassignedOwnership(r.category)).length
-        const rowFor = (p: PendingCommitmentCondition) => (
-          <PendingRow
-            key={p.id}
-            cond={p}
-            frozen={Boolean(decided[docId])}
-            borrowers={borrowers}
-            canDecide={canDecide}
-            busy={busy}
-            errors={errors}
-            armed={armed}
-            arm={arm}
-            post={post}
-          />
-        )
+        // The pending set groups General-first the same way the working list
+        // does, so the set a person approves reads the way it will be worked.
+        const brokerSideGroups = groupByBorrower(brokerSide, borrowers, nameById)
+        const pendingNote = borrowerGroupingNote({
+          borrowerCount: borrowers.length,
+          linkedRowCount: brokerSide.filter(r => r.borrowerId && nameById.has(r.borrowerId)).length,
+          rowCount: brokerSide.length,
+        })
+        const listFor = (rows: PendingCommitmentCondition[]) => {
+          const labels = labelsFor(rows)
+          return (
+            <ul className="space-y-1.5">
+              {rows.map((p, i) => (
+                <PendingRow
+                  key={p.id}
+                  cond={p}
+                  label={labels[i]!}
+                  frozen={Boolean(decided[docId])}
+                  borrowers={borrowers}
+                  canDecide={canDecide}
+                  busy={busy}
+                  errors={errors}
+                  armed={armed}
+                  arm={arm}
+                  post={post}
+                />
+              ))}
+            </ul>
+          )
+        }
         return (
           <div key={docId} className="rounded-lg border border-amber-200 bg-amber-50 p-3" data-testid="pending-conditions-banner">
             <p className="text-sm font-ui font-semibold text-amber-900">
@@ -482,16 +574,30 @@ function PendingBanner({
 
             {brokerSide.length > 0 && (
               <div className="mt-3">
-                <p className="font-heading text-[11px] font-semibold uppercase tracking-[0.05em] text-amber-900">
+                <p className="font-heading text-xs font-semibold text-amber-900 border-b border-amber-200 pb-1">
                   Broker conditions · {brokerSide.length}
                 </p>
                 {flagged > 0 && (
-                  <p className="mt-0.5 text-[11px] font-ui text-amber-800">
+                  <p className="mt-1 text-[11px] font-ui text-amber-800">
                     {flagged} of these {flagged === 1 ? 'was' : 'were'} not clearly assigned by the
                     lender. {flagged === 1 ? 'It sits' : 'They sit'} here so {flagged === 1 ? 'it is' : 'they are'} seen.
                   </p>
                 )}
-                <ul className="mt-1 divide-y divide-amber-200/70">{brokerSide.map(rowFor)}</ul>
+                {pendingNote && (
+                  <p className="mt-1 text-[11px] font-ui text-amber-800" data-testid="pending-grouping-note">
+                    {pendingNote}
+                  </p>
+                )}
+                <div className="mt-2 space-y-3">
+                  {brokerSideGroups.map(g => (
+                    <div key={g.key}>
+                      {brokerSideGroups.length > 1 && (
+                        <p className="font-heading text-[11px] font-semibold text-amber-900 mb-1">{g.label}</p>
+                      )}
+                      {listFor(g.rows)}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {otherSide.length > 0 && (
@@ -500,7 +606,7 @@ function PendingBanner({
                   defaultOpen
                   label={`${otherSide.length} ${otherSide.length === 1 ? 'condition' : 'conditions'} handled at the lawyer's office and elsewhere`}
                 >
-                  <ul className="divide-y divide-amber-200/70">{otherSide.map(rowFor)}</ul>
+                  <div className="mt-2">{listFor(otherSide)}</div>
                 </Disclosure>
               </div>
             )}
@@ -513,6 +619,7 @@ function PendingBanner({
 
 function PendingRow({
   cond,
+  label,
   frozen,
   borrowers,
   canDecide,
@@ -523,6 +630,8 @@ function PendingRow({
   post,
 }: {
   cond: PendingCommitmentCondition
+  /** The one line a person scans, de-duplicated by the group. */
+  label: string
   /** True once the whole document has been decided (the banner's latch): the
    *  per-row controls freeze immediately rather than staying pressable while
    *  router.refresh() catches up. */
@@ -547,6 +656,11 @@ function PendingRow({
   const rowBusy = Boolean(busy[`cond:${cond.id}`])
   const armKey = `approve-one:${cond.id}`
   const locked = frozen || done !== null
+  // Collapsed by default. A row that has taken its own press opens so the latch
+  // message is never hidden behind a chevron.
+  const [userOpen, setUserOpen] = useState<boolean | null>(null)
+  const expanded = userOpen ?? done !== null
+  const quote = sourceQuoteToShow(cond.text, cond.sourceSnippet)
 
   const submit = async () => {
     const body: Record<string, unknown> = {}
@@ -570,43 +684,73 @@ function PendingRow({
   }
 
   return (
-    <li className="py-2">
-      <p className="text-sm font-ui text-cool-700">
-        {cond.condNumber ? `${cond.condNumber}. ` : ''}
-        {cond.text}
-      </p>
-      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-ui text-cool-500">
-        <span className="capitalize">{cond.owner}</span>
-        {isUnassignedOwnership(cond.category) && (
-          <span className="rounded-full border border-amber-400 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-            unassigned ownership
+    <li className="rounded-lg border border-amber-200/70 bg-white/60">
+      {/* The same one-line row as the working checklist. A pending condition has
+          no collection state to report, so the glyph is the hollow ring and the
+          line says what the row IS: a draft off the commitment, not a chase. */}
+      <button
+        type="button"
+        onClick={() => setUserOpen(!expanded)}
+        aria-expanded={expanded}
+        className="w-full flex items-start gap-2.5 px-2.5 py-2 text-left rounded-lg hover:bg-amber-50/60"
+      >
+        <StateGlyph state="nothing" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-ui leading-snug text-navy">{label}</span>
+          <span className="mt-0.5 block text-[11px] font-ui text-cool-500 leading-snug">
+            Drafted from the commitment. Not on the checklist yet.
           </span>
-        )}
-        {cond.docKind && <span className="rounded-full bg-white/70 px-2 py-0.5 text-cool-600">{label(cond.docKind)}</span>}
-        {cond.loadBearing && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">load-bearing</span>}
-        {cond.sourcePage !== null && <span className="text-cool-500">p{cond.sourcePage}</span>}
-        {canDecide && !locked && (
-          <button
-            onClick={() => setEditing(v => !v)}
-            className="text-navy font-semibold underline decoration-cool-300 hover:decoration-navy"
-          >
-            {editing ? 'Cancel edit' : 'Edit & approve'}
-          </button>
-        )}
-      </div>
-      {done && (
-        <p
-          className="mt-1 rounded-md border border-cool-200 bg-white px-2.5 py-1 text-[11px] font-ui text-cool-700"
-          data-testid="pending-row-latched"
-        >
-          {done}
-        </p>
-      )}
-      {cond.sourceSnippet && (
-        <p className="mt-0.5 text-[11px] text-cool-500 font-ui break-words">
-          &ldquo;{cond.sourceSnippet}&rdquo;
-        </p>
-      )}
+        </span>
+        <Caret open={expanded} />
+      </button>
+
+      {expanded && (
+        <div className="px-2.5 pb-2.5">
+          <p className="text-sm font-ui text-cool-700 leading-relaxed whitespace-pre-line">{cond.text}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-amber-200/70 pt-2 text-[11px] font-ui text-cool-500">
+            {cond.condNumber && <MetaChip>condition {cond.condNumber}</MetaChip>}
+            <span className="capitalize">{spaced(cond.owner)}</span>
+            {isUnassignedOwnership(cond.category) && (
+              <MetaChip title="The lender did not clearly assign this one, so it sits in the working list where it will be seen.">
+                unassigned ownership
+              </MetaChip>
+            )}
+            {cond.docKind && <MetaChip>{spaced(cond.docKind)}</MetaChip>}
+            {cond.loadBearing && (
+              <MetaChip strong title="Satisfying this one re-adjudicates the deal.">
+                load-bearing
+              </MetaChip>
+            )}
+            {cond.sourcePage !== null && <span>p{cond.sourcePage}</span>}
+            {canDecide && !locked && (
+              <button
+                onClick={() => setEditing(v => !v)}
+                className="text-navy font-semibold underline decoration-cool-300 hover:decoration-navy"
+              >
+                {editing ? 'Cancel edit' : 'Edit & approve'}
+              </button>
+            )}
+          </div>
+          {/* THE QUOTE ONLY WHERE IT ADDS SOMETHING. On BRXM-F060561 the
+              extractor stored it identical to the text on all twelve rows,
+              which is what made the shipped list read as twenty-four
+              paragraphs. */}
+          {quote && (
+            <p
+              className="mt-1.5 text-[11px] text-cool-500 font-ui break-words"
+              data-testid={`pending-quote-${cond.id}`}
+            >
+              From the commitment: &ldquo;{quote}&rdquo;
+            </p>
+          )}
+          {done && (
+            <p
+              className="mt-2 rounded-md border border-cool-200 bg-white px-2.5 py-1 text-[11px] font-ui text-cool-700"
+              data-testid="pending-row-latched"
+            >
+              {done}
+            </p>
+          )}
       {canDecide && editing && !locked && (
         <div className="mt-2 space-y-2 rounded-lg border border-cool-200 bg-white p-2.5">
           <textarea
@@ -638,7 +782,7 @@ function PendingRow({
               >
                 <option value="">none</option>
                 {DOC_KIND_OPTIONS.map(k => (
-                  <option key={k} value={k}>{label(k)}</option>
+                  <option key={k} value={k}>{spaced(k)}</option>
                 ))}
               </select>
             </label>
@@ -683,7 +827,9 @@ function PendingRow({
           </button>
         </div>
       )}
-      {errors[`cond:${cond.id}`] && <p className="mt-1 text-xs text-red-700 font-ui">{errors[`cond:${cond.id}`]}</p>}
+          {errors[`cond:${cond.id}`] && <p className="mt-1 text-xs text-red-700 font-ui">{errors[`cond:${cond.id}`]}</p>}
+        </div>
+      )}
     </li>
   )
 }
@@ -731,19 +877,32 @@ type RowProps = {
   openDocument: (documentId: string, page: number | null) => void
 }
 
-function groupByBorrower(
-  rows: DealConditionRow[],
+// GENERAL FIRST, THEN ONE SECTION PER BORROWER. Michael's stated reason is that
+// it tells him who to phone. The grouping is real but SPARSE in this book, so
+// the fallback line under a General-only list matters more than the grouping
+// itself: it says why nobody is named instead of leaving the page looking as
+// though the work is unassigned. Nothing here parses a name out of condition
+// text, which is the one way to make this look better and be wrong.
+function groupByBorrower<T extends { borrowerId: string | null }>(
+  rows: T[],
   borrowers: { id: string; fullName: string }[],
   nameById: Map<string, string>,
-): { key: string; label: string; rows: DealConditionRow[] }[] {
+): { key: string; label: string; rows: T[] }[] {
   const generalRows = rows.filter(c => !c.borrowerId || !nameById.has(c.borrowerId))
-  const groups: { key: string; label: string; rows: DealConditionRow[] }[] = []
+  const groups: { key: string; label: string; rows: T[] }[] = []
   if (generalRows.length > 0) groups.push({ key: 'general', label: 'General', rows: generalRows })
   for (const b of borrowers) {
     const brows = rows.filter(c => c.borrowerId === b.id)
     if (brows.length > 0) groups.push({ key: b.id, label: b.fullName, rows: brows })
   }
   return groups
+}
+
+/** The de-duplicated short labels for one group, in that group's order. */
+function labelsFor(rows: { condNumber: string | null; docKind: string | null; text: string }[]): string[] {
+  return disambiguateLabels(
+    rows.map(r => ({ condNumber: r.condNumber, label: conditionShortLabel(r).label })),
+  )
 }
 
 function ApprovedChecklist({
@@ -800,9 +959,34 @@ function ApprovedChecklist({
   // progress count is computed over it. Everything else is present but grouped.
   const brokerRows = ordered.filter(c => isBrokerCondition(c.owner))
   const nonBrokerRows = ordered.filter(c => !isBrokerCondition(c.owner))
-  const brokerCollected = brokerRows.filter(isCollected).length
   const brokerGroups = groupByBorrower(brokerRows, borrowers, nameById)
   const flaggedCount = brokerRows.filter(c => isUnassignedOwnership(c.category)).length
+
+  // THREE COUNTS RATHER THAN A FRACTION. Collected and outstanding partition
+  // the working list; needs-you is the highlighted subset where the machine has
+  // done what it can. Derived from the same states the rows render, so a figure
+  // and a glyph can never disagree.
+  const tally = checklistTally(
+    brokerRows.map(
+      c =>
+        conditionChecklistState({
+          status: c.status,
+          presence: c.presence,
+          analysisVerdict:
+            c.presenceDetail && typeof (c.presenceDetail as { analysis?: { verdict?: unknown } }).analysis === 'object'
+              ? ((c.presenceDetail as { analysis?: { verdict?: string } }).analysis?.verdict ?? null)
+              : null,
+        }).key,
+    ),
+  )
+  const pct = tally.total > 0 ? Math.round((tally.collected / tally.total) * 100) : 0
+  // The fallback under a General-only list. It renders on the WORKING list,
+  // where the question "who do I phone" is asked.
+  const groupingNote = borrowerGroupingNote({
+    borrowerCount: borrowers.length,
+    linkedRowCount: brokerRows.filter(c => c.borrowerId && nameById.has(c.borrowerId)).length,
+    rowCount: brokerRows.length,
+  })
 
   const knownNonBroker = new Set(NON_BROKER_GROUPS.map(g => g.owner))
   const nonBrokerGroups = NON_BROKER_GROUPS
@@ -871,17 +1055,40 @@ function ApprovedChecklist({
         )
       ) : (
         <>
-          <p className="text-xs font-ui text-cool-500 mb-3 tabular-nums">
-            <span className="font-semibold text-navy">{brokerCollected}</span> of{' '}
-            <span className="font-semibold text-navy">{brokerRows.length}</span> broker{' '}
-            {brokerRows.length === 1 ? 'condition' : 'conditions'} collected
-          </p>
+          {/* THE HEADER: three counts, then a thin navy progress bar. The
+              needs-you figure is the only lime on this line, because it is the
+              only one that asks for a press. */}
+          <div className="mb-3" data-testid="conditions-tally">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-ui tabular-nums">
+              <span className="text-cool-500">
+                <span className="font-semibold text-navy">{tally.collected}</span> collected
+              </span>
+              <span className="text-cool-500">
+                <span className="font-semibold text-navy">{tally.outstanding}</span> outstanding
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-cool-500">
+                <span className="rounded-full bg-decision px-2 py-0.5 font-semibold text-decision-ink">
+                  {tally.needsYou}
+                </span>
+                needs you
+              </span>
+              {tally.settled > 0 && (
+                <span className="text-cool-500">
+                  <span className="font-semibold text-navy">{tally.settled}</span> settled at
+                  underwriting
+                </span>
+              )}
+            </div>
+            <div className="mt-1.5 h-1 w-full max-w-md overflow-hidden rounded-full bg-cool-100">
+              <div className="h-full rounded-full bg-navy" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
 
           {/* Conditions the lender did not clearly assign land HERE, flagged,
               rather than in the section that is not worked. Ambiguity defaults
               to visibility. */}
           {flaggedCount > 0 && (
-            <p className="text-[11px] font-ui text-cool-500 -mt-2 mb-3">
+            <p className="text-[11px] font-ui text-cool-500 mb-3">
               {flaggedCount} {flaggedCount === 1 ? 'condition' : 'conditions'} below{' '}
               {flaggedCount === 1 ? 'carries' : 'carry'} the unassigned ownership flag. The lender
               did not clearly assign {flaggedCount === 1 ? 'it' : 'them'}, so{' '}
@@ -894,14 +1101,24 @@ function ApprovedChecklist({
             <p className="text-sm text-cool-500 font-ui">No broker conditions on this file.</p>
           ) : (
             <div className="space-y-4">
-              {brokerGroups.map(g => (
-                <div key={g.key}>
-                  <p className="font-heading text-[11px] font-semibold uppercase tracking-[0.05em] text-cool-600 mb-1.5">{g.label}</p>
-                  <div className="space-y-2">
-                    {g.rows.map(c => <ChecklistRow key={c.id} cond={c} {...rowProps} />)}
+              {groupingNote && (
+                <p className="text-[11px] font-ui text-cool-500" data-testid="conditions-grouping-note">
+                  {groupingNote}
+                </p>
+              )}
+              {brokerGroups.map(g => {
+                const labels = labelsFor(g.rows)
+                return (
+                  <div key={g.key}>
+                    <SectionHeading>{g.label}</SectionHeading>
+                    <div className="space-y-1.5">
+                      {g.rows.map((c, i) => (
+                        <ChecklistRow key={c.id} cond={c} label={labels[i]!} {...rowProps} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -936,13 +1153,18 @@ function ApprovedChecklist({
               )}
               {!hideNonBroker && (
                 <div className="space-y-2">
-                  {nonBrokerGroups.map(g => (
-                    <Disclosure key={g.owner} label={`${g.rows.length} ${g.noun}`}>
-                      <div className="space-y-2 mt-2">
-                        {g.rows.map(c => <ChecklistRow key={c.id} cond={c} quiet {...rowProps} />)}
-                      </div>
-                    </Disclosure>
-                  ))}
+                  {nonBrokerGroups.map(g => {
+                    const labels = labelsFor(g.rows)
+                    return (
+                      <Disclosure key={g.owner} label={`${g.rows.length} ${g.noun}`}>
+                        <div className="space-y-1.5 mt-2">
+                          {g.rows.map((c, i) => (
+                            <ChecklistRow key={c.id} cond={c} label={labels[i]!} quiet {...rowProps} />
+                          ))}
+                        </div>
+                      </Disclosure>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -1057,11 +1279,11 @@ function AddConditionBar({
       />
       <div className="flex flex-wrap gap-2 items-end">
         <SelectField label="Owner" value={owner} onChange={v => setOwner(v as (typeof OWNER_OPTIONS)[number])}>
-          {OWNER_OPTIONS.map(o => <option key={o} value={o}>{label(o)}</option>)}
+          {OWNER_OPTIONS.map(o => <option key={o} value={o}>{spaced(o)}</option>)}
         </SelectField>
         <SelectField label="Document" value={docKind} onChange={setDocKind}>
           <option value="">none</option>
-          {DOC_KIND_OPTIONS.map(k => <option key={k} value={k}>{label(k)}</option>)}
+          {DOC_KIND_OPTIONS.map(k => <option key={k} value={k}>{spaced(k)}</option>)}
         </SelectField>
         <SelectField label="Borrower" value={borrowerId} onChange={setBorrowerId}>
           <option value="">General</option>
@@ -1174,17 +1396,21 @@ const KIND_LABEL: Record<string, string> = {
   ccb_min: 'child benefit',
 }
 
-// verdict -> the card's tone + a short human label. meets is green, a genuine
-// gap (short/stale/rule breach) is red, and anything awaiting judgment
-// (needs_review / kind mismatch) is amber. Never lime — the analysis is
-// informational; lime is reserved for a queued human action (verify).
+// verdict -> the findings block's tone + a short human label.
+//
+// RECOLOURED IN HANDOFF 56, because the block IS the state vocabulary and the
+// state vocabulary carries no red on this surface. A pay stub that came in
+// short is work, not an error, so a gap now reads in the same lime the row it
+// sits inside carries, and a pass reads in the navy that means the system did
+// its job. Amber left with the red: a third colour here would compete with the
+// pending banner, which is a different kind of decision.
 const VERDICT_TONE: Record<string, { box: string; label: string }> = {
-  meets: { box: 'bg-green-50 border-green-200 text-green-800', label: 'Meets the requirement' },
-  short: { box: 'bg-red-50 border-red-200 text-red-800', label: 'Short of the requirement' },
-  stale: { box: 'bg-red-50 border-red-200 text-red-800', label: 'Document is stale' },
-  rule_unmet: { box: 'bg-red-50 border-red-200 text-red-800', label: 'A document rule is unmet' },
-  needs_review: { box: 'bg-amber-50 border-amber-200 text-amber-800', label: 'Needs review' },
-  kind_mismatch: { box: 'bg-amber-50 border-amber-200 text-amber-800', label: 'Document does not match' },
+  meets: { box: 'bg-cool-50 border-cool-200 text-navy', label: 'Meets the requirement' },
+  short: { box: 'bg-decision/10 border-cool-200 text-decision-ink', label: 'Short of the requirement' },
+  stale: { box: 'bg-decision/10 border-cool-200 text-decision-ink', label: 'Document is stale' },
+  rule_unmet: { box: 'bg-decision/10 border-cool-200 text-decision-ink', label: 'A document rule is unmet' },
+  needs_review: { box: 'bg-decision/10 border-cool-200 text-decision-ink', label: 'Needs review' },
+  kind_mismatch: { box: 'bg-decision/10 border-cool-200 text-decision-ink', label: 'Document does not match' },
 }
 
 function AnalysisBlock({
@@ -1207,7 +1433,7 @@ function AnalysisBlock({
         <span className="font-semibold">Analysis (draft)</span>
         <span className="opacity-90">· {tone.label}</span>
         {isGap && (
-          <span className="rounded-full bg-red-100 text-red-700 px-1.5 py-0.5 text-[10px] font-semibold">requirement gap</span>
+          <span className="rounded-full bg-decision text-decision-ink px-1.5 py-0.5 text-[10px] font-semibold">requirement gap</span>
         )}
       </div>
 
@@ -1281,6 +1507,7 @@ function AnalysisBlock({
 
 function ChecklistRow({
   cond,
+  label,
   quiet,
   borrowers,
   canDecide,
@@ -1293,7 +1520,13 @@ function ChecklistRow({
   setErrors,
   post,
   openDocument,
-}: { cond: DealConditionRow; quiet?: boolean } & RowProps) {
+}: {
+  cond: DealConditionRow
+  /** The one line a person scans, derived and de-duplicated by the group so two
+   *  letters of employment on one file do not read as the same row twice. */
+  label: string
+  quiet?: boolean
+} & RowProps) {
   const [waiveOpen, setWaiveOpen] = useState(false)
   const [note, setNote] = useState('')
   const [editOpen, setEditOpen] = useState(false)
@@ -1334,7 +1567,6 @@ function ChecklistRow({
   const [eLoad, setELoad] = useState(cond.loadBearing)
   const [eReq, setEReq] = useState(typeof cond.requirement?.target === 'number' ? String(cond.requirement.target) : '')
 
-  const pill = conditionStatusPill(cond)
   const decided = cond.status === 'satisfied' || cond.status === 'waived'
   const overdue = cond.dueDate !== null && cond.dueDate < todayYMD && !decided
   const rowBusy = Boolean(busy[`cond:${cond.id}`])
@@ -1349,6 +1581,27 @@ function ChecklistRow({
     cond.presenceDetail && typeof cond.presenceDetail.analysis === 'object' && cond.presenceDetail.analysis
       ? (cond.presenceDetail.analysis as AnalysisData)
       : null
+
+  // The row's reading state, derived from the stored axes plus the analysis
+  // verdict when one exists. Nothing in the book carries a verdict today, so
+  // every present document reads as "on file" and claims nothing about a read.
+  const state = conditionChecklistState({
+    status: cond.status,
+    presence: cond.presence,
+    analysisVerdict: typeof analysis?.verdict === 'string' ? analysis.verdict : null,
+    verifiedBy: cond.verifiedBy,
+    verifiedOn: cond.verifiedAt ? fmtShort(cond.verifiedAt.slice(0, 10)) : null,
+  })
+  // A failed check opens on arrival. An explicit tap wins over that, and the
+  // null default means a row whose state CHANGES on refresh picks the new
+  // default up rather than staying stuck at the old one.
+  const [userOpen, setUserOpen] = useState<boolean | null>(null)
+  const expanded = userOpen ?? state.openByDefault
+
+  // The source quote renders here and nowhere else, and only when it is not a
+  // second copy of the text already on screen.
+  const quote = sourceQuoteToShow(cond.text, cond.sourceSnippet)
+
   const satisfyKey = `satisfy:${cond.id}`
   const verifyKey = `verify:${cond.id}`
   const waiveKey = `waive:${cond.id}`
@@ -1427,66 +1680,82 @@ function ChecklistRow({
   }
 
   return (
-    <div className={`border rounded-lg p-3 ${overdue ? 'border-red-200 bg-red-50' : 'border-cool-100'}`}>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p className="text-sm font-ui text-cool-700 min-w-0 flex-1">
-          {cond.condNumber ? `${cond.condNumber}. ` : ''}
-          {cond.text}
-        </p>
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-ui text-cool-500">
-        <Pill tone={pill.tone}>{pill.label}</Pill>
-        {cond.docKind && <span className="rounded-full bg-cool-50 px-2 py-0.5 text-cool-600">{label(cond.docKind)}</span>}
-        {typeof cond.requirement?.target === 'number' && (
+    <div
+      data-testid={`condition-row-${cond.id}`}
+      data-state={state.key}
+      className={`rounded-lg border ${
+        state.key === 'problems'
+          ? 'border-cool-100 border-l-4 border-l-decision bg-decision/10'
+          : state.key === 'done'
+            ? 'border-cool-100 bg-cool-50/60'
+            : 'border-cool-100 bg-white'
+      }`}
+    >
+      {/* THE COLLAPSED ROW. One line: a glyph, the short label, a due date on
+          the right, and the state in plain words beneath. Nothing else, and no
+          control at all, because twelve rows of buttons is what made the old
+          list unreadable. */}
+      <button
+        type="button"
+        onClick={() => setUserOpen(!expanded)}
+        aria-expanded={expanded}
+        className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left rounded-lg hover:bg-cool-50/70"
+      >
+        <StateGlyph state={state.key} />
+        <span className="min-w-0 flex-1">
           <span
-            className="rounded-full bg-cool-50 px-2 py-0.5 text-cool-600 tabular-nums"
-            title={cond.requirement.source === 'manual' ? 'requirement target set by hand' : 'requirement target parsed from the condition'}
+            className={`block text-sm font-ui leading-snug ${
+              state.key === 'done' ? 'text-cool-400 line-through' : 'text-navy'
+            }`}
           >
-            target {fmtMoney(cond.requirement.target)}
+            {label}
           </span>
-        )}
-        {cond.loadBearing && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">load-bearing</span>}
-        {isManual && <span className="rounded-full bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">added by hand</span>}
-        {!isManual && isEdited && <span className="rounded-full bg-purple-50 px-2 py-0.5 font-semibold text-purple-700">edited</span>}
-        {isUnassignedOwnership(cond.category) && (
-          <span className="rounded-full border border-amber-400 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-            unassigned ownership
-          </span>
-        )}
-        <span className="capitalize">{cond.owner}</span>
-        <span className={`tabular-nums ${overdue ? 'text-red-700 font-semibold' : ''}`}>
-          {cond.dueDate ? `due ${fmtShort(cond.dueDate)}${overdue ? ' (overdue)' : ''}` : 'no due date'}
+          <span className="mt-0.5 block text-[11px] font-ui text-cool-500 leading-snug">{state.line}</span>
         </span>
-        {matchedName && <span className="text-cool-500">matched: {matchedName}</span>}
-      </div>
+        {cond.dueDate && (
+          <span
+            className={`shrink-0 text-[11px] font-ui tabular-nums ${
+              overdue ? 'text-navy font-semibold' : 'text-cool-500'
+            }`}
+          >
+            {overdue ? `overdue ${fmtShort(cond.dueDate)}` : `due ${fmtShort(cond.dueDate)}`}
+          </span>
+        )}
+        <Caret open={expanded} />
+      </button>
 
-      {analysis && <AnalysisBlock analysis={analysis} openDocument={openDocument} />}
+      {expanded && (
+        <div className="px-3 pb-3">
+          {/* THE FULL TEXT, ONCE. */}
+          <p className="text-sm font-ui text-cool-700 leading-relaxed whitespace-pre-line">{cond.text}</p>
 
-      {/* Latched: this row has taken its press and the refresh is in flight.
-          No control renders again until the server's truth replaces the row. */}
-      {latched && (
-        <p
-          className="mt-2 rounded-md border border-cool-200 bg-cool-50 px-2.5 py-1.5 text-xs font-ui text-cool-700"
-          data-testid="row-latched"
-        >
-          {latch?.msg}
-        </p>
-      )}
+          {analysis && <AnalysisBlock analysis={analysis} openDocument={openDocument} />}
 
-      {/* Quiet rows keep their controls behind a manage toggle: the status is
-          information, the buttons are not this section's point. The toggle
-          stays on decided rows too, because the manual controls (edit, move,
-          remove) are not decision-gated. */}
-      {!latched && quiet && !manage && (canDecide || canWaive) && (
-        <button
-          onClick={() => setManage(true)}
-          className="mt-1.5 text-[11px] font-ui text-cool-500 underline decoration-cool-300 hover:text-navy"
-        >
-          manage
-        </button>
-      )}
+          {/* Latched: this row has taken its press and the refresh is in flight.
+              No control renders again until the server's truth replaces the row. */}
+          {latched && (
+            <p
+              className="mt-2 rounded-md border border-cool-200 bg-cool-50 px-2.5 py-1.5 text-xs font-ui text-cool-700"
+              data-testid="row-latched"
+            >
+              {latch?.msg}
+            </p>
+          )}
 
-      {!latched && (!quiet || manage) && (canDecide || canWaive) && !decided && (
+          {/* Quiet rows keep their controls behind a manage toggle: the status is
+              information, the buttons are not this section's point. The toggle
+              stays on decided rows too, because the manual controls (edit, move,
+              remove) are not decision-gated. */}
+          {!latched && quiet && !manage && (canDecide || canWaive) && (
+            <button
+              onClick={() => setManage(true)}
+              className="mt-2 text-[11px] font-ui text-cool-500 underline decoration-cool-300 hover:text-navy"
+            >
+              manage
+            </button>
+          )}
+
+          {!latched && (!quiet || manage) && (canDecide || canWaive) && !decided && (
         <div className="mt-2 flex flex-wrap items-start gap-2">
           {/* The one-at-a-time knock-off leads. Satisfied is the record that
               Michael fulfilled it and the lender accepted it — the closest
@@ -1573,7 +1842,7 @@ function ChecklistRow({
               className="ml-1 text-xs font-ui border border-cool-200 rounded px-1.5 py-1"
             >
               <option value="">move…</option>
-              {OWNER_OPTIONS.filter(o => o !== cond.owner).map(o => <option key={o} value={o}>{label(o)}</option>)}
+              {OWNER_OPTIONS.filter(o => o !== cond.owner).map(o => <option key={o} value={o}>{spaced(o)}</option>)}
             </select>
           </label>
           <button onClick={() => setRemoveOpen(v => !v)} className="text-red-600 font-semibold underline decoration-red-200 hover:decoration-red-600">
@@ -1593,11 +1862,11 @@ function ChecklistRow({
           />
           <div className="flex flex-wrap gap-2 items-end">
             <SelectField label="Owner" value={eOwner} onChange={setEOwner}>
-              {OWNER_OPTIONS.map(o => <option key={o} value={o}>{label(o)}</option>)}
+              {OWNER_OPTIONS.map(o => <option key={o} value={o}>{spaced(o)}</option>)}
             </SelectField>
             <SelectField label="Document" value={eDoc} onChange={setEDoc}>
               <option value="">none</option>
-              {DOC_KIND_OPTIONS.map(k => <option key={k} value={k}>{label(k)}</option>)}
+              {DOC_KIND_OPTIONS.map(k => <option key={k} value={k}>{spaced(k)}</option>)}
             </SelectField>
             <SelectField label="Borrower" value={eBorrower} onChange={setEBorrower}>
               <option value="">General</option>
@@ -1666,7 +1935,71 @@ function ChecklistRow({
         </div>
       )}
 
-      {errors[busyKey] && <p className="mt-2 text-xs text-red-700 font-ui">{errors[busyKey]}</p>}
+          {errors[busyKey] && <p className="mt-2 text-xs text-red-700 font-ui">{errors[busyKey]}</p>}
+
+          {/* THE QUIET METADATA LINE, last. The condition number, the owner,
+              the document kind, the flags, the page reference and the link to
+              the source. This is where the number lives now: the collapsed row
+              is for scanning, and the number is for cross-referencing against
+              the lender's own paper, which is a different job. */}
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-cool-100 pt-2 text-[11px] font-ui text-cool-500">
+            {cond.condNumber && <MetaChip>condition {cond.condNumber}</MetaChip>}
+            <span className="capitalize">{spaced(cond.owner)}</span>
+            {cond.docKind && <MetaChip>{spaced(cond.docKind)}</MetaChip>}
+            {typeof cond.requirement?.target === 'number' && (
+              <MetaChip
+                title={
+                  cond.requirement.source === 'manual'
+                    ? 'requirement target set by hand'
+                    : 'requirement target parsed from the condition'
+                }
+              >
+                target {fmtMoney(cond.requirement.target)}
+              </MetaChip>
+            )}
+            {/* Load-bearing is a FACT about the condition, so it is navy rather
+                than red. A low appraisal re-adjudicates the plan, which is
+                important, and importance is not an error. */}
+            {cond.loadBearing && (
+              <MetaChip strong title="Satisfying this one re-adjudicates the deal.">
+                load-bearing
+              </MetaChip>
+            )}
+            {isManual && <MetaChip>added by hand</MetaChip>}
+            {!isManual && isEdited && <MetaChip>edited</MetaChip>}
+            {isUnassignedOwnership(cond.category) && (
+              <MetaChip title="The lender did not clearly assign this one, so it sits in the working list where it will be seen.">
+                unassigned ownership
+              </MetaChip>
+            )}
+            {matchedName && <span>matched: {matchedName}</span>}
+            {cond.sourcePage !== null && <span>p{cond.sourcePage}</span>}
+            {typeof cond.confidence === 'number' && cond.confidence < 70 && (
+              <span>read at {cond.confidence}% confidence</span>
+            )}
+            {cond.documentId && (
+              <button
+                type="button"
+                onClick={() => openDocument(cond.documentId!, cond.sourcePage)}
+                className="font-semibold text-navy underline decoration-cool-300 hover:decoration-navy"
+              >
+                open source
+              </button>
+            )}
+          </div>
+
+          {/* THE SOURCE QUOTE, HERE AND ONLY HERE, and only when it is not a
+              second copy of the text above it. */}
+          {quote && (
+            <p
+              className="mt-1.5 text-[11px] font-ui text-cool-500 break-words"
+              data-testid={`condition-quote-${cond.id}`}
+            >
+              From the commitment: &ldquo;{quote}&rdquo;
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

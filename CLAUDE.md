@@ -300,6 +300,86 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The conditions checklist LAYOUT rebuild (handoff 56, 2026-08-05)
+Supersedes handoff 55's layout section. Its write paths are correct and
+unchanged; what changed is how the list is drawn.
+- **WHY: Michael read the shipped checklist on a live file and called the
+  layout disastrous. Two causes, both specific.** (1) **EVERY CONDITION
+  RENDERED TWICE** — the text, then the identical string again beneath it in
+  grey quotes as the source snippet. On F060561 `source_snippet == text` on
+  ALL TWELVE rows, so twelve conditions filled twenty-four paragraphs.
+  (2) Full paragraph text on every row defeated the one job a checklist has.
+- **THE ROW IS ONE LINE**: status glyph, short label, due date right-aligned,
+  and one line of plain words underneath stating the state. The full text,
+  the findings, the CONTROLS and a quiet metadata line (condition number,
+  owner, doc kind, flags, page, open source) live behind expansion. **No
+  control renders on a collapsed row**, asserted by test. The source quote
+  renders in the expanded row ONLY, and only when
+  `sourceQuoteToShow(text, snippet)` says it is not a second copy (equal,
+  substring, or superstring after whitespace/case normalising -> dropped).
+- **FOUR STATES, and the TWO with no home in them are NAMED not forced.**
+  `conditionChecklistState` in lib/conditions-status.ts:
+  `nothing` (hollow ring), `on_file` (solid navy dot), `problems` (lime),
+  `done` (grey tick, struck through). **`waived` folds into done with its own
+  words** (three live rows) and **`not_applicable` gets its own
+  `underwriting` reading**, held out of both header figures because an
+  adjudication constraint is not a chase.
+- **THE INTERIM READING, DESIGNED TO BE DELETED. NOT ONE CONDITION IN THE
+  BOOK CARRIES `presence_detail.analysis`** (verified live, 49 approved rows),
+  so the document check does not exist yet and a present document says only
+  "On file. Nothing has read it yet." The `meets` and gap branches are already
+  written against the shape the check will store, so it lights up with zero
+  portal changes and that sentence disappears on its own.
+- **NEITHER `satisfied` NOR `waived` RECORDS WHO OR WHEN ON THE ROW.**
+  `conditions` carries `verified_by`/`verified_at` and nothing else (both null
+  on all five live decided rows); the acting human lives on the audit_log
+  entry by design (guardrail 19). The done line therefore points at the audit
+  log rather than inventing a name. The brief asked for who and when; the
+  column does not exist. Workbench change if wanted.
+- **HEADER: three counts plus a thin navy bar.** collected + outstanding +
+  settled partition the list exactly once each; **needs-you is a highlighted
+  SUBSET** (unread document, or failed check), and it carries the only lime on
+  that line. Figures are derived from the SAME states the rows render, so a
+  count can never contradict a glyph.
+- **THE SHORT LABEL IS THE HONEST GAP. NOTHING GENERATES ONE.**
+  `conditionShortLabel` names the document where `doc_kind` names one (set on
+  11 of 49 approved rows) and otherwise truncates the text at a word boundary
+  near 72 chars. **`other` NEVER becomes a label** — four of F057400's twelve
+  carry it, so the kind would print the same word four times. A repeated
+  label inside one group gains its condition number (`disambiguateLabels`);
+  the live case is two letters of employment on F060561, which read
+  "Letter of employment (2)" and "(3)".
+- **NOTHING PARSES A NAME OUT OF CONDITION TEXT.** Grouping keys on
+  `borrower_id` alone. Coverage is thin and the FALLBACK matters more than the
+  grouping: F060561 has zero borrower rows, F053724 has two borrowers and
+  zero of thirty-three conditions linked. `borrowerGroupingNote` says which
+  of those two situations the reader is in and goes SILENT the moment one row
+  is genuinely linked (F057400: 5 of 12, so it renders General 7 plus two
+  named borrower sections and no note).
+- **NO RED IN THE STATE VOCABULARY.** Overdue reads navy, load-bearing is a
+  navy chip, and the findings block was RECOLOURED (gap verdicts lime, `meets`
+  navy, amber retired from it). Red survives on exactly two destructive
+  controls, Reject list and Remove, plus error text, and the test enumerates
+  every remaining red line.
+- **THE LIME AUDIT WAS LINE-WISE AND HAD A HOLE.** `tests/shell.test.ts`
+  tested the allowlist regex against the whole LINE, so one permitted token
+  licensed every token beside it: `border-l-4 border-l-decision bg-decision/10`
+  passed because `bg-decision` was granted. It is **token-wise now**, the
+  side-specific border utilities are named in the pattern, and a test proves
+  the check is not vacuous. The checklist's grant gained `border-l-decision`
+  with its role written down.
+- `document_id` joined `CONDITION_SELECT` (read-only) so the expanded row can
+  open the source at its page. `conditionStatusPill` still exists and is still
+  tested but NO LONGER RENDERS anywhere.
+- Pinned in `tests/conditions-layout.test.ts` (38 tests).
+  `tests/beta-file.test.ts` and `tests/conditions-checklist.test.ts` both
+  passed UNMODIFIED. **No condition data changed**: census identical before
+  and after (206 rows, 49 approved / 124 superseded / 21 rejected / 12
+  pending). Costs: beta file page route JS unchanged at 2.85 kB, first load
+  135 to 137 kB; room route JS unchanged at 21.7 kB, first load 161 to 164 kB.
+- Render-proved on the dev Clerk instance against the real pages, read-only,
+  with an ephemeral TEST admin created and DELETED in the same session.
+
 ### The conditions checklist redesign (handoff 55, 2026-08-05)
 - **WHY: Michael applied the first real re-extraction, read the twelve, and
   called the checklist poor.** Two instructions: solicitor conditions are not
