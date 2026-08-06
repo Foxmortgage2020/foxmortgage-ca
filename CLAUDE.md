@@ -300,6 +300,53 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### White canvas, one scrolling stage row, and a shorter card (handoff 59, 2026-08-06)
+Corrections from Michael reading handoff 58 on production. The export stays the
+visual source of truth for everything not named here.
+- **THE CANVAS IS WHITE ACROSS THE PORTAL, and this is the THIRD deliberate
+  deviation from the export** (after navy and lime). `SURFACE.canvas` went
+  `#EFEDE8` -> `#FFFFFF`. **The one Michael actually meant was the Command
+  Centre's `bg-fog` (#F4F6F9)** on `AdminShell` line ~346, the blue-grey behind
+  every admin screen. The partner shell's `bg-gray-50`
+  (`PortalLayoutClient` ~612) went with it.
+- **`fog` IS STILL IN THE BUILD, deliberately, and ONLY as a hover tint** on
+  individual controls (sidebar toggles, command-palette rows, the What's moving
+  table, the notification bell). It is no longer any page's ground, and a test
+  asserts every surviving `bg-fog` in AdminShell is a `hover:` variant. Killing
+  the token outright would erase those hovers.
+- **FOUR CENTRED-CARD SURFACES WERE LEFT ALONE and are named** rather than
+  swept: the `/portal` hub, investor-inactive, sign-in, and the client-facing
+  `/portal/file/[token]`. Each is a single card centred on a tint where the
+  tint carries the figure-ground, which is a different pattern from a
+  multi-panel working surface. Michael's to rule on.
+- **THE SUB-STAGE ROW SCROLLS SIDEWAYS AND DOES NOT WRAP.** This DELIBERATELY
+  REVERSES handoff 57's no-horizontal-scroll rule, for this row and nothing
+  else, and the reasoning is better than the rule it replaces: the sub-stage
+  set is BOUNDED at seven so sideways scrolling is finite and predictable,
+  while the file set is UNBOUNDED so files belong on the vertical axis. Do not
+  reintroduce wrapping to avoid the scroll.
+- **`STAGE_COLUMN_WIDTH = 268` IS A MEASURED NUMBER, not an estimated one.**
+  The row's visible width at 1512 with the sidebar open is **1103px**, not the
+  ~1200 arithmetic suggests, so a first pass at 288 fitted only THREE columns.
+  268 fits four (4x268 + 3x8 = 1096). **4 visible at 1512, 3 at 1280.** Card is
+  250px wide either way, up from 214, and 139px tall, down from 242.
+- **NO SCROLL BOX INSIDE A COLUMN.** The `58vh` container is gone and every
+  file renders. Michael: if Submitted holds 200 files he wants 200 listed and
+  will scroll or use the search. **Page height with Fulfilment expanded is
+  ~10,800px and that is a CHOSEN outcome.** It is not what made the pre-58
+  board 24,000px: that was five phases stacked at once.
+- **THE PHASE TILE ROW IS STICKY** (`top:0`, `z-20`, opaque white, hairline
+  under), because the page is now deliberately long. Verified structurally:
+  the document is the scroller and NO ancestor breaks sticky, which is exactly
+  why `globals.css` uses `overflow-x: clip` rather than `hidden` on the body.
+  Costs ~165px of vertical space while scrolling.
+- **NO REMOVE CONTROL ON A CARD.** It went entirely; the card is now a pure
+  server component with no client child. **It is UNCHANGED on the file page and
+  still renders on the Archive and No-stage list views**, where clearing
+  migration artifacts is the workflow handoff 52 built. Only the CARD lost it.
+- The card otherwise already matched the export's "Needs you" block exactly and
+  was not touched.
+
 ### The board rebuilt from the design export (handoff 58, 2026-08-06)
 Supersedes handoff 57's VISUAL VALUES and its STRUCTURE. What survives from it:
 the token module as a mechanism, the countdown including its fifth reading, and

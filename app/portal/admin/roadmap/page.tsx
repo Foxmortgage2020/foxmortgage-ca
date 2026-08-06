@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'White',
+    title: 'White canvas, one scrolling stage row, a shorter card',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'THE CANVAS IS WHITE ACROSS THE PORTAL, the third deliberate deviation from the design export after navy and lime. The one Michael actually meant was the Command Centre background behind every admin screen; the partner shell went with it. The old tint token survives in one role only, as a hover shade on individual controls, and a test asserts every remaining use is a hover variant so it can never become a page ground again',
+      'FOUR CENTRED-CARD SURFACES WERE LEFT ALONE AND ARE NAMED rather than swept along: the portal hub, investor inactive, sign-in and the client file page. Each is a single card centred on a tint where the tint carries the figure-ground, which is a different pattern from a multi-panel working surface. Listed for Michael to rule on rather than changed on this session\'s own judgement',
+      'THE SUB-STAGE ROW SCROLLS SIDEWAYS AND DOES NOT WRAP, which deliberately reverses the no-horizontal-scroll rule from two sessions ago, for this row and nothing else. The reasoning is better than the rule it replaces: the sub-stage set is bounded at seven so sideways scrolling is finite and predictable, while the file set is unbounded so files belong on the vertical axis',
+      'THE COLUMN WIDTH IS A MEASURED NUMBER, NOT AN ESTIMATED ONE. The row\'s visible width at 1512 with the sidebar open is 1103px rather than the 1200 the arithmetic suggests, so a first pass fitted only three columns. The shipped width fits four at 1512 and three at 1280, and the card went from 214px wide to 250 and from 242px tall to 139',
+      'NO SCROLL BOX INSIDE A COLUMN. Every file renders all the way down, so Funded lists all 66. The page runs to about 10,800px with Fulfilment expanded and that is now a chosen outcome rather than a defect: it was never one phase\'s files that made the old board 24,000px long, it was five phases stacked at once',
+      'THE PHASE TILE ROW IS STICKY, because the page is deliberately long now and someone forty files down a column had no way to see where they were or switch stage. Verified structurally: the document is the scroller and no ancestor breaks sticky, which is exactly why the global stylesheet clips rather than hides its horizontal overflow',
+      'NO REMOVE CONTROL ON A CARD. It came off entirely and the card is now a pure server component with no client child at all. It is unchanged on the file page and still renders on the Archive and No stage lists, where clearing migration artifacts is the workflow, so only the card lost it',
+      'The card otherwise already matched the export reference exactly and was not touched. 1622 tests pass, the copy gate and write guarantee unmodified, no data changed',
+    ],
+  },
+  {
     n: 'Export',
     title: 'The board rebuilt from the design export',
     status: 'shipped',

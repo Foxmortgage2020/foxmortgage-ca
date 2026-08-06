@@ -607,7 +607,9 @@ export default function PortalLayoutClient({ children, impersonation }: Props) {
       </aside>
 
       {/* Main area */}
-      <div className="lg:ml-64 flex-1 flex flex-col min-h-screen bg-gray-50">
+      {/* White canvas (handoff 59), matching the Command Centre. Was
+          bg-gray-50. Layout untouched: only the ground changed. */}
+      <div className="lg:ml-64 flex-1 flex flex-col min-h-screen bg-white">
         {/* Top bar. On mobile it pins BELOW the 56px navy bar (top-14) so the
             two sticky headers stack instead of overlapping; on desktop there is
             no navy bar, so it pins at the top. */}
