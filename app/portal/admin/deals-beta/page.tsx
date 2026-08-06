@@ -49,20 +49,42 @@ import {
   getRecStageEvents,
   getRecStages,
   getRecWithdrawals,
+  getRecDealProperties,
 } from '@/lib/underwriting'
-import { boardDeals, buildInsights, defaultPhaseCode, orderedPhases } from '@/lib/phase-model'
+import { boardDeals, buildInsights } from '@/lib/phase-model'
 import { indexWithdrawals, partitionWithdrawn } from '@/lib/rec-withdrawal'
-import { resolveRoom } from '@/lib/beta-file'
+import { propertyAddress, resolveRoom, subjectProperty } from '@/lib/beta-file'
+import {
+  RADIUS,
+  STROKE,
+  SURFACE,
+  TEXT,
+  TYPE,
+  radius,
+  typeStyle,
+} from '@/lib/design-tokens'
 import DealsBetaBoard from '@/components/admin/DealsBetaBoard'
 
 export const dynamic = 'force-dynamic'
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="p-4 sm:p-6">
+    // THE BLUE-GREY CANVAS IS GONE. Michael named it, and it was the first
+    // thing to go: a warm off-white lets the white panels read as panels
+    // instead of as slightly different blue-grey.
+    <main className="min-h-screen p-4 sm:p-6" style={{ background: SURFACE.canvas }}>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-heading text-navy text-xl">Deals</h1>
-        <span className="rounded-full border border-navy/25 bg-navy/5 px-2.5 py-0.5 text-[11px] font-heading font-semibold uppercase tracking-[1.2px] text-navy">
+        <h1 style={{ ...typeStyle(TYPE.pageTitle), color: TEXT.primary }}>Deals</h1>
+        <span
+          className="px-2.5 py-0.5"
+          style={{
+            ...typeStyle(TYPE.meta),
+            color: TEXT.secondary,
+            background: SURFACE.panel,
+            border: `${STROKE.panel}px solid ${SURFACE.panelBorder}`,
+            borderRadius: radius(RADIUS.countPill),
+          }}
+        >
           Beta
         </span>
       </div>
@@ -70,7 +92,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           BEING TRUE. The Remove control writes one thing, through a gate, with
           a human on it. An untrue guarantee is worse than none, so the sentence
           now names exactly what the one write is rather than denying it. */}
-      <p className="mt-1 max-w-3xl text-sm text-cool-700">
+      <p className="mt-1 max-w-3xl" style={{ ...typeStyle(TYPE.body), color: TEXT.secondary }}>
         The five-phase model over the September record layer, running beside your live Deals page.
         The only thing this page changes is whether a record stays in the book, and that is a
         recorded decision rather than a deletion.
@@ -82,7 +104,16 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-6 rounded-[9px] border border-cool-200 bg-white p-4 text-sm text-cool-700">
+    <p
+      className="mt-6 p-4"
+      style={{
+        ...typeStyle(TYPE.body),
+        color: TEXT.secondary,
+        background: SURFACE.panel,
+        border: `${STROKE.panel}px solid ${SURFACE.panelBorder}`,
+        borderRadius: radius(RADIUS.panel),
+      }}
+    >
       {children}
     </p>
   )
@@ -91,7 +122,9 @@ function Notice({ children }: { children: React.ReactNode }) {
 export default async function DealsBetaPage({
   searchParams,
 }: {
-  searchParams?: { phase?: string; view?: string; collapsed?: string; deal?: string }
+  // `phase` and `collapsed` were retired in handoff 57: every phase is on the
+  // screen now, so there is nothing to select and nothing to collapse.
+  searchParams?: { view?: string; deal?: string }
 }) {
   const user = await requirePermission('deals.view')
 
@@ -140,6 +173,7 @@ export default async function DealsBetaPage({
     conditionsRes,
     withdrawalsRes,
     roomsRes,
+    propsRes,
   ] = await Promise.all([
     getRecPhases(),
     getRecStages(),
@@ -159,6 +193,9 @@ export default async function DealsBetaPage({
     // The workbench side, read only to decide which records have an open file.
     // A withdrawal on one of those is refused, so this is not decoration.
     getDealsSummary(agentId),
+    // The subject property behind each file, for the card's context tier. Read
+    // through the same rec.deal_properties join the file page uses.
+    getRecDealProperties(agentId),
   ])
 
   // A read that fails is stated, never rendered as an empty board. An empty
@@ -177,6 +214,7 @@ export default async function DealsBetaPage({
     conditionsRes,
     withdrawalsRes,
     roomsRes,
+    propsRes,
   ]
   if (all.some(r => !r.configured || !r.ok)) {
     return (
@@ -205,6 +243,7 @@ export default async function DealsBetaPage({
   const conditions = ok(conditionsRes, [] as any[])
   const withdrawals = ok(withdrawalsRes, [] as any[])
   const rooms = ok(roomsRes, [] as any[])
+  const propertyLinks = ok(propsRes, [] as any[])
 
   // ── Withdrawn records leave the working book ──────────────────────────────
   // Out of the phase columns, out of the Archive, and out of the insights. A
@@ -230,16 +269,51 @@ export default async function DealsBetaPage({
   const withdrawnView = searchParams?.view === 'withdrawn'
   const nostageView = searchParams?.view === 'nostage'
   const canWithdraw = can(user, 'rec.withdraw') && !isDemoMode()
-  // The requested phase must be one the record layer configures; an unknown
-  // value falls back rather than rendering an empty unnamed phase. This is what
-  // absorbed the advise -> underwriting rename without a broken page.
-  // One instant for the whole render: the insights strip, every card and the
-  // preview all measure against the same clock.
+  // One instant for the whole render: the insights strip, every card and every
+  // countdown measure against the same clock.
   const nowISO = new Date().toISOString()
+  // Today in Toronto, because the practice is. Derived from the same instant,
+  // so no two cards on the screen can disagree about what day it is.
+  const todayYMD = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(nowISO))
 
-  const known = new Set(orderedPhases(phases).map(p => p.code))
-  const requested = searchParams?.phase
-  const activePhase = requested && known.has(requested) ? requested : defaultPhaseCode(phases)
+  // The subject property per file, by the SAME rule the file page uses: the
+  // link whose role is 'subject', falling back to the sole link when a role is
+  // absent. A file with none renders the absent value rather than a blank row.
+  const linksByDeal = new Map<string, any[]>()
+  for (const l of propertyLinks as any[]) {
+    const list = linksByDeal.get(l.deal_id) ?? []
+    list.push(l)
+    linksByDeal.set(l.deal_id, list)
+  }
+  const addressByDeal: Record<string, string> = {}
+  for (const [dealId, links] of Array.from(linksByDeal.entries())) {
+    const p = subjectProperty(
+      { id: dealId },
+      links.map((l: any) => ({ deal_id: l.deal_id, property_id: l.property_id, role: l.role })),
+      links.map((l: any) => ({
+        id: l.property_id,
+        address_line1: l.address_line1,
+        street_number: l.street_number,
+        street_name: l.street_name,
+        unit: l.unit,
+        city: l.city,
+        province: l.province,
+        postal_code: l.postal_code,
+        occupancy: l.occupancy,
+        property_type: l.property_type,
+        tenure: l.tenure,
+        annual_taxes: l.annual_taxes,
+        condo_fees_monthly: l.condo_fees_monthly,
+      })),
+    )
+    const addr = propertyAddress(p)
+    if (addr) addressByDeal[dealId] = addr
+  }
 
   return (
     <Shell>
@@ -257,7 +331,6 @@ export default async function DealsBetaPage({
         milestones={milestones}
         conditions={conditions}
         insights={buildInsights(liveDeals, stages, events, nowISO)}
-        activePhase={activePhase}
         archive={archive}
         withdrawnView={withdrawnView}
         nostageView={nostageView}
@@ -265,11 +338,12 @@ export default async function DealsBetaPage({
         withdrawnDeals={withdrawnDeals}
         roomDealIds={roomDealIds}
         canWithdraw={canWithdraw}
-        collapsedRaw={searchParams?.collapsed ?? null}
+        addressByDeal={addressByDeal}
         selectedRef={searchParams?.deal ?? null}
         // Resolved on the server so every card measures against one instant,
         // and so the model itself never reads a clock.
         nowISO={nowISO}
+        todayYMD={todayYMD}
       />
     </Shell>
   )

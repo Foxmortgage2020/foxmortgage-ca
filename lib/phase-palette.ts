@@ -30,6 +30,8 @@
 // stage in the record layer extends the ramp automatically and no code
 // changes. That is the same principle as the columns themselves.
 
+import { ROLE } from '@/lib/design-tokens'
+
 export interface PhaseHue {
   /** HSL hue in degrees. */
   h: number
@@ -178,8 +180,14 @@ export function phaseTint(phaseCode: string): string {
  * green rather than a yellow-green. If BRX's exact hex differs, it is one
  * change here and nothing else moves. */
 export const PROJECTION_GREEN = {
-  /** Full strength — used for the digits and the label, never as the fill. */
-  ink: 'hsl(152 58% 22%)',
+  /** Full strength, used for the digits and the label, never as the fill.
+   *
+   *  HANDOFF 57: the fill and the border keep the hue-152 family this constant
+   *  was built on, and the DIGITS take the approved token from
+   *  lib/design-tokens.ts. It is hue 163, still a forest green and still far
+   *  from the Fox lime at hue 78, which is what the value assertion beside it
+   *  was written to protect. */
+  ink: ROLE.projectionInk,
   /** The fill behind the figure. Light enough that dark-green digits stay
    * crisp; saturated enough that it is unmistakably green at a glance. */
   fill: 'hsl(152 44% 91%)',

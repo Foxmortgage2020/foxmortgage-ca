@@ -300,6 +300,65 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The design tokens, and the board rebuilt on them (handoff 57, 2026-08-06)
+- **`lib/design-tokens.ts` IS THE ANTI-DRIFT MECHANISM and matters more than
+  any value in it.** Michael iterated on mockups for a morning and approved a
+  design; three builds this week drifted from prose descriptions of one, each
+  costing a session. Every colour and every type size on the board now lives
+  there once. `tests/board-tokens.test.ts` fails on ANY hardcoded hex on the
+  surface, walking the directory so a file nobody has written yet is covered.
+  **It does NOT own spacing**: padding and gaps stay on Tailwind's scale,
+  because none was specified and a second spacing system would be the drift.
+- **THE BOARD RESTRUCTURED, IT DID NOT ONLY REPAINT.** Twenty-eight stages in
+  one row overflowed 1512 by 588px. **Phases stack vertically**, each phase's
+  stages sit side by side in a grid that **WRAPS** (`repeat(auto-fit,
+  minmax(240px,1fr))`), empty stages fold to one line at the foot of their
+  phase and empty phases fold to their header line. Verified live: **zero
+  horizontal scroll at 1512 and at 1280**, columns 285px, `overflow: []`.
+- **`?collapsed=` AND `?phase=` ARE BOTH GONE**, with the phase bar `?phase=`
+  drove. Collapse existed to survive a too-wide row; the row is gone, so it
+  only hid work. `parseCollapsed`/`toggleCollapsed` stay exported and tested in
+  lib/phase-model.ts, unused, the DealPreview precedent. Both params still
+  answer 200 and are ignored.
+- **THE COUNTDOWN'S FIFTH READING, RULED ON BY MICHAEL.** The four specified
+  states painted **75 of 97 board cards red, 59 of them FUNDED** files whose
+  closing correctly already happened. A passed closing is an alarm only where
+  the file has not ended, so a terminal stage reads `Closed 18 Jun 2026` in
+  plain grey. **16 red cards** now, which is the signal the design was drawn
+  for. Keyed on the stage's own `category` (`terminal_won`/`terminal_lost`),
+  NEVER a stage code, so a terminal stage added later behaves correctly.
+- **TWO SPECIFIED VALUES ARE DELIBERATELY UNAPPLIED, both ruled on rather than
+  assumed.** The needs-you chip keeps `bg-decision`/`text-decision-ink`
+  (#C6F53F on #3D4F0A) instead of the approved **#EDF3D9 / #4A5D0A**, because
+  `tests/shell.test.ts` greps DealCard for that exact ternary and
+  `tests/phase-model.test.ts` asserts the card matches `/bg-decision/`, and
+  redefining the Tailwind token would repaint six protected surfaces. The
+  approved values sit in `ROLE.needsYouBg`/`needsYouInk` so the switch is one
+  edit on the day the lime pass reaches the rest of the Command Centre.
+- **PROJECTION GREEN: the digits moved to `#1D6E56` (hue 163) and the fill and
+  border keep the hue-152 family.** The one value assertion in
+  tests/phase-model.test.ts was rewritten to check what it was written to
+  protect (hue outside the 60-140 lime band, in either notation) and proves
+  itself non-vacuous against the Fox lime. The two ZONE assertions beside it
+  were not touched.
+- **THE DEBT REGISTER IS THE HONEST PART OF THE HEX TEST.** `NOT_YET_PASSED` in
+  tests/board-tokens.test.ts holds the file page's own components plus the two
+  SHARED controls (`RecordWithdrawal`, `ReextractControl`), which render on both
+  surfaces, so restyling them would have changed a page the brief required to
+  stay visually untouched. **Consequence: RecordWithdrawal's buttons still carry
+  weight 600 where they render on a card** — the board's one live deviation
+  from the two-weight rule. A NEW board file is covered by default because it
+  is not on the list.
+- Live counts unchanged through `portal_readonly`: **160 = board 97 + Archive
+  29 + No stage 33 + Withdrawn 1**. The board holds 97; the 159 in the brief is
+  the whole live book across four views, not one screen of cards.
+- **THE BOARD NO LONGER SCROLLS SIDEWAYS BUT IT IS 24,000px TALL**, because
+  `funded` alone holds 66 cards in one column. Naming it rather than capping
+  it: a cap is a product decision Michael has not made.
+- Pinned in `tests/board-tokens.test.ts` (26 tests). The lime audit, both zone
+  assertions, the copy gate and the write guarantee all pass **unmodified**.
+  Board route JS unchanged at **438 B / 120 kB**. No data changed.
+
 ### The conditions checklist LAYOUT rebuild (handoff 56, 2026-08-05)
 Supersedes handoff 55's layout section. Its write paths are correct and
 unchanged; what changed is how the list is drawn.

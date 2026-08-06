@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Tokens',
+    title: 'The design tokens, and the board rebuilt on them',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'ONE MODULE OWNS EVERY COLOUR AND EVERY TYPE SIZE, and that matters more than any value in it. Michael iterated on mockups for a morning and approved a design, and three builds this week drifted from prose descriptions of one, each costing a session. lib/design-tokens.ts holds the values once and tests/board-tokens.test.ts fails on any hardcoded hex on the surface, walking the directory so a file nobody has written yet is covered. It deliberately does NOT own spacing: none was specified, and a second spacing system would be the drift it exists to stop',
+      'THE BOARD RESTRUCTURED RATHER THAN ONLY REPAINTING. Twenty-eight stages in one row overflowed 1512 by 588px and still needed collapse arrows, and no amount of paint fixes a row that long. Phases stack down the page, each with its stages side by side in a grid that WRAPS, empty stages fold to one line at the foot of their phase and empty phases fold to their header line. Verified live: zero horizontal scroll at 1512 and at 1280, columns an even 285px, nothing overflowing anywhere',
+      'BOTH URL PARAMS RETIRED. ?collapsed= existed only to survive the too-wide row, so with the row gone it only hid work, and ?phase= went with the phase bar it drove because every phase is on the screen now. Both still answer 200 and are ignored. parseCollapsed and toggleCollapsed stay exported and tested but unused, the same way DealPreview was left',
+      'THE COUNTDOWN GAINED A FIFTH READING, RULED ON BY MICHAEL. The four specified states painted 75 of 97 board cards red, 59 of them funded files whose closing correctly already happened. A passed closing is an alarm only where the file has not ended, so a terminal stage reads the date in plain grey and 16 cards stay red, which is the signal the design was drawn for. It keys on the stage category from the record layer, never a stage code, so a terminal stage added later behaves correctly with no change here',
+      'TWO APPROVED VALUES ARE DELIBERATELY UNAPPLIED AND BOTH WERE RULED ON. The needs-you chip keeps the existing lime rather than the approved pale sage, because two tests on the do-not-edit list pin that chip to those exact class names and redefining the token globally would repaint six protected surfaces. The approved values sit in the token module so the switch is one edit when the lime pass reaches the rest of the Command Centre',
+      'THE DEBT REGISTER IS THE HONEST PART OF THE HEX TEST. The file page keeps its current appearance until its own pass, so its components are held out by name rather than the rules being softened. The two SHARED controls are on it too, because they render on both surfaces, and the consequence is stated: the Remove control still carries weight 600 where it renders on a card, which is the board\'s one live deviation from the two-weight rule',
+      'THE BOARD NO LONGER SCROLLS SIDEWAYS BUT IT IS 24,000px TALL, because the funded stage alone holds 66 cards in one column. Named rather than capped: a cap is a product decision that has not been made. Counts unchanged through the read-only role at 160 = board 97 + Archive 29 + No stage 33 + Withdrawn 1',
+      'Pinned in tests/board-tokens.test.ts (26 tests). The lime audit, both projection-green zone assertions, the copy gate and the write guarantee all pass UNMODIFIED. Board route JS unchanged at 438 B. No data changed',
+    ],
+  },
+  {
     n: 'Layout',
     title: 'The checklist layout rebuild: one line per condition',
     status: 'shipped',

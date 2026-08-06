@@ -18,6 +18,7 @@
 // reader who does not know the convention still has to be able to read the page.
 
 import { PROJECTION_GREEN } from '@/lib/phase-palette'
+import { RADIUS, TYPE, radius, typeStyle } from '@/lib/design-tokens'
 
 /**
  * A weighted or otherwise projected money figure.
@@ -38,10 +39,10 @@ export default function ProjectionFigure({
 }) {
   return (
     <span
-      className={`inline-block rounded-[4px] border px-1.5 font-heading tabular-nums ${
-        size === 'lg' ? 'text-xl leading-tight' : 'text-sm font-semibold leading-tight'
-      }`}
+      className="inline-block border px-1.5 font-heading leading-tight tabular-nums"
       style={{
+        ...typeStyle(size === 'lg' ? TYPE.figure : TYPE.stageName),
+        borderRadius: radius(RADIUS.figure),
         color: PROJECTION_GREEN.ink,
         background: PROJECTION_GREEN.fill,
         borderColor: PROJECTION_GREEN.border,
@@ -59,10 +60,7 @@ export default function ProjectionFigure({
  * carry the meaning by itself, so this is never optional at a call site. */
 export function ProjectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      className="text-[10px] uppercase tracking-wide tabular-nums"
-      style={{ color: PROJECTION_GREEN.ink }}
-    >
+    <span className="tabular-nums" style={{ ...typeStyle(TYPE.meta), color: PROJECTION_GREEN.ink }}>
       {children}
     </span>
   )
