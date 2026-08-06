@@ -300,6 +300,56 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The conditions checklist redesign (handoff 55, 2026-08-05)
+- **WHY: Michael applied the first real re-extraction, read the twelve, and
+  called the checklist poor.** Two instructions: solicitor conditions are not
+  his concern (sectioned off, never removed), and he works conditions ONE AT A
+  TIME. This was a RENDERING job on a model that already fit: the status axis
+  existed, and `satisfied` was already accepted by
+  `/api/portal/admin/gates/conditions/{id}/decision` (conditions.decide, note
+  optional) — it lost its renderer when **ConditionsPanel was DELETED in
+  commit 7107031 (2026-07-17)**; the CLAUDE.md Session 4 paragraph naming it
+  is stale. `moot` remains accepted and UNRENDERED, deliberately.
+- **The knock-off**: every undecided row carries **Mark satisfied** (primary,
+  arm by timestamp, LATCH after success — `rowDone`, never cleared). Verify
+  and Waive keep their verbs and gained the same latch. The banner's Approve
+  and Reject latch per document (`decided`). "Accepted by the lender" has NO
+  distinct state in the model; satisfied is the closest honest verb, and a
+  separate lender-acceptance fact would be a workbench change.
+- **The split**: broker rows first in numeric order (the working list, N-of-M
+  count unchanged), `category='general_verification'` rows land THERE flagged
+  **unassigned ownership** with one explainer line (ambiguity defaults to
+  visibility). Non-broker rows sit in **"Handled at the lawyer's office and
+  elsewhere · N"** below: quieter, per-owner disclosures collapsed by
+  default, pills still render, controls behind a per-row `manage` toggle
+  (`quiet` prop). The PENDING banner sections its rows the same way.
+- **The three screen defects fixed**: `sortConditions`/`compareCondNumber` in
+  lib/conditions-status.ts (cond_number is a STRING, may be '7a'; numeric
+  first, suffix ties by string, unnumbered last) applied at BOTH render
+  sites — the fetchers' orders (due-date for approved, text-number for
+  pending) never reach the screen. The header on BOTH surfaces reads
+  "Conditions (N pending your decision)" while a set is pending, and the
+  open-of-approved count returns after approval. Reject list is SOLID
+  red-600/700, equal weight, with the finality line: rejecting is final for
+  the document because a succeeded attempt exists, so the retry gate refuses,
+  and the road back is an amendment upload.
+- **THE THREE-WAY EMPTY STATE, found live during the proof**: with a PENDING
+  set above, zero-approved renders "The working checklist fills when the
+  pending set above is approved" — the failed-extraction variant was caught
+  rendering under twelve pending rows on F060561, where it was FALSE (the
+  pending set IS the extraction succeeding). Pending beats both other
+  variants in the checklist default AND the beta override
+  (FileConditions passes `undefined` while pending > 0). The room's default
+  is now the two-variant copy Michael green-lit (the one authorized test
+  rewrite, tests/reextract.test.ts).
+- **THE BADGE'S FIRST REAL FIRING IS PROVEN**: the beta Conditions tab
+  renders the amber 12 from live pending rows, closing the loop handoff 53
+  could only argue by wiring.
+- Pinned in `tests/conditions-checklist.test.ts`. tests/beta-file.test.ts
+  passed UNMODIFIED. Costs: beta file page 2.73 -> 2.85 kB, room route
+  unchanged. No condition data changed: F060561 12 pending/open, F053724's
+  four-status mix intact, F057400 still 12 approved of 157.
+
 ### The preview body fix, and the two empty states (handoff 54, 2026-08-05)
 - **THE DEFECT: the route injected `reason` into every gate call and the
   gate's strict schema refused it** (422 `Unrecognized key: "reason"` on the

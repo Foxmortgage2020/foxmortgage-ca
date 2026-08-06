@@ -896,7 +896,18 @@ export default async function DealRoomPage({ params }: { params: { id: string } 
                   />
                 )}
               </Sub>
-              <Sub id="conditions" title={`Conditions (${openConds.length} open of ${conds.length})`}>
+              {/* The headline says PENDING while a set awaits the list gate,
+                  because "0 open of 0" above twelve pending rows contradicts
+                  the page (handoff 55). The open-of-approved count returns
+                  once the set is approved. */}
+              <Sub
+                id="conditions"
+                title={
+                  pendingCommit.length > 0
+                    ? `Conditions (${pendingCommit.length} pending your decision)`
+                    : `Conditions (${openConds.length} open of ${conds.length})`
+                }
+              >
                 <ConditionsChecklist
                   dealId={deal.id}
                   pending={pendingCommit}

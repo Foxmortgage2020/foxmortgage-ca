@@ -18,6 +18,21 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Checklist',
+    title: 'The conditions checklist redesign: broker first, one at a time',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'MICHAEL\'S VERDICT DROVE THIS: after the first real re-extraction he called the checklist poor, with two instructions — solicitor conditions are not his concern, and he works conditions one at a time. The redesign is a RENDERING job on a model that already fit: the status axis existed and satisfied was already accepted by the /decision proxy. It lost its renderer when ConditionsPanel was deleted in July, so wiring Mark satisfied is an existing verb regaining a button, not a new write path. moot stays accepted and unrendered on purpose',
+      'THE SPLIT: broker conditions first in the lender\'s numeric order as the working list, the two general_verification conditions flagged unassigned ownership inside it (ambiguity defaults to visibility), and everything else in "Handled at the lawyer\'s office and elsewhere" below — quieter, collapsed per owner with counts, status pills still rendering, controls tucked behind a per-row manage toggle. The pending banner sections its rows the same way, so the set reads the way it will be worked',
+      'THE KNOCK-OFF: Mark satisfied on every undecided row, armed by timestamp, LATCHED after success like the Remove control and the terms buttons. Verify and Waive gained the same latch, and the banner\'s Approve and Reject latch per document. "Accepted by the lender" has no distinct state in the model — satisfied is the closest honest verb, and recording lender acceptance as its own fact is a workbench change, reported not invented',
+      'THE THREE SCREEN DEFECTS: numeric sort everywhere (cond numbers are strings, may be 7a — numeric first, ties by string, unnumbered last, applied at both render sites so the fetchers\' due-date and text orders never reach the screen), the header reads "N pending your decision" while a set awaits the gate on BOTH surfaces, and Reject list is solid destructive red at equal weight with the finality line: a succeeded attempt exists, the retry gate refuses, the road back is an amendment upload',
+      'FOUND LIVE DURING THE PROOF: the failed-extraction empty state rendered under twelve pending rows on F060561, where it was false — the pending set IS the extraction succeeding. The empty state is now three-way: pending beats everything ("The working checklist fills when the pending set above is approved"), then no-commitment, then extraction-failed. Fixed in the checklist default AND the beta override',
+      'THE BADGE\'S FIRST REAL FIRING: the beta Conditions tab renders an amber 12 from live pending rows — the loop handoff 53 could only argue by wiring is now proven on real data',
+      'The room empty state now carries the two-variant copy Michael green-lit, via the ONE authorized test rewrite. tests/beta-file.test.ts passed UNMODIFIED. tests/conditions-checklist.test.ts pins the redesign. No condition data changed: F060561 12 pending, F053724\'s four-status mix intact, F057400 still 12 of 157. Beta file page 2.73 to 2.85 kB, room route unchanged',
+    ],
+  },
+  {
     n: 'Body fix',
     title: 'The preview body corrected live, and the two empty states',
     status: 'shipped',

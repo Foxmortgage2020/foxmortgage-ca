@@ -238,13 +238,24 @@ describe('the two empty states (handoff 54)', () => {
     expect(conditionsTab).toMatch(/emptyStateFor\(hasRealCommitment\)/)
   })
 
-  it('the ROOM keeps its own copy: the shared default is unchanged and only overridable', () => {
-    // The deal room passes no emptyState, so its sentence stays exactly as it
-    // was. Changing the room's copy is the room's own change, not this one.
-    expect(checklist).toContain(
+  it('the ROOM default is now the two-variant copy Michael green-lit (handoff 55)', () => {
+    // Handoff 54 kept the room's old single sentence because changing it was
+    // the room's own call. Handoff 55 carries that call: the checklist DEFAULT
+    // distinguishes no-commitment from extraction-failed, so the room can
+    // never again say "upload the commitment" over a failed extraction. The
+    // old sentence is gone entirely.
+    expect(checklist).not.toContain(
       'No conditions on this file yet. Upload the commitment to draft the checklist, or add one by hand above.',
     )
+    expect(checklist).toMatch(/because no lender commitment is on file/)
+    expect(checklist).toMatch(/the\s+condition extraction failed/i)
+    expect(checklist).toMatch(/Do not upload the commitment again/)
+    expect(checklist).toContain('conditions-empty-nocommitment')
+    expect(checklist).toContain('conditions-empty-failed')
+    // The default keys on the guardrail-20 computation, and the beta tab's
+    // linked override still rides the same prop.
     expect(checklist).toMatch(/emptyState \?\? \(/)
+    expect(checklist).toMatch(/!hasRealCommitment \? \(/)
     const room = read('app/portal/admin/deals/[id]/page.tsx')
     expect(room).not.toContain('emptyState')
   })
