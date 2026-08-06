@@ -12,6 +12,12 @@ export interface PlatformNote {
 
 export const PLATFORM_NOTES: PlatformNote[] = [
   {
+    date: '2026-08-06',
+    title: 'Deals (Beta) looks like the design you approved',
+    detail:
+      'The blue-grey page is gone, replaced by the warm off-white you picked, and every panel is now white with a hairline instead of a tinted block. The bigger change is the shape. Stages used to run left to right in one long row that ran off the side of the screen by about 588 pixels, which is why there were collapse arrows on every column. Phases now stack down the page, each one with its stages side by side underneath it, and anything empty folds to a single line. Attract, Intake and Monitor are three quiet lines today, and Underwriting and Fulfilment are open with three stages each. Nothing scrolls sideways at any width any more, so the collapse arrows are gone too. A card is four tiers now, split by hairlines: the file reference in blue with the needs-you chip beside it, then the names and the amount, then deal type, address and closing date, then days in the stage on the left and a countdown on the right. A missing amount says No amount in a grey that recedes, rather than showing zero. The countdown is the part worth knowing about. More than two weeks out it is plain, inside two weeks it turns red, and a closing that has already passed on a file that has not closed turns red too. That last one matters: one file has a closing date of 1 April and has been sitting in Application started ever since, and nothing in the system said so before. Funded files are not red, because their closing did not slip, it happened. That leaves 16 red cards instead of 75, which is the whole point of a colour that means something.',
+  },
+  {
     date: '2026-08-05',
     title: 'The checklist is one line per condition now',
     detail:

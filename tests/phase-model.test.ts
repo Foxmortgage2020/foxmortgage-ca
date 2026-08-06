@@ -603,8 +603,34 @@ describe('projection green, and the zone that keeps it apart from lime', () => {
   })
 
   it('the projection green is a solid fill, well clear of the Fox lime', () => {
-    // Lime is hue 78, a bright yellow-green. This is 152, a forest green.
-    for (const v of Object.values(PROJECTION_GREEN)) expect(v).toMatch(/^hsl\(152 /)
+    // WHAT THIS TEST PROTECTS: the projection green must never drift toward the
+    // Fox lime at hue 78, because on this page lime means "this needs you".
+    //
+    // HANDOFF 57 moved the DIGITS to the approved token #1D6E56 (hue 162) while
+    // the fill and the border keep the hue-152 family they were built on. So
+    // the assertion now checks the property it was written to protect, on every
+    // value, in whichever notation that value is written.
+    const hueOf = (v: string): number => {
+      const hsl = /^hsl\((\d+(?:\.\d+)?) /.exec(v)
+      if (hsl) return Number(hsl[1])
+      const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(v)
+      if (!hex) throw new Error(`unrecognised colour notation: ${v}`)
+      const [r, g, b] = [1, 2, 3].map(i => parseInt(hex[i]!, 16) / 255) as [number, number, number]
+      const max = Math.max(r, g, b)
+      const min = Math.min(r, g, b)
+      const d = max - min
+      if (d === 0) return 0
+      const h =
+        max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+      return (h * 60 + 360) % 360
+    }
+    for (const v of Object.values(PROJECTION_GREEN)) {
+      const h = hueOf(v)
+      expect(h, `${v} sits in the lime band`).toBeGreaterThan(140)
+      expect(h, `${v} is not a green at all`).toBeLessThan(200)
+    }
+    // And the check is not vacuous: the Fox lime itself would fail it.
+    expect(hueOf('#95D600')).toBeLessThan(140)
     expect(PROJECTION_GREEN.fill).not.toContain('gradient')
   })
 

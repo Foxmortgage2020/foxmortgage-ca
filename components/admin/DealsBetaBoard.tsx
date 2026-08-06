@@ -1,79 +1,63 @@
-// The Deals (Beta) phase board — rebuild for the five-phase record layer
-// (2026-08-02b).
+// The Deals (Beta) phase board — restructured and rebuilt on the design tokens
+// (handoff 57).
 //
-// A SERVER COMPONENT ON PURPOSE, and still one after gaining a collapse
-// control: collapse rides searchParams through plain links, exactly as phase
-// and view selection do. The page therefore ships no client JavaScript, has no
-// handler, no form and no drag target, and its read-only promise stays a
-// property of its shape rather than a rule someone has to remember.
+// WHY IT RESTRUCTURED RATHER THAN RESTYLED. Michael called the board
+// complicated and hard to read, and named the blue-grey canvas. The canvas was
+// real but it was not the whole problem: twenty-eight stages laid side by side
+// overflowed 1512 by 588px and still needed collapse controls, and no amount of
+// paint fixes a row that long. So:
+//
+//   PHASES STACK VERTICALLY. Each phase's stages sit side by side under its own
+//   header, in a grid that WRAPS rather than scrolls, so the board can never
+//   overflow sideways at any width.
+//
+//   EMPTY STAGES FOLD to one line at the foot of their phase, and EMPTY PHASES
+//   fold to their header line alone. On today's book that leaves Underwriting
+//   and Fulfilment open with three stages each, and Attract, Intake and Monitor
+//   as three quiet lines.
+//
+// THE OLD `?collapsed=` MECHANISM IS GONE. It existed to make a too-wide row
+// survivable, and the row is gone, so a control that hid a column to make room
+// now only hides work. `parseCollapsed` and `toggleCollapsed` stay exported and
+// tested in lib/phase-model.ts, unused, the same way DealPreview was left.
+//
+// `?phase=` IS GONE WITH IT, and so is the phase bar it drove. Every phase is
+// on the screen now, so a selector that showed one at a time is a step between
+// Michael and the board.
+//
+// EVERY COLOUR AND EVERY TYPE SIZE COMES FROM lib/design-tokens.ts. Nothing
+// here is a hex literal, enforced by tests/board-tokens.test.ts, which walks the
+// directory so a file nobody has written yet is covered.
 //
 // NOTHING ABOUT THE MODEL IS HARDCODED. Phases, stages, units, gates,
 // probabilities, tag rules, milestone types, Attract's sources and the return
-// paths are all rows read at runtime. `advise` and `fund` were renamed to
-// `underwriting` and `fulfilment` in the record layer and no branch here
-// noticed, which is the property this page exists to demonstrate.
+// paths are all rows read at runtime.
 //
-// THREE THINGS THIS FILE REFUSES TO DO:
-//   1. Render a null probability as 0, or let one into a weighted total.
-//   2. Draw a projection like an actual — weighted figures take the projection
-//      green, in ProjectionFigure.tsx, and always carry the word `weighted`.
-//   3. Evaluate a tag whose field the deal row does not carry.
-//
-// THE ZONE RULE. Two greens carry two meanings here and are separated by
-// module, not by discipline: the card (DealCard.tsx) may render the needs-you
-// lime and never the projection green; the footer and strip render the
-// projection green (ProjectionFigure.tsx) and never the lime. This orchestrator
-// imports both and puts each in its own place, and tests assert both halves.
-//
-// TWO THINGS CHANGED IN HANDOFF 50.
-//
-// 1. THE CARD OPENS THE FILE. It used to select a deal for a right-hand preview
-//    panel. Michael opened that panel and immediately clicked through to the
-//    full file every time, so it was a step between him and the thing he
-//    wanted. DealPreview.tsx is still in the repo and still covered by its
-//    read-only grep in tests/phase-model.test.ts; it is simply not rendered.
-//    Restoring it is one line, which is why it was left rather than deleted.
-//
-// 2. THERE IS A THIRD VIEW. Withdrawn sits beside Board and Archive and holds
-//    the records a human has decided the loader should stop recreating. A
-//    withdrawn record leaves the phase columns, the Archive and the insights,
-//    because that is the whole point of withdrawing one and a forecast that
-//    kept counting it would be lying. It never leaves quietly: the Withdrawn
-//    switch carries its own count beside the other two, so a book that shrank
-//    can always be read against the reason it shrank, on the same screen.
-//
-// The board is STILL a server component. The only client code on it is the
-// Remove control, which is a leaf.
+// THE ZONE RULE SURVIVES UNCHANGED. Projection green renders in footers and the
+// strip through ProjectionFigure.tsx; needs-you lime renders on cards through
+// DealCard.tsx. This orchestrator imports both and puts each in its own place,
+// and it carries no lime of its own.
 
 import Link from 'next/link'
 import {
-  BLOCKED_BY_LABELS,
-  DAYS_UNKNOWN_COPY,
   archiveRows,
-  blockedByChip,
   borrowersFor,
   columnTotals,
   columnWeight,
   columnsForPhase,
-  daysInStage,
   dealsInStage,
   fmtAmount,
   fmtCompact,
   fmtTotal,
   hasSteps,
-  isActionableChip,
   isDealLevel,
   isGate,
-  milestonesForDeal,
   orderedPhases,
   orderedReturns,
-  parseCollapsed,
   phaseTotals,
   purposeLabel,
   returnTarget,
-  tagsForDeal,
   terminalStages,
-  toggleCollapsed,
   unevaluableTags,
   unplacedDeals,
   type AttractSourceLike,
@@ -89,7 +73,17 @@ import {
   type StageEventLike,
   type StageLike,
 } from '@/lib/phase-model'
-import { columnSkin, phaseAccent, phaseTint, typeSkin } from '@/lib/phase-palette'
+import { columnSkin, typeSkin } from '@/lib/phase-palette'
+import { emptyStagesNote, foldStages, phaseIsQuiet, phaseWeighted } from '@/lib/board-layout'
+import {
+  RADIUS,
+  STROKE,
+  SURFACE,
+  TEXT,
+  TYPE,
+  radius,
+  typeStyle,
+} from '@/lib/design-tokens'
 import {
   feedPosture,
   indexWithdrawals,
@@ -117,27 +111,20 @@ interface Props {
   milestones: DealMilestoneLike[]
   conditions: ConditionLike[]
   insights: Insights
-  activePhase: string | null
   archive: boolean
   withdrawnView: boolean
-  /** The No stage view: records the board and the Archive cannot place,
-   *  rendered honestly instead of being footnoted. */
   nostageView: boolean
-  /** Active withdrawals, read through lib/underwriting.ts getRecWithdrawals.
-   *  Each carries the decision's own id, which is the only route to reversing
-   *  it: the gates API exposes no GET on this resource. */
   withdrawals: WithdrawalLike[]
-  /** The records those decisions are about. Already partitioned out of `deals`
-   *  and `boardDeals` on the page, so nothing here has to remember to. */
   withdrawnDeals: DealLike[]
-  /** rec deal ids that resolve to a workbench room, computed on the SERVER with
-   *  the same resolveRoom the file page uses. Decides the refusal posture, and
-   *  is never accepted from a browser. */
   roomDealIds: string[]
   canWithdraw: boolean
-  collapsedRaw: string | null
+  /** The subject property's address per rec deal id, resolved on the page. */
+  addressByDeal: Record<string, string>
   selectedRef: string | null
   nowISO: string
+  /** Today in Toronto. One value for the whole render, so every countdown on
+   *  the screen agrees about what day it is. */
+  todayYMD: string
 }
 
 const BASE = '/portal/admin/deals-beta'
@@ -149,35 +136,30 @@ function href(params: Record<string, string | null | undefined>): string {
   return s ? `${BASE}?${s}` : BASE
 }
 
+const panelStyle = {
+  background: SURFACE.panel,
+  border: `${STROKE.panel}px solid ${SURFACE.panelBorder}`,
+  borderRadius: radius(RADIUS.panel),
+}
+
 export default function DealsBetaBoard(props: Props) {
-  const { phases, stages, deals, archive, withdrawnView, nostageView, activePhase } = props
-  const ordered = orderedPhases(phases)
-  const active = ordered.find(p => p.code === activePhase) ?? null
-  const otherView = archive || withdrawnView || nostageView
+  const { archive, withdrawnView, nostageView } = props
 
   return (
     <div className="mt-5">
       <InsightsStrip insights={props.insights} />
-      <PhaseBar
-        phases={ordered}
-        stages={stages}
-        deals={props.boardDeals}
-        activeCode={otherView ? null : active?.code ?? null}
-      />
-      <ReturnRail returns={props.returns} phases={ordered} stages={stages} sources={props.sources} />
       <ViewSwitch
-        stages={stages}
-        deals={deals}
+        stages={props.stages}
+        deals={props.deals}
         archive={archive}
         withdrawnView={withdrawnView}
         nostageView={nostageView}
         withdrawnCount={props.withdrawnDeals.length}
-        activeCode={active?.code ?? null}
       />
       {nostageView ? (
         <NoStageView
-          stages={stages}
-          deals={deals}
+          stages={props.stages}
+          deals={props.deals}
           clients={props.clients}
           roomDealIds={props.roomDealIds}
           canWithdraw={props.canWithdraw}
@@ -191,16 +173,22 @@ export default function DealsBetaBoard(props: Props) {
         />
       ) : archive ? (
         <ArchiveView
-          stages={stages}
-          deals={deals}
+          stages={props.stages}
+          deals={props.deals}
           clients={props.clients}
           roomDealIds={props.roomDealIds}
           canWithdraw={props.canWithdraw}
         />
-      ) : active ? (
-        <PhaseBody phase={active} {...props} />
       ) : (
-        <Panel>No phases are configured, so there is nothing to show. Phases live in rec.phases.</Panel>
+        <AllPhases {...props} />
+      )}
+      {!archive && !withdrawnView && !nostageView && (
+        <ReturnRail
+          returns={props.returns}
+          phases={orderedPhases(props.phases)}
+          stages={props.stages}
+          sources={props.sources}
+        />
       )}
     </div>
   )
@@ -208,9 +196,24 @@ export default function DealsBetaBoard(props: Props) {
 
 function Panel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-[9px] border border-cool-200 bg-white p-5 text-sm text-cool-700">
+    <p className="p-5" style={{ ...panelStyle, ...typeStyle(TYPE.body), color: TEXT.secondary }}>
       {children}
     </p>
+  )
+}
+
+/** A section heading on one of the list views. */
+function ViewHeading({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-3">
+      <h2 style={{ ...typeStyle(TYPE.phaseName), color: TEXT.primary }}>{title}</h2>
+      <p
+        className="mt-0.5 max-w-4xl"
+        style={{ ...typeStyle(TYPE.phaseDescription), color: TEXT.secondary }}
+      >
+        {children}
+      </p>
+    </div>
   )
 }
 
@@ -222,13 +225,12 @@ function InsightsStrip({ insights }: { insights: Insights }) {
     <div className="mb-4">
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {insights.tiles.map(t => (
-          <div
-            key={t.key}
-            className="rounded-[9px] border border-cool-200 bg-white p-3"
-            data-testid={`beta-tile-${t.key}`}
-          >
+          <div key={t.key} className="p-3" style={panelStyle} data-testid={`beta-tile-${t.key}`}>
             <div className="flex items-baseline gap-2">
-              <p className="flex-1 font-heading text-[10px] font-bold uppercase tracking-[1.2px] text-cool-600">
+              <p
+                className="flex-1"
+                style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}
+              >
                 {t.label}
               </p>
               {/* Colour never carries the meaning alone: the word rides with
@@ -240,12 +242,18 @@ function InsightsStrip({ insights }: { insights: Insights }) {
               {t.isProjection ? (
                 <ProjectionFigure size="lg">{fmtTotal(t.value)}</ProjectionFigure>
               ) : (
-                <span className="font-heading text-xl leading-tight text-navy tabular-nums">
+                <span
+                  className="tabular-nums"
+                  style={{ ...typeStyle(TYPE.figure), color: TEXT.primary }}
+                >
                   {t.unit === 'days' ? `${Math.round(t.value)} days` : fmtTotal(t.value)}
                 </span>
               )}
             </p>
-            <p className="mt-1.5 text-[11px] text-cool-600 tabular-nums">
+            <p
+              className="mt-1.5 tabular-nums"
+              style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}
+            >
               {t.perDeal !== null && <>{fmtCompact(t.perDeal)} per file · </>}
               {t.counted} of {t.total} files
               {t.note && <> · {t.note}</>}
@@ -256,99 +264,14 @@ function InsightsStrip({ insights }: { insights: Insights }) {
       {/* What is NOT here, and why. An omitted tile stated is worth more than
           a placeholder shown. */}
       {insights.omitted.length > 0 && (
-        <p className="mt-2 text-[11px] text-cool-500">
+        <p className="mt-2" style={{ ...typeStyle(TYPE.meta), color: TEXT.muted }}>
           {insights.omitted.map(o => (
             <span key={o.label}>
-              <span className="font-semibold">{o.label}</span> is not shown: {o.reason}.
+              {o.label} is not shown: {o.reason}.
             </span>
           ))}
         </p>
       )}
-    </div>
-  )
-}
-
-// ─── The phase bar ──────────────────────────────────────────────────────────
-
-function PhaseBar({
-  phases,
-  stages,
-  deals,
-  activeCode,
-}: {
-  phases: PhaseLike[]
-  stages: StageLike[]
-  deals: DealLike[]
-  activeCode: string | null
-}) {
-  return (
-    <div
-      className="grid gap-2.5"
-      style={{ gridTemplateColumns: `repeat(${phases.length}, minmax(0, 1fr))` }}
-    >
-      {phases.map(p => {
-        const isActive = p.code === activeCode
-        const dealLevel = isDealLevel(p)
-        const totals = phaseTotals(p, stages, deals)
-        const stepCount = columnsForPhase(stages, p.code).length
-        return (
-          <Link
-            key={p.code}
-            href={href({ phase: p.code })}
-            aria-current={isActive ? 'page' : undefined}
-            className={`block overflow-hidden rounded-[9px] bg-white motion-safe:transition-shadow hover:shadow-card ${
-              // Solid = counts files. Dashed = counts people or arrivals.
-              dealLevel ? 'border border-cool-300' : 'border-2 border-dashed border-cool-300'
-            } ${isActive ? 'ring-2 ring-navy' : ''}`}
-          >
-            <div className="h-1" style={{ background: phaseAccent(p.code) }} aria-hidden="true" />
-            <div className="p-3" style={{ background: isActive ? phaseTint(p.code) : undefined }}>
-              <div className="flex items-baseline gap-2">
-                <span className="font-heading text-[11px] font-bold uppercase tracking-[1.3px] text-navy">
-                  {p.label}
-                </span>
-                {/* The unit is the phase's own word, from rec.phases. */}
-                <span className="ml-auto text-[10px] uppercase tracking-wide text-cool-500">
-                  {p.unit}
-                </span>
-              </div>
-
-              {dealLevel && totals ? (
-                <>
-                  <p className="mt-1.5 font-heading text-2xl leading-none text-navy tabular-nums">
-                    {totals.count}
-                  </p>
-                  {p.counts_dollars && (
-                    <p className="mt-1.5 font-heading text-sm font-semibold text-navy tabular-nums">
-                      {fmtTotal(totals.amount)}
-                      {totals.partial && (
-                        <span className="ml-1 font-body text-[10px] font-normal text-cool-500">
-                          partial
-                        </span>
-                      )}
-                    </p>
-                  )}
-                </>
-              ) : (
-                // Never invent a number: nothing is placed in the contact-level
-                // phases and no arrivals are recorded, so the card says the
-                // shape of the phase instead of a figure that would look
-                // measured.
-                <>
-                  <p className="mt-1.5 font-heading text-sm leading-tight text-cool-500">
-                    not counted yet
-                  </p>
-                  <p className="mt-1.5 text-[11px] text-cool-500 tabular-nums">
-                    {hasSteps(p)
-                      ? `${stepCount} step${stepCount === 1 ? '' : 's'}`
-                      : 'sources, not steps'}
-                  </p>
-                </>
-              )}
-            </div>
-          </Link>
-        )
-      })}
     </div>
   )
 }
@@ -369,18 +292,17 @@ function ReturnRail({
   const rows = orderedReturns(returns)
     .map(r => ({ r, target: returnTarget(r, phases, stages, sources) }))
     .filter(x => x.target !== null)
-  if (rows.length === 0) return <div className="mt-4" />
+  if (rows.length === 0) return null
 
   return (
-    <div className="mt-3 mb-5">
-      <div className="border-t-2 border-dashed border-cool-300" />
-      <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1">
+    <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${SURFACE.sectionHairline}` }}>
+      <div className="flex flex-wrap gap-x-6 gap-y-1">
         {rows.map(({ r, target }) => {
           const fromStage = stages.find(s => s.code === r.from_stage_code)
           return (
-            <p key={r.code} className="text-[11px] text-cool-600">
-              <span className="font-heading font-semibold uppercase tracking-[1px] text-cool-700">
-                ↩ {fromStage ? fromStage.label : r.from_phase} → {target}
+            <p key={r.code} style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}>
+              <span style={{ color: TEXT.primary }}>
+                {fromStage ? fromStage.label : r.from_phase} back to {target}
               </span>
               <span className="ml-2">{r.label}</span>
             </p>
@@ -391,7 +313,7 @@ function ReturnRail({
   )
 }
 
-// ─── Board / Archive switch ─────────────────────────────────────────────────
+// ─── Board / Archive / No stage / Withdrawn switch ──────────────────────────
 
 function ViewSwitch({
   stages,
@@ -400,7 +322,6 @@ function ViewSwitch({
   withdrawnView,
   nostageView,
   withdrawnCount,
-  activeCode,
 }: {
   stages: StageLike[]
   deals: DealLike[]
@@ -408,26 +329,23 @@ function ViewSwitch({
   withdrawnView: boolean
   nostageView: boolean
   withdrawnCount: number
-  activeCode: string | null
 }) {
   const count = archiveRows(stages, deals).length
   const nostageCount = unplacedDeals(stages, deals).length
-  const on = 'border-navy bg-navy text-white'
-  const off = 'border-cool-300 bg-white text-cool-700'
+  const boardOn = !archive && !withdrawnView && !nostageView
+  const chip = (on: boolean) => ({
+    ...typeStyle(TYPE.meta),
+    borderRadius: radius(RADIUS.card),
+    background: on ? TEXT.navy : SURFACE.panel,
+    color: on ? SURFACE.panel : TEXT.secondary,
+    border: `${STROKE.panel}px solid ${on ? TEXT.navy : SURFACE.panelBorder}`,
+  })
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
-      <Link
-        href={href({ phase: activeCode })}
-        className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${
-          archive || withdrawnView || nostageView ? off : on
-        }`}
-      >
+      <Link href={href({})} className="px-3 py-1.5" style={chip(boardOn)}>
         Board
       </Link>
-      <Link
-        href={href({ view: 'archive' })}
-        className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${archive ? on : off}`}
-      >
+      <Link href={href({ view: 'archive' })} className="px-3 py-1.5" style={chip(archive)}>
         Archive <span className="tabular-nums">{count}</span>
       </Link>
       {/* The count renders at zero for the same reason Withdrawn's does: the
@@ -436,19 +354,19 @@ function ViewSwitch({
           it already exists. */}
       <Link
         href={href({ view: 'nostage' })}
-        className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${nostageView ? on : off}`}
+        className="px-3 py-1.5"
+        style={chip(nostageView)}
         data-testid="beta-view-nostage"
       >
         No stage <span className="tabular-nums">{nostageCount}</span>
       </Link>
       {/* THE COUNT IS ALWAYS HERE, INCLUDING AT ZERO. A withdrawn record leaves
           the columns and the totals, so this number is the only place the book
-          can be read against what left it. Hiding it when empty would mean the
-          one screen that explains a shrinking board appears only after the
-          board has already shrunk. */}
+          can be read against what left it. */}
       <Link
         href={href({ view: 'withdrawn' })}
-        className={`rounded-[7px] border px-3 py-1.5 text-xs font-heading ${withdrawnView ? on : off}`}
+        className="px-3 py-1.5"
+        style={chip(withdrawnView)}
         data-testid="beta-view-withdrawn"
       >
         Withdrawn <span className="tabular-nums">{withdrawnCount}</span>
@@ -457,21 +375,373 @@ function ViewSwitch({
   )
 }
 
+// ─── The board: every phase, stacked ────────────────────────────────────────
+
+function AllPhases(props: Props) {
+  const ordered = orderedPhases(props.phases)
+  if (ordered.length === 0) {
+    return <Panel>No phases are configured, so there is nothing to show. Phases live in rec.phases.</Panel>
+  }
+  return (
+    <div className="space-y-4">
+      {ordered.map(phase => (
+        <PhaseSection key={phase.code} phase={phase} {...props} />
+      ))}
+    </div>
+  )
+}
+
+function PhaseSection(props: Props & { phase: PhaseLike }) {
+  const { phase, stages, boardDeals: deals, tags } = props
+  const columns = columnsForPhase(stages, phase.code)
+  const dealLevel = isDealLevel(phase)
+  const countFor = (s: StageLike) => (dealLevel ? dealsInStage(deals, s.code).length : 0)
+  const fileCount = columns.reduce((n, s) => n + countFor(s), 0)
+
+  // A phase with nothing in it folds to its header line alone. Attract has no
+  // stages by configuration and the contact-level phases hold nobody, so all
+  // three fold by one rule rather than three special cases.
+  if (phaseIsQuiet(fileCount)) {
+    return (
+      <section style={panelStyle} data-testid={`beta-phase-${phase.code}`} data-quiet="true">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
+          <h2 style={{ ...typeStyle(TYPE.phaseName), color: TEXT.primary }}>{phase.label}</h2>
+          {phase.description && (
+            <p
+              className="min-w-0 flex-1"
+              style={{ ...typeStyle(TYPE.phaseDescription), color: TEXT.secondary }}
+            >
+              {phase.description}
+            </p>
+          )}
+          <span
+            className="ml-auto shrink-0"
+            style={{ ...typeStyle(TYPE.meta), color: TEXT.absent }}
+          >
+            {hasSteps(phase)
+              ? `No ${phase.unit} in this phase yet`
+              : 'Sources rather than steps, and no arrivals recorded yet'}
+          </span>
+        </div>
+      </section>
+    )
+  }
+
+  const { occupied, empty } = foldStages(columns, countFor)
+  const note = emptyStagesNote(empty.length)
+  const totals = phaseTotals(phase, stages, deals)
+  const weighted = phaseWeighted(columns, code => columnTotals(dealsInStage(deals, code)).amount)
+  const unevaluable = dealLevel ? unevaluableTags(tags, deals) : []
+
+  return (
+    <section style={panelStyle} data-testid={`beta-phase-${phase.code}`}>
+      <header
+        className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3"
+        style={{ borderBottom: `1px solid ${SURFACE.sectionHairline}` }}
+      >
+        <div className="min-w-0 flex-1">
+          <h2 style={{ ...typeStyle(TYPE.phaseName), color: TEXT.primary }}>{phase.label}</h2>
+          {phase.description && (
+            <p
+              className="mt-0.5"
+              style={{ ...typeStyle(TYPE.phaseDescription), color: TEXT.secondary }}
+            >
+              {phase.description}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="tabular-nums" style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}>
+            {fileCount} {fileCount === 1 ? 'file' : 'files'}
+          </span>
+          {totals && phase.counts_dollars && (
+            <>
+              <Pipe />
+              <span
+                className="tabular-nums"
+                style={{ ...typeStyle(TYPE.meta), color: TEXT.primary }}
+              >
+                {fmtTotal(totals.amount)}
+              </span>
+            </>
+          )}
+          {weighted && (
+            <>
+              <Pipe />
+              <span className="flex items-center gap-1.5">
+                <ProjectionLabel>weighted</ProjectionLabel>
+                {/* NOT `beta-phase-...`: that prefix belongs to the section
+                    itself, and a selector for phases would otherwise pick up
+                    the figures inside them. */}
+                <ProjectionFigure testId={`beta-phaseweight-${phase.code}`}>
+                  {fmtTotal(weighted.weighted)}
+                </ProjectionFigure>
+              </span>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="p-3">
+        {/* A tag rule that cannot be evaluated is named rather than silently
+            dropped, because "no tag" and "cannot tell" are different facts. */}
+        {unevaluable.map(u => (
+          <p
+            key={u.tag.code}
+            className="mb-3"
+            style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}
+          >
+            The {u.tag.label} tag is not shown: its rule reads {u.tag.rule_field}, which no deal row
+            carries. Marking every file with it would invent a signal out of a field nobody records.
+          </p>
+        ))}
+
+        {/* THE GRID WRAPS, IT DOES NOT SCROLL. auto-fit with a minimum means a
+            phase with six occupied stages reflows onto a second line rather
+            than pushing the board off the side of the screen. */}
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}
+        >
+          {occupied.map(col => (
+            <StageColumn
+              key={col.code}
+              {...props}
+              stage={col}
+              index={columns.findIndex(c => c.code === col.code)}
+              total={columns.length}
+              inColumn={dealsInStage(deals, col.code)}
+            />
+          ))}
+        </div>
+
+        {/* An empty stage is still a fact about the process, so it is named
+            rather than dropped. */}
+        {note && (
+          <p
+            className="mt-3"
+            style={{ ...typeStyle(TYPE.meta), color: TEXT.muted }}
+            data-testid={`beta-empty-stages-${phase.code}`}
+          >
+            {note} {empty.map(s => s.label).join(', ')}.
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function Pipe() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block h-3 w-px"
+      style={{ background: SURFACE.figurePipe }}
+    />
+  )
+}
+
+function StageColumn(
+  props: Props & {
+    phase: PhaseLike
+    stage: StageLike
+    index: number
+    total: number
+    inColumn: DealLike[]
+  },
+) {
+  const { phase, stage, index, total, inColumn } = props
+  // Resolved on the page with the same resolveRoom the file page uses, so the
+  // refusal posture on a card and the refusal in the route agree by
+  // construction rather than by two people remembering the same rule.
+  const rooms = new Set(props.roomDealIds)
+  const skin = columnSkin(phase.code, index, total)
+  const totals = columnTotals(inColumn)
+  const gate = isGate(stage)
+  const weight = columnWeight(stage, inColumn)
+
+  return (
+    <div
+      className="overflow-hidden"
+      style={{ background: SURFACE.columnGround, borderRadius: radius(RADIUS.column) }}
+      data-testid={`beta-col-${stage.code}`}
+    >
+      {/* Hue says which phase, depth says how far along. A gate is dashed
+          rather than solid: a decision point is not somewhere a file rests. */}
+      <div
+        style={{
+          height: `${STROKE.stageRule}px`,
+          ...(gate
+            ? {
+                backgroundImage: `repeating-linear-gradient(90deg, ${skin.accent} 0 6px, transparent 6px 11px)`,
+              }
+            : { background: skin.accent }),
+        }}
+        aria-hidden="true"
+      />
+      <div className="px-3 pb-2 pt-2.5">
+        {/* THE COUNT SITS BESIDE THE NAME, NOT RIGHT-ALIGNED. Right-aligning it
+            puts it against the next column, where it reads as belonging to that
+            one instead. The stage name is navy rather than the phase hue:
+            coloured headings are not the brand. */}
+        <div className="flex items-center gap-2">
+          <h3 style={{ ...typeStyle(TYPE.stageName), color: TEXT.navy }}>{stage.label}</h3>
+          <span
+            className="shrink-0 tabular-nums"
+            style={{
+              ...typeStyle(TYPE.countPill),
+              color: TEXT.navy,
+              background: SURFACE.columnGround,
+              borderRadius: radius(RADIUS.countPill),
+              padding: '2px 9px',
+              border: `${STROKE.panel}px solid ${SURFACE.cardBorder}`,
+            }}
+            data-testid={`beta-count-${stage.code}`}
+          >
+            {totals.count}
+          </span>
+          {gate && (
+            <span
+              className="shrink-0"
+              style={{ ...typeStyle(TYPE.meta), color: TEXT.muted }}
+            >
+              gate
+            </span>
+          )}
+        </div>
+        {/* The single most useful element for someone who has never seen the
+            system: what this stage actually means. */}
+        {stage.description && (
+          <p
+            className="mt-1"
+            style={{ ...typeStyle(TYPE.stageDescription), color: TEXT.muted }}
+          >
+            {stage.description}
+          </p>
+        )}
+        {weight && (
+          <p className="mt-1.5 flex items-center gap-1.5">
+            <ProjectionLabel>{weight.probability}% weighted</ProjectionLabel>
+            <ProjectionFigure testId={`beta-weighted-${stage.code}`}>
+              {fmtTotal(weight.weighted)}
+            </ProjectionFigure>
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2 px-2 pb-2">
+        {inColumn.map(d => {
+          const sourceId = typeof d.source_id === 'string' ? d.source_id : null
+          const posture = feedPosture({
+            finmoApplicationId:
+              typeof d.finmo_application_id === 'string' ? d.finmo_application_id : null,
+            hasRoom: rooms.has(d.id),
+          })
+          return (
+            <DealCard
+              key={d.id}
+              deal={d}
+              events={props.events}
+              clients={props.clients}
+              tags={props.tags}
+              milestoneTypes={props.milestoneTypes}
+              milestones={props.milestones}
+              nowISO={props.nowISO}
+              todayYMD={props.todayYMD}
+              stageCategory={stage.category ?? null}
+              address={props.addressByDeal[d.id] ?? null}
+              selected={(d.file_ref ?? d.id) === props.selectedRef}
+              href={`/portal/admin/deals-beta/${encodeURIComponent(d.id)}`}
+              // A record with no source id cannot be keyed by the loader, so
+              // there is nothing to withdraw and no control is offered.
+              remove={
+                props.canWithdraw && sourceId ? (
+                  <RemoveRecordControl
+                    sourceId={sourceId}
+                    fileRef={d.file_ref}
+                    posture={posture}
+                    variant="card"
+                  />
+                ) : undefined
+              }
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── A row on one of the list views ─────────────────────────────────────────
+
+function ListRow({
+  deal,
+  clients,
+  lead,
+  refLink,
+  testId,
+  children,
+}: {
+  deal: DealLike
+  clients: DealClientLike[]
+  /** The fact that leads the row, where one does. */
+  lead?: React.ReactNode
+  /** The link to the file page. Passed IN by each view rather than built here,
+   *  so tests/rec-withdrawal.test.ts can still find it inside the view whose
+   *  reachability it is asserting. */
+  refLink: React.ReactNode
+  testId: string
+  children?: React.ReactNode
+}) {
+  const borrowers = borrowersFor(deal, clients)
+  const amount = fmtAmount(deal.mortgage_amount)
+  const type = purposeLabel(deal.deal_type)
+  const t = typeSkin(deal.deal_type)
+  return (
+    <div
+      className="px-4 py-3"
+      style={{ borderTop: `1px solid ${SURFACE.sectionHairline}` }}
+      data-testid={testId}
+    >
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {lead}
+        {refLink}
+        {borrowers.length > 0 && (
+          <span style={{ ...typeStyle(TYPE.body), color: TEXT.primary }}>
+            {borrowers.map(b => b.name).join(', ')}
+          </span>
+        )}
+        {type && t && (
+          <span
+            className="rounded-full border px-2 py-0.5"
+            style={{ ...typeStyle(TYPE.meta), color: t.fg, borderColor: t.border, background: t.bg }}
+          >
+            {type}
+          </span>
+        )}
+        <span
+          className="ml-auto tabular-nums"
+          style={{
+            ...typeStyle(TYPE.cardAmount),
+            color: amount ? TEXT.primary : TEXT.absent,
+          }}
+        >
+          {amount ?? 'No amount'}
+        </span>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 // ─── The No stage view ──────────────────────────────────────────────────────
 
-/** RECORDS THE BOARD CANNOT PLACE, AS A VIEW RATHER THAN A FOOTNOTE.
- *
- *  Handoff 50 named these in a note that also said they could not be removed
- *  from here, which stopped being acceptable the moment Michael sat down to
- *  reconcile the whole book by hand: a record he cannot see is a record he
- *  finishes the sitting believing he handled. Census 2026-08-05: 33 of 160,
- *  every one a historical import with a NULL stage_code, every one carrying a
- *  file_ref, none with a workbench room. NO STAGE IS INVENTED to make them
- *  visible. Writing a stage would fabricate a fact about a file, so the view
- *  says plainly that none is recorded and leaves the record exactly as it is.
- *  Membership comes from lib/phase-model.ts unplacedDeals, the COMPLEMENT of
- *  the board and the Archive, so the three sets partition the live book and a
- *  record can never fall between two definitions. */
+/** RECORDS THE BOARD CANNOT PLACE, AS A VIEW RATHER THAN A FOOTNOTE. Census
+ *  2026-08-05: 33 of 160, every one a historical import with a NULL stage_code,
+ *  every one carrying a file_ref, none with a workbench room. NO STAGE IS
+ *  INVENTED to make them visible: writing one would fabricate a fact about a
+ *  file. Membership comes from lib/phase-model.ts unplacedDeals, the COMPLEMENT
+ *  of the board and the Archive, so the three sets partition the live book. */
 function NoStageView({
   stages,
   deals,
@@ -489,28 +759,21 @@ function NoStageView({
   const rooms = new Set(roomDealIds)
   return (
     <section>
-      <div className="mb-3">
-        <h2 className="font-heading text-navy">No stage</h2>
-        <p className="mt-1 max-w-3xl text-sm text-cool-600">
-          Records the migration loaded without any stage, so the board and the Archive cannot place
-          them. Nothing here has been given a stage to make it visible, because that would invent a
-          fact about the file. The tiles at the top count these records, and one that carries an
-          amount counts as open there, since nothing says it ended. Removing works from here, and a
-          record the loader later stages will move to the board on its own.
-        </p>
-      </div>
+      <ViewHeading title="No stage">
+        Records the migration loaded without any stage, so the board and the Archive cannot place
+        them. Nothing here has been given a stage to make it visible, because that would invent a
+        fact about the file. The tiles at the top count these records, and one that carries an amount
+        counts as open there, since nothing says it ended. Removing works from here, and a record the
+        loader later stages will move to the board on its own.
+      </ViewHeading>
       {rows.length === 0 ? (
         <Panel>
           Every record carries a stage the board knows, so there is nothing here. This view stays,
           because the day the loader delivers a record without a stage, this is where it will be.
         </Panel>
       ) : (
-        <div className="rounded-[9px] border border-cool-200 bg-white">
+        <div className="overflow-hidden" style={panelStyle}>
           {rows.map(({ deal, reason }) => {
-            const borrowers = borrowersFor(deal, clients)
-            const amount = fmtAmount(deal.mortgage_amount)
-            const type = purposeLabel(deal.deal_type)
-            const t = typeSkin(deal.deal_type)
             const sourceId = typeof deal.source_id === 'string' ? deal.source_id : null
             const posture = feedPosture({
               finmoApplicationId:
@@ -518,40 +781,31 @@ function NoStageView({
               hasRoom: rooms.has(deal.id),
             })
             return (
-              <div
+              <ListRow
                 key={deal.id}
-                className="border-b border-cool-100 px-4 py-3 last:border-b-0"
-                data-testid={`beta-nostage-${deal.file_ref ?? deal.id}`}
-              >
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="min-w-[13rem] text-sm italic text-cool-500">
+                deal={deal}
+                clients={clients}
+                testId={`beta-nostage-${deal.file_ref ?? deal.id}`}
+                refLink={
+                  <Link
+                    href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
+                    className="tabular-nums underline underline-offset-2"
+                    style={{ ...typeStyle(TYPE.fileRef), color: TEXT.fileRef }}
+                  >
+                    {deal.file_ref ?? 'No file reference'}
+                  </Link>
+                }
+                lead={
+                  <span
+                    className="min-w-[13rem]"
+                    style={{ ...typeStyle(TYPE.body), color: TEXT.absent }}
+                  >
                     {reason === 'no_stage'
                       ? 'No stage recorded'
                       : `Stage code the board does not know: ${deal.stage_code}`}
                   </span>
-                  <Link
-                    href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
-                    className="font-heading text-[11px] tabular-nums text-cool-600 underline underline-offset-2 hover:text-navy"
-                  >
-                    {deal.file_ref ?? 'no file ref'}
-                  </Link>
-                  {borrowers.length > 0 && (
-                    <span className="text-sm text-navy">{borrowers.map(b => b.name).join(', ')}</span>
-                  )}
-                  {type && t && (
-                    <span
-                      className="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-                      style={{ color: t.fg, borderColor: t.border, background: t.bg }}
-                    >
-                      {type}
-                    </span>
-                  )}
-                  {amount && (
-                    <span className="ml-auto font-heading text-sm text-navy tabular-nums">
-                      {amount}
-                    </span>
-                  )}
-                </div>
+                }
+              >
                 {canWithdraw && sourceId && (
                   <div className="-mx-3">
                     <RemoveRecordControl
@@ -562,7 +816,7 @@ function NoStageView({
                     />
                   </div>
                 )}
-              </div>
+              </ListRow>
             )
           })}
         </div>
@@ -571,293 +825,11 @@ function NoStageView({
   )
 }
 
-// ─── The body ───────────────────────────────────────────────────────────────
-
-function PhaseBody(props: Props & { phase: PhaseLike }) {
-  const { phase, stages, boardDeals: deals, sources, tags, collapsedRaw } = props
-  const columns = columnsForPhase(stages, phase.code)
-  const dealLevel = isDealLevel(phase)
-  const collapsed = parseCollapsed(collapsedRaw)
-  const unevaluable = dealLevel ? unevaluableTags(tags, deals) : []
-
-  return (
-    <section>
-      <div className="mb-3">
-        <h2 className="font-heading text-navy">{phase.label}</h2>
-        {phase.description && (
-          <p className="mt-0.5 max-w-4xl text-sm text-cool-600">{phase.description}</p>
-        )}
-      </div>
-
-      {!hasSteps(phase) ? (
-        <SourceList phase={phase} sources={sources} />
-      ) : columns.length === 0 ? (
-        <Panel>
-          No stages are configured for {phase.label}. Stages are configuration: adding one to
-          rec.deal_stages adds a column here.
-        </Panel>
-      ) : (
-        <>
-          {/* Said once, plainly, rather than as a fake zero on every column. */}
-          {!dealLevel && (
-            <p className="mb-3 rounded-[9px] border border-cool-200 bg-white px-4 py-2.5 text-sm text-cool-700">
-              These are the steps of {phase.label}. Nobody is placed in them yet — this phase counts{' '}
-              {phase.unit}, and there is no contact-level stage data in the record layer so far.
-            </p>
-          )}
-          {/* A tag rule that cannot be evaluated is named rather than silently
-              dropped, because "no tag" and "cannot tell" are different facts. */}
-          {unevaluable.map(u => (
-            <p
-              key={u.tag.code}
-              className="mb-3 rounded-[9px] border border-cool-200 bg-white px-4 py-2.5 text-sm text-cool-700"
-            >
-              The <span className="font-semibold">{u.tag.label}</span> tag is not shown: its rule
-              reads <span className="font-mono text-[12px]">{u.tag.rule_field}</span>, which no deal
-              row carries. Marking every file with it would invent a signal out of a field nobody
-              records.
-            </p>
-          ))}
-          {/* The one-screen constraint is withdrawn. Cards get a readable width
-              and the board scrolls; collapsing a column is the real answer to a
-              phase that does not fit, and it beats shrinking every card. */}
-          <div className="-mx-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:px-0">
-            <div className="flex items-start gap-3">
-              {columns.map((col, i) => (
-                <StageColumn
-                  key={col.code}
-                  {...props}
-                  stage={col}
-                  index={i}
-                  total={columns.length}
-                  inColumn={dealLevel ? dealsInStage(deals, col.code) : []}
-                  showCounts={dealLevel}
-                  collapsed={collapsed.has(col.code)}
-                  collapsedRaw={collapsedRaw}
-                />
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </section>
-  )
-}
-
-function StageColumn(
-  props: Props & {
-    phase: PhaseLike
-    stage: StageLike
-    index: number
-    total: number
-    inColumn: DealLike[]
-    showCounts: boolean
-    collapsed: boolean
-  },
-) {
-  const { phase, stage, index, total, inColumn, showCounts, collapsed, collapsedRaw, activePhase } =
-    props
-  // Resolved on the page with the same resolveRoom the file page uses, so the
-  // refusal posture on a card and the refusal in the route agree by
-  // construction rather than by two people remembering the same rule.
-  const rooms = new Set(props.roomDealIds)
-  const skin = columnSkin(phase.code, index, total)
-  const totals = columnTotals(inColumn)
-  const gate = isGate(stage)
-  const weight = showCounts ? columnWeight(stage, inColumn) : null
-
-  const toggleHref = href({
-    phase: activePhase,
-    collapsed: toggleCollapsed(parseCollapsed(collapsedRaw), stage.code) || null,
-  })
-
-  return (
-    <div
-      className={`shrink-0 overflow-hidden rounded-[9px] ${collapsed ? 'w-[132px]' : 'w-[280px]'}`}
-      style={{ background: skin.surface, border: `1px solid ${skin.border}` }}
-      data-testid={`beta-col-${stage.code}`}
-      data-collapsed={collapsed ? 'true' : 'false'}
-    >
-      {/* Hue says which phase, depth says how far along. A gate is dashed
-          rather than solid: a decision point is not somewhere a file rests. */}
-      <div
-        className="h-[3px]"
-        style={
-          gate
-            ? {
-                backgroundImage: `repeating-linear-gradient(90deg, ${skin.accent} 0 6px, transparent 6px 11px)`,
-              }
-            : { background: skin.accent }
-        }
-        aria-hidden="true"
-      />
-      <div className="px-3 py-2.5" style={{ background: skin.header }}>
-        <div className="flex items-baseline gap-1.5">
-          <h3 className="font-heading text-sm font-bold uppercase leading-tight tracking-[0.06em] text-navy">
-            {stage.label}
-          </h3>
-          {gate && !collapsed && (
-            <span className="shrink-0 rounded-sm border border-navy/25 px-1 text-[9px] uppercase tracking-wide text-navy/70">
-              gate
-            </span>
-          )}
-          {showCounts && (
-            <span className="ml-auto shrink-0 font-heading text-xs text-cool-700 tabular-nums">
-              {totals.count}
-            </span>
-          )}
-          <Link
-            href={toggleHref}
-            aria-label={collapsed ? `Expand ${stage.label}` : `Collapse ${stage.label}`}
-            title={collapsed ? 'Expand' : 'Collapse'}
-            className={`shrink-0 rounded-sm px-1 text-[11px] leading-none text-cool-600 hover:bg-white/60 hover:text-navy ${
-              showCounts ? '' : 'ml-auto'
-            }`}
-            data-testid={`beta-collapse-${stage.code}`}
-          >
-            {collapsed ? '»' : '«'}
-          </Link>
-        </div>
-        {/* A collapsed column still carries its name, count and total. */}
-        {showCounts && (
-          <p className="mt-1 font-heading text-base font-semibold leading-none text-navy tabular-nums">
-            {fmtTotal(totals.amount)}
-            {totals.partial && (
-              <span className="ml-1 font-body text-[10px] font-normal text-cool-600">partial</span>
-            )}
-          </p>
-        )}
-        {stage.description && !collapsed && (
-          <p className="mt-1.5 text-[11px] leading-snug text-cool-700">{stage.description}</p>
-        )}
-      </div>
-
-      {/* The footer: the stage's probability and what it makes of the column.
-          Only where a probability exists — a null carries no footer at all
-          rather than a zeroed one. */}
-      {weight && (
-        <div
-          className="border-t px-3 py-1.5"
-          style={{ borderColor: skin.border, background: skin.surface }}
-        >
-          <ProjectionLabel>{weight.probability}% weighted</ProjectionLabel>
-          <p className="mt-0.5">
-            <ProjectionFigure testId={`beta-weighted-${stage.code}`}>
-              {fmtTotal(weight.weighted)}
-            </ProjectionFigure>
-          </p>
-        </div>
-      )}
-
-      {showCounts && !collapsed && (
-        <div className="space-y-2 p-2">
-          {inColumn.length === 0 ? (
-            // Calm. An empty column is a fact about the week, not a failure.
-            <p className="px-1 py-3 text-xs text-cool-500">No files in this stage.</p>
-          ) : (
-            inColumn.map(d => {
-              const sourceId = typeof d.source_id === 'string' ? d.source_id : null
-              const posture = feedPosture({
-                finmoApplicationId:
-                  typeof d.finmo_application_id === 'string' ? d.finmo_application_id : null,
-                hasRoom: rooms.has(d.id),
-              })
-              return (
-                <DealCard
-                  key={d.id}
-                  deal={d}
-                  events={props.events}
-                  clients={props.clients}
-                  tags={props.tags}
-                  milestoneTypes={props.milestoneTypes}
-                  milestones={props.milestones}
-                  nowISO={props.nowISO}
-                  selected={(d.file_ref ?? d.id) === props.selectedRef}
-                  // Handoff 50: straight to the file. The preview panel it used
-                  // to open was a step between Michael and the thing he wanted.
-                  href={`/portal/admin/deals-beta/${encodeURIComponent(d.id)}`}
-                  // A record with no source id cannot be keyed by the loader, so
-                  // there is nothing to withdraw and no control is offered.
-                  // Every one of the 160 rows carries one today.
-                  remove={
-                    props.canWithdraw && sourceId ? (
-                      <RemoveRecordControl
-                        sourceId={sourceId}
-                        fileRef={d.file_ref}
-                        posture={posture}
-                        variant="card"
-                      />
-                    ) : undefined
-                  }
-                />
-              )
-            })
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Attract: sources, not steps ────────────────────────────────────────────
-
-function SourceList({ phase, sources }: { phase: PhaseLike; sources: AttractSourceLike[] }) {
-  if (sources.length === 0) {
-    return <Panel>No sources are configured. Sources live in rec.attract_sources.</Panel>
-  }
-  return (
-    <>
-      <p className="mb-3 rounded-[9px] border border-cool-200 bg-white px-4 py-2.5 text-sm text-cool-700">
-        {phase.label} counts {phase.unit}, and nobody moves through a source, so these are places
-        people come from rather than steps. No arrivals are recorded yet.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {sources.map((s, i) => {
-          const skin = columnSkin(phase.code, i, sources.length)
-          return (
-            <div
-              key={s.code}
-              className="overflow-hidden rounded-[9px]"
-              style={{ background: skin.surface, border: `1px solid ${skin.border}` }}
-              data-testid={`beta-source-${s.code}`}
-            >
-              <div className="h-[3px]" style={{ background: skin.accent }} aria-hidden="true" />
-              <div className="px-3 py-2.5" style={{ background: skin.header }}>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="font-heading text-[11px] font-bold uppercase tracking-[1.1px] text-navy">
-                    {s.label}
-                  </h3>
-                  {s.channel_group && (
-                    <span className="ml-auto text-[10px] uppercase tracking-wide text-cool-500">
-                      {s.channel_group}
-                    </span>
-                  )}
-                </div>
-                {s.description && (
-                  <p className="mt-1.5 text-[11px] leading-snug text-cool-700">{s.description}</p>
-                )}
-              </div>
-              <p className="px-3 py-3 text-xs text-cool-500">No arrivals recorded yet.</p>
-            </div>
-          )
-        })}
-      </div>
-    </>
-  )
-}
-
 // ─── The Withdrawn view ─────────────────────────────────────────────────────
 //
 // WHERE MICHAEL WILL BE STANDING WHEN HE GETS ONE WRONG. That is the whole job
 // of this view, so every row states who removed it, when, and the reason they
-// typed, and carries the control that puts it back. A reversal needs its own
-// reason, because "why did this come back" is as worth answering later as "why
-// did it go away".
-//
-// It reads from the FULL population rather than the board's, because a record
-// can be withdrawn from any stage including a terminal one. A withdrawn record
-// appears here and nowhere else: the Archive filters it out too, so no row is
-// ever in two views claiming two things.
+// typed, and carries the control that puts it back.
 
 function WithdrawnView({
   deals,
@@ -874,24 +846,19 @@ function WithdrawnView({
 
   return (
     <section>
-      <div className="mb-3">
-        <h2 className="font-heading text-navy">Withdrawn</h2>
-        <p className="mt-0.5 max-w-4xl text-sm text-cool-600">
-          Records a person decided the loader should stop recreating. Nothing here was deleted. Each
-          row is still in the record layer, still readable, and carries the decision and the reason
-          it was made. Putting one back releases the loader to recreate it on its next run.
-        </p>
-      </div>
+      <ViewHeading title="Withdrawn">
+        Records a person decided the loader should stop recreating. Nothing here was deleted. Each
+        row is still in the record layer, still readable, and carries the decision and the reason it
+        was made. Putting one back releases the loader to recreate it on its next run.
+      </ViewHeading>
 
       {deals.length === 0 ? (
-        <div className="rounded-[9px] border border-cool-200 bg-white p-5">
-          <p className="text-sm text-cool-700">
-            No records have been withdrawn. When one is, it leaves the phase columns and the totals
-            and appears here with the reason it was removed.
-          </p>
-        </div>
+        <Panel>
+          No records have been withdrawn. When one is, it leaves the phase columns and the totals and
+          appears here with the reason it was removed.
+        </Panel>
       ) : (
-        <div className="overflow-hidden rounded-[9px] border border-cool-200 bg-white">
+        <div className="overflow-hidden" style={panelStyle}>
           {deals.map(deal => {
             const w = withdrawalFor(
               {
@@ -900,63 +867,44 @@ function WithdrawnView({
               },
               index,
             )
-            const borrowers = borrowersFor(deal, clients)
-            const amount = fmtAmount(deal.mortgage_amount)
-            const type = purposeLabel(deal.deal_type)
-            const t = typeSkin(deal.deal_type)
             return (
-              <div
+              <ListRow
                 key={deal.id}
-                className="border-b border-cool-100 px-4 py-3 last:border-b-0"
-                data-testid={`beta-withdrawn-${deal.file_ref ?? deal.id}`}
-              >
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                deal={deal}
+                clients={clients}
+                testId={`beta-withdrawn-${deal.file_ref ?? deal.id}`}
+                refLink={
                   <Link
                     href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
-                    className="font-heading text-[11px] tabular-nums text-cool-600 underline underline-offset-2 hover:text-navy"
+                    className="tabular-nums underline underline-offset-2"
+                    style={{ ...typeStyle(TYPE.fileRef), color: TEXT.fileRef }}
                   >
-                    {deal.file_ref ?? 'no file ref'}
+                    {deal.file_ref ?? 'No file reference'}
                   </Link>
-                  {borrowers.length > 0 && (
-                    <span className="text-sm text-navy">
-                      {borrowers.map(b => b.name).join(', ')}
-                    </span>
-                  )}
-                  {type && t && (
-                    <span
-                      className="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-                      style={{ color: t.fg, borderColor: t.border, background: t.bg }}
-                    >
-                      {type}
-                    </span>
-                  )}
-                  {amount && (
-                    <span className="ml-auto font-heading text-sm text-navy tabular-nums">
-                      {amount}
-                    </span>
-                  )}
-                </div>
-
+                }
+              >
                 {/* The identity on the row is the one the workbench recorded off
                     the verified session at decision time. Nothing here supplies
                     it and nothing here could. */}
-                <p className="mt-1 text-[11px] text-cool-600">
+                <p className="mt-1" style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}>
                   {w?.instructed_by ? `Removed by ${w.instructed_by}` : 'Removed'}
                   {w?.instructed_on ? ` on ${w.instructed_on}` : ''}
                 </p>
                 {w?.reason && (
-                  <p className="mt-0.5 max-w-prose text-sm text-cool-700">
-                    <span className="text-cool-500">Reason given: </span>
+                  <p
+                    className="mt-0.5 max-w-prose"
+                    style={{ ...typeStyle(TYPE.body), color: TEXT.primary }}
+                  >
+                    <span style={{ color: TEXT.muted }}>Reason given: </span>
                     {w.reason}
                   </p>
                 )}
-
                 {canWithdraw && w && (
                   <div className="mt-2">
                     <ReverseWithdrawalControl withdrawal={w} fileRef={deal.file_ref} />
                   </div>
                 )}
-              </div>
+              </ListRow>
             )
           })}
         </div>
@@ -982,46 +930,39 @@ function ArchiveView({
 }) {
   const rows = archiveRows(stages, deals)
   const outcomes = terminalStages(stages)
-  // AN ARCHIVED RECORD IS STILL A RECORD, AND SOME OF THEM DO NOT BELONG IN THE
-  // BOOK EITHER. Verified live 2026-08-05: 4 of the 38 no-reference records sit
-  // here in lost_to_competition rather than on the board, so a Remove control
-  // that existed only on cards would have left Michael no way to clear them
-  // short of typing a URL. The row also links to the file page now, which it
-  // never did.
   const rooms = new Set(roomDealIds)
 
   return (
     <section>
-      <div className="mb-3">
-        <h2 className="font-heading text-navy">Archive</h2>
-        <p className="mt-0.5 max-w-4xl text-sm text-cool-600">
-          Files that ended. The outcome is the point: a file lost to another broker is a remarketing
-          lead and a cancelled one is not, so the two never collapse into "closed".
-        </p>
-      </div>
+      <ViewHeading title="Archive">
+        Files that ended. The outcome is the point: a file lost to another agent is a remarketing
+        lead and a cancelled one is not, so the two never collapse into one word.
+      </ViewHeading>
 
       {rows.length === 0 ? (
-        <div className="rounded-[9px] border border-cool-200 bg-white p-5">
-          <p className="text-sm text-cool-700">
+        <div className="p-5" style={panelStyle}>
+          <p style={{ ...typeStyle(TYPE.body), color: TEXT.secondary }}>
             No files have ended yet. These are the outcomes a file can end in, all of them empty
             today:
           </p>
           <ul className="mt-3 space-y-2">
             {outcomes.map(s => (
-              <li key={s.code} className="border-l-2 border-cool-300 pl-3">
-                <p className="font-heading text-sm text-navy">{s.label}</p>
-                {s.description && <p className="text-xs text-cool-600">{s.description}</p>}
+              <li
+                key={s.code}
+                className="pl-3"
+                style={{ borderLeft: `2px solid ${SURFACE.cardBorder}` }}
+              >
+                <p style={{ ...typeStyle(TYPE.stageName), color: TEXT.primary }}>{s.label}</p>
+                {s.description && (
+                  <p style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}>{s.description}</p>
+                )}
               </li>
             ))}
           </ul>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-[9px] border border-cool-200 bg-white">
+        <div className="overflow-hidden" style={panelStyle}>
           {rows.map(({ deal, stage }) => {
-            const borrowers = borrowersFor(deal, clients)
-            const amount = fmtAmount(deal.mortgage_amount)
-            const type = purposeLabel(deal.deal_type)
-            const t = typeSkin(deal.deal_type)
             const sourceId = typeof deal.source_id === 'string' ? deal.source_id : null
             const posture = feedPosture({
               finmoApplicationId:
@@ -1029,40 +970,31 @@ function ArchiveView({
               hasRoom: rooms.has(deal.id),
             })
             return (
-              <div
+              <ListRow
                 key={deal.id}
-                className="border-b border-cool-100 px-4 py-3 last:border-b-0"
-                data-testid={`beta-archive-${deal.file_ref ?? deal.id}`}
-              >
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  {/* The outcome leads the row: it decides whether this person is
-                      worth contacting again. */}
-                  <span className="min-w-[13rem] font-heading text-sm font-semibold text-navy">
-                    {stage.label}
-                  </span>
+                deal={deal}
+                clients={clients}
+                testId={`beta-archive-${deal.file_ref ?? deal.id}`}
+                refLink={
                   <Link
                     href={`/portal/admin/deals-beta/${encodeURIComponent(deal.id)}`}
-                    className="font-heading text-[11px] tabular-nums text-cool-600 underline underline-offset-2 hover:text-navy"
+                    className="tabular-nums underline underline-offset-2"
+                    style={{ ...typeStyle(TYPE.fileRef), color: TEXT.fileRef }}
                   >
-                    {deal.file_ref ?? 'no file ref'}
+                    {deal.file_ref ?? 'No file reference'}
                   </Link>
-                  {borrowers.length > 0 && (
-                    <span className="text-sm text-navy">{borrowers.map(b => b.name).join(', ')}</span>
-                  )}
-                  {type && t && (
-                    <span
-                      className="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-                      style={{ color: t.fg, borderColor: t.border, background: t.bg }}
-                    >
-                      {type}
-                    </span>
-                  )}
-                  {amount && (
-                    <span className="ml-auto font-heading text-sm text-navy tabular-nums">
-                      {amount}
-                    </span>
-                  )}
-                </div>
+                }
+                lead={
+                  // The outcome leads the row: it decides whether this person is
+                  // worth contacting again.
+                  <span
+                    className="min-w-[13rem]"
+                    style={{ ...typeStyle(TYPE.stageName), color: TEXT.primary }}
+                  >
+                    {stage.label}
+                  </span>
+                }
+              >
                 {canWithdraw && sourceId && (
                   <div className="-mx-3">
                     <RemoveRecordControl
@@ -1073,7 +1005,7 @@ function ArchiveView({
                     />
                   </div>
                 )}
-              </div>
+              </ListRow>
             )
           })}
         </div>
