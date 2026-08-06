@@ -41,8 +41,8 @@ export default function ProjectionFigure({
     <span
       className="inline-block border px-1.5 font-heading leading-tight tabular-nums"
       style={{
-        ...typeStyle(size === 'lg' ? TYPE.figure : TYPE.stageName),
-        borderRadius: radius(RADIUS.figure),
+        ...typeStyle(size === 'lg' ? TYPE.stageCount : TYPE.kpiValue),
+        borderRadius: radius(RADIUS.small),
         color: PROJECTION_GREEN.ink,
         background: PROJECTION_GREEN.fill,
         borderColor: PROJECTION_GREEN.border,
@@ -60,7 +60,7 @@ export default function ProjectionFigure({
  * carry the meaning by itself, so this is never optional at a call site. */
 export function ProjectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="tabular-nums" style={{ ...typeStyle(TYPE.meta), color: PROJECTION_GREEN.ink }}>
+    <span className="tabular-nums" style={{ ...typeStyle(TYPE.phaseMeta), color: PROJECTION_GREEN.ink }}>
       {children}
     </span>
   )

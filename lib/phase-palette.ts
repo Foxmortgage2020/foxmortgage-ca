@@ -184,10 +184,10 @@ export const PROJECTION_GREEN = {
    *
    *  HANDOFF 57: the fill and the border keep the hue-152 family this constant
    *  was built on, and the DIGITS take the approved token from
-   *  lib/design-tokens.ts. It is hue 163, still a forest green and still far
+   *  lib/design-tokens.ts ROLE.forest. It is hue 163, still a forest green and still far
    *  from the Fox lime at hue 78, which is what the value assertion beside it
    *  was written to protect. */
-  ink: ROLE.projectionInk,
+  ink: ROLE.forest,
   /** The fill behind the figure. Light enough that dark-green digits stay
    * crisp; saturated enough that it is unmistakably green at a glance. */
   fill: 'hsl(152 44% 91%)',

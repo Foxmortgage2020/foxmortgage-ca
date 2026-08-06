@@ -1,44 +1,38 @@
-// One deal card — the LIME ZONE, and the only place the decision token is
-// allowed to render on this board.
+// One file card — the LIME ZONE, and the only place lime renders on this board.
 //
-// THE ZONE RULE, enforced by this file existing. Two greens carry two meanings
-// here:
+// TAKEN FROM THE DESIGN EXPORT'S "Needs you" BLOCK, structure and values both:
+// a quiet monospace identity line, the borrower and amount as the headline, the
+// property beneath, a footer carrying closing state and days in stage, and one
+// line naming what the file is waiting on. Every size, weight, colour and inset
+// below was read out of that block rather than chosen here.
 //
-//     needs-you lime (this file)  →  cards only
-//     projection green            →  column footers and the insights strip,
-//                                    in ProjectionFigure.tsx, never here
+// THE LEFT BAR CARRIES EXACTLY TWO VALUES. Lime means this file needs work
+// today. Navy means it is under control. Nothing else on the page is lime, so a
+// person can answer "what am I working on" from the bars alone without reading
+// a word. That only works because the lime is rationed this hard, which is why
+// `cardBar` keys on the same urgency the countdown computes: the sixteen files
+// the summary strip counts and the sixteen lime bars are the same sixteen by
+// construction rather than by two rules happening to agree.
+//
+// THE ZONE RULE, enforced by this file existing. Two greens carry two meanings:
+//
+//     needs-you lime (this file)  ->  cards only
+//     projection green            ->  footers and the strips, in
+//                                     ProjectionFigure.tsx, never here
 //
 // This module must NEVER import PROJECTION_GREEN or ProjectionFigure, and
 // ProjectionFigure must never import the decision token. tests/shell.test.ts
-// (the exhaustive lime audit, keyed by file path) and tests/phase-model.test.ts
-// assert both halves, so the two greens cannot end up beside each other without
-// the suite failing.
+// and tests/phase-model.test.ts assert both halves against the source.
 //
-// FOUR TIERS (handoff 57), separated by hairlines rather than by fills:
+// RED SURVIVES INSIDE A CARD ON THE CLOSING COUNTDOWN ONLY, which is the one
+// place it means "this should have closed and did not".
 //
-//     Identity   the file reference, and the needs-you chip when it applies
-//     Headline   borrower names, then the amount
-//     Context    deal type, property address, closing date
-//     Footer     days in this stage on the left, the countdown on the right
+// A MISSING VALUE IS ITALIC, DOTTED AND MUTED, all three at once, because a gap
+// in a column of monospaced figures has to be legible as a gap.
 //
-// FIGURE-GROUND DOES THE SEPARATING, NOT THE BORDER. The card is white with a
-// 2px stroke on the column's grey ground, so a stack of cards reads as a stack
-// without any of them shouting.
-//
-// ONE FILLED CHIP PER CARD, MAXIMUM. Deal type is an outlined pill and
-// needs-you is the filled one. If both were filled neither would mean anything.
-//
-// THE NEEDS-YOU CHIP STILL RENDERS THROUGH THE TAILWIND `decision` TOKENS
-// rather than the approved #EDF3D9 / #4A5D0A. Two tests on this session's
-// do-not-edit list pin that chip to those exact class names, and redefining the
-// token globally would repaint six other surfaces the brief protects. The
-// approved values sit in lib/design-tokens.ts ROLE, ready for the day the lime
-// pass reaches the rest of the Command Centre. Michael ruled on the deviation.
-//
-// THE CARD OPENS THE FILE (handoff 50), and is still a SERVER COMPONENT with no
-// handler and no state. The Remove control is a CLIENT component passed in as
-// `remove` and rendered as a SIBLING of the link, never inside it: a button
-// nested in an anchor is invalid HTML, and a press meant for it would navigate.
+// Still a SERVER COMPONENT with no handler and no state. The Remove control is
+// a CLIENT component passed in as `remove` and rendered as a SIBLING of the
+// link, never inside it: a button nested in an anchor is invalid HTML.
 
 import Link from 'next/link'
 import {
@@ -49,30 +43,48 @@ import {
   daysInStage,
   fmtAmount,
   isActionableChip,
-  milestonesForDeal,
   purposeLabel,
-  tagsForDeal,
-  type CardTagLike,
   type DealClientLike,
   type DealLike,
-  type DealMilestoneLike,
-  type MilestoneTypeLike,
   type StageEventLike,
 } from '@/lib/phase-model'
-import { typeSkin } from '@/lib/phase-palette'
-import { closingCountdown, fmtDate } from '@/lib/board-layout'
-import { RADIUS, ROLE, STROKE, SURFACE, TEXT, TYPE, radius, typeStyle } from '@/lib/design-tokens'
+import { cardBar, closingCountdown } from '@/lib/board-layout'
+import {
+  MISSING_VALUE,
+  RADIUS,
+  ROLE,
+  STROKE,
+  SURFACE,
+  TEXT,
+  TYPE,
+  navyAlpha,
+  radius,
+  typeStyle,
+} from '@/lib/design-tokens'
+
+/** The waiting-on line. `blocked_by` is the only recorded answer to "what is
+ *  this file waiting on", so it is what the line says. A file with none says so
+ *  plainly rather than the row being dropped, because an absent blocker and an
+ *  unrecorded one are different facts and the card keeps its shape either way. */
+function chaseLine(deal: DealLike): { text: string; known: boolean } {
+  const chip = blockedByChip(deal.blocked_by)
+  if (!chip) return { text: 'Nothing recorded as outstanding', known: false }
+  return {
+    text: isActionableChip(chip)
+      ? 'Waiting on you'
+      : `Waiting on the ${BLOCKED_BY_LABELS[chip].toLowerCase()}`,
+    known: true,
+  }
+}
 
 export default function DealCard({
   deal,
   events,
   clients,
-  tags,
-  milestoneTypes,
-  milestones,
   nowISO,
   todayYMD,
   stageCategory,
+  stageName,
   address,
   href,
   selected,
@@ -81,200 +93,150 @@ export default function DealCard({
   deal: DealLike
   events: StageEventLike[]
   clients: DealClientLike[]
-  tags: CardTagLike[]
-  milestoneTypes: MilestoneTypeLike[]
-  milestones: DealMilestoneLike[]
   nowISO: string
-  /** Today in Toronto, for the countdown. Resolved once on the page so every
-   *  card on the screen agrees about what day it is. */
+  /** Today in Toronto, resolved once on the page so every countdown on the
+   *  screen agrees about what day it is. */
   todayYMD: string
-  /** The stage's own category. A passed closing on a terminal stage is the
-   *  normal outcome rather than an alarm, so the countdown needs to know. */
+  /** The sub-stage's own category. A passed closing on a terminal sub-stage is
+   *  the normal outcome rather than an alarm, so the countdown needs to know. */
   stageCategory: string | null
-  /** The subject property's address, resolved on the page. Null renders as an
-   *  absent value rather than being skipped, so the row keeps its shape. */
+  /** The sub-stage's label, for the card's identity line. */
+  stageName: string
+  /** The subject property's address, resolved on the page. */
   address: string | null
   href: string
   selected: boolean
-  /** The Remove control, a client component rendered OUTSIDE the link. Absent
-   *  when the viewer cannot withdraw, so a control nobody can use never takes
-   *  up a row on a card. */
   remove?: React.ReactNode
 }) {
   const borrowers = borrowersFor(deal, clients)
   const days = daysInStage(deal, events, nowISO)
-  const chip = blockedByChip(deal.blocked_by)
   const amount = fmtAmount(deal.mortgage_amount)
   const type = purposeLabel(deal.deal_type)
-  const t = typeSkin(deal.deal_type)
-  const activeTags = tagsForDeal(tags, deal)
-  const marks = milestonesForDeal(deal, milestones, milestoneTypes)
   const closingDate = typeof deal.closing_date === 'string' ? deal.closing_date : null
   const countdown = closingCountdown({ closingDate, todayYMD, stageCategory })
+  const bar = cardBar(countdown)
+  const chase = chaseLine(deal)
 
-  const tier = { borderTop: `1px solid ${SURFACE.cardHairline}` }
+  const inset = { marginLeft: '-10px', marginRight: '-10px', padding: '7px 10px' }
 
   return (
     <div
-      className="overflow-hidden motion-safe:transition-shadow hover:shadow-card"
+      // shrink-0 is load bearing: the card is a flex item inside the column's
+      // scroll box, and a flex child shrinks by default. Without it, sixty-six
+      // cards in the funded column compress to sixty-six empty bars.
+      className="flex shrink-0 flex-col overflow-hidden"
       style={{
-        background: SURFACE.card,
-        border: `${STROKE.card}px solid ${selected ? TEXT.navy : SURFACE.cardBorder}`,
+        background: SURFACE.panel,
+        border: `${STROKE.hairline}px solid ${navyAlpha(0.11)}`,
+        // THE BAR. Two values, and the whole reason the board can be scanned.
+        borderLeft: `${STROKE.cardBar}px solid ${bar === 'needs' ? ROLE.lime : TEXT.navy}`,
         borderRadius: radius(RADIUS.card),
+        padding: '9px 10px 0',
       }}
       data-testid={`beta-deal-${deal.file_ref ?? deal.id}`}
+      data-bar={bar}
     >
-      <Link
-        href={href}
-        aria-current={selected ? 'true' : undefined}
-        className="block"
-        data-testid={`beta-deal-open-${deal.file_ref ?? deal.id}`}
-      >
-        {/* IDENTITY. The coloured file reference is the repeating anchor that
-            lets the eye count cards down a column without reading them. */}
-        <div className="flex items-center gap-2 px-3 py-2">
-          <span
-            className="tabular-nums"
-            style={{ ...typeStyle(TYPE.fileRef), color: TEXT.fileRef }}
-          >
-            {deal.file_ref ?? 'No file reference'}
-          </span>
-          {/* The one filled chip. Nothing renders at all when blocked_by is
-              null, and the other three blockers stay quiet, which is the only
-              reason this one means anything. */}
-          {chip && (
-            <span
-              style={typeStyle(TYPE.meta)}
-              className={`ml-auto shrink-0 rounded-full px-2 py-0.5 ${
-                isActionableChip(chip) ? 'bg-decision text-decision-ink' : 'bg-cool-100 text-cool-700'
-              }`}
-            >
-              {BLOCKED_BY_LABELS[chip]}
-            </span>
-          )}
+      <Link href={href} className="block" data-testid={`beta-deal-open-${deal.file_ref ?? deal.id}`}>
+        {/* IDENTITY. Quiet monospace: reference, sub-stage, and the deal type
+            on the right. Nothing here competes with the headline. */}
+        <div className="flex items-center gap-1.5" style={{ ...typeStyle(TYPE.cardMeta), color: TEXT.metaMono }}>
+          <span>{deal.file_ref ?? 'No reference'}</span>
+          <span className="min-w-0 truncate">· {stageName}</span>
+          {type && <span className="ml-auto shrink-0">{type}</span>}
         </div>
 
         {/* HEADLINE. Who, then how much. */}
-        <div className="px-3 py-2" style={tier}>
+        <div style={{ ...typeStyle(TYPE.cardWho), color: TEXT.navy, margin: '6px 0 3px' }}>
           {borrowers.length > 0 ? (
-            borrowers.map(b => (
-              <p
-                key={`${b.name}-${b.role}`}
-                className="leading-snug"
-                style={{ ...typeStyle(TYPE.body), color: TEXT.primary }}
-              >
-                {b.name}
-                <span className="ml-1.5" style={{ ...typeStyle(TYPE.meta), color: TEXT.muted }}>
-                  {b.role}
-                </span>
-              </p>
-            ))
+            borrowers.map(b => b.name).join(', ')
           ) : (
-            <p style={{ ...typeStyle(TYPE.body), color: TEXT.absent }}>No borrower recorded</p>
+            <span style={MISSING_VALUE}>No borrower recorded</span>
           )}
-          {/* An absent amount says so in the absent-value grey. Never a zero:
-              nobody writes a mortgage for nothing, so $0 would read as a fact. */}
-          <p
-            className="mt-1 tabular-nums"
-            style={{
-              ...typeStyle(TYPE.cardAmount),
-              color: amount ? TEXT.primary : TEXT.absent,
-            }}
-          >
-            {amount ?? 'No amount'}
-          </p>
         </div>
-
-        {/* CONTEXT. */}
         <div
-          className="px-3 py-2"
-          style={{ ...tier, ...typeStyle(TYPE.context), color: TEXT.secondary }}
+          style={{
+            ...typeStyle(TYPE.cardAmount),
+            margin: '0 0 4px',
+            ...(amount ? { color: TEXT.navy } : MISSING_VALUE),
+          }}
         >
-          <p>
-            {type && t ? (
-              <span
-                className="mr-2 inline-block rounded-full border px-2 py-0.5"
-                style={{ color: t.fg, borderColor: t.border, background: t.bg }}
-              >
-                {type}
-              </span>
-            ) : (
-              <span className="mr-2" style={{ color: TEXT.absent }}>
-                Type not specified
-              </span>
-            )}
-          </p>
-          <p style={{ color: address ? TEXT.secondary : TEXT.absent }}>
-            {address ?? 'No address recorded'}
-          </p>
-          <p style={{ color: closingDate ? TEXT.secondary : TEXT.absent }}>
-            {closingDate ? `Closing ${fmtDate(closingDate)}` : 'No closing date'}
-          </p>
-
-          {/* Card tags, from rules the record layer owns. Only ACTIVE verdicts
-              render; a rule that cannot be evaluated produces nothing here and
-              is named once above the board instead. Outlined, because the card
-              already spends its one filled chip on needs-you. */}
-          {activeTags.length > 0 && (
-            <span className="mt-1 flex flex-wrap gap-1">
-              {activeTags.map(tag => (
-                <span
-                  key={tag.code}
-                  title={tag.description ?? undefined}
-                  className="inline-block rounded-full border px-2 py-0.5"
-                  style={{ borderColor: SURFACE.cardBorder, color: TEXT.secondary }}
-                  data-testid={`beta-tag-${tag.code}`}
-                >
-                  {tag.label}
-                </span>
-              ))}
-            </span>
-          )}
-
-          {/* Milestones: small dated markers, not stages. */}
-          {marks.map(m => (
-            <p key={m.code} className="tabular-nums" style={{ color: TEXT.muted }}>
-              {m.label}
-              {m.occurred_at && <span className="ml-1">{m.occurred_at.slice(0, 10)}</span>}
-            </p>
-          ))}
+          {amount ?? 'No amount'}
         </div>
 
-        {/* FOOTER. Time in this stage on the left, time to closing on the right. */}
-        <div className="flex items-center gap-2 px-3 py-2" style={tier}>
-          {days.known ? (
-            <span
-              className="tabular-nums"
-              style={{ ...typeStyle(TYPE.meta), color: TEXT.secondary }}
-              title={`Entered this stage on ${days.since}`}
-            >
-              {days.days} days in this stage
-            </span>
-          ) : (
-            <span style={{ ...typeStyle(TYPE.meta), color: TEXT.absent }}>
-              {DAYS_UNKNOWN_COPY[days.reason]}
-            </span>
-          )}
+        {/* The property. One line, clipped, so a long address cannot push the
+            card taller than its neighbours in the same column. */}
+        <div
+          className="overflow-hidden"
+          style={{
+            ...typeStyle(TYPE.cardAddress),
+            height: '15px',
+            ...(address ? { color: TEXT.dim } : MISSING_VALUE),
+          }}
+        >
+          {address ?? 'No address recorded'}
+        </div>
+
+        {/* FOOTER. Closing state on the left, time in this sub-stage on the
+            right. Red appears here and nowhere else on the board. */}
+        <div
+          className="mt-2 flex items-center gap-2"
+          style={{ ...inset, marginTop: '8px', borderTop: `${STROKE.hairline}px solid ${SURFACE.hairline}` }}
+        >
           <span
-            className="ml-auto shrink-0 tabular-nums"
             style={{
-              ...typeStyle(countdown.urgent ? TYPE.urgentMeta : TYPE.meta),
-              color: countdown.urgent
-                ? ROLE.urgent
-                : countdown.state === 'no_date'
-                  ? TEXT.absent
-                  : TEXT.countdown,
+              ...typeStyle(TYPE.cardDue),
+              ...(countdown.state === 'no_date'
+                ? MISSING_VALUE
+                : { color: countdown.urgent ? ROLE.red : TEXT.dim }),
             }}
             data-countdown={countdown.state}
           >
             {countdown.label}
+          </span>
+          <span
+            className="ml-auto shrink-0"
+            style={{ ...typeStyle(TYPE.cardInStage), color: TEXT.metaMono }}
+            title={days.known ? `Entered this sub-stage on ${days.since}` : undefined}
+          >
+            {days.known ? `${days.days}d here` : DAYS_UNKNOWN_COPY[days.reason]}
+          </span>
+        </div>
+
+        {/* WHAT IT IS WAITING ON. The last row, on its own quiet ground. The
+            square takes the bar's colour, so the card states its own status
+            twice in two places that cannot disagree. */}
+        <div
+          className="flex items-center gap-1.5"
+          style={{
+            ...inset,
+            borderTop: `${STROKE.hairline}px solid ${SURFACE.hairline}`,
+            background: SURFACE.chaseBg,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            className="shrink-0"
+            style={{
+              width: '5px',
+              height: '5px',
+              borderRadius: radius(RADIUS.dot),
+              background: bar === 'needs' ? ROLE.lime : TEXT.navy,
+            }}
+          />
+          <span
+            className="truncate"
+            style={{ ...typeStyle(TYPE.cardChase), ...(chase.known ? { color: TEXT.body } : MISSING_VALUE) }}
+          >
+            {chase.text}
           </span>
         </div>
       </Link>
 
       {/* Outside the link, on purpose. A button inside an anchor is invalid
           HTML and every press meant for it would navigate instead. */}
-      {remove && <div style={tier}>{remove}</div>}
+      {remove && (
+        <div style={{ ...inset, borderTop: `${STROKE.hairline}px solid ${SURFACE.hairline}` }}>{remove}</div>
+      )}
     </div>
   )
 }

@@ -63,6 +63,8 @@ import {
   radius,
   typeStyle,
 } from '@/lib/design-tokens'
+import { BOARD_FONT_CLASS } from '@/lib/board-fonts'
+import { openPhaseCode } from '@/lib/board-layout'
 import DealsBetaBoard from '@/components/admin/DealsBetaBoard'
 
 export const dynamic = 'force-dynamic'
@@ -72,30 +74,35 @@ function Shell({ children }: { children: React.ReactNode }) {
     // THE BLUE-GREY CANVAS IS GONE. Michael named it, and it was the first
     // thing to go: a warm off-white lets the white panels read as panels
     // instead of as slightly different blue-grey.
-    <main className="min-h-screen p-4 sm:p-6" style={{ background: SURFACE.canvas }}>
+    <main
+      className={`min-h-screen ${BOARD_FONT_CLASS}`}
+      style={{ background: SURFACE.canvas, padding: '20px 28px 28px' }}
+    >
       <div className="flex flex-wrap items-center gap-3">
-        <h1 style={{ ...typeStyle(TYPE.pageTitle), color: TEXT.primary }}>Deals</h1>
+        <h1 style={{ ...typeStyle(TYPE.pageTitle), color: TEXT.navy }}>Deals</h1>
         <span
-          className="px-2.5 py-0.5"
           style={{
-            ...typeStyle(TYPE.meta),
-            color: TEXT.secondary,
-            background: SURFACE.panel,
-            border: `${STROKE.panel}px solid ${SURFACE.panelBorder}`,
-            borderRadius: radius(RADIUS.countPill),
+            ...typeStyle(TYPE.beta),
+            color: TEXT.dim,
+            border: `${STROKE.hairline}px solid ${SURFACE.border}`,
+            borderRadius: radius(RADIUS.small),
+            padding: '3px 6px',
           }}
         >
-          Beta
+          BETA
         </span>
       </div>
       {/* THIS SENTENCE USED TO SAY "Nothing here writes", AND THAT STOPPED
           BEING TRUE. The Remove control writes one thing, through a gate, with
           a human on it. An untrue guarantee is worse than none, so the sentence
           now names exactly what the one write is rather than denying it. */}
-      <p className="mt-1 max-w-3xl" style={{ ...typeStyle(TYPE.body), color: TEXT.secondary }}>
-        The five-phase model over the September record layer, running beside your live Deals page.
-        The only thing this page changes is whether a record stays in the book, and that is a
-        recorded decision rather than a deletion.
+      <p
+        className="mt-1"
+        style={{ ...typeStyle(TYPE.pageSubtitle), color: TEXT.dim, maxWidth: '660px' }}
+      >
+        Every file the business has, laid out as the five stages we actually work. Pick one to see
+        the sub-stages inside it. The only thing this page changes is whether a record stays in the
+        book, and that is a recorded decision rather than a deletion.
       </p>
       {children}
     </main>
@@ -105,13 +112,14 @@ function Shell({ children }: { children: React.ReactNode }) {
 function Notice({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="mt-6 p-4"
+      className="mt-6"
       style={{
-        ...typeStyle(TYPE.body),
-        color: TEXT.secondary,
+        ...typeStyle(TYPE.pageSubtitle),
+        color: TEXT.dim,
         background: SURFACE.panel,
-        border: `${STROKE.panel}px solid ${SURFACE.panelBorder}`,
-        borderRadius: radius(RADIUS.panel),
+        border: `${STROKE.hairline}px solid ${SURFACE.border}`,
+        borderRadius: radius(RADIUS.card),
+        padding: '16px',
       }}
     >
       {children}
@@ -122,9 +130,9 @@ function Notice({ children }: { children: React.ReactNode }) {
 export default async function DealsBetaPage({
   searchParams,
 }: {
-  // `phase` and `collapsed` were retired in handoff 57: every phase is on the
-  // screen now, so there is nothing to select and nothing to collapse.
-  searchParams?: { view?: string; deal?: string }
+  // `open` carries which stage is expanded (handoff 58). `phase` and
+  // `collapsed` were retired in handoff 57 and both still answer 200.
+  searchParams?: { view?: string; deal?: string; open?: string }
 }) {
   const user = await requirePermission('deals.view')
 
@@ -315,6 +323,10 @@ export default async function DealsBetaPage({
     if (addr) addressByDeal[dealId] = addr
   }
 
+  // Which stage is expanded. Validated against the record layer, and an
+  // unknown value opens nothing rather than falling back to an arbitrary one.
+  const openPhase = openPhaseCode(searchParams?.open, phases as any[])
+
   return (
     <Shell>
       <DealsBetaBoard
@@ -339,6 +351,7 @@ export default async function DealsBetaPage({
         roomDealIds={roomDealIds}
         canWithdraw={canWithdraw}
         addressByDeal={addressByDeal}
+        openPhase={openPhase}
         selectedRef={searchParams?.deal ?? null}
         // Resolved on the server so every card measures against one instant,
         // and so the model itself never reads a clock.

@@ -525,7 +525,10 @@ describe('THE WITHDRAWN VIEW', () => {
     expect(view).toContain('No stage recorded')
     // The switch carries the count even at zero, like Withdrawn.
     expect(board).toContain('beta-view-nostage')
-    expect(board).toMatch(/No stage <span className="tabular-nums">\{nostageCount\}<\/span>/)
+    // Handoff 58 rebuilt the switch on the design export's chips, so the
+    // markup changed while the guarantee did not: the count still renders, and
+    // it still renders at zero.
+    expect(board).toMatch(/No stage \{nostageCount\}/)
   })
 
   it('the FILE PAGE fails closed on the withdrawal read, like the route does', () => {
