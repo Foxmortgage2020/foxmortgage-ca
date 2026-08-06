@@ -30,9 +30,14 @@
 // A MISSING VALUE IS ITALIC, DOTTED AND MUTED, all three at once, because a gap
 // in a column of monospaced figures has to be legible as a gap.
 //
-// Still a SERVER COMPONENT with no handler and no state. The Remove control is
-// a CLIENT component passed in as `remove` and rendered as a SIBLING of the
-// link, never inside it: a button nested in an anchor is invalid HTML.
+// NO REMOVE CONTROL (handoff 59). It used to hang off the bottom of every
+// card and Michael took it off: withdrawing a record is a decision that wants
+// the file in front of it, so it belongs on the file page and nowhere else. It
+// is unchanged there. Taking it off also gave the card back about a third of
+// its height, which was the other half of the complaint.
+//
+// The card is now a pure SERVER COMPONENT: no handler, no state, no client
+// child at all.
 
 import Link from 'next/link'
 import {
@@ -88,7 +93,6 @@ export default function DealCard({
   address,
   href,
   selected,
-  remove,
 }: {
   deal: DealLike
   events: StageEventLike[]
@@ -106,7 +110,6 @@ export default function DealCard({
   address: string | null
   href: string
   selected: boolean
-  remove?: React.ReactNode
 }) {
   const borrowers = borrowersFor(deal, clients)
   const days = daysInStage(deal, events, nowISO)
@@ -231,12 +234,6 @@ export default function DealCard({
           </span>
         </div>
       </Link>
-
-      {/* Outside the link, on purpose. A button inside an anchor is invalid
-          HTML and every press meant for it would navigate instead. */}
-      {remove && (
-        <div style={{ ...inset, borderTop: `${STROKE.hairline}px solid ${SURFACE.hairline}` }}>{remove}</div>
-      )}
     </div>
   )
 }

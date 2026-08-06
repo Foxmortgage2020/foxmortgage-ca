@@ -438,12 +438,20 @@ describe('THE CARD CLICK: straight to the file, preview left behind', () => {
     }
   })
 
-  it('the Remove control sits OUTSIDE the link, because a button in an anchor is invalid', () => {
+  it('the card carries NO Remove control at all (handoff 59)', () => {
+    // It used to hang off the bottom of every card, outside the <Link> so the
+    // button was not nested in an anchor. Michael took it off the board
+    // entirely: withdrawing a record is a decision that wants the file in
+    // front of it. The control is UNCHANGED on the file page, and it still
+    // renders on the Archive and No stage list views, where clearing migration
+    // artifacts is the stated workflow (handoff 52).
     const card = read('components/admin/deals-beta/DealCard.tsx')
-    const linkEnd = card.indexOf('</Link>')
-    const removeAt = card.indexOf('{remove &&')
-    expect(linkEnd).toBeGreaterThan(0)
-    expect(removeAt).toBeGreaterThan(linkEnd)
+    expect(card).not.toContain('RemoveRecordControl')
+    expect(card).not.toContain('{remove &&')
+    // And with it gone the card has no client child of any kind.
+    expect(card).not.toContain('React.ReactNode')
+    const board = read('components/admin/DealsBetaBoard.tsx')
+    expect(board).toContain('RemoveRecordControl')
   })
 
   it('the card itself stays a server component with no handler and no state', () => {

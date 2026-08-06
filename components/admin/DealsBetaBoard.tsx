@@ -133,6 +133,19 @@ function href(params: Record<string, string | null | undefined>): string {
 
 const hair = `${STROKE.hairline}px solid ${SURFACE.border}`
 
+/** THE SUB-STAGE COLUMN WIDTH, fixed rather than fractional.
+ *
+ *  MEASURED, not estimated: at 1512 with the sidebar open the row's visible
+ *  width is 1103px, so four of these plus their three 8px gaps come to 1096 and
+ *  the fifth sits just off the edge. That is the "roughly four visible" Michael
+ *  asked for. A first pass at 288 fitted only three, which is why this number
+ *  is the one that was checked on screen rather than the one that looked right.
+ *
+ *  Fixed rather than fractional, because a fraction would re-narrow the card
+ *  every time a phase with more sub-stages opened, and the card's shape is
+ *  exactly what this change exists to fix. */
+const STAGE_COLUMN_WIDTH = 268
+
 export default function DealsBetaBoard(props: Props) {
   const { archive, withdrawnView, nostageView } = props
   const otherView = archive || withdrawnView || nostageView
@@ -289,11 +302,29 @@ function PhaseRow(props: Props) {
 
   return (
     <div style={{ marginTop: '14px' }}>
-      {/* THE FIVE, SIDE BY SIDE. They wrap rather than scroll if the viewport
-          cannot hold five, so the board never gains a sideways scrollbar. */}
+      {/* THE FIVE, SIDE BY SIDE, AND STICKY (handoff 59).
+          They wrap rather than scroll if the viewport cannot hold five, so this
+          row never gains a sideways scrollbar: the horizontal scroll is the
+          SUB-STAGE row's alone.
+
+          STICKY, because the page is now deliberately long. With the column
+          scroll box gone, Fulfilment runs to several thousand pixels, and
+          someone forty files down Funded had no way to see where they were or
+          switch phase without scrolling all the way back. Sticking the tile row
+          keeps both one click away.
+
+          It sticks at top:0 with an opaque white ground and a hairline beneath,
+          which the white canvas made easy: cards scrolling underneath cannot
+          bleed through. The cost is about 120px of vertical space while
+          scrolling, which is the trade for never losing your place. */}
       <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}
+        className="sticky top-0 z-20 grid gap-2"
+        style={{
+          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+          background: SURFACE.canvas,
+          paddingBottom: '10px',
+          borderBottom: hair,
+        }}
         data-testid="beta-phases"
       >
         {ordered.map(p => (
@@ -473,11 +504,23 @@ function ExpandedPhase(props: Props & { phase: PhaseLike }) {
           to rec.deal_stages adds a column here.
         </Panel>
       ) : (
-        // SEVEN COLUMNS IS THE WIDEST THIS EVER GETS, because only one phase is
-        // open. They wrap rather than scroll sideways.
+        // ONE STRAIGHT HORIZONTAL LINE THAT SCROLLS SIDEWAYS (handoff 59), the
+        // way every kanban Michael compared this against behaves. It used to
+        // wrap onto a second row and he does not want them stacked.
+        //
+        // THIS DELIBERATELY REVERSES HANDOFF 57'S NO-HORIZONTAL-SCROLL RULE,
+        // for this row and nothing else, and the reasoning is better than the
+        // rule it replaces: the SUB-STAGE set is bounded at seven, so sideways
+        // scrolling here is finite and predictable, while the FILE set is
+        // unbounded, so files belong on the vertical axis. Wrapping is not
+        // reintroduced to dodge the scroll.
+        //
+        // The column is a FIXED width rather than a fraction, because a
+        // fraction would re-narrow the card every time a phase with more
+        // sub-stages opened, and the card's shape is the point.
         <div
-          className="grid items-start gap-2"
-          style={{ gridTemplateColumns: `repeat(auto-fit, minmax(190px, 1fr))` }}
+          className="flex items-start gap-2 overflow-x-auto pb-2"
+          data-testid={`beta-stage-row-${phase.code}`}
         >
           {cols.map((col, i) => (
             <StageColumn
@@ -509,14 +552,22 @@ function StageColumn(
   },
 ) {
   const { phase, stage, index, total, inColumn, dealLevel } = props
-  const rooms = new Set(props.roomDealIds)
   const gate = isGate(stage)
   const tone = stageTone(phase.code, index, total)
 
   return (
     <div
+      // FOUR COLUMNS VISIBLE AT 1512 is what this width buys, and the extra
+      // width over the previous five-across is what gives the card its shape.
+      // `shrink-0` keeps it at that width inside the scrolling row instead of
+      // being squeezed to fit.
+      className="shrink-0"
       style={{
-        background: SURFACE.canvas,
+        width: `${STAGE_COLUMN_WIDTH}px`,
+        // White, like the export's own stage column, which is `background:#fff`
+        // with a border rather than a tint. The border and the cards' own
+        // borders carry the figure-ground now that the canvas is white too.
+        background: SURFACE.panel,
         border: hair,
         borderRadius: radius(RADIUS.card),
         padding: '9px 8px 8px',
@@ -553,48 +604,29 @@ function StageColumn(
       )}
 
       {inColumn.length > 0 && (
-        // THE COLUMN SCROLLS, THE PAGE DOES NOT. Funded holds 66 files, and a
-        // column that grew to fit them would make the page ten thousand pixels
-        // tall and push every other column off the top of the screen. Nothing
-        // is hidden or capped: all 66 are here, in a box that scrolls.
-        <div
-          className="mt-2 flex flex-col gap-1.5 overflow-y-auto"
-          style={{ maxHeight: '58vh' }}
-          data-testid={`beta-col-body-${stage.code}`}
-        >
-          {inColumn.map(d => {
-            const sourceId = typeof d.source_id === 'string' ? d.source_id : null
-            const posture = feedPosture({
-              finmoApplicationId:
-                typeof d.finmo_application_id === 'string' ? d.finmo_application_id : null,
-              hasRoom: rooms.has(d.id),
-            })
-            return (
-              <DealCard
-                key={d.id}
-                deal={d}
-                events={props.events}
-                clients={props.clients}
-                nowISO={props.nowISO}
-                todayYMD={props.todayYMD}
-                stageCategory={stage.category ?? null}
-                stageName={stage.label}
-                address={props.addressByDeal[d.id] ?? null}
-                selected={(d.file_ref ?? d.id) === props.selectedRef}
-                href={`/portal/admin/deals-beta/${encodeURIComponent(d.id)}`}
-                remove={
-                  props.canWithdraw && sourceId ? (
-                    <RemoveRecordControl
-                      sourceId={sourceId}
-                      fileRef={d.file_ref}
-                      posture={posture}
-                      variant="card"
-                    />
-                  ) : undefined
-                }
-              />
-            )
-          })}
+        // NO SCROLL BOX (handoff 59). Every file in the sub-stage renders, all
+        // the way down. Michael's instruction: if Submitted holds two hundred
+        // files he wants two hundred listed, and he will scroll the page or
+        // use the search at the top to reach a name. The tall page is now a
+        // chosen outcome rather than a defect, and it is not what made the old
+        // board twenty-four thousand pixels long: that was five phases stacked
+        // at once, not one phase's files.
+        <div className="mt-2 flex flex-col gap-1.5" data-testid={`beta-col-body-${stage.code}`}>
+          {inColumn.map(d => (
+            <DealCard
+              key={d.id}
+              deal={d}
+              events={props.events}
+              clients={props.clients}
+              nowISO={props.nowISO}
+              todayYMD={props.todayYMD}
+              stageCategory={stage.category ?? null}
+              stageName={stage.label}
+              address={props.addressByDeal[d.id] ?? null}
+              selected={(d.file_ref ?? d.id) === props.selectedRef}
+              href={`/portal/admin/deals-beta/${encodeURIComponent(d.id)}`}
+            />
+          ))}
         </div>
       )}
     </div>

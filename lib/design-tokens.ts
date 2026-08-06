@@ -7,19 +7,25 @@
 // prose, because three builds in this programme drifted from prose descriptions
 // of a design and each cost a session.
 //
-// TWO VALUES DELIBERATELY DO NOT COME FROM THE EXPORT. The export was produced
-// from screenshots of the live product, so its navy and lime are a second-hand
-// read of colours this repo already owns, and both had drifted. Michael ruled on
-// the replacements 2026-08-06:
+// THREE VALUES DELIBERATELY DO NOT COME FROM THE EXPORT.
+//
+// Navy and lime, because the export was produced from screenshots of the live
+// product, so both were a second-hand read of colours this repo already owns
+// and both had drifted. Michael ruled on the replacements 2026-08-06:
 //
 //   navy  #1B2A41 (export)  ->  #032133   tailwind.config.ts navy.DEFAULT
 //   lime  #C6F24E (export)  ->  #C6F53F   tailwind.config.ts decision.DEFAULT
 //
-// Both are the repo's own live tokens. Navy is what CLAUDE.md declares the
-// brand navy and what every admin surface renders through `text-navy`. Lime is
-// the decision token, the Command Centre's attention currency, which the lime
-// audit already polices. Every other colour in the export stands exactly as it
-// was exported.
+// And the CANVAS, on Michael's instruction after seeing the board on
+// production (handoff 59): the page goes WHITE, here and across the portal.
+//
+//   canvas  #EFEDE8 (export)  ->  #FFFFFF
+//
+// White canvas under white cards works because a card carries a border AND a
+// left colour bar, so figure-ground survives without a tint. The one tinted
+// region left on a card is its waiting-on row.
+//
+// Every other colour in the export stands exactly as it was exported.
 //
 // PURE. No React, no imports, no environment. Values and two helpers.
 //
@@ -29,8 +35,11 @@
 // ─── Surfaces ────────────────────────────────────────────────────────────────
 
 export const SURFACE = {
-  /** The page. A warm paper tone, not the old blue-grey and not white. */
-  canvas: '#EFEDE8',
+  /** THE PAGE, AND IT IS WHITE (handoff 59). Michael's instruction after seeing
+   *  the board on production: take the background off every screen. The
+   *  export's warm paper `#EFEDE8` is gone, and so is the Command Centre's
+   *  blue-grey `fog`, which was the one he actually meant. */
+  canvas: '#FFFFFF',
   panel: '#FFFFFF',
   /** Every visible border on the board. */
   border: '#E8E5E0',

@@ -109,8 +109,36 @@ describe('the export is the source of truth, and the tokens match it', () => {
 
   it('the surfaces and the two card rules are the export\'s', () => {
     const src = exportSource()
-    for (const v of [SURFACE.canvas, SURFACE.border, SURFACE.hairline, SURFACE.chaseBg, TEXT.metaMono, TEXT.body, TEXT.faintMono]) {
+    // NOTE the canvas is NOT in this list any more: see the deviation test
+    // below. Everything else on this surface is still the export's verbatim.
+    for (const v of [SURFACE.border, SURFACE.hairline, SURFACE.chaseBg, TEXT.metaMono, TEXT.body, TEXT.faintMono]) {
       expect(src.includes(v), `${v} is not in the export`).toBe(true)
+    }
+  })
+
+  it('THE CANVAS IS WHITE, the third deliberate deviation (handoff 59)', () => {
+    // Michael's instruction after seeing the board on production: take the
+    // background off every screen. The export's warm paper goes with it.
+    expect(SURFACE.canvas).toBe('#FFFFFF')
+    expect(SURFACE.canvas).not.toBe('#EFEDE8')
+    expect(exportSource().includes('#EFEDE8'), 'the export still carries the tone we dropped').toBe(true)
+    // White canvas under white cards only works because the card carries both
+    // a border and a left colour bar. Both are still there.
+    const card = read('components/admin/deals-beta/DealCard.tsx')
+    expect(card).toMatch(/borderLeft: `\$\{STROKE\.cardBar\}px solid/)
+    expect(card).toMatch(/border: `\$\{STROKE\.hairline\}px solid \$\{navyAlpha\(0\.11\)\}`/)
+  })
+
+  it('no page in the portal keeps a blue-grey ground', () => {
+    // The one Michael actually meant was the Command Centre's `fog`.
+    expect(read('components/admin/AdminShell.tsx')).toMatch(/min-h-screen bg-white font-ui/)
+    expect(read('app/portal/PortalLayoutClient.tsx')).toMatch(/min-h-screen bg-white/)
+    // `fog` survives ONLY as a hover tint on controls, never as a ground.
+    const shell = read('components/admin/AdminShell.tsx')
+    for (const line of shell.split('\n')) {
+      if (/\bbg-fog\b/.test(line) && !line.trim().startsWith('//')) {
+        expect(line, `bg-fog used as a ground: ${line.trim()}`).toMatch(/hover:bg-fog/)
+      }
     }
   })
 
@@ -350,16 +378,42 @@ describe('three levels, and only one phase open at a time', () => {
     expect((board.match(/<ExpandedPhase/g) ?? []).length).toBe(1)
   })
 
-  it('the column body SCROLLS so 66 files never make the page ten thousand pixels tall', () => {
-    expect(board).toMatch(/maxHeight: '\d+vh'/)
-    expect(board).toMatch(/overflow-y-auto/)
-    // Nothing is capped or sliced: every file in the column renders.
+  it('EVERY FILE RENDERS, with no scroll box inside a column (handoff 59)', () => {
+    // Michael: if Submitted holds two hundred files he wants two hundred
+    // listed down the page. He will scroll or use the search at the top. The
+    // tall page is a chosen outcome now, and it was never what made the old
+    // board 24,000px long: that was five phases stacked at once.
+    expect(board).not.toMatch(/maxHeight: '\d+vh'/)
+    expect(board).not.toMatch(/overflow-y-auto/)
+    // Nothing is capped or sliced.
     expect(board).toMatch(/inColumn\.map\(d =>/)
     expect(board).not.toMatch(/inColumn\.slice\(/)
   })
 
-  it('nothing scrolls sideways: no horizontal overflow container anywhere', () => {
-    expect(board).not.toMatch(/overflow-x-auto/)
+  it('the SUB-STAGE ROW scrolls sideways, and it is the only thing that does', () => {
+    // This deliberately reverses handoff 57's no-horizontal-scroll rule, for
+    // this row and nothing else. The reasoning is better than the rule it
+    // replaces: the sub-stage set is bounded at seven, so sideways scrolling
+    // here is finite and predictable, while the file set is unbounded, so
+    // files belong on the vertical axis.
+    expect((board.match(/overflow-x-auto/g) ?? []).length).toBe(1)
+    expect(board).toMatch(/data-testid=\{`beta-stage-row-\$\{phase\.code\}`\}/)
+    // And it does NOT wrap: wrapping was the thing being fixed.
+    const at = board.indexOf('beta-stage-row-')
+    const row = board.slice(Math.max(0, at - 300), at)
+    expect(row).toMatch(/flex items-start gap-2 overflow-x-auto/)
+    expect(row).not.toMatch(/flex-wrap/)
+    // The column is a FIXED width, so the card's shape does not change with
+    // however many sub-stages a phase happens to carry.
+    expect(board).toMatch(/const STAGE_COLUMN_WIDTH = \d+/)
+    expect(board).toMatch(/width: `\$\{STAGE_COLUMN_WIDTH\}px`/)
+  })
+
+  it('the phase tile row is STICKY, because the page is now deliberately long', () => {
+    expect(board).toMatch(/className="sticky top-0 z-20 grid gap-2"/)
+    // It needs an opaque ground or cards scroll through it.
+    const at = board.indexOf('data-testid="beta-phases"')
+    expect(board.slice(Math.max(0, at - 400), at)).toMatch(/background: SURFACE\.canvas/)
   })
 
   it('a sub-stage holding nothing still teaches what happens there', () => {

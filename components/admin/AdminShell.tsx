@@ -336,8 +336,14 @@ export default function AdminShell({
     </div>
   )
 
+  // THE CANVAS IS WHITE (handoff 59). The wrapper below was `bg-fog`
+  // (#F4F6F9), the blue-grey behind every Command Centre screen, and it is the
+  // background Michael asked to have taken off. The `fog` token itself stays
+  // defined and in use, but ONLY as a hover tint on individual controls (the
+  // sidebar toggles, the command palette rows, the What's moving table). It is
+  // no longer any page's ground.
   return (
-    <div className="min-h-screen bg-fog font-ui text-ink">
+    <div className="min-h-screen bg-white font-ui text-ink">
       {/* Mobile drawer (always expanded style) */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
