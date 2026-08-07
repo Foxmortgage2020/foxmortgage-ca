@@ -128,9 +128,12 @@ function Notice({ children }: { children: React.ReactNode }) {
 export default async function DealsBetaPage({
   searchParams,
 }: {
-  // `open` carries which stage is expanded (handoff 58). `phase` and
+  // `open` carries which PHASE is expanded (handoff 58) and `show` which
+  // finished STAGE has been unfolded to reveal its files (handoff 61). Both
+  // ride the URL rather than component state, which is what keeps this page a
+  // server component with no client JS on the board itself. `phase` and
   // `collapsed` were retired in handoff 57 and both still answer 200.
-  searchParams?: { view?: string; deal?: string; open?: string }
+  searchParams?: { view?: string; deal?: string; open?: string; show?: string }
 }) {
   const user = await requirePermission('deals.view')
 
@@ -321,9 +324,18 @@ export default async function DealsBetaPage({
     if (addr) addressByDeal[dealId] = addr
   }
 
-  // Which stage is expanded. Validated against the record layer, and an
+  // Which phase is expanded. Validated against the record layer, and an
   // unknown value opens nothing rather than falling back to an arbitrary one.
   const openPhase = openPhaseCode(searchParams?.open, phases as any[])
+
+  // Which finished stage has been unfolded (handoff 61). Validated the same
+  // way and for the same reason: an unrecognised code unfolds NOTHING rather
+  // than guessing at a stage, so a stale or hand-typed link degrades to the
+  // ordinary collapsed board instead of revealing an arbitrary column.
+  const shownStage =
+    searchParams?.show && stages.some(s => s.code === searchParams.show)
+      ? searchParams.show
+      : null
 
   return (
     <Shell>
@@ -350,6 +362,7 @@ export default async function DealsBetaPage({
         canWithdraw={canWithdraw}
         addressByDeal={addressByDeal}
         openPhase={openPhase}
+        shownStage={shownStage}
         selectedRef={searchParams?.deal ?? null}
         // Resolved on the server so every card measures against one instant,
         // and so the model itself never reads a clock.

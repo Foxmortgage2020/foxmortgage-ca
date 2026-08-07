@@ -46,6 +46,8 @@ import {
   openPhaseCode,
   phaseFigures,
   phaseWord,
+  stageShowsCards,
+  stageShowsSummary,
   stageWord,
 } from '@/lib/board-layout'
 
@@ -709,5 +711,76 @@ describe('the stage tone ramp', () => {
     expect(RADIUS.pill).toBe(20)
     expect(STROKE.cardBar).toBe(4)
     expect(STROKE.hairline).toBe(1)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('A FINISHED STAGE SUMMARISES RATHER THAN LISTS (handoff 61)', () => {
+  const working = { category: 'open', fileCount: 200, expanded: false }
+  const funded = { category: 'terminal_won', fileCount: 66, expanded: false }
+
+  it('a stage being WORKED always lists every file, however many', () => {
+    // This is handoff 59's rule and handoff 61 does not touch it. Two hundred
+    // files in a working stage is two hundred cards, with no scroll box.
+    expect(stageShowsCards(working)).toBe(true)
+    expect(stageShowsSummary(working)).toBe(false)
+    expect(stageShowsCards({ ...working, expanded: true })).toBe(true)
+  })
+
+  it('a FINISHED stage folds to a summary, and unfolds to every file', () => {
+    expect(stageShowsCards(funded)).toBe(false)
+    expect(stageShowsSummary(funded)).toBe(true)
+    // Unfolded it renders the cards, and the summary stays as the way back.
+    expect(stageShowsCards({ ...funded, expanded: true })).toBe(true)
+    expect(stageShowsSummary({ ...funded, expanded: true })).toBe(true)
+  })
+
+  it('both terminal categories fold, won and lost alike', () => {
+    expect(stageShowsCards({ category: 'terminal_lost', fileCount: 23, expanded: false })).toBe(false)
+    expect(stageShowsCards({ category: 'terminal_won', fileCount: 23, expanded: false })).toBe(false)
+  })
+
+  it('a finished stage holding NOTHING does not grow a control that does nothing', () => {
+    const empty = { category: 'terminal_won', fileCount: 0, expanded: false }
+    expect(stageShowsSummary(empty)).toBe(false)
+    expect(stageShowsCards(empty)).toBe(true)
+  })
+
+  it('the rule agrees with the countdown\'s terminal test, which is its whole point', () => {
+    // One definition of "finished" on this board. If isTerminalCategory ever
+    // changes, this rule moves with it rather than drifting apart from it.
+    for (const c of ['terminal_won', 'terminal_lost', 'open', null, undefined, 'anything_else']) {
+      const folds = !stageShowsCards({ category: c, fileCount: 5, expanded: false })
+      expect(folds).toBe(isTerminalCategory(c))
+    }
+  })
+
+  it('NO STAGE CODE APPEARS IN THE RULE, so a terminal stage added later just works', () => {
+    // The defect this guards against is the one handoff 57 already fixed once:
+    // a hardcoded stage list silently misclassifies whatever arrives next, and
+    // here a misclassification would HIDE LIVE WORK.
+    const rule = read('lib/board-layout.ts')
+      .slice(read('lib/board-layout.ts').indexOf('export function stageShowsCards'))
+      .slice(0, 700)
+    for (const code of ['funded', 'lost_to_competition', 'cancelled', 'declined', 'submitted']) {
+      expect(rule).not.toContain(`'${code}'`)
+    }
+  })
+
+  it('NO SCROLL BOX comes back with the disclosure', () => {
+    // Handoff 61 hid the cards behind a press. It did not cap, slice, or put
+    // them in a box that scrolls, which is the thing Michael ruled out.
+    const board = read('components/admin/DealsBetaBoard.tsx')
+    const body = board.slice(board.indexOf('function StageColumn'))
+    expect(body).not.toMatch(/overflow-y|maxHeight|max-h-|overflow:\s*['"]?auto/)
+  })
+
+  it('the disclosure is a LINK, so the board keeps shipping no client JS', () => {
+    // Expansion rides the URL exactly as the phase does. A handler here would
+    // cross the client boundary and cost the board its server-component status.
+    const board = read('components/admin/DealsBetaBoard.tsx')
+    const body = board.slice(board.indexOf('function StageColumn'))
+    expect(body).toContain('data-testid={`beta-col-disclose-${stage.code}`}')
+    expect(body).not.toMatch(/onClick|useState|'use client'/)
   })
 })
