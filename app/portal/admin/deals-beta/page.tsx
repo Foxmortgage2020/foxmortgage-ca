@@ -92,18 +92,16 @@ function Shell({ children }: { children: React.ReactNode }) {
           BETA
         </span>
       </div>
-      {/* THIS SENTENCE USED TO SAY "Nothing here writes", AND THAT STOPPED
-          BEING TRUE. The Remove control writes one thing, through a gate, with
-          a human on it. An untrue guarantee is worse than none, so the sentence
-          now names exactly what the one write is rather than denying it. */}
-      <p
-        className="mt-1"
-        style={{ ...typeStyle(TYPE.pageSubtitle), color: TEXT.dim, maxWidth: '660px' }}
-      >
-        Every file the business has, laid out as the five stages we actually work. Pick one to see
-        the sub-stages inside it. The only thing this page changes is whether a record stays in the
-        book, and that is a recorded decision rather than a deletion.
-      </p>
+      {/* NO STANDING PARAGRAPH HERE (handoff 60). It explained the three-level
+          structure and named the page's one write, and Michael's ruling is that
+          it is documentation a person reads once and then scrolls past forever.
+          The strip of figures below is the real orientation.
+
+          WHAT WENT WITH IT, recorded rather than quietly dropped: this was the
+          only place on screen that said what this page writes. The guarantee
+          itself is unchanged and still enforced by tests/beta-file.test.ts,
+          which allows a write only through an existing gate proxy with a human
+          actor. The sentence was a description of that rule, not the rule. */}
       {children}
     </main>
   )

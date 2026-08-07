@@ -11,22 +11,34 @@
 // served no longer exists. The countdown survives unchanged, including the
 // fifth reading Michael ruled on, because it was right and is still right.
 
-// ─── Michael's vocabulary ────────────────────────────────────────────────────
+// ─── The vocabulary, and the seam that closed (handoff 60) ───────────────────
 //
-// HE THINKS IN STAGES CONTAINING SUB-STAGES. The database says phases
-// containing stages. Both are correct in their own place, so the interface uses
-// his words and the code keeps the database's, and this is the one seam where
-// they meet. Nothing below renames a column or a variable.
+// THE SEAM IS GONE BECAUSE MICHAEL CLOSED IT. Through handoffs 58 and 59 he
+// thought in STAGES containing SUB-STAGES while the database said PHASES
+// containing STAGES, so the interface carried his words, the code carried the
+// database's, and this module was the one place they met. Reading the live
+// board he settled it the other way: phases contain stages, the database's
+// terms, everywhere. "Sub-stage" is not a word this product uses any more.
+//
+// THE MODULE STAYS even though both sides now agree, because one place to
+// change a word is the reason a rename is cheap. It is a seam with nothing
+// currently on the far side of it.
+//
+// A NOTE FOR WHOEVER READS THE OLD HELPER NAMES: `stageWord` used to return the
+// PHASE word ("stage"), because that was what a database phase was called on
+// screen. It now returns the STAGE word, and `phaseWord` returns the phase one.
+// The rename was safe to make because `stageWord` had no live caller at the
+// time; anything reaching for it now gets the word its name promises.
 
 /** What a database PHASE is called on screen. */
-export const PHASE_WORD = 'stage'
+export const PHASE_WORD = 'phase'
 /** What a database STAGE is called on screen. */
-export const STAGE_WORD = 'sub-stage'
+export const STAGE_WORD = 'stage'
 
-export function stageWord(n: number): string {
+export function phaseWord(n: number): string {
   return n === 1 ? PHASE_WORD : `${PHASE_WORD}s`
 }
-export function subStageWord(n: number): string {
+export function stageWord(n: number): string {
   return n === 1 ? STAGE_WORD : `${STAGE_WORD}s`
 }
 
@@ -130,10 +142,10 @@ export function cardBar(countdown: Countdown): CardBar {
 
 // ─── One expanded phase at a time ────────────────────────────────────────────
 //
-// THE WHOLE POINT OF THE STRUCTURE. Twenty-five sub-stages laid side by side
-// cannot be read; seven can. Level one is the five phases as a single row,
-// level two expands ONE of them underneath, level three is the cards inside
-// that phase's columns. So the widest thing on screen is seven columns.
+// THE WHOLE POINT OF THE STRUCTURE. Twenty-five stages laid side by side cannot
+// be read; seven can. Level one is the five phases as a single row, level two
+// expands ONE of them underneath, level three is the cards inside that phase's
+// columns. So the widest thing on screen is seven columns.
 
 /** The phase to expand, from the URL. An unknown or absent value opens nothing,
  *  which is the honest default: the board opens showing all five phases and
@@ -151,24 +163,46 @@ export function openPhaseCode(
 
 export interface PhaseFigures {
   count: number
-  /** Expected volume: the sum of the amounts actually recorded. */
+  /** Expected volume: the sum of the amounts actually recorded, across the
+   *  WHOLE phase. Kept because a phase total is still a true figure; it is just
+   *  not the one to weight. */
   value: number
-  /** Weighted volume, or null where the phase carries no probability at all. */
+  /** Weighted volume over the IN-FLIGHT population only, or null where no
+   *  in-flight stage in the phase carries a probability at all. */
   weighted: number | null
   /** How many files in the phase carry no amount, so a total is never quietly
    *  presented as complete when it is not. */
   missingAmounts: number
+  /** Files still moving, and what they are worth. */
+  inFlightCount: number
+  inFlightValue: number
+  /** Files that reached a terminal stage, and what they are worth. Banked, not
+   *  forecast. */
+  fundedCount: number
+  fundedValue: number
 }
 
 /**
- * The three figures on a phase row.
+ * A phase's figures, SPLIT BY WHETHER THE MONEY IS STILL MOVING (handoff 60).
+ *
+ * WHY THE SPLIT EXISTS. Fulfilment's tile read 74 files, $39,938,378 and a
+ * weighted figure of $38,826,088. Sixty-six of those files are funded and
+ * closed, sitting at probability 100, so a number labelled "weighted" was
+ * almost entirely banked money and only eight files in that phase were actually
+ * in flight. A forecast that folds in certainties is a forecast that lies, and
+ * the summary strip at the top of the page had already been computing it the
+ * right way. The tile now agrees with the strip.
+ *
+ * WHAT COUNTS AS IN FLIGHT is the stage's own `category` from the record layer,
+ * never a stage code, so a terminal stage added later behaves correctly on the
+ * day it lands. Same rule the closing countdown uses.
  *
  * A NULL PROBABILITY IS NOT ZERO and never enters the weighted sum. Intake and
- * Monitor carry null on every sub-stage, so `weighted` comes back null for them
- * and the row renders no weighted figure rather than a fabricated zero.
+ * Monitor carry null on every stage, so `weighted` comes back null for them and
+ * the tile renders no weighted figure rather than a fabricated zero.
  */
 export function phaseFigures(
-  stages: readonly { code: string; probability?: number | null }[],
+  stages: readonly { code: string; probability?: number | null; category?: string | null }[],
   filesIn: (stageCode: string) => readonly { mortgage_amount: number | null }[],
 ): PhaseFigures {
   let count = 0
@@ -176,11 +210,20 @@ export function phaseFigures(
   let weighted = 0
   let priced = 0
   let missingAmounts = 0
+  let inFlightCount = 0
+  let inFlightValue = 0
+  let fundedCount = 0
+  let fundedValue = 0
   for (const s of stages) {
     const files = filesIn(s.code)
     count += files.length
     const p = typeof s.probability === 'number' ? s.probability : null
-    if (p !== null) priced += 1
+    const ended = isTerminalCategory(s.category)
+    // Only an in-flight stage can contribute to a forecast. A priced terminal
+    // stage is a certainty, not a probability.
+    if (p !== null && !ended) priced += 1
+    if (ended) fundedCount += files.length
+    else inFlightCount += files.length
     for (const f of files) {
       const amt = typeof f.mortgage_amount === 'number' ? f.mortgage_amount : null
       if (amt === null) {
@@ -188,8 +231,22 @@ export function phaseFigures(
         continue
       }
       value += amt
+      if (ended) {
+        fundedValue += amt
+        continue
+      }
+      inFlightValue += amt
       if (p !== null) weighted += (amt * p) / 100
     }
   }
-  return { count, value, weighted: priced === 0 ? null : weighted, missingAmounts }
+  return {
+    count,
+    value,
+    weighted: priced === 0 ? null : weighted,
+    missingAmounts,
+    inFlightCount,
+    inFlightValue,
+    fundedCount,
+    fundedValue,
+  }
 }

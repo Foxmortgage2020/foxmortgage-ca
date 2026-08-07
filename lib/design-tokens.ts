@@ -47,6 +47,20 @@ export const SURFACE = {
   hairline: '#F1EFEB',
   /** The card's last row, where the waiting-on line sits. */
   chaseBg: '#FCFBF9',
+  /** THE STAGE COLUMN'S HEADER CAP (handoff 60), and the ONE tinted region on
+   *  the board outside a card.
+   *
+   *  IT IS THE EXPORT'S OWN PAPER TONE, the value that was the canvas until
+   *  handoff 59 took the background off every screen. Michael asked for the
+   *  light grey back so a column reads as one object rather than dissolving
+   *  into its neighbour, and the honest way to give it back is to return the
+   *  grey he lost rather than invent a second one: same value, scoped from the
+   *  whole page down to the stage header alone.
+   *
+   *  It goes NOWHERE else. Not the canvas, not a phase tile, not the gap
+   *  between columns. A warm neutral at 92% lightness, so it reads as paper
+   *  rather than as an alert, and it is nowhere near either lime or navy. */
+  stageHeader: '#EFEDE8',
 } as const
 
 export const RADIUS = {
@@ -68,6 +82,11 @@ export const STROKE = {
   hairline: 1,
   /** The colour bar down the left edge of a file card. */
   cardBar: 4,
+  /** THE PHASE-HUE RULE ACROSS THE TOP OF A STAGE COLUMN (handoff 60). It
+   *  replaced a 16px dash: the rule has to carry the column's identity now that
+   *  the column is a bordered object, and a dash beside a name did not. Hue
+   *  still says which phase and depth still says how far along. */
+  stageRule: 4,
 } as const
 
 // ─── Text ────────────────────────────────────────────────────────────────────
@@ -122,6 +141,19 @@ export const MISSING_VALUE = {
   fontStyle: 'italic' as const,
   textDecoration: 'underline dotted' as const,
   textUnderlineOffset: '3px',
+}
+
+/** HOW A SENTENCE **ABOUT** MISSING VALUES RENDERS, which is a different thing
+ *  and now says so (handoff 60).
+ *
+ *  MISSING_VALUE marks a gap STANDING IN FOR a figure, and its dotted underline
+ *  is what stops the gap reading as a fact. "5 with no amount recorded" is not
+ *  a gap standing in for anything: it is a true statement about the column, and
+ *  underlining it made it read as a link to somewhere. Michael read it that way
+ *  on production and it goes nowhere. Same muted italic, no underline. */
+export const MISSING_NOTE = {
+  color: TEXT.missing,
+  fontStyle: 'italic' as const,
 }
 
 // ─── Type ────────────────────────────────────────────────────────────────────

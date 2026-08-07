@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Stages',
+    title: 'The word is stage, the tiles are whole, and a column is an object',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'THE VOCABULARY SEAM CLOSED, AND MICHAEL CLOSED IT THE OTHER WAY. Two sessions ran on the rule that he thinks in stages containing sub-stages while the database says phases containing stages, so the screen carried his words and the code carried the database\'s. Reading the live board he settled it: phases contain stages, the database\'s terms, everywhere. "Sub-stage" is not a word this product uses any more. The one module where the two met stays in place, because one place to change a word is what makes a rename cheap',
+      'THE PHASE TILES WERE NOT BEING CLIPPED BY ANYTHING. The brief\'s first suspect was a sticky element inside an overflow ancestor and that was not it. The Command Centre shell puts its own 56px white topbar at sticky top 0 with a higher stacking order, and the phase row was also stuck at top 0, so the shell\'s bar simply painted over the top 56px of every tile the moment the page scrolled. Two sticky elements were given the same offset and the one in front won. The row now sticks below the shell chrome, and a test asserts the shell still renders that bar at the height the offset assumes, so the day it changes this fails loudly rather than silently re-slicing the tiles',
+      'A STAGE COLUMN IS NOW A BORDERED UNIT WITH A GREY CAP AND A WHITE BODY. White boxes on a white canvas separated by an invisible hairline had merged into one field of cards. The grey is the export\'s own paper tone, the value that was the page background until the canvas went white last session, so the light grey Michael asked for is the grey he lost rather than a second one invented beside it. It is scoped to the stage header alone and goes nowhere else: not the canvas, not a phase tile, not the gap between columns',
+      'THE WEIGHTED NUMBER WAS CLAIMING BANKED MONEY AS A FORECAST. Fulfilment\'s tile read 74 files, $39,938,378 and a weighted $38,826,088, but 66 of those files are funded and closed and sit at probability 100, so the figure labelled weighted was almost entirely money already in the door and only eight files were actually in flight. The tile splits it now: in flight 8 at $4,530,400 with a weighted $3,418,110, and funded 66 at $35,407,978 stated as banked. Nothing was recalculated, the two populations were only told apart',
+      'THE STANDING PARAGRAPH UNDER THE PAGE TITLE IS GONE, on Michael\'s ruling that it is documentation a person reads once and then scrolls past forever. A test that pinned its replacement wording verbatim went with it rather than being rewritten to pin some other prose, because there is no prose there any more by decision. The write guarantee it described is untouched and still enforced where it actually lives, in the test that walks the whole tree and permits a write only through an existing gate proxy with a human actor',
+      'THE PHASE TILES FIT ON ONE LINE AT 1280 AGAIN, and the reason for the change is the sticky height rather than the tile width. Once the blurbs stopped truncating, a row that wrapped onto two lines took half the viewport with it every time you scrolled. Five across at 173px costs each tile 45px of width and buys back about 110px of screen. 1512 is unaffected because five already fitted there. Measured, not estimated: the stuck row plus chrome is 308px at 1512 and 338px at 1280',
+      'A TRUE SENTENCE WAS RENDERING AS A DEAD LINK. "5 with no amount recorded" carried the dotted underline that marks a missing value, but it is not a gap standing in for a figure, it is a true statement about the column, and Michael read the underline as something to click. Missing values and sentences about missing values are now separate tokens',
+      'Pinned in tests/board-tokens.test.ts (51 tests). Typecheck clean. Every page checked returns 200 and the canvas is still white. No data changed, and no write path was added or altered. Render-proved on the dev Clerk instance at both widths with a TEST admin created and deleted in the same session',
+    ],
+  },
+  {
     n: 'White',
     title: 'White canvas, one scrolling stage row, a shorter card',
     status: 'shipped',
