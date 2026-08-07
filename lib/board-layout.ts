@@ -65,6 +65,53 @@ export function isTerminalCategory(category: string | null | undefined): boolean
   return category === 'terminal_won' || category === 'terminal_lost'
 }
 
+// ─── A finished stage summarises rather than lists (handoff 61) ─────────────
+//
+// THE DEFECT: opening Fulfilment produced about ten thousand pixels of blank
+// white. Funded holds 66 cards, which made it far the tallest column and set
+// the height of the whole page, WHILE SITTING OFF THE RIGHT EDGE where nobody
+// could see it. So a person scrolled down through white and arrived at
+// nothing, because the only thing down there was reachable sideways.
+//
+// WHY THIS DOES NOT CONTRADICT HANDOFF 59. Michael ruled that a stage holding
+// two hundred files lists all two hundred with no scroll box. That rule is
+// about a stage he is WORKING. A funded file is finished business and does not
+// need a card sitting in a working view. The rule is untouched for every stage
+// he works, and the expanded state here still renders every file: this is a
+// disclosure, not a cap, and NO SCROLL BOX comes back.
+//
+// KEYED ON THE STAGE'S OWN `category`, never on a stage code, which is the
+// handoff 57 countdown mechanism reused for the reason it was right there: a
+// terminal stage added to the record layer later behaves correctly with no
+// change here, and a stage wrongly hardcoded could hide live work.
+
+/** Does this column render its cards, or only its summary?
+ *
+ *  A WORKING STAGE ALWAYS LISTS, whatever its size. Only a finished one folds,
+ *  and only when it actually holds something: a terminal stage at zero has no
+ *  cards to hide, so folding it would add a control that does nothing. */
+export function stageShowsCards(opts: {
+  category: string | null | undefined
+  fileCount: number
+  expanded: boolean
+}): boolean {
+  if (!isTerminalCategory(opts.category)) return true
+  if (opts.fileCount === 0) return true
+  return opts.expanded
+}
+
+/** The inverse, for the render: is there a summary to draw at all? Kept as its
+ *  own function rather than a bare negation at the call site, because "shows a
+ *  summary" and "hides its cards" are the same fact and should not be able to
+ *  drift apart. */
+export function stageShowsSummary(opts: {
+  category: string | null | undefined
+  fileCount: number
+  expanded: boolean
+}): boolean {
+  return isTerminalCategory(opts.category) && opts.fileCount > 0
+}
+
 /** Whole days from one YMD to another. Both are parsed at UTC noon so a
  * daylight-saving boundary can never shift the count by one. */
 export function daysBetweenYMD(fromYMD: string, toYMD: string): number | null {

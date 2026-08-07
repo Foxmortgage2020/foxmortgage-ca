@@ -18,6 +18,22 @@ const SESSIONS: {
   items: string[]
 }[] = [
   {
+    n: 'Finished',
+    title: 'A finished stage summarises rather than lists',
+    status: 'shipped',
+    repo: 'foxmortgage-ca',
+    items: [
+      'THE DEFECT, AND THE CAUSE WAS NOT THE OBVIOUS ONE. Opening Fulfilment ran the page to about 10,858px. Funded holds 66 cards, which made it by far the tallest column and therefore set the height of the WHOLE page, while sitting off the right edge where it could not be seen. The other four columns run 110px to 755px. So you scrolled down through ten thousand pixels of white and arrived at nothing, because the only content down there was reachable sideways',
+      'A TERMINAL STAGE NOW RENDERS A SUMMARY AND UNFOLDS ON ONE PRESS. Same bordered box, same grey cap, same teaching line, same count, with the money and the way in added underneath. Page height with Fulfilment open is 1,431px at 1512 and 1,461px at 1280, down from about 10,858, and the Funded column itself is 187px against 10,182px before',
+      'EXACTLY ONE STAGE MATCHED, established by reading the record layer live rather than by assuming: Funded, in Fulfilment, terminal_won, 66 files of which 62 carry an amount, $35,407,978. The three lost-and-cancelled terminals carry no phase at all, so they render in the Archive view and never as a board column. No stage anyone is working matched, so nothing live is hidden',
+      'KEYED ON THE STAGE CATEGORY, NEVER A STAGE CODE, which is the same mechanism that stopped the closing countdown painting 75 of 97 cards red. One test asserts no stage code appears in the rule and another asserts the rule agrees with the countdown test across every input, so the board cannot end up with two different definitions of finished',
+      'THIS DOES NOT CONTRADICT THE NO-SCROLL-BOX RULE, and the distinction is the point. Michael ruled that a stage holding 200 files lists all 200. That rule is about a stage he is WORKING, and a funded file is finished business. Working stages are untouched, and no scroll box came back: verified live with all 66 rendered, overflow visible and no maximum height on either the column or its body. This hid cards behind a press, it did not cap or slice them',
+      'UNFOLDING RIDES THE URL the way opening a phase already does, so the board is still a server component with no handler on the control and the back button works on it. The parameter is validated against the record layer, and an unrecognised value unfolds nothing rather than guessing at a column',
+      'THE MONITOR LINE WAS OFFERED AND DECLINED. Funded 66 against Monitor 0 crosses the one boundary this board is built never to cross, because Monitor counts PEOPLE and Fulfilment counts FILES, and the phase totals return null rather than zero precisely so the two can never be compared. Monitor also holds zero because the record layer does not populate it yet, so the number is a migration state rather than a fact about the practice. A line saying the handoff is not happening would have invented a finding out of an empty table',
+      'Pinned in tests/board-tokens.test.ts (8 new, 59 in that file, 1638 in the suite). Typecheck clean. The zone rule, copy gate, write guarantee, four-weight test and the topbar-height assertion all passed unmodified. No data changed and no write path added or altered',
+    ],
+  },
+  {
     n: 'Stages',
     title: 'The word is stage, the tiles are whole, and a column is an object',
     status: 'shipped',

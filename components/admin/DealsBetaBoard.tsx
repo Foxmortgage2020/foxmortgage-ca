@@ -36,6 +36,7 @@ import Link from 'next/link'
 import {
   archiveRows,
   borrowersFor,
+  columnTotals,
   columnsForPhase,
   dealsInStage,
   fmtAmount,
@@ -64,6 +65,8 @@ import {
   PHASE_WORD,
   closingCountdown,
   phaseFigures,
+  stageShowsCards,
+  stageShowsSummary,
   stageWord,
 } from '@/lib/board-layout'
 import {
@@ -118,6 +121,10 @@ interface Props {
   addressByDeal: Record<string, string>
   /** The phase to expand, already validated against the record layer. */
   openPhase: string | null
+  /** The finished stage whose files have been unfolded, already validated
+   *  against the record layer (handoff 61). Null means every terminal stage
+   *  renders as a summary, which is the default. */
+  shownStage: string | null
   selectedRef: string | null
   nowISO: string
   todayYMD: string
@@ -641,6 +648,23 @@ function StageColumn(
   // radius or the grey cap's corners sit proud of the border's curve.
   const innerRadius = radius(RADIUS.card - STROKE.hairline)
 
+  // A FINISHED STAGE SUMMARISES RATHER THAN LISTS (handoff 61). The rule lives
+  // in lib/board-layout.ts and keys on the stage's own category, so nothing
+  // here names a stage. Unfolding rides the URL like the phase does, which is
+  // why the board is still a server component with no handler on this control.
+  const expanded = props.shownStage === stage.code
+  const showsCards = dealLevel && stageShowsCards({
+    category: stage.category,
+    fileCount: inColumn.length,
+    expanded,
+  })
+  const showsSummary = dealLevel && stageShowsSummary({
+    category: stage.category,
+    fileCount: inColumn.length,
+    expanded,
+  })
+  const totals = showsSummary ? columnTotals(inColumn) : null
+
   return (
     <div
       // FOUR COLUMNS VISIBLE AT 1512 is what this width buys, and the extra
@@ -720,14 +744,67 @@ function StageColumn(
         )}
       </div>
 
-      {inColumn.length > 0 && (
-        // NO SCROLL BOX (handoff 59). Every file in the stage renders, all the
-        // way down. Michael's instruction: if Submitted holds two hundred files
-        // he wants two hundred listed, and he will scroll the page or use the
-        // search at the top to reach a name. The tall page is now a chosen
-        // outcome rather than a defect, and it is not what made the old board
-        // twenty-four thousand pixels long: that was five phases stacked at
-        // once, not one phase's files.
+      {showsSummary && totals && (
+        /* THE SUMMARY OF A FINISHED STAGE (handoff 61). The name, the count and
+           the teaching line are already in the grey cap above, exactly as every
+           other column draws them, so what this adds is the money and the way
+           in. The box, the border and the cap are untouched: a finished stage
+           is the same object as a working one, holding a total instead of a
+           stack of cards.
+
+           THE FIGURE IS QUIET MONOSPACE, NOT HEADLINE NAVY, matching how the
+           phase tile already prints its funded money one level up: this is
+           banked, and banked money is context rather than a thing to chase. */
+        <div style={{ padding: '9px' }} data-testid={`beta-col-summary-${stage.code}`}>
+          <div className="flex items-baseline gap-1.5">
+            <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>Total</span>
+            <span
+              style={{ ...typeStyle(TYPE.phaseValue), color: TEXT.metaMono }}
+              data-testid={`beta-col-total-${stage.code}`}
+            >
+              {fmtTotal(totals.amount)}
+            </span>
+          </div>
+          {totals.partial && (
+            /* MISSING_NOTE, not MISSING_VALUE: a true sentence about the column
+               rather than a gap standing in for a figure, the handoff 60 rule. */
+            <p style={{ ...typeStyle(TYPE.stageTeach), ...MISSING_NOTE, marginTop: '4px' }}>
+              {inColumn.filter(d => typeof d.mortgage_amount !== 'number').length} with no amount
+              recorded
+            </p>
+          )}
+          {/* ONE PRESS EITHER WAY, and it says what it will do and to how many.
+              A plain link rather than a button because the state is in the URL,
+              so this is navigation and the back button works on it. */}
+          <Link
+            href={href({
+              open: props.openPhase,
+              show: expanded ? null : stage.code,
+            })}
+            className="mt-2 inline-block"
+            style={{
+              ...typeStyle(TYPE.pillLabel),
+              color: TEXT.navy,
+              border: hair,
+              borderRadius: radius(RADIUS.chip),
+              padding: '4px 9px',
+            }}
+            data-testid={`beta-col-disclose-${stage.code}`}
+          >
+            {expanded ? 'Hide' : 'Show'} the {inColumn.length} {phase.unit}
+          </Link>
+        </div>
+      )}
+
+      {showsCards && inColumn.length > 0 && (
+        // NO SCROLL BOX (handoff 59, and still true after handoff 61). Every
+        // file in the stage renders, all the way down. Michael's instruction:
+        // if Submitted holds two hundred files he wants two hundred listed, and
+        // he will scroll the page or use the search at the top to reach a name.
+        //
+        // A FINISHED STAGE REACHES THIS BLOCK ONLY ONCE UNFOLDED, and when it
+        // does it renders every one of its files exactly as before. Handoff 61
+        // hid the cards behind a press, it did not cap or slice them.
         <div
           className="flex flex-col gap-1.5"
           style={{ padding: '8px' }}

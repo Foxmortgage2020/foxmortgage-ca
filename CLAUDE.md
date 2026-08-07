@@ -300,6 +300,61 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### A finished stage summarises rather than lists (handoff 61, 2026-08-06)
+Fixes the one thing handoff 60 named and left: the blank white below the tiles.
+
+- **THE DEFECT, restated because the cause was not the obvious one.** Opening
+  Fulfilment ran the page to ~10,858px. Funded holds 66 cards, which made it by
+  far the tallest column and therefore set the height of the WHOLE PAGE, **while
+  sitting off the right edge where it could not be seen.** The other four
+  columns are 110px to 755px. So a person scrolled down through ten thousand
+  pixels of white and arrived at nothing, because the only content down there
+  was reachable sideways.
+- **A TERMINAL STAGE RENDERS A SUMMARY AND UNFOLDS ON A PRESS.** Same bordered
+  box, same grey cap, same teaching line, same count. What it adds is the money
+  and the way in. `stageShowsCards` / `stageShowsSummary` in `lib/board-layout.ts`
+  are the pure rule and are unit-tested.
+- **EXACTLY ONE STAGE MATCHED: `funded`** (fulfilment, `terminal_won`, 66 files,
+  62 priced, $35,407,978). Established by reading `rec.deal_stages` live rather
+  than by assuming. The three `terminal_lost` stages
+  (`lost_to_competition` 23, `cancelled` 6, `declined` 0) carry `phase = null`,
+  so they render in the Archive view and never as a board column. **No working
+  stage matched, so nothing live is hidden.**
+- **KEYED ON `category`, NEVER A STAGE CODE**, the handoff 57 countdown
+  mechanism reused for the same reason. A test asserts no stage code appears in
+  the rule, and another asserts the rule agrees with `isTerminalCategory` across
+  every input, so the board can never end up with two definitions of finished.
+- **THIS DOES NOT CONTRADICT HANDOFF 59 and the distinction is the point.**
+  Michael's rule (200 files means 200 cards, no scroll box) is about **a stage
+  he is WORKING**. A funded file is finished business. Working stages are
+  untouched, and **NO SCROLL BOX came back**: verified live, `overflowY:
+  visible` and `maxHeight: none` on both the column and its body with all 66
+  rendered. This hid cards behind a press; it did not cap or slice them.
+- **UNFOLDING RIDES THE URL** (`?show=<stageCode>`), like `?open=` does, so the
+  board is STILL a server component with no handler on the control. The param
+  is validated against the record layer and an unknown value unfolds NOTHING
+  rather than guessing. A test greps the column for `onClick`/`useState`.
+- **PAGE HEIGHT: 1,431px at 1512 and 1,461px at 1280 collapsed** (from ~10,858),
+  **10,934px / 10,965px expanded**, which is the opt-in state. The Funded column
+  is 187px collapsed against 10,182px before.
+- **THE SUMMARY READS:** `Total  $35,407,978` / `4 with no amount recorded` /
+  `Show the 66 files`. The figure is **quiet monospace, not headline navy**,
+  matching how the phase tile already prints funded money one level up: banked
+  is context, not something to chase. `MISSING_NOTE` on the gap line, the
+  handoff 60 rule. The label is **"Total"** rather than a category word because
+  the rule covers `terminal_lost` too, where "banked" would be false.
+- **THE MONITOR LINE WAS DECLINED, and the reason is not squeamishness.**
+  Funded 66 against Monitor 0 crosses the one boundary this board is built never
+  to cross: **Monitor is CONTACT-level and counts people, Fulfilment counts
+  files**, and `phaseTotals` returns null rather than zero precisely so the two
+  can never be compared. Worse, Monitor holds zero because **the record layer
+  does not populate it yet** (`rec.consents` is empty, Monitor is still the
+  honest placeholder), so the number is a migration state and not a fact about
+  the practice. A line reading "the handoff is not happening" would invent a
+  finding out of an empty table.
+- Pinned in `tests/board-tokens.test.ts` (8 new, 59 total; suite 1638).
+  Typecheck clean. No data changed, no write path added or altered.
+
 ### The word is stage, the tiles are whole, and a column is an object (handoff 60, 2026-08-06)
 Corrections from Michael reading handoff 59 on production. The export stays the
 visual source of truth for everything not named here. Supersedes handoff 58's
