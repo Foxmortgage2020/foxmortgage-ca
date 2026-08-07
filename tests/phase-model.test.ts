@@ -138,9 +138,9 @@ describe('phases are configuration', () => {
   })
 })
 
-// ─── Every sub-stage renders ────────────────────────────────────────────────
+// ─── Every stage renders ────────────────────────────────────────────────────
 
-describe('every sub-stage is visible, occupied or not', () => {
+describe('every stage is visible, occupied or not', () => {
   it('the live column counts are 7 / 6 / 5 / 7', () => {
     expect(columnsForPhase(STAGES, 'intake')).toHaveLength(7)
     expect(columnsForPhase(STAGES, 'underwriting')).toHaveLength(6)

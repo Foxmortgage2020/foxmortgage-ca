@@ -564,13 +564,24 @@ describe('THE WITHDRAWN VIEW', () => {
   })
 
   it('the page no longer CLAIMS nothing here writes', () => {
-    // An untrue guarantee is worse than none. The sentence now names the one
-    // write instead of denying it. The comment above it still quotes the old
-    // wording so the change is legible, which is why comments are stripped.
+    // An untrue guarantee is worse than none, and that half of this test is
+    // unchanged: nothing rendered under the page title may deny the one write.
+    //
+    // HANDOFF 60 REMOVED THE SENTENCE THAT USED TO SAY IT. This test also
+    // asserted the replacement wording verbatim, and Michael's instruction was
+    // to cut the whole paragraph: it is documentation a person reads once and
+    // then scrolls past forever. So the positive assertion goes with the
+    // sentence it pinned, and is NOT rewritten to pin some other prose, because
+    // there is no prose there any more by decision.
+    //
+    // WHERE THE GUARANTEE ACTUALLY LIVES, unchanged: tests/beta-file.test.ts
+    // walks the whole deals-beta tree and permits a write only through an
+    // existing gate proxy with a human actor. The sentence was a description of
+    // that rule, never the rule itself.
     const page = stripComments(read('app/portal/admin/deals-beta/page.tsx'))
     const rendered = page.slice(page.indexOf('function Shell'), page.indexOf('function Notice'))
     expect(rendered).not.toContain('Nothing here writes')
-    expect(rendered).toMatch(/recorded decision rather than a deletion/)
+    expect(rendered).not.toMatch(/<p[\s>]/)
   })
 })
 

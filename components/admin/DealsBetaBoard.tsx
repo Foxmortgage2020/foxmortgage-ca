@@ -15,10 +15,10 @@
 // work: the widest thing on screen is seven columns rather than twenty-five,
 // which is why handoff 57's vertical stack had to go.
 //
-// VOCABULARY. Michael thinks in STAGES containing SUB-STAGES; the database says
-// phases containing stages. The interface uses his words, the code keeps the
-// database's, and lib/board-layout.ts is the one seam where they meet. Nothing
-// here renames a column or a variable.
+// VOCABULARY (handoff 60). PHASES CONTAIN STAGES, on screen and in the code
+// both. Michael closed the seam reading the live board: "sub-stage" is not a
+// word this product uses any more. lib/board-layout.ts still owns the words, so
+// a future rename is one edit rather than a sweep.
 //
 // EVERY VISUAL VALUE COMES FROM lib/design-tokens.ts, which read them out of
 // the export. Nothing here is a hex literal, enforced by
@@ -61,12 +61,13 @@ import {
   type StageLike,
 } from '@/lib/phase-model'
 import {
+  PHASE_WORD,
   closingCountdown,
   phaseFigures,
   stageWord,
-  subStageWord,
 } from '@/lib/board-layout'
 import {
+  MISSING_NOTE,
   MISSING_VALUE,
   RADIUS,
   ROLE,
@@ -133,7 +134,7 @@ function href(params: Record<string, string | null | undefined>): string {
 
 const hair = `${STROKE.hairline}px solid ${SURFACE.border}`
 
-/** THE SUB-STAGE COLUMN WIDTH, fixed rather than fractional.
+/** THE STAGE COLUMN WIDTH, fixed rather than fractional.
  *
  *  MEASURED, not estimated: at 1512 with the sidebar open the row's visible
  *  width is 1103px, so four of these plus their three 8px gaps come to 1096 and
@@ -142,9 +143,30 @@ const hair = `${STROKE.hairline}px solid ${SURFACE.border}`
  *  is the one that was checked on screen rather than the one that looked right.
  *
  *  Fixed rather than fractional, because a fraction would re-narrow the card
- *  every time a phase with more sub-stages opened, and the card's shape is
- *  exactly what this change exists to fix. */
+ *  every time a phase with more stages opened, and the card's shape is exactly
+ *  what handoff 59 existed to fix.
+ *
+ *  UNCHANGED BY THE BORDER handoff 60 put around the column: the box sizing is
+ *  border-box, so the 1px each side comes out of the padding rather than out of
+ *  the width, and the card inside is still 250px. */
 const STAGE_COLUMN_WIDTH = 268
+
+/** THE COMMAND CENTRE'S OWN STICKY TOPBAR, and the reason the phase tiles read
+ *  as sliced (handoff 60).
+ *
+ *  `AdminShell` puts a 56px white header (`h-14`) at `sticky top-0 z-40`. The
+ *  phase row was ALSO stuck at `top: 0`, at `z-20`, so the shell's bar simply
+ *  painted over the top 56px of every tile the moment the page scrolled: the
+ *  phase name and its colour swatch disappeared and the count and money were
+ *  left looking cut off. Nothing was clipping anything, and no overflow was
+ *  involved. Two sticky elements were given the same offset and the one with
+ *  the higher z-index won.
+ *
+ *  So the row sticks BELOW the shell's chrome instead of underneath it. The
+ *  coupling is real and deliberately written down here rather than tuned by
+ *  eye, and tests/board-tokens.test.ts asserts AdminShell still renders that
+ *  bar at h-14, so the day it changes height this fails loudly. */
+const ADMIN_TOPBAR_HEIGHT = 56
 
 export default function DealsBetaBoard(props: Props) {
   const { archive, withdrawnView, nostageView } = props
@@ -301,11 +323,11 @@ function PhaseRow(props: Props) {
   const open = ordered.find(p => p.code === openPhase) ?? null
 
   return (
-    <div style={{ marginTop: '14px' }}>
+    <div style={{ marginTop: '6px' }}>
       {/* THE FIVE, SIDE BY SIDE, AND STICKY (handoff 59).
           They wrap rather than scroll if the viewport cannot hold five, so this
           row never gains a sideways scrollbar: the horizontal scroll is the
-          SUB-STAGE row's alone.
+          stage row's alone.
 
           STICKY, because the page is now deliberately long. With the column
           scroll box gone, Fulfilment runs to several thousand pixels, and
@@ -313,15 +335,30 @@ function PhaseRow(props: Props) {
           switch phase without scrolling all the way back. Sticking the tile row
           keeps both one click away.
 
-          It sticks at top:0 with an opaque white ground and a hairline beneath,
-          which the white canvas made easy: cards scrolling underneath cannot
-          bleed through. The cost is about 120px of vertical space while
-          scrolling, which is the trade for never losing your place. */}
+          IT STICKS BELOW THE SHELL'S OWN TOPBAR, not at zero (handoff 60). See
+          ADMIN_TOPBAR_HEIGHT: sticking at zero put the tiles underneath the
+          Command Centre's 56px header, which is what made them read as sliced.
+          The 8px of padding above them is the breathing room that keeps the
+          tile's top border and radius legible where the two meet.
+
+          The opaque white ground and the hairline beneath are what stop cards
+          bleeding through as they scroll past. The cost is about 165px of
+          vertical space while scrolling, which is the trade for never losing
+          your place. */}
       <div
-        className="sticky top-0 z-20 grid gap-2"
+        className="sticky z-20 grid gap-2"
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+          top: `${ADMIN_TOPBAR_HEIGHT}px`,
+          // 168 RATHER THAN 210 (handoff 60), and the reason is the STICKY
+          // HEIGHT rather than the tile width. At 1280 the row is 897px wide,
+          // so a 210px minimum fitted only four and the fifth wrapped onto a
+          // second line. Once the blurbs stopped truncating, that two-line
+          // stuck row reached HALF the viewport. Five across at 173px each
+          // costs 45px of tile width and buys back about 110px of screen every
+          // time you scroll. 1512 is unaffected: five already fitted there.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(168px, 1fr))',
           background: SURFACE.canvas,
+          paddingTop: '8px',
           paddingBottom: '10px',
           borderBottom: hair,
         }}
@@ -346,7 +383,7 @@ function PhaseRow(props: Props) {
           style={{ ...typeStyle(TYPE.phaseBlurb), color: TEXT.dim, margin: '14px 0 0' }}
           data-testid="beta-nothing-open"
         >
-          Pick a {PHASE_LABEL} above to see the {subStageWord(2)} inside it and the files sitting in
+          Pick a {PHASE_WORD} above to see the {stageWord(2)} inside it and the files sitting in
           each one.
         </p>
       )}
@@ -357,8 +394,6 @@ function PhaseRow(props: Props) {
     </div>
   )
 }
-
-const PHASE_LABEL = 'stage'
 
 function PhaseTile({
   phase,
@@ -398,31 +433,76 @@ function PhaseTile({
         </span>
         <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>{phase.unit}</span>
       </div>
-      {/* Expected and weighted volume, on the two phases that count dollars.
-          A phase counting people carries neither rather than a zero. */}
-      {phase.counts_dollars && (
-        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <span style={{ ...typeStyle(TYPE.phaseValue), color: TEXT.navy }}>
-            {fmtTotal(figures.value)}
-          </span>
-          {figures.weighted !== null && (
-            <span className="flex items-baseline gap-1">
-              <ProjectionLabel>wtd</ProjectionLabel>
-              <ProjectionFigure testId={`beta-phaseweight-${phase.code}`}>
-                {fmtTotal(figures.weighted)}
-              </ProjectionFigure>
+      {/* THE MONEY, AND IN-FLIGHT IS NEVER ADDED TO BANKED (handoff 60).
+          On the two phases that count dollars. A phase counting people carries
+          no money line at all rather than a zero.
+
+          A phase holding NO finished files reads exactly as it always did: one
+          total and its weighted figure, no labels, because there is nothing to
+          tell apart. Underwriting, Intake and Monitor are all in that case, so
+          four of the five tiles are untouched by this.
+
+          A phase holding finished files splits them out, because Fulfilment's
+          single total was 74 files and $39.9M with a "weighted" figure of
+          $38.8M, and sixty-six of those files were already funded. Weighting a
+          certainty is how a forecast starts lying. */}
+      {phase.counts_dollars &&
+        (figures.fundedCount === 0 ? (
+          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span style={{ ...typeStyle(TYPE.phaseValue), color: TEXT.navy }}>
+              {fmtTotal(figures.value)}
             </span>
-          )}
-        </div>
-      )}
-      <p
-        className="mt-1.5 line-clamp-2"
-        style={{ ...typeStyle(TYPE.phaseBlurb), color: TEXT.dim }}
-      >
-        {phase.description ?? `${cols.length} ${subStageWord(cols.length)}`}
+            {figures.weighted !== null && (
+              <span className="flex items-baseline gap-1">
+                <ProjectionLabel>wtd</ProjectionLabel>
+                <ProjectionFigure testId={`beta-phaseweight-${phase.code}`}>
+                  {fmtTotal(figures.weighted)}
+                </ProjectionFigure>
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="mt-1.5 flex flex-col gap-1" data-testid={`beta-phasemoney-${phase.code}`}>
+            {figures.inFlightCount > 0 && (
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>In flight</span>
+                <span style={{ ...typeStyle(TYPE.phaseValue), color: TEXT.navy }}>
+                  {figures.inFlightCount} · {fmtTotal(figures.inFlightValue)}
+                </span>
+                {figures.weighted !== null && (
+                  <span className="flex items-baseline gap-1">
+                    <ProjectionLabel>wtd</ProjectionLabel>
+                    <ProjectionFigure testId={`beta-phaseweight-${phase.code}`}>
+                      {fmtTotal(figures.weighted)}
+                    </ProjectionFigure>
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Banked, so it is quiet monospace rather than the headline navy:
+                it is context for the figure above, not a second forecast. */}
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>Funded</span>
+              <span
+                style={{ ...typeStyle(TYPE.phaseValue), color: TEXT.metaMono }}
+                data-testid={`beta-phasefunded-${phase.code}`}
+              >
+                {figures.fundedCount} · {fmtTotal(figures.fundedValue)}
+              </span>
+            </div>
+          </div>
+        ))}
+      {/* NO CLAMP (handoff 60). It truncated mid-word while the tile had unused
+          height beneath it, because the grid stretches every tile to the tallest
+          one anyway. Letting the line run costs nothing and reads. */}
+      <p className="mt-1.5" style={{ ...typeStyle(TYPE.phaseBlurb), color: TEXT.dim }}>
+        {phase.description ?? `${cols.length} ${stageWord(cols.length)}`}
       </p>
       {figures.missingAmounts > 0 && (
-        <p style={{ ...typeStyle(TYPE.stageTeach), ...MISSING_VALUE, marginTop: '4px' }}>
+        // MISSING_NOTE, not MISSING_VALUE: this is a true sentence about the
+        // phase, not a gap standing in for a figure, and the dotted underline
+        // made it read as a link to somewhere it does not go.
+        <p style={{ ...typeStyle(TYPE.stageTeach), ...MISSING_NOTE, marginTop: '4px' }}>
           {figures.missingAmounts} with no amount recorded
         </p>
       )}
@@ -481,7 +561,7 @@ function ExpandedPhase(props: Props & { phase: PhaseLike }) {
       <div className="mb-2.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
         <span style={{ ...typeStyle(TYPE.sectionTitle), color: TEXT.navy }}>{phase.label}</span>
         <span style={{ ...typeStyle(TYPE.sectionNote), color: TEXT.dim }}>
-          {cols.length} {subStageWord(cols.length)}
+          {cols.length} {stageWord(cols.length)}
         </span>
         <Link
           href={href({})}
@@ -500,7 +580,7 @@ function ExpandedPhase(props: Props & { phase: PhaseLike }) {
 
       {cols.length === 0 ? (
         <Panel>
-          No {subStageWord(2)} are configured for {phase.label}. They are configuration: adding a row
+          No {stageWord(2)} are configured for {phase.label}. They are configuration: adding a row
           to rec.deal_stages adds a column here.
         </Panel>
       ) : (
@@ -510,14 +590,17 @@ function ExpandedPhase(props: Props & { phase: PhaseLike }) {
         //
         // THIS DELIBERATELY REVERSES HANDOFF 57'S NO-HORIZONTAL-SCROLL RULE,
         // for this row and nothing else, and the reasoning is better than the
-        // rule it replaces: the SUB-STAGE set is bounded at seven, so sideways
+        // rule it replaces: the STAGE set is bounded at seven, so sideways
         // scrolling here is finite and predictable, while the FILE set is
         // unbounded, so files belong on the vertical axis. Wrapping is not
         // reintroduced to dodge the scroll.
         //
-        // The column is a FIXED width rather than a fraction, because a
-        // fraction would re-narrow the card every time a phase with more
-        // sub-stages opened, and the card's shape is the point.
+        // FOUR OF FULFILMENT'S FIVE COLUMNS FIT AT 1512 AND THE FIFTH IS OFF
+        // THE RIGHT EDGE, which is this row working rather than a stage going
+        // missing (handoff 60 checked: scrollLeft 0, five children, sort order
+        // Submitted first). The count beside the phase name says five, and the
+        // bordered columns below make the cut edge legible, which is what the
+        // borderless version could not do.
         <div
           className="flex items-start gap-2 overflow-x-auto pb-2"
           data-testid={`beta-stage-row-${phase.code}`}
@@ -554,6 +637,9 @@ function StageColumn(
   const { phase, stage, index, total, inColumn, dealLevel } = props
   const gate = isGate(stage)
   const tone = stageTone(phase.code, index, total)
+  // The column's border eats 1px, so the fill inside it needs the smaller
+  // radius or the grey cap's corners sit proud of the border's curve.
+  const innerRadius = radius(RADIUS.card - STROKE.hairline)
 
   return (
     <div
@@ -561,57 +647,92 @@ function StageColumn(
       // width over the previous five-across is what gives the card its shape.
       // `shrink-0` keeps it at that width inside the scrolling row instead of
       // being squeezed to fit.
+      //
+      // A BORDERED UNIT WITH A GREY CAP AND A WHITE BODY (handoff 60). The
+      // columns used to be white boxes on a white canvas separated by a hairline
+      // nobody could see, so adjacent columns merged into one field of cards.
+      // Now the border says where a column begins and ends, and the grey cap
+      // says which stage it is. The cards keep sitting on white.
+      //
+      // NO `overflow: hidden` HERE, deliberately: the cap gets its own top radii
+      // instead. This board has just spent a session on one thing being clipped
+      // by something else, and a new clipping ancestor around every column is
+      // not the way to round two corners.
       className="shrink-0"
       style={{
         width: `${STAGE_COLUMN_WIDTH}px`,
-        // White, like the export's own stage column, which is `background:#fff`
-        // with a border rather than a tint. The border and the cards' own
-        // borders carry the figure-ground now that the canvas is white too.
         background: SURFACE.panel,
         border: hair,
         borderRadius: radius(RADIUS.card),
-        padding: '9px 8px 8px',
       }}
       data-testid={`beta-col-${stage.code}`}
     >
-      <div className="flex items-center gap-1.5" style={{ height: '9px', margin: '0 0 7px' }}>
-        <span
-          aria-hidden="true"
-          className="shrink-0"
-          style={{ width: '16px', height: '3px', borderRadius: radius(RADIUS.swatch), background: tone }}
-        />
-        {gate && <span style={{ ...typeStyle(TYPE.gate), color: TEXT.metaMono }}>GATE</span>}
+      {/* THE PHASE-HUE RULE, full width across the top of the column, sitting on
+          white so the depth ramp reads exactly as it was built: hue says which
+          phase, depth says how far along. It sits ABOVE the grey band rather
+          than inside it, because the tone is semi-transparent on the early
+          stages and a grey behind it would mute the ramp it exists to show. */}
+      <div
+        aria-hidden="true"
+        style={{
+          height: `${STROKE.stageRule}px`,
+          background: tone,
+          borderTopLeftRadius: innerRadius,
+          borderTopRightRadius: innerRadius,
+        }}
+      />
+      <div
+        style={{
+          background: SURFACE.stageHeader,
+          borderBottom: hair,
+          padding: '8px 9px 9px',
+        }}
+        data-testid={`beta-col-head-${stage.code}`}
+      >
+        <div className="flex items-baseline gap-1.5">
+          <div className="min-w-0" style={{ ...typeStyle(TYPE.stageName), color: TEXT.navy }}>
+            {stage.label}
+          </div>
+          {gate && (
+            <span className="ml-auto shrink-0" style={{ ...typeStyle(TYPE.gate), color: TEXT.metaMono }}>
+              GATE
+            </span>
+          )}
+        </div>
+        <div className="mt-1 flex items-baseline gap-1.5">
+          <span
+            style={{
+              ...typeStyle(TYPE.stageCount),
+              color: inColumn.length > 0 ? TEXT.navy : TEXT.ghost,
+            }}
+          >
+            {dealLevel ? inColumn.length : 0}
+          </span>
+          <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>{phase.unit}</span>
+        </div>
+        {/* THE TEACHING LINE AT FULL STRENGTH EVEN AT ZERO. A stage holding
+            nothing still explains what happens there, which is the whole reason
+            someone new can read this board. */}
+        {stage.description && (
+          <p className="mt-1.5" style={{ ...typeStyle(TYPE.stageTeach), color: TEXT.dim }}>
+            {stage.description}
+          </p>
+        )}
       </div>
-      <div style={{ ...typeStyle(TYPE.stageName), color: TEXT.navy }}>{stage.label}</div>
-      <div className="mt-1 flex items-baseline gap-1.5">
-        <span
-          style={{
-            ...typeStyle(TYPE.stageCount),
-            color: inColumn.length > 0 ? TEXT.navy : TEXT.ghost,
-          }}
-        >
-          {dealLevel ? inColumn.length : 0}
-        </span>
-        <span style={{ ...typeStyle(TYPE.kpiLabel), color: TEXT.dim }}>{phase.unit}</span>
-      </div>
-      {/* THE TEACHING LINE AT FULL STRENGTH EVEN AT ZERO. A sub-stage holding
-          nothing still explains what happens there, which is the whole reason
-          someone new can read this board. */}
-      {stage.description && (
-        <p className="mt-1.5" style={{ ...typeStyle(TYPE.stageTeach), color: TEXT.dim }}>
-          {stage.description}
-        </p>
-      )}
 
       {inColumn.length > 0 && (
-        // NO SCROLL BOX (handoff 59). Every file in the sub-stage renders, all
-        // the way down. Michael's instruction: if Submitted holds two hundred
-        // files he wants two hundred listed, and he will scroll the page or
-        // use the search at the top to reach a name. The tall page is now a
-        // chosen outcome rather than a defect, and it is not what made the old
-        // board twenty-four thousand pixels long: that was five phases stacked
-        // at once, not one phase's files.
-        <div className="mt-2 flex flex-col gap-1.5" data-testid={`beta-col-body-${stage.code}`}>
+        // NO SCROLL BOX (handoff 59). Every file in the stage renders, all the
+        // way down. Michael's instruction: if Submitted holds two hundred files
+        // he wants two hundred listed, and he will scroll the page or use the
+        // search at the top to reach a name. The tall page is now a chosen
+        // outcome rather than a defect, and it is not what made the old board
+        // twenty-four thousand pixels long: that was five phases stacked at
+        // once, not one phase's files.
+        <div
+          className="flex flex-col gap-1.5"
+          style={{ padding: '8px' }}
+          data-testid={`beta-col-body-${stage.code}`}
+        >
           {inColumn.map(d => (
             <DealCard
               key={d.id}
@@ -647,7 +768,7 @@ function AttractSources({
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <span style={{ ...typeStyle(TYPE.sectionNote), color: TEXT.dim }}>
-        {attract.label} has no {subStageWord(2)} by design, because nobody moves through a source:
+        {attract.label} has no {stageWord(2)} by design, because nobody moves through a source:
       </span>
       {sources.map(s => (
         <span

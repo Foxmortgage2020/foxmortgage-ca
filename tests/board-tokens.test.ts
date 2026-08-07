@@ -22,6 +22,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import tailwind from '../tailwind.config'
 import {
+  MISSING_NOTE,
   MISSING_VALUE,
   PHASE_HUE,
   RADIUS,
@@ -44,7 +45,8 @@ import {
   isTerminalCategory,
   openPhaseCode,
   phaseFigures,
-  subStageWord,
+  phaseWord,
+  stageWord,
 } from '@/lib/board-layout'
 
 const ROOT = join(__dirname, '..')
@@ -147,6 +149,34 @@ describe('the export is the source of truth, and the tokens match it', () => {
     expect(MISSING_VALUE.color).toBe(TEXT.missing)
     expect(MISSING_VALUE.fontStyle).toBe('italic')
     expect(MISSING_VALUE.textDecoration).toBe('underline dotted')
+  })
+
+  it('a SENTENCE ABOUT missing values is italic but NOT underlined (handoff 60)', () => {
+    // "5 with no amount recorded" is a true statement about the phase, not a
+    // gap standing in for a figure, and the dotted underline made it read as a
+    // link to somewhere it does not go. Michael read it that way on production.
+    expect(MISSING_NOTE.color).toBe(TEXT.missing)
+    expect(MISSING_NOTE.fontStyle).toBe('italic')
+    expect(MISSING_NOTE).not.toHaveProperty('textDecoration')
+    // And the board actually uses it for that line rather than MISSING_VALUE.
+    const board = read('components/admin/DealsBetaBoard.tsx')
+    const at = board.indexOf('with no amount recorded')
+    expect(board.slice(Math.max(0, at - 300), at)).toMatch(/MISSING_NOTE/)
+  })
+
+  it('THE STAGE HEADER GREY IS THE EXPORT\'S OWN PAPER TONE (handoff 60)', () => {
+    // Michael asked for the light grey back so a column reads as one object.
+    // Rather than invent a second grey, the header cap takes the value that WAS
+    // the canvas until handoff 59 took the background off every screen: the
+    // same grey he lost, scoped from the whole page down to the stage header.
+    expect(SURFACE.stageHeader).toBe('#EFEDE8')
+    expect(exportSource().includes(SURFACE.stageHeader)).toBe(true)
+    // And it is emphatically NOT the canvas any more, which is the whole point.
+    expect(SURFACE.canvas).not.toBe(SURFACE.stageHeader)
+    // It is a warm neutral. It must never creep toward lime or navy.
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(SURFACE.stageHeader.slice(i, i + 2), 16))
+    expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(16) // near-neutral
+    expect(Math.min(r, g, b)).toBeGreaterThan(0xE0) // and genuinely light
   })
 })
 
@@ -390,12 +420,12 @@ describe('three levels, and only one phase open at a time', () => {
     expect(board).not.toMatch(/inColumn\.slice\(/)
   })
 
-  it('the SUB-STAGE ROW scrolls sideways, and it is the only thing that does', () => {
+  it('the STAGE ROW scrolls sideways, and it is the only thing that does', () => {
     // This deliberately reverses handoff 57's no-horizontal-scroll rule, for
     // this row and nothing else. The reasoning is better than the rule it
-    // replaces: the sub-stage set is bounded at seven, so sideways scrolling
-    // here is finite and predictable, while the file set is unbounded, so
-    // files belong on the vertical axis.
+    // replaces: the stage set is bounded at seven, so sideways scrolling here
+    // is finite and predictable, while the file set is unbounded, so files
+    // belong on the vertical axis.
     expect((board.match(/overflow-x-auto/g) ?? []).length).toBe(1)
     expect(board).toMatch(/data-testid=\{`beta-stage-row-\$\{phase\.code\}`\}/)
     // And it does NOT wrap: wrapping was the thing being fixed.
@@ -404,41 +434,114 @@ describe('three levels, and only one phase open at a time', () => {
     expect(row).toMatch(/flex items-start gap-2 overflow-x-auto/)
     expect(row).not.toMatch(/flex-wrap/)
     // The column is a FIXED width, so the card's shape does not change with
-    // however many sub-stages a phase happens to carry.
+    // however many stages a phase happens to carry.
     expect(board).toMatch(/const STAGE_COLUMN_WIDTH = \d+/)
     expect(board).toMatch(/width: `\$\{STAGE_COLUMN_WIDTH\}px`/)
+    // NOTHING SLICES THE LIST TO WHAT FITS. Four of Fulfilment's five columns
+    // are visible at 1512 and the fifth is off the right edge, which is the row
+    // working rather than a stage going missing.
+    expect(board).toMatch(/cols\.map\(\(col, i\) =>/)
+    expect(board).not.toMatch(/cols\.slice\(/)
   })
 
-  it('the phase tile row is STICKY, because the page is now deliberately long', () => {
-    expect(board).toMatch(/className="sticky top-0 z-20 grid gap-2"/)
-    // It needs an opaque ground or cards scroll through it.
+  it('THE PHASE ROW STICKS BELOW THE SHELL\'S OWN TOPBAR, not at zero (handoff 60)', () => {
+    // THE DEFECT THIS PINS: `AdminShell` renders a 56px white header at
+    // `sticky top-0 z-40`. The phase row was also stuck at top:0, at z-20, so
+    // the shell's bar painted over the top 56px of every tile the moment the
+    // page scrolled and the tiles read as sliced. Nothing was clipping
+    // anything; two sticky elements shared an offset and z-index decided it.
+    expect(board).toMatch(/className="sticky z-20 grid gap-2"/)
+    expect(board).not.toMatch(/className="sticky top-0 z-20/)
+    expect(board).toMatch(/const ADMIN_TOPBAR_HEIGHT = 56/)
+    expect(board).toMatch(/top: `\$\{ADMIN_TOPBAR_HEIGHT\}px`/)
+    // THE COUPLING IS REAL, so it is asserted rather than trusted: the day the
+    // shell's bar changes height, this fails instead of the tiles re-slicing.
+    const shell = read('components/admin/AdminShell.tsx')
+    expect(shell).toMatch(/className="sticky top-0 z-40"/)
+    expect(shell).toMatch(/bg-white border-b border-hairline flex items-center gap-2 h-14/)
+    // It still needs an opaque ground or cards scroll through it.
     const at = board.indexOf('data-testid="beta-phases"')
-    expect(board.slice(Math.max(0, at - 400), at)).toMatch(/background: SURFACE\.canvas/)
+    expect(board.slice(Math.max(0, at - 500), at)).toMatch(/background: SURFACE\.canvas/)
   })
 
-  it('a sub-stage holding nothing still teaches what happens there', () => {
+  it('A STAGE COLUMN IS A BORDERED UNIT WITH A GREY CAP AND A WHITE BODY (handoff 60)', () => {
+    // The columns used to be white boxes on a white canvas, so adjacent ones
+    // merged into a single field of cards. The border says where a column
+    // begins and ends; the grey cap says which stage it is; the cards below it
+    // stay on white, and the canvas and the gaps between columns stay white.
+    const at = board.indexOf('data-testid={`beta-col-${stage.code}`}')
+    expect(at).toBeGreaterThan(-1)
+    const col = board.slice(Math.max(0, at - 1200), at + 2500)
+    expect(col).toMatch(/border: hair/)
+    expect(col).toMatch(/borderRadius: radius\(RADIUS\.card\)/)
+    expect(col).toMatch(/background: SURFACE\.stageHeader/)
+    expect(col).toMatch(/data-testid=\{`beta-col-head-\$\{stage\.code\}`\}/)
+    // THE GREY IS THE HEADER'S ALONE. The column body and the board around it
+    // are the panel white.
+    expect((board.match(/SURFACE\.stageHeader/g) ?? []).length).toBe(1)
+    // THE 4px PHASE-HUE RULE STAYS, full width across the top.
+    expect(col).toMatch(/height: `\$\{STROKE\.stageRule\}px`/)
+    expect(col).toMatch(/background: tone/)
+    expect(STROKE.stageRule).toBe(4)
+    // NO NEW CLIPPING ANCESTOR around a column: the cap rounds its own corners.
+    expect(col).not.toMatch(/overflow: 'hidden'|overflow-hidden/)
+  })
+
+  it('a stage holding nothing still teaches what happens there', () => {
     expect(board).toMatch(/stage\.description && \(/)
+    // And the phase blurb no longer truncates mid-word (handoff 60).
+    expect(board).not.toMatch(/line-clamp/)
   })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe("Michael's vocabulary on screen, the database's in the code", () => {
-  it('a database PHASE is a stage on screen, a database STAGE is a sub-stage', () => {
-    expect(PHASE_WORD).toBe('stage')
-    expect(STAGE_WORD).toBe('sub-stage')
-    expect(subStageWord(1)).toBe('sub-stage')
-    expect(subStageWord(3)).toBe('sub-stages')
+describe('one vocabulary now: phases contain stages (handoff 60)', () => {
+  // THIS REPLACES THE VOCABULARY-SEAM TEST, and the replacement is Michael's
+  // call rather than this session's. Handoffs 58 and 59 carried his words on
+  // screen ("stage" for a database phase, "sub-stage" for a database stage) and
+  // the database's in the code, and the old test pinned exactly that. Reading
+  // the live board he settled it the other way: the database's terms
+  // everywhere, and "sub-stage" is not a word this product uses.
+  //
+  // It is a replacement rather than a deletion. The words are still owned by
+  // one module, the seam is still the only place they are defined, and the copy
+  // is still asserted to come from it rather than from string literals.
+
+  it('a database PHASE is a phase on screen, a database STAGE is a stage', () => {
+    expect(PHASE_WORD).toBe('phase')
+    expect(STAGE_WORD).toBe('stage')
+    expect(phaseWord(1)).toBe('phase')
+    expect(phaseWord(3)).toBe('phases')
+    expect(stageWord(1)).toBe('stage')
+    expect(stageWord(3)).toBe('stages')
   })
 
-  it('the rendered copy uses his words', () => {
+  it('NOT ONE "sub-stage" SURVIVES anywhere the board renders or computes', () => {
+    // Comments off, because the word has to survive in exactly one place: the
+    // paragraph in lib/board-layout.ts that records why it is gone. Everything
+    // a person can read on screen, and every identifier and string the board
+    // computes with, is swept.
+    const offences: string[] = []
+    for (const f of boardFiles()) {
+      for (const [i, line] of Array.from(withoutComments(read(f)).split('\n').entries())) {
+        if (/sub[- ]?stages?/i.test(line)) offences.push(`${f}:${i + 1} ${line.trim().slice(0, 90)}`)
+      }
+    }
+    expect(offences, `"sub-stage" survives on the board:\n${offences.join('\n')}`).toEqual([])
+    // The one surviving mention is the record of the change, and it stays.
+    expect(read('lib/board-layout.ts')).toMatch(/SUB-STAGES/)
+    // And the check is not vacuous.
+    expect(/sub[- ]?stages?/i.test('  <p>the sub-stage row</p>')).toBe(true)
+  })
+
+  it('the rendered copy comes from the seam, never from a literal', () => {
     const board = read('components/admin/DealsBetaBoard.tsx')
-    const page = read('app/portal/admin/deals-beta/page.tsx')
-    expect(page).toMatch(/sub-stages inside it/)
-    expect(board).toMatch(/subStageWord\(/)
+    expect(board).toMatch(/\{stageWord\(cols\.length\)\}/)
+    expect(board).toMatch(/Pick a \{PHASE_WORD\} above/)
   })
 
   it('and the code still says phase and stage', () => {
-    // The seam is one module. Nothing renamed a column or a variable.
+    // Nothing renamed a column or a variable, then or now.
     const board = read('components/admin/DealsBetaBoard.tsx')
     expect(board).toMatch(/columnsForPhase|dealsInStage/)
   })
@@ -489,7 +592,7 @@ describe('the countdown: four states, and only two are red', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('a null probability is still never a zero', () => {
-  it('a phase whose sub-stages carry no probability gets NO weighted figure', () => {
+  it('a phase whose stages carry no probability gets NO weighted figure', () => {
     const f = phaseFigures([{ code: 'a', probability: null }, { code: 'b' }], () => [
       { mortgage_amount: 500000 },
     ])
@@ -497,7 +600,7 @@ describe('a null probability is still never a zero', () => {
     expect(f.weighted).toBeNull()
   })
 
-  it('a phase sums only the priced sub-stages, and counts what has no amount', () => {
+  it('a phase sums only the priced stages, and counts what has no amount', () => {
     const f = phaseFigures(
       [{ code: 'a', probability: 50 }, { code: 'b', probability: null }, { code: 'c', probability: 100 }],
       code =>
@@ -510,6 +613,81 @@ describe('a null probability is still never a zero', () => {
     expect(f.weighted).toBe(200000)
     expect(f.missingAmounts).toBe(1)
     expect(f.count).toBe(4)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('BANKED MONEY IS NEVER WEIGHTED (handoff 60)', () => {
+  // THE DEFECT: Fulfilment's tile read 74 files, $39,938,378 and a weighted
+  // figure of $38,826,088. Sixty-six of those files sit in `funded`, a terminal
+  // stage at probability 100, so the number labelled "weighted" was almost
+  // entirely money already in the bank and only eight files were in flight.
+
+  /** Fulfilment's real shape, read live through portal_readonly 2026-08-06. */
+  const FULFILMENT = [
+    { code: 'submitted', probability: 45, category: 'open' },
+    { code: 'lender_response', probability: 90, category: 'open' },
+    { code: 'conditions', probability: 95, category: 'open' },
+    { code: 'lawyer_closing', probability: 98, category: 'open' },
+    { code: 'funded', probability: 100, category: 'terminal_won' },
+  ]
+
+  it('splits in flight from funded, and weights only what is still moving', () => {
+    const f = phaseFigures(FULFILMENT, code =>
+      code === 'submitted'
+        ? [{ mortgage_amount: 1_000_000 }, { mortgage_amount: null }]
+        : code === 'lender_response'
+          ? [{ mortgage_amount: 500_000 }]
+          : code === 'funded'
+            ? [{ mortgage_amount: 30_000_000 }, { mortgage_amount: 5_000_000 }]
+            : [],
+    )
+    expect(f.inFlightCount).toBe(3)
+    expect(f.inFlightValue).toBe(1_500_000)
+    expect(f.fundedCount).toBe(2)
+    expect(f.fundedValue).toBe(35_000_000)
+    // 1,000,000 * 45% + 500,000 * 90%. The 35M of funded money is nowhere in it.
+    expect(f.weighted).toBe(900_000)
+    // The phase total is still true, and still says what it is missing.
+    expect(f.count).toBe(5)
+    expect(f.value).toBe(36_500_000)
+    expect(f.missingAmounts).toBe(1)
+  })
+
+  it('a phase of nothing but terminal stages produces NO weighted figure at all', () => {
+    // Not a zero. There is nothing in flight to forecast, so there is no
+    // forecast, and `priced` counts in-flight priced stages only.
+    const f = phaseFigures([{ code: 'funded', probability: 100, category: 'terminal_won' }], () => [
+      { mortgage_amount: 800_000 },
+    ])
+    expect(f.weighted).toBeNull()
+    expect(f.fundedValue).toBe(800_000)
+    expect(f.inFlightCount).toBe(0)
+  })
+
+  it('IT KEYS ON CATEGORY, never on a stage code', () => {
+    // So a terminal stage the record layer adds later behaves correctly on the
+    // day it lands, with no change here.
+    const lost = phaseFigures([{ code: 'anything_at_all', probability: 0, category: 'terminal_lost' }], () => [
+      { mortgage_amount: 250_000 },
+    ])
+    expect(lost.fundedCount).toBe(1)
+    expect(lost.weighted).toBeNull()
+    // A stage with no category recorded is treated as still moving, which is
+    // the safe reading: it keeps the file in the forecast rather than silently
+    // banking it.
+    const unknown = phaseFigures([{ code: 'x', probability: 50 }], () => [{ mortgage_amount: 100_000 }])
+    expect(unknown.inFlightCount).toBe(1)
+    expect(unknown.weighted).toBe(50_000)
+  })
+
+  it('the tile renders the split, and only where there is something to split', () => {
+    const board = read('components/admin/DealsBetaBoard.tsx')
+    expect(board).toMatch(/figures\.fundedCount === 0 \? \(/)
+    expect(board).toMatch(/data-testid=\{`beta-phasefunded-\$\{phase\.code\}`\}/)
+    // The weighted figure the tile prints is the in-flight one, by construction:
+    // there is only one `weighted` on the object and it is computed that way.
+    expect(board).not.toMatch(/figures\.value \* /)
   })
 })
 

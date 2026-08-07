@@ -300,6 +300,82 @@ shape as the lender-notes pair above.
   self-heals on the refetch that follows; the fix is to branch 409 handling by
   verb.
 
+### The word is stage, the tiles are whole, and a column is an object (handoff 60, 2026-08-06)
+Corrections from Michael reading handoff 59 on production. The export stays the
+visual source of truth for everything not named here. Supersedes handoff 58's
+VOCABULARY SEAM paragraph outright.
+
+- **THE SEAM IS CLOSED, AND MICHAEL CLOSED IT THE OTHER WAY.** Handoffs 58 and
+  59 ran on "he thinks in STAGES containing SUB-STAGES, the database says
+  PHASES containing STAGES", with `lib/board-layout.ts` as the one place they
+  met. He has ruled: **phases contain stages, the database's terms, on screen
+  too. "Sub-stage" is not a word this product uses any more.**
+  `PHASE_WORD` 'stage' -> 'phase', `STAGE_WORD` 'sub-stage' -> 'stage'.
+  **THE HELPERS WERE RENAMED AND THE OLD NAMES NOW MEAN DIFFERENT THINGS:**
+  `stageWord` used to return the PHASE word and now returns the STAGE word;
+  `phaseWord` is new and returns the phase one. Safe only because `stageWord`
+  had no live caller at the time. **The module STAYS** though both sides now
+  agree, because one place to change a word is why a rename is cheap.
+- **NOTHING WAS CLIPPING THE PHASE TILES.** The brief's first suspect was a
+  sticky element inside an `overflow` ancestor. It was not that. `AdminShell`
+  renders its own 56px topbar (`h-14`) at `sticky top-0 z-40`; the phase row
+  was ALSO at `top: 0`, at `z-20`. **Two sticky elements at the same offset,
+  and the higher z-index painted over the top 56px of every tile** the moment
+  the page scrolled, taking the phase name and its swatch with it. The row now
+  sticks at `top: ADMIN_TOPBAR_HEIGHT` (56) plus 8px of padding.
+  **`tests/board-tokens.test.ts` asserts AdminShell still renders that bar at
+  `h-14`**, so a height change there fails loudly instead of silently
+  re-slicing the tiles. Do not "fix" this with padding.
+- **A STAGE COLUMN IS A BORDERED UNIT WITH A GREY CAP AND A WHITE BODY.**
+  White boxes on a white canvas separated by an invisible hairline merged into
+  one field of cards. **`SURFACE.stageHeader = '#EFEDE8'` IS THE EXPORT'S OWN
+  PAPER TONE** — the value that WAS `SURFACE.canvas` until handoff 59 took the
+  background off every screen. Giving back the grey he lost beats inventing a
+  second one. **Scoped to the stage header alone**: not the canvas, not a phase
+  tile, not the gap between columns. `STROKE.stageRule = 4` replaced the 16px
+  dash and runs the full width above the grey band, NOT inside it, because the
+  tone is semi-transparent on early stages and a grey behind it would mute the
+  depth ramp. **NO `overflow: hidden` on the column** — the cap carries its own
+  top radii. A session spent on one thing being painted over by another does
+  not end by adding a clipping ancestor around every column.
+- **THE WEIGHTED FIGURE WAS CLAIMING BANKED MONEY AS A FORECAST.** Fulfilment's
+  tile read 74 files, $39,938,378, weighted $38,826,088. **Sixty-six of those
+  are funded and closed at probability 100**, so "weighted" was almost entirely
+  money already in the door and only eight files were in flight. `PhaseTotals`
+  now carries `inFlightCount/inFlightValue` and `fundedCount/fundedValue`:
+  **in flight 8 - $4,530,400, wtd $3,418,110; funded 66 - $35,407,978.**
+  Nothing was recalculated; the two populations were told apart. Terminal is
+  keyed on the stage's own `category`, the handoff 57 countdown rule.
+- **NO STANDING PARAGRAPH UNDER THE PAGE TITLE.** Michael: documentation you
+  read once and scroll past forever. **The `rec-withdrawal` test that pinned
+  its replacement wording went WITH it** and now asserts no `<p>` renders in
+  that block at all, rather than being rewritten to pin different prose. The
+  write guarantee it described is UNCHANGED and still lives in
+  `tests/beta-file.test.ts`, which walks the whole deals-beta tree. The
+  sentence was a description of the rule, never the rule.
+- **`minmax(210px)` -> `minmax(168px)` ON THE TILE GRID, and the reason is the
+  STICKY HEIGHT not the tile width.** At 1280 the row is 897px, so 210 fitted
+  four and the fifth wrapped; once blurbs stopped truncating, that two-line
+  stuck row took HALF the viewport. **Five across at 173px: stuck row plus
+  chrome is 308px at 1512 (32%) and 338px at 1280 (38%).** 1512 was unaffected.
+- **`MISSING_NOTE` IS A NEW TOKEN BECAUSE A TRUE SENTENCE WAS READING AS A
+  LINK.** `MISSING_VALUE` marks a gap STANDING IN FOR a figure and its dotted
+  underline is what stops the gap reading as a fact. "5 with no amount
+  recorded" is a true statement ABOUT the column, and the underline made
+  Michael try to click it. Same muted italic, no underline.
+- **FOUR OF FULFILMENT'S FIVE COLUMNS FIT AT 1512 (three at 1280) AND THE FIFTH
+  IS OFF THE RIGHT EDGE. NO STAGE IS MISSING** — checked: `scrollLeft` 0, five
+  children, sort order Submitted first, and the count beside the phase name
+  says five. The bordered columns make the cut edge legible, which the
+  borderless version could not do.
+- **"Sub-stage" SURVIVES ONLY IN DATED RECORDS** (this file's handoff 57 to 59
+  entries, `config/changelog.ts`, the roadmap's past-session items,
+  `docs/ledger/2026-08.md`). Those describe what was true when written and
+  rewriting them would falsify the record. **Zero instances render on the
+  board.**
+- Pinned in `tests/board-tokens.test.ts` (51 tests). Typecheck clean. No data
+  changed and no write path added or altered. Counts unchanged.
+
 ### White canvas, one scrolling stage row, and a shorter card (handoff 59, 2026-08-06)
 Corrections from Michael reading handoff 58 on production. The export stays the
 visual source of truth for everything not named here.

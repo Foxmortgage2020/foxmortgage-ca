@@ -101,10 +101,10 @@ export default function DealCard({
   /** Today in Toronto, resolved once on the page so every countdown on the
    *  screen agrees about what day it is. */
   todayYMD: string
-  /** The sub-stage's own category. A passed closing on a terminal sub-stage is
-   *  the normal outcome rather than an alarm, so the countdown needs to know. */
+  /** The stage's own category. A passed closing on a terminal stage is the
+   *  normal outcome rather than an alarm, so the countdown needs to know. */
   stageCategory: string | null
-  /** The sub-stage's label, for the card's identity line. */
+  /** The stage's label, for the card's identity line. */
   stageName: string
   /** The subject property's address, resolved on the page. */
   address: string | null
@@ -140,8 +140,8 @@ export default function DealCard({
       data-bar={bar}
     >
       <Link href={href} className="block" data-testid={`beta-deal-open-${deal.file_ref ?? deal.id}`}>
-        {/* IDENTITY. Quiet monospace: reference, sub-stage, and the deal type
-            on the right. Nothing here competes with the headline. */}
+        {/* IDENTITY. Quiet monospace: reference, stage, and the deal type on
+            the right. Nothing here competes with the headline. */}
         <div className="flex items-center gap-1.5" style={{ ...typeStyle(TYPE.cardMeta), color: TEXT.metaMono }}>
           <span>{deal.file_ref ?? 'No reference'}</span>
           <span className="min-w-0 truncate">· {stageName}</span>
@@ -179,8 +179,8 @@ export default function DealCard({
           {address ?? 'No address recorded'}
         </div>
 
-        {/* FOOTER. Closing state on the left, time in this sub-stage on the
-            right. Red appears here and nowhere else on the board. */}
+        {/* FOOTER. Closing state on the left, time in this stage on the right.
+            Red appears here and nowhere else on the board. */}
         <div
           className="mt-2 flex items-center gap-2"
           style={{ ...inset, marginTop: '8px', borderTop: `${STROKE.hairline}px solid ${SURFACE.hairline}` }}
@@ -196,12 +196,16 @@ export default function DealCard({
           >
             {countdown.label}
           </span>
+          {/* "1d here" was too terse to read without decoding, and the card has
+              the room (handoff 60). It says the whole thing now. */}
           <span
             className="ml-auto shrink-0"
             style={{ ...typeStyle(TYPE.cardInStage), color: TEXT.metaMono }}
-            title={days.known ? `Entered this sub-stage on ${days.since}` : undefined}
+            title={days.known ? `Entered this stage on ${days.since}` : undefined}
           >
-            {days.known ? `${days.days}d here` : DAYS_UNKNOWN_COPY[days.reason]}
+            {days.known
+              ? `${days.days} day${days.days === 1 ? '' : 's'} in stage`
+              : DAYS_UNKNOWN_COPY[days.reason]}
           </span>
         </div>
 
